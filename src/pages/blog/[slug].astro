@@ -96,19 +96,31 @@ function formatDate(dateStr: string | undefined) {
 		color: var(--text-secondary);
 	}
 
-	.post-content :global(h2) {
+	.post-content :global(*) {
+		color: inherit;
+	}
+
+	.post-content :global(span),
+	.post-content :global(div),
+	.post-content :global(p) {
+		color: var(--text-secondary) !important;
+	}
+
+	.post-content :global(h2),
+	.post-content :global(h2 *) {
 		font-family: var(--font-heading);
 		font-size: 1.6rem;
-		color: var(--accent);
+		color: var(--accent) !important;
 		letter-spacing: 1px;
 		margin: 40px 0 16px;
 		text-shadow: 0 0 10px var(--accent-glow);
 	}
 
-	.post-content :global(h3) {
+	.post-content :global(h3),
+	.post-content :global(h3 *) {
 		font-family: var(--font-heading);
 		font-size: 1.3rem;
-		color: var(--accent-yellow);
+		color: var(--accent-yellow) !important;
 		letter-spacing: 1px;
 		margin: 30px 0 12px;
 	}
@@ -138,7 +150,11 @@ function formatDate(dateStr: string | undefined) {
 		background: rgba(255, 102, 0, 0.05);
 		border-radius: 0 12px 12px 0;
 		font-style: italic;
-		color: var(--text-primary);
+		color: var(--text-primary) !important;
+	}
+
+	.post-content :global(blockquote *) {
+		color: var(--text-primary) !important;
 	}
 
 	.post-content :global(img) {
@@ -148,7 +164,11 @@ function formatDate(dateStr: string | undefined) {
 	}
 
 	.post-content :global(strong) {
-		color: var(--text-primary);
+		color: var(--text-primary) !important;
+	}
+
+	.post-content :global(li) {
+		color: var(--text-secondary) !important;
 	}
 
 	.post-footer {
