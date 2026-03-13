@@ -1,0 +1,227 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import { posts } from '@wix/blog';
+
+const { slug } = Astro.params;
+const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL'] });
+const post = result.post;
+
+if (!post) return Astro.redirect('/blog');
+
+function formatDate(dateStr: string | undefined) {
+	if (!dateStr) return '';
+	return new Date(dateStr).toLocaleDateString('en-US', {
+		year: 'numeric', month: 'long', day: 'numeric'
+	});
+}
+
+function renderNodes(nodes: any[]): string {
+	return nodes.map(node => renderNode(node)).join('');
+}
+
+function renderNode(node: any): string {
+	switch (node.type) {
+		case 'PARAGRAPH':
+			return `<p>${renderNodes(node.nodes || [])}</p>`;
+		case 'HEADING': {
+			const level = node.headingData?.level || 2;
+			return `<h${level}>${renderNodes(node.nodes || [])}</h${level}>`;
+		}
+		case 'TEXT': {
+			let text = escapeHtml(node.textData?.text || '');
+			const decorations = node.textData?.decorations || [];
+			for (const dec of decorations) {
+				if (dec.type === 'BOLD') text = `<strong>${text}</strong>`;
+				if (dec.type === 'ITALIC') text = `<em>${text}</em>`;
+			}
+			return text;
+		}
+		case 'BULLETED_LIST':
+			return `<ul>${renderNodes(node.nodes || [])}</ul>`;
+		case 'ORDERED_LIST':
+			return `<ol>${renderNodes(node.nodes || [])}</ol>`;
+		case 'LIST_ITEM':
+			return `<li>${renderNodes(node.nodes || [])}</li>`;
+		case 'BLOCKQUOTE':
+			return `<blockquote>${renderNodes(node.nodes || [])}</blockquote>`;
+		case 'IMAGE': {
+			const src = node.imageData?.image?.src?.id;
+			if (src) {
+				const w = node.imageData?.image?.width || 800;
+				const h = node.imageData?.image?.height || 500;
+				const alt = node.imageData?.altText || '';
+				return `<img src="https://static.wixstatic.com/media/${src}/v1/fill/w_${w},h_${h},al_c,q_80/${src}" alt="${escapeHtml(alt)}" />`;
+			}
+			return '';
+		}
+		default:
+			if (node.nodes?.length) return renderNodes(node.nodes);
+			return '';
+	}
+}
+
+function escapeHtml(str: string): string {
+	return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+const contentHtml = renderNodes(post.richContent?.nodes || []);
+---
+
+<Layout title={`${post.title} - Ship's Log`}>
+	<Nav />
+	<article class="blog-post">
+		<div class="container">
+			<a href="/blog" class="back-link">&larr; Back to Ship's Log</a>
+
+			<header class="post-header">
+				<div class="post-meta">
+					<span class="post-date">{formatDate(post.firstPublishedDate)}</span>
+				</div>
+				<h1>{post.title}</h1>
+			</header>
+
+			<div class="post-content" set:html={contentHtml} />
+
+			<footer class="post-footer">
+				<a href="/blog" class="btn btn-outline">&larr; More Transmissions</a>
+			</footer>
+		</div>
+	</article>
+	<Footer />
+</Layout>
+
+<style>
+	.blog-post {
+		padding: 40px 0 80px;
+	}
+
+	.back-link {
+		display: inline-block;
+		font-family: var(--font-heading);
+		color: var(--text-muted);
+		font-size: 0.9rem;
+		letter-spacing: 1px;
+		margin-bottom: 30px;
+		transition: color 0.2s;
+	}
+
+	.back-link:hover {
+		color: var(--accent);
+	}
+
+	.post-header {
+		margin-bottom: 40px;
+		padding-bottom: 30px;
+		border-bottom: 1px solid var(--border-card);
+	}
+
+	.post-meta {
+		margin-bottom: 12px;
+	}
+
+	.post-date {
+		font-family: var(--font-title);
+		font-size: 0.8rem;
+		color: var(--accent);
+		letter-spacing: 1px;
+	}
+
+	h1 {
+		font-family: var(--font-heading);
+		font-size: clamp(1.8rem, 4vw, 2.8rem);
+		color: var(--accent-yellow);
+		letter-spacing: 2px;
+		line-height: 1.2;
+		text-shadow: 2px 2px 0 #000, 0 0 20px var(--accent-glow);
+	}
+
+	.post-content {
+		max-width: 750px;
+		font-size: 1.05rem;
+		line-height: 1.8;
+		color: var(--text-secondary);
+	}
+
+	.post-content :global(h2) {
+		font-family: var(--font-heading);
+		font-size: 1.6rem;
+		color: var(--accent);
+		letter-spacing: 1px;
+		margin: 40px 0 16px;
+		text-shadow: 0 0 10px var(--accent-glow);
+	}
+
+	.post-content :global(h3) {
+		font-family: var(--font-heading);
+		font-size: 1.3rem;
+		color: var(--accent-yellow);
+		letter-spacing: 1px;
+		margin: 30px 0 12px;
+	}
+
+	.post-content :global(p) {
+		margin-bottom: 18px;
+	}
+
+	.post-content :global(ul),
+	.post-content :global(ol) {
+		margin: 16px 0 24px 24px;
+	}
+
+	.post-content :global(li) {
+		margin-bottom: 10px;
+		padding-left: 8px;
+	}
+
+	.post-content :global(li::marker) {
+		color: var(--accent);
+	}
+
+	.post-content :global(blockquote) {
+		border-left: 3px solid var(--accent);
+		padding: 16px 24px;
+		margin: 24px 0;
+		background: rgba(255, 102, 0, 0.05);
+		border-radius: 0 12px 12px 0;
+		font-style: italic;
+		color: var(--text-primary);
+	}
+
+	.post-content :global(img) {
+		max-width: 100%;
+		border-radius: 12px;
+		margin: 24px 0;
+	}
+
+	.post-content :global(strong) {
+		color: var(--text-primary);
+	}
+
+	.post-footer {
+		margin-top: 60px;
+		padding-top: 30px;
+		border-top: 1px solid var(--border-card);
+	}
+
+	.btn-outline {
+		display: inline-block;
+		padding: 12px 32px;
+		background: transparent;
+		color: var(--accent);
+		font-family: var(--font-heading);
+		font-size: 1.1rem;
+		letter-spacing: 2px;
+		border-radius: 8px;
+		border: 2px solid var(--accent);
+		transition: all 0.3s;
+	}
+
+	.btn-outline:hover {
+		background: var(--accent);
+		color: #000;
+		transform: translateY(-2px);
+		box-shadow: 0 0 20px var(--accent-glow);
+	}
+</style>
