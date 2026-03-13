@@ -10,8 +10,8 @@ const result = await posts.listPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRI
 const blogPosts = result.posts || [];
 
 // Fetch all tags
-const tagsResult = await tagsApi.queryTags({}).find();
-const tagsMap = new Map((tagsResult.items || []).map((t: any) => [t._id, t]));
+const tagsResult = await tagsApi.queryTags({});
+const tagsMap = new Map((tagsResult.tags || []).map((t: any) => [t._id, t]));
 
 // Fetch all members for writer info
 const memberIds = [...new Set(blogPosts.map((p: any) => p.memberId).filter(Boolean))];

@@ -22,8 +22,8 @@ if (post.memberId) {
 }
 
 // Fetch tags
-const tagsResult = await tagsApi.queryTags({}).find();
-const tagsMap = new Map((tagsResult.items || []).map((t: any) => [t._id, t]));
+const tagsResult = await tagsApi.queryTags({});
+const tagsMap = new Map((tagsResult.tags || []).map((t: any) => [t._id, t]));
 const postTags = (post.tagIds || []).map((id: string) => tagsMap.get(id)).filter(Boolean);
 
 function formatDate(dateStr: string | undefined) {
