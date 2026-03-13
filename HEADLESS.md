@@ -6,16 +6,26 @@ Everything learned from building a Wix managed headless site with CMS integratio
 
 ### Scaffolding
 
+**Interactive:**
 ```bash
 npm create @wix/new@latest headless
 ```
 
-The CLI is interactive and asks for:
-1. **Business name** — appears in your Wix sites list
-2. **Template** — choose from: Hello, Store, CMS, Commerce, Scheduler, Registration, Blank
-3. **Frontend project name** — used for the OAuth client
-4. **Directory** — local project location
-5. **Publish now?** — optional immediate publish
+**Non-interactive:**
+```bash
+npm create @wix/new@latest headless -- \
+  --business-name "My Business" \
+  --project-name my-folder \
+  --site-template-id 212b41cb-0da6-4401-9c72-7c579e6477a2
+```
+
+| Flag | Description |
+|------|-------------|
+| `--business-name` | Name shown in your Wix sites list |
+| `--project-name` | Local directory name (3-20 chars, lowercase letters and numbers only — rename after creation if needed) |
+| `--site-template-id` | Template UUID (see below) |
+
+When run interactively, the CLI asks for: business name, template, frontend project name, directory, and whether to publish immediately.
 
 The scaffold creates an **Astro** project with Wix integrations pre-configured.
 
