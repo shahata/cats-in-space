@@ -1,21 +1,19 @@
-# Wix Managed Headless - Developer Guide
+---
+name: wix-headless
+description: Use when building or working on Wix managed headless projects. Covers scaffolding, Astro + Wix SDK patterns, CMS collections, image handling, dynamic routes, and deployment. Trigger on Wix headless, headless site, Wix CMS, Wix Astro, wix managed, wix SDK data queries.
+---
 
-Everything learned from building a Wix managed headless site with CMS integration.
+# Wix Managed Headless - Developer Guide
 
 ## Project Setup
 
 ### Scaffolding
 
-**Interactive:**
-```bash
-npm create @wix/new@latest headless
-```
-
-**Non-interactive:**
+**Non-interactive (preferred):**
 ```bash
 npm create @wix/new@latest headless -- \
   --business-name "My Business" \
-  --project-name my-folder \
+  --project-name myfolder \
   --site-template-id 212b41cb-0da6-4401-9c72-7c579e6477a2
 ```
 
@@ -23,9 +21,12 @@ npm create @wix/new@latest headless -- \
 |------|-------------|
 | `--business-name` | Name shown in your Wix sites list |
 | `--project-name` | Local directory name (3-20 chars, lowercase letters and numbers only — rename after creation if needed) |
-| `--site-template-id` | Template UUID (see below) |
+| `--site-template-id` | Template UUID |
 
-When run interactively, the CLI asks for: business name, template, frontend project name, directory, and whether to publish immediately.
+**Interactive:**
+```bash
+npm create @wix/new@latest headless
+```
 
 The scaffold creates an **Astro** project with Wix integrations pre-configured.
 
@@ -65,7 +66,7 @@ const myItems = result.items;
 
 ### Data Item Shape
 
-**IMPORTANT:** Items returned from `items.query().find()` have fields **directly on the object**, NOT nested under `.data`.
+**CRITICAL:** Items returned from `items.query().find()` have fields **directly on the object**, NOT nested under `.data`.
 
 ```typescript
 // CORRECT
@@ -74,8 +75,8 @@ result.items[0].title      // ✅
 result.items[0].slug       // ✅
 result.items[0]._id        // ✅
 
-// WRONG — .data does NOT exist
-result.items[0].data.title  // ❌ TypeError: Cannot read properties of undefined
+// WRONG — .data does NOT exist in managed headless SDK
+result.items[0].data.title  // ❌ TypeError
 ```
 
 ### Query API
@@ -87,22 +88,16 @@ import { items } from '@wix/data';
 const result = await items.query('CollectionId').find();
 
 // With sorting
-const sorted = await items.query('Planets')
-  .descending('habitabilityScore')
-  .find();
+await items.query('Planets').descending('habitabilityScore').find();
 
 // With filtering
-const filtered = await items.query('Planets')
-  .eq('status', 'Top Candidate')
-  .find();
+await items.query('Planets').eq('status', 'Top Candidate').find();
 
 // With limit
-const limited = await items.query('CatExplorers')
-  .limit(4)
-  .find();
+await items.query('CatExplorers').limit(4).find();
 
 // Combined
-const complex = await items.query('Missions')
+await items.query('Missions')
   .eq('planet', 'Purrion-7')
   .descending('launchDate')
   .limit(10)
@@ -112,20 +107,17 @@ const complex = await items.query('Missions')
 ### Result Shape
 
 ```typescript
-const result = await items.query('CollectionId').find();
-
 result.items        // Array of items
 result.totalCount   // Total count (if requested)
 result.hasNext()    // Whether there are more pages
 ```
 
-### Installing Additional SDK Packages
+### Installing SDK Packages
 
 ```bash
 npm install @wix/data       # CMS data operations
 npm install @wix/members    # Members API
 npm install @wix/stores     # Stores API
-# etc.
 ```
 
 ## CMS Collections
@@ -145,8 +137,7 @@ npm install @wix/stores     # Stores API
       { "key": "slug", "displayName": "Slug", "type": "TEXT", "required": true },
       { "key": "description", "displayName": "Description", "type": "TEXT" },
       { "key": "image", "displayName": "Image", "type": "IMAGE" },
-      { "key": "score", "displayName": "Score", "type": "NUMBER" },
-      { "key": "active", "displayName": "Active", "type": "BOOLEAN" }
+      { "key": "score", "displayName": "Score", "type": "NUMBER" }
     ],
     "permissions": {
       "insert": "ADMIN",
@@ -175,26 +166,19 @@ npm install @wix/stores     # Stores API
 | `REFERENCE` | Single reference | Item ID string |
 | `MULTI_REFERENCE` | Multiple references | Array of IDs |
 
-### Inserting Data (via REST API / MCP)
+### Inserting Data
 
-**Single item:** `POST https://www.wixapis.com/wix-data/v2/items`
-
+**Single:** `POST https://www.wixapis.com/wix-data/v2/items`
 ```json
 {
   "dataCollectionId": "Planets",
   "dataItem": {
-    "data": {
-      "title": "Purrion-7",
-      "slug": "purrion-7",
-      "description": "A lush world...",
-      "habitabilityScore": 92
-    }
+    "data": { "title": "Purrion-7", "slug": "purrion-7", "habitabilityScore": 92 }
   }
 }
 ```
 
-**Bulk insert:** `POST https://www.wixapis.com/wix-data/v2/bulk/items/insert`
-
+**Bulk:** `POST https://www.wixapis.com/wix-data/v2/bulk/items/insert`
 ```json
 {
   "dataCollectionId": "Planets",
@@ -206,10 +190,9 @@ npm install @wix/stores     # Stores API
 }
 ```
 
-### Updating Data (Partial Patch)
+### Partial Update (Patch)
 
-**Bulk patch:** `POST https://www.wixapis.com/wix-data/v2/bulk/items/patch`
-
+`POST https://www.wixapis.com/wix-data/v2/bulk/items/patch`
 ```json
 {
   "dataCollectionId": "Planets",
@@ -217,139 +200,80 @@ npm install @wix/stores     # Stores API
     {
       "dataItemId": "item-guid",
       "fieldModifications": [
-        {
-          "fieldPath": "image",
-          "action": "SET_FIELD",
-          "setFieldOptions": {
-            "value": "wix:image://v1/mediaId/filename.png#originWidth=1024&originHeight=1024"
-          }
-        }
+        { "fieldPath": "image", "action": "SET_FIELD", "setFieldOptions": { "value": "wix:image://v1/mediaId/file.png#originWidth=1024&originHeight=1024" } }
       ]
     }
   ]
 }
 ```
 
-**Note:** Use `patches` array with `fieldModifications`, NOT `dataItems`. Using the wrong shape gives `WDE0080` error.
+**IMPORTANT:** Use `patches` array with `fieldModifications`, NOT `dataItems`. Wrong shape = `WDE0080` error.
 
 ## Images / Media
 
-### Uploading to Wix Media Manager
+### Upload to Wix Media Manager
 
-**Endpoint:** `POST https://www.wixapis.com/site-media/v1/files/import`
-
+`POST https://www.wixapis.com/site-media/v1/files/import`
 ```json
-{
-  "url": "https://example.com/image.png",
-  "mimeType": "image/png",
-  "displayName": "my-image.png"
-}
+{ "url": "https://example.com/image.png", "mimeType": "image/png", "displayName": "my-image.png" }
 ```
 
-**Response gives you:**
-- `file.id` — e.g., `4975b6_8ffef9bde8c849bd83fe499d78aef315~mv2.png`
-- `file.url` — e.g., `https://static.wixstatic.com/media/4975b6_8ffef...~mv2.png`
-- `file.operationStatus` — starts as `PENDING`, becomes `READY`
-
-The URL is typically usable immediately even while `PENDING`.
+Returns `file.url` (wixstatic.com) — usable immediately even while `operationStatus` is `PENDING`.
 
 ### Wix Image Format in CMS
 
-IMAGE fields store values in the format:
-```
-wix:image://v1/{mediaId}/{filename}#originWidth={w}&originHeight={h}
-```
+IMAGE fields store: `wix:image://v1/{mediaId}/{filename}#originWidth={w}&originHeight={h}`
 
-Example:
-```
-wix:image://v1/4975b6_8ffef9bde8c849bd83fe499d78aef315~mv2.png/purrion-7.png#originWidth=1024&originHeight=1024
-```
-
-### Converting Wix Image URLs for Display
-
-To display a `wix:image://` URL in an `<img>` tag, extract the media ID and build a static URL:
+### Converting for Display
 
 ```typescript
 function getImageUrl(wixImage: string | undefined, width = 800, height = 800): string | null {
   if (!wixImage) return null;
   if (wixImage.startsWith('http')) return wixImage;
-
   const match = wixImage.match(/^wix:image:\/\/v1\/([^/]+)\//);
   if (!match) return null;
-
   const mediaId = match[1];
   return `https://static.wixstatic.com/media/${mediaId}/v1/fill/w_${width},h_${height},al_c,q_80/${mediaId}`;
 }
 ```
 
-Usage in Astro:
 ```astro
 {getImageUrl(planet.image) && (
   <img src={getImageUrl(planet.image, 600, 450)!} alt={planet.title} />
 )}
 ```
 
-### Image Domain Config
-
-`astro.config.mjs` already includes `static.wixstatic.com` in allowed image domains:
-
-```javascript
-image: {
-  domains: ["static.wixstatic.com"],
-}
-```
-
 ## Dynamic Routes
 
-For detail pages, use Astro's `[slug].astro` pattern:
+Use Astro's `[slug].astro` pattern — no `getStaticPaths()` needed since `output: "server"`:
 
 ```astro
 ---
-// src/pages/planets/[slug].astro
 import { items } from '@wix/data';
-
 const { slug } = Astro.params;
 const result = await items.query('Planets').eq('slug', slug).find();
-
-if (result.items.length === 0) {
-  return Astro.redirect('/planets');
-}
-
+if (result.items.length === 0) return Astro.redirect('/planets');
 const planet = result.items[0];
 ---
-
 <h1>{planet.title}</h1>
-<p>{planet.description}</p>
 ```
-
-Since `output: "server"` is set in the Astro config, all routes are server-rendered — no `getStaticPaths()` needed.
 
 ## Deployment
 
-### Preview (unique URL, for testing)
-```bash
-npm run preview   # or: npx wix preview
-```
-Each preview gets a unique URL like `https://abc123-your-site-name.wix-host.com`.
+| Command | Purpose |
+|---------|---------|
+| `npm run preview` | Deploy preview (unique URL each time) |
+| `npm run release` | Deploy to production |
 
-### Production Release
-```bash
-npm run release   # or: npx wix release
-```
-Deploys to the permanent production URL.
-
-### Hosting
-- Hosted on **Wix servers** via **Cloudflare** (adapter configured automatically)
-- Production URL format: `https://your-site-name.wix-host.com`
-- Custom domains can be connected via Wix dashboard
+Hosted on Wix servers via Cloudflare. Production URL: `https://your-site-name.wix-host.com`.
 
 ## Tips & Gotchas
 
-1. **No `.data` wrapper** — SDK query results have fields directly on items, not nested under `.data`
-2. **Server-rendered by default** — `output: "server"` means all pages are SSR, no static generation
-3. **Auth is automatic** — don't create SDK clients manually in managed headless
-4. **IMAGE fields need conversion** — `wix:image://` URLs must be parsed to display in `<img>` tags
-5. **Bulk patch uses `patches`** — not `dataItems`. Wrong shape = `WDE0080` error
-6. **MULTI_REFERENCE fields** — cannot be set via insert/update/patch. Use dedicated reference endpoints
-7. **Dev server port** — defaults to 4321 but will auto-increment if busy
-8. **wix build** — needed before `wix preview` or `wix release`; preview/release also build automatically
+1. **No `.data` wrapper** — SDK query results have fields directly on items
+2. **Server-rendered by default** — `output: "server"` means all pages are SSR
+3. **Auth is automatic** — don't create SDK clients manually
+4. **IMAGE fields need conversion** — `wix:image://` URLs must be parsed for `<img>` tags
+5. **Bulk patch uses `patches`** — not `dataItems` (WDE0080 error)
+6. **MULTI_REFERENCE** — cannot be set via insert/update/patch, use dedicated reference endpoints
+7. **Dev server port** — defaults to 4321, auto-increments if busy
+8. **`static.wixstatic.com`** — already in `astro.config.mjs` image domains
