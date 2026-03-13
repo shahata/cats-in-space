@@ -1,0 +1,194 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import { items } from '@wix/data';
+
+const result = await items.query('Missions').find();
+const missions = result.items;
+
+function getStatusBadge(status: string) {
+	const map: Record<string, string> = {
+		'In Progress': 'badge-blue', 'Launching Soon': 'badge-gold',
+		'Planning': 'badge-purple', 'Planned': 'badge-purple', 'Completed': 'badge-green',
+	};
+	return map[status] || 'badge-blue';
+}
+
+const statusOrder = ['In Progress', 'Launching Soon', 'Planned', 'Planning', 'Completed'];
+const sorted = [...missions].sort((a, b) =>
+	statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)
+);
+---
+
+<Layout title="Missions - Cats In Space">
+	<Nav />
+	<section class="page-header">
+		<div class="container">
+			<h1 class="section-title">Mission Control</h1>
+			<p class="section-subtitle">Tracking every whisker-raising expedition into the unknown</p>
+		</div>
+	</section>
+
+	<section class="content">
+		<div class="container">
+			<div class="missions-list">
+				{sorted.map((mission) => (
+					<a href={`/missions/${mission.slug}`} class="mission-card">
+						<div class="mission-status-indicator" data-status={mission.status}>
+							<div class="status-dot"></div>
+						</div>
+						<div class="mission-body">
+							<div class="mission-top">
+								<h2>{mission.title}</h2>
+								<span class={`badge ${getStatusBadge(mission.status)}`}>{mission.status}</span>
+							</div>
+							<p class="mission-desc">{mission.description}</p>
+							<div class="mission-details">
+								<div class="detail-chip">
+									<span class="chip-label">Destination</span>
+									<span class="chip-value">{mission.planet}</span>
+								</div>
+								<div class="detail-chip">
+									<span class="chip-label">Crew</span>
+									<span class="chip-value">{mission.crewSize} cats</span>
+								</div>
+								<div class="detail-chip">
+									<span class="chip-label">Launch</span>
+									<span class="chip-value">{mission.launchDate}</span>
+								</div>
+							</div>
+						</div>
+					</a>
+				))}
+			</div>
+		</div>
+	</section>
+	<Footer />
+</Layout>
+
+<style>
+	.page-header {
+		padding: 60px 0 40px;
+		position: relative;
+		z-index: 1;
+	}
+
+	.content { position: relative; z-index: 1; padding-bottom: 40px; }
+
+	.missions-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.mission-card {
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 16px;
+		display: flex;
+		overflow: hidden;
+		transition: all 0.3s;
+		color: var(--text-primary);
+	}
+
+	.mission-card:hover {
+		border-color: var(--accent);
+		transform: translateY(-4px);
+		box-shadow: 0 0 40px var(--accent-glow);
+		color: var(--text-primary);
+	}
+
+	.mission-status-indicator {
+		width: 50px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		background: rgba(255, 102, 0, 0.05);
+	}
+
+	.status-dot {
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: var(--accent);
+	}
+
+	.mission-status-indicator[data-status="In Progress"] .status-dot {
+		background: var(--accent);
+		box-shadow: 0 0 10px var(--accent);
+		animation: pulse 2s ease-in-out infinite;
+	}
+
+	.mission-status-indicator[data-status="Launching Soon"] .status-dot {
+		background: var(--accent-yellow);
+		box-shadow: 0 0 10px var(--accent-yellow);
+		animation: pulse 1.5s ease-in-out infinite;
+	}
+
+	@keyframes pulse {
+		0%, 100% { opacity: 1; transform: scale(1); }
+		50% { opacity: 0.6; transform: scale(0.8); }
+	}
+
+	.mission-body {
+		padding: 1.5rem;
+		flex: 1;
+	}
+
+	.mission-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 0.5rem;
+	}
+
+	h2 {
+		font-family: var(--font-heading);
+		font-size: 1.25rem;
+		color: var(--accent-yellow);
+		letter-spacing: 1px;
+	}
+
+	.mission-desc {
+		color: var(--text-secondary);
+		font-size: 0.9rem;
+		margin-bottom: 1rem;
+		line-height: 1.6;
+	}
+
+	.mission-details {
+		display: flex;
+		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.detail-chip {
+		display: flex;
+		flex-direction: column;
+		padding: 0.5rem 1rem;
+		background: rgba(255, 102, 0, 0.05);
+		border: 1px solid rgba(255, 102, 0, 0.1);
+		border-radius: 16px;
+	}
+
+	.chip-label {
+		font-size: 0.65rem;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		color: var(--text-muted);
+	}
+
+	.chip-value {
+		font-family: var(--font-title);
+		font-size: 0.85rem;
+		color: var(--accent);
+		font-weight: 600;
+	}
+
+	@media (max-width: 768px) {
+		.mission-details { flex-direction: column; gap: 0.5rem; }
+		.mission-top { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+	}
+</style>

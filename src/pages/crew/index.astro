@@ -1,0 +1,160 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import { items } from '@wix/data';
+import { getImageUrl } from '../../utils/image';
+
+const result = await items.query('CatExplorers').find();
+const crew = result.items;
+
+function getEmoji(role: string) {
+	const map: Record<string, string> = {
+		'Captain': '🐱', 'Chief Scientist': '🔬', 'Pilot': '🚀',
+		'Engineer': '🔧', 'Communications Officer': '📡', 'Stealth Operations': '🐈‍⬛',
+	};
+	return map[role] || '🐾';
+}
+
+function getStatusBadge(status: string) {
+	const map: Record<string, string> = {
+		'Active': 'badge-green', 'On Mission': 'badge-gold', 'Retired': 'badge-pink',
+	};
+	return map[status] || 'badge-blue';
+}
+---
+
+<Layout title="Crew - Cats In Space">
+	<Nav />
+	<section class="page-header">
+		<div class="container">
+			<h1 class="section-title">Crew Roster</h1>
+			<p class="section-subtitle">The bravest cats to ever leave a perfectly good cardboard box behind</p>
+		</div>
+	</section>
+
+	<section class="content">
+		<div class="container">
+			<div class="crew-grid">
+				{crew.map((cat) => (
+					<a href={`/crew/${cat.slug}`} class="crew-card">
+						<div class="crew-avatar">
+							{getImageUrl(cat.image, 200, 200) ? (
+								<img src={getImageUrl(cat.image, 200, 200)!} alt={cat.name} class="crew-img" />
+							) : (
+								<span class="crew-emoji">{getEmoji(cat.role)}</span>
+							)}
+						</div>
+						<h2>{cat.name}</h2>
+						<p class="crew-role">{cat.role}</p>
+						<span class={`badge ${getStatusBadge(cat.status)}`}>{cat.status}</span>
+						<p class="crew-bio">{cat.bio.slice(0, 120)}...</p>
+						<div class="crew-footer">
+							<div class="skill-tag">{cat.specialSkill}</div>
+						</div>
+					</a>
+				))}
+			</div>
+		</div>
+	</section>
+	<Footer />
+</Layout>
+
+<style>
+	.page-header {
+		padding: 60px 0 40px;
+		position: relative;
+		z-index: 1;
+	}
+
+	.content { position: relative; z-index: 1; padding-bottom: 40px; }
+
+	.crew-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		gap: 1.5rem;
+	}
+
+	.crew-card {
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 16px;
+		padding: 2rem 1.5rem;
+		text-align: center;
+		transition: all 0.3s;
+		color: var(--text-primary);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.crew-card:hover {
+		border-color: var(--accent);
+		transform: translateY(-4px);
+		box-shadow: 0 0 40px var(--accent-glow);
+		color: var(--text-primary);
+	}
+
+	.crew-avatar {
+		width: 80px;
+		height: 80px;
+		border-radius: 50%;
+		background: linear-gradient(135deg, var(--accent), rgba(255, 102, 0, 0.3));
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-bottom: 1rem;
+		border: 2px solid rgba(255, 102, 0, 0.3);
+		overflow: hidden;
+	}
+
+	.crew-img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.crew-emoji { font-size: 2rem; }
+
+	h2 {
+		font-family: var(--font-heading);
+		font-size: 1.3rem;
+		color: var(--accent-yellow);
+		letter-spacing: 1px;
+		margin-bottom: 0.25rem;
+	}
+
+	.crew-role {
+		color: var(--accent);
+		font-family: var(--font-body);
+		font-size: 0.85rem;
+		font-weight: 700;
+		margin-bottom: 0.5rem;
+	}
+
+	.crew-bio {
+		color: var(--text-secondary);
+		font-size: 0.85rem;
+		margin-top: 0.75rem;
+		line-height: 1.6;
+		flex: 1;
+	}
+
+	.crew-footer {
+		margin-top: 1rem;
+		padding-top: 1rem;
+		border-top: 1px solid var(--border-card);
+		width: 100%;
+	}
+
+	.skill-tag {
+		font-size: 0.8rem;
+		font-style: italic;
+		color: var(--accent-yellow);
+		font-family: var(--font-body);
+	}
+
+	@media (max-width: 768px) {
+		.crew-grid { grid-template-columns: 1fr; }
+	}
+</style>
