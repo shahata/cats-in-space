@@ -3,13 +3,28 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import RichContentViewer from '../../components/RichContentViewer';
-import { posts } from '@wix/blog';
+import { posts, tags as tagsApi } from '@wix/blog';
+import { members } from '@wix/members';
 
 const { slug } = Astro.params;
-const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL'] });
+const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID'] });
 const post = result.post;
 
 if (!post) return Astro.redirect('/blog');
+
+// Fetch writer info
+let writer: any = null;
+if (post.memberId) {
+	try {
+		const m = await members.getMember(post.memberId, { fieldsets: ['FULL'] });
+		writer = m.member;
+	} catch {}
+}
+
+// Fetch tags
+const tagsResult = await tagsApi.queryTags({}).find();
+const tagsMap = new Map((tagsResult.items || []).map((t: any) => [t._id, t]));
+const postTags = (post.tagIds || []).map((id: string) => tagsMap.get(id)).filter(Boolean);
 
 function formatDate(dateStr: string | undefined) {
 	if (!dateStr) return '';
@@ -17,6 +32,9 @@ function formatDate(dateStr: string | undefined) {
 		year: 'numeric', month: 'long', day: 'numeric'
 	});
 }
+
+const writerName = writer?.profile?.nickname || writer?.contact?.firstName || 'Anonymous Cat';
+const writerTitle = writer?.profile?.title || '';
 ---
 
 <Layout title={`${post.title} - Ship's Log`}>
@@ -26,14 +44,50 @@ function formatDate(dateStr: string | undefined) {
 			<a href="/blog" class="back-link">&larr; Back to Ship's Log</a>
 
 			<header class="post-header">
-				<div class="post-meta">
+				<div class="post-meta-row">
+					<div class="writer-info">
+						<span class="writer-name">{writerName}</span>
+						{writerTitle && <span class="writer-title">{writerTitle}</span>}
+					</div>
 					<span class="post-date">{formatDate(post.firstPublishedDate)}</span>
 				</div>
 				<h1>{post.title}</h1>
+				{postTags.length > 0 && (
+					<div class="post-tags">
+						{postTags.map((tag: any) => (
+							<span class="tag">{tag.label}</span>
+						))}
+					</div>
+				)}
 			</header>
 
 			<div class="post-content">
 				<RichContentViewer content={post.richContent} client:load />
+			</div>
+
+			<div class="post-engagement">
+				<div class="engagement-stats">
+					<div class="engagement-item">
+						<span class="engagement-num">{post.metrics?.views ?? 0}</span>
+						<span class="engagement-label">Views</span>
+					</div>
+					<div class="engagement-item">
+						<span class="engagement-num">{post.metrics?.likes ?? 0}</span>
+						<span class="engagement-label">Likes</span>
+					</div>
+					<div class="engagement-item">
+						<span class="engagement-num">{post.metrics?.comments ?? 0}</span>
+						<span class="engagement-label">Comments</span>
+					</div>
+				</div>
+			</div>
+
+			<div class="writer-card">
+				<div class="writer-card-info">
+					<span class="writer-card-label">Written by</span>
+					<span class="writer-card-name">{writerName}</span>
+					{writerTitle && <span class="writer-card-title">{writerTitle}</span>}
+				</div>
 			</div>
 
 			<footer class="post-footer">
@@ -69,8 +123,32 @@ function formatDate(dateStr: string | undefined) {
 		border-bottom: 1px solid var(--border-card);
 	}
 
-	.post-meta {
-		margin-bottom: 12px;
+	.post-meta-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 16px;
+		flex-wrap: wrap;
+		gap: 12px;
+	}
+
+	.writer-info {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.writer-name {
+		font-family: var(--font-heading);
+		font-size: 1rem;
+		color: var(--accent-yellow);
+		letter-spacing: 1px;
+	}
+
+	.writer-title {
+		font-size: 0.8rem;
+		color: var(--text-muted);
+		font-style: italic;
 	}
 
 	.post-date {
@@ -87,6 +165,26 @@ function formatDate(dateStr: string | undefined) {
 		letter-spacing: 2px;
 		line-height: 1.2;
 		text-shadow: 2px 2px 0 #000, 0 0 20px var(--accent-glow);
+		margin-bottom: 16px;
+	}
+
+	.post-tags {
+		display: flex;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.tag {
+		display: inline-block;
+		padding: 4px 14px;
+		background: rgba(255, 102, 0, 0.1);
+		border: 1px solid rgba(255, 102, 0, 0.2);
+		border-radius: 14px;
+		font-size: 0.75rem;
+		color: var(--accent);
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
 	}
 
 	.post-content {
@@ -137,6 +235,7 @@ function formatDate(dateStr: string | undefined) {
 	.post-content :global(li) {
 		margin-bottom: 10px;
 		padding-left: 8px;
+		color: var(--text-secondary) !important;
 	}
 
 	.post-content :global(li::marker) {
@@ -167,12 +266,80 @@ function formatDate(dateStr: string | undefined) {
 		color: var(--text-primary) !important;
 	}
 
-	.post-content :global(li) {
-		color: var(--text-secondary) !important;
+	/* Engagement Stats */
+	.post-engagement {
+		margin-top: 40px;
+		padding: 24px 0;
+		border-top: 1px solid var(--border-card);
+		border-bottom: 1px solid var(--border-card);
+	}
+
+	.engagement-stats {
+		display: flex;
+		gap: 40px;
+	}
+
+	.engagement-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.engagement-num {
+		font-family: var(--font-title);
+		font-size: 1.5rem;
+		color: var(--accent);
+		text-shadow: 0 0 10px var(--accent-glow);
+	}
+
+	.engagement-label {
+		font-size: 0.75rem;
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		margin-top: 2px;
+	}
+
+	/* Writer Card */
+	.writer-card {
+		margin-top: 30px;
+		padding: 20px 24px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		max-width: 400px;
+	}
+
+	.writer-card-label {
+		font-size: 0.7rem;
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 1px;
+		display: block;
+		margin-bottom: 4px;
+	}
+
+	.writer-card-name {
+		font-family: var(--font-heading);
+		font-size: 1.2rem;
+		color: var(--accent-yellow);
+		letter-spacing: 1px;
+		display: block;
+	}
+
+	.writer-card-title {
+		font-size: 0.85rem;
+		color: var(--text-secondary);
+		font-style: italic;
+		display: block;
+		margin-top: 2px;
 	}
 
 	.post-footer {
-		margin-top: 60px;
+		margin-top: 40px;
 		padding-top: 30px;
 		border-top: 1px solid var(--border-card);
 	}
@@ -195,5 +362,11 @@ function formatDate(dateStr: string | undefined) {
 		color: #000;
 		transform: translateY(-2px);
 		box-shadow: 0 0 20px var(--accent-glow);
+	}
+
+	@media (max-width: 768px) {
+		.engagement-stats {
+			gap: 24px;
+		}
 	}
 </style>
