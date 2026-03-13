@@ -3,6 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import RichContentViewer from '../../components/RichContentViewer';
+import BlogEngagement from '../../components/BlogEngagement';
 import { posts, tags as tagsApi } from '@wix/blog';
 import { members } from '@wix/members';
 
@@ -65,23 +66,6 @@ const writerTitle = writer?.profile?.title || '';
 				<RichContentViewer content={post.richContent} client:load />
 			</div>
 
-			<div class="post-engagement">
-				<div class="engagement-stats">
-					<div class="engagement-item">
-						<span class="engagement-num">{post.metrics?.views ?? 0}</span>
-						<span class="engagement-label">Views</span>
-					</div>
-					<div class="engagement-item">
-						<span class="engagement-num">{post.metrics?.likes ?? 0}</span>
-						<span class="engagement-label">Likes</span>
-					</div>
-					<div class="engagement-item">
-						<span class="engagement-num">{post.metrics?.comments ?? 0}</span>
-						<span class="engagement-label">Comments</span>
-					</div>
-				</div>
-			</div>
-
 			<div class="writer-card">
 				<div class="writer-card-info">
 					<span class="writer-card-label">Written by</span>
@@ -89,6 +73,8 @@ const writerTitle = writer?.profile?.title || '';
 					{writerTitle && <span class="writer-card-title">{writerTitle}</span>}
 				</div>
 			</div>
+
+			<BlogEngagement postId={post._id!} client:load />
 
 			<footer class="post-footer">
 				<a href="/blog" class="btn btn-outline">&larr; More Transmissions</a>
@@ -264,40 +250,6 @@ const writerTitle = writer?.profile?.title || '';
 
 	.post-content :global(strong) {
 		color: var(--text-primary) !important;
-	}
-
-	/* Engagement Stats */
-	.post-engagement {
-		margin-top: 40px;
-		padding: 24px 0;
-		border-top: 1px solid var(--border-card);
-		border-bottom: 1px solid var(--border-card);
-	}
-
-	.engagement-stats {
-		display: flex;
-		gap: 40px;
-	}
-
-	.engagement-item {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-	}
-
-	.engagement-num {
-		font-family: var(--font-title);
-		font-size: 1.5rem;
-		color: var(--accent);
-		text-shadow: 0 0 10px var(--accent-glow);
-	}
-
-	.engagement-label {
-		font-size: 0.75rem;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 1px;
-		margin-top: 2px;
 	}
 
 	/* Writer Card */
