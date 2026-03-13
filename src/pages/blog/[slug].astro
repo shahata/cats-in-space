@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
+import RichContentViewer from '../../components/RichContentViewer';
 import { posts } from '@wix/blog';
 
 const { slug } = Astro.params;
@@ -16,57 +17,6 @@ function formatDate(dateStr: string | undefined) {
 		year: 'numeric', month: 'long', day: 'numeric'
 	});
 }
-
-function renderNodes(nodes: any[]): string {
-	return nodes.map(node => renderNode(node)).join('');
-}
-
-function renderNode(node: any): string {
-	switch (node.type) {
-		case 'PARAGRAPH':
-			return `<p>${renderNodes(node.nodes || [])}</p>`;
-		case 'HEADING': {
-			const level = node.headingData?.level || 2;
-			return `<h${level}>${renderNodes(node.nodes || [])}</h${level}>`;
-		}
-		case 'TEXT': {
-			let text = escapeHtml(node.textData?.text || '');
-			const decorations = node.textData?.decorations || [];
-			for (const dec of decorations) {
-				if (dec.type === 'BOLD') text = `<strong>${text}</strong>`;
-				if (dec.type === 'ITALIC') text = `<em>${text}</em>`;
-			}
-			return text;
-		}
-		case 'BULLETED_LIST':
-			return `<ul>${renderNodes(node.nodes || [])}</ul>`;
-		case 'ORDERED_LIST':
-			return `<ol>${renderNodes(node.nodes || [])}</ol>`;
-		case 'LIST_ITEM':
-			return `<li>${renderNodes(node.nodes || [])}</li>`;
-		case 'BLOCKQUOTE':
-			return `<blockquote>${renderNodes(node.nodes || [])}</blockquote>`;
-		case 'IMAGE': {
-			const src = node.imageData?.image?.src?.id;
-			if (src) {
-				const w = node.imageData?.image?.width || 800;
-				const h = node.imageData?.image?.height || 500;
-				const alt = node.imageData?.altText || '';
-				return `<img src="https://static.wixstatic.com/media/${src}/v1/fill/w_${w},h_${h},al_c,q_80/${src}" alt="${escapeHtml(alt)}" />`;
-			}
-			return '';
-		}
-		default:
-			if (node.nodes?.length) return renderNodes(node.nodes);
-			return '';
-	}
-}
-
-function escapeHtml(str: string): string {
-	return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-const contentHtml = renderNodes(post.richContent?.nodes || []);
 ---
 
 <Layout title={`${post.title} - Ship's Log`}>
@@ -82,7 +32,9 @@ const contentHtml = renderNodes(post.richContent?.nodes || []);
 				<h1>{post.title}</h1>
 			</header>
 
-			<div class="post-content" set:html={contentHtml} />
+			<div class="post-content">
+				<RichContentViewer content={post.richContent} client:load />
+			</div>
 
 			<footer class="post-footer">
 				<a href="/blog" class="btn btn-outline">&larr; More Transmissions</a>
