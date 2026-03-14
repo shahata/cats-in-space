@@ -52,7 +52,10 @@ export default function BlogEngagement({ postId }: Props) {
 
   async function checkIfLiked() {
     try {
-      const res = await likes.getLikeByFqdnAndEntityId(BLOG_POST_FQDN, postId);
+      const res = await likes.getLikeByFqdnAndEntityId({
+        fqdn: BLOG_POST_FQDN,
+        entityId: postId,
+      });
       if (res.like) {
         setLiked(true);
       }
@@ -65,7 +68,10 @@ export default function BlogEngagement({ postId }: Props) {
     setLikeLoading(true);
     try {
       if (liked) {
-        await likes.deleteLikeByFqdnAndEntityId(BLOG_POST_FQDN, postId);
+        await likes.deleteLikeByFqdnAndEntityId({
+          fqdn: BLOG_POST_FQDN,
+          entityId: postId,
+        });
         setLiked(false);
         setMetrics((m) => ({ ...m, likes: Math.max(0, m.likes - 1) }));
       } else {
