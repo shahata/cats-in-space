@@ -9,6 +9,15 @@ import { getImageUrl } from '../../utils/image';
 const result = await posts.listPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID'] });
 const blogPosts = result.posts || [];
 
+// listPosts METRICS fieldset returns zeros in managed headless — fetch real metrics per post
+const metricsMap = new Map<string, any>();
+await Promise.all(blogPosts.map(async (post) => {
+	try {
+		const m = await posts.getPostMetrics(post._id!);
+		metricsMap.set(post._id!, m.metrics);
+	} catch {}
+}));
+
 // Fetch all tags
 const tagsResult = await tagsApi.queryTags({});
 const tagsMap = new Map((tagsResult.tags || []).map((t: any) => [t._id, t]));
@@ -50,8 +59,7 @@ function getExcerpt(post: any): string {
 }
 
 function getMetric(post: any, field: string): number {
-	// SDK may put metrics under 'metrics' or 'postCountInfo'
-	return post.metrics?.[field] ?? (post as any).postCountInfo?.[field] ?? 0;
+	return metricsMap.get(post._id)?.[field] ?? 0;
 }
 
 function getWriter(post: any): string {
