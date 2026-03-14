@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { likes, posts } from "@wix/blog";
 import { comments as commentsApi } from "@wix/comments";
-import { auth, httpClient } from "@wix/essentials";
+import { httpClient } from "@wix/essentials";
 
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
 const BLOG_POST_FQDN = "wix.blog.v3.post";
@@ -35,18 +35,17 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       reportView();
       loadMetrics();
       checkIfLiked();
-
-      // Detect identity then load comments, marking owned ones
-      let myId: string | null = null;
-      try {
-        const tokenInfo = await auth.getTokenInfo();
-        myId = tokenInfo.subjectId ?? null;
-      } catch {}
-
-      await loadComments(myId);
+      await loadComments(null);
     }
     init();
   }, [postId]);
+
+  // Stores visitor ID once detected from a comment interaction
+  const myIdRef = React.useRef<string | null>(null);
+
+  function setMyId(id: string) {
+    myIdRef.current = id;
+  }
 
   async function reportView() {
     try {
@@ -163,11 +162,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     };
   }
 
-  async function getMyId(): Promise<string | null> {
-    try {
-      const tokenInfo = await auth.getTokenInfo();
-      return tokenInfo.subjectId ?? null;
-    } catch { return null; }
+  function extractVisitorId(comment: any): string | null {
+    return comment?.author?.visitorId
+      || comment?.author?.memberId
+      || (comment?.content as any)?.author?.visitorId
+      || null;
   }
 
   async function submitComment(e: React.FormEvent) {
@@ -176,7 +175,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     setSubmitting(true);
     const authorName = commentName.trim() || "Anonymous Space Cat";
     try {
-      await commentsApi.createComment({
+      const created = await commentsApi.createComment({
         appId: BLOG_APP_ID,
         contextId: referenceId,
         resourceId: referenceId,
@@ -184,10 +183,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         content: makeRichContent(newComment.trim()),
         ...(commentRating > 0 ? { rating: commentRating } : {}),
       } as any);
+      const vid = extractVisitorId(created);
+      if (vid) setMyId(vid);
       setNewComment("");
       setCommentRating(0);
-      const myId = await getMyId();
-      await loadComments(myId);
+      await loadComments(myIdRef.current);
       await loadMetrics();
     } catch (e) {
       console.error("Comment error:", e);
@@ -200,7 +200,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     setSubmitting(true);
     const authorName = commentName.trim() || "Anonymous Space Cat";
     try {
-      await commentsApi.createComment({
+      const created = await commentsApi.createComment({
         appId: BLOG_APP_ID,
         contextId: referenceId,
         resourceId: referenceId,
@@ -208,10 +208,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         parentComment: { _id: parentId },
         content: makeRichContent(replyText.trim()),
       } as any);
+      const vid = extractVisitorId(created);
+      if (vid) setMyId(vid);
       setReplyText("");
       setReplyingTo(null);
-      const myId = await getMyId();
-      await loadComments(myId);
+      await loadComments(myIdRef.current);
       await loadMetrics();
     } catch (e) {
       console.error("Reply error:", e);
@@ -230,8 +231,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       setEditingId(null);
       setEditText("");
       setEditRating(0);
-      const myId = await getMyId();
-      await loadComments(myId);
+      await loadComments(myIdRef.current);
     } catch (e) {
       console.error("Edit error:", e);
     }
@@ -241,8 +241,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     if (!confirm("Delete this transmission?")) return;
     try {
       await commentsApi.deleteComment(commentId);
-      const myId = await getMyId();
-      await loadComments(myId);
+      await loadComments(myIdRef.current);
       await loadMetrics();
     } catch (e) {
       console.error("Delete error:", e);
