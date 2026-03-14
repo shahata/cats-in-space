@@ -33,7 +33,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   useEffect(() => {
     reportView();
     loadMetrics();
-    checkIfLiked();
+    loadAllMyLikes();
     loadComments();
   }, [postId]);
 
@@ -123,11 +123,19 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     } catch {}
   }, [referenceId]);
 
-  async function checkIfLiked() {
+  async function loadAllMyLikes() {
+    // queryLikes returns all likes by the current visitor (posts + comments)
     try {
-      const res = await likes.getLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: postId });
-      if (res.like) setLiked(true);
-    } catch { setLiked(false); }
+      const res = await likes.queryLikes().limit(100).find();
+      const likedIds = new Set<string>();
+      for (const like of res.items) {
+        if (like.entityId) {
+          likedIds.add(like.entityId);
+          if (like.entityId === postId) setLiked(true);
+        }
+      }
+      setLikedCommentIds(likedIds);
+    } catch {}
   }
 
   async function toggleLike() {
