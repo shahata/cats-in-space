@@ -225,6 +225,35 @@ const planet = result.items[0];
 | `npm run preview` | Deploy preview (unique URL each time) |
 | `npm run release` | Deploy to production |
 
+## Authentication (Login/Logout)
+
+The Wix Astro middleware provides auth endpoints out of the box:
+
+- **Login:** `<a href="/api/auth/login">` — GET, redirects to Wix login page
+- **Logout:** `<form action="/api/auth/logout" method="POST">` — **POST** handler, use a form not a link
+
+**Detect login state server-side:**
+```astro
+---
+import { members } from '@wix/members';
+let memberName: string | null = null;
+try {
+  const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+  if (res.member) memberName = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
+} catch {}
+---
+{memberName ? (
+  <span>{memberName}</span>
+  <form action="/api/auth/logout" method="POST"><button>Logout</button></form>
+) : (
+  <a href="/api/auth/login">Login</a>
+)}
+```
+
+**CRITICAL:** `getCurrentMember()` returns `{ member?: Member }` (wrapped response), NOT `Member` directly.
+
+**CRITICAL:** `/api/auth/logout` is a **POST** endpoint. Use a `<form>` with `method="POST"`, not an `<a>` link.
+
 ## Tips & Gotchas
 
 1. **No `.data` wrapper** — SDK query results have fields directly on items
