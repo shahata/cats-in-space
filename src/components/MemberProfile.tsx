@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { members, authentication } from "@wix/members";
+import { httpClient } from "@wix/essentials";
 import { getData as getCountries } from "country-list";
 
 function toE164(phone: string): string {
@@ -45,6 +46,9 @@ export default function MemberProfile({ member }: Props) {
   const [newEmail, setNewEmail] = useState("");
   const [emailChanging, setEmailChanging] = useState(false);
   const [emailMsg, setEmailMsg] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordChanging, setPasswordChanging] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState("");
   const [passwordSending, setPasswordSending] = useState(false);
 
@@ -117,6 +121,41 @@ export default function MemberProfile({ member }: Props) {
       setEmailMsg(e?.message || "Failed to change email");
     }
     setEmailChanging(false);
+  }
+
+  async function handleChangePassword() {
+    if (!newPassword) return;
+    if (newPassword !== confirmPassword) {
+      alert("Passwords don't match");
+      return;
+    }
+    if (newPassword.length < 4) {
+      alert("Password must be at least 4 characters");
+      return;
+    }
+    setPasswordChanging(true);
+    setPasswordMsg("");
+    try {
+      const res = await httpClient.fetchWithAuth(
+        "https://www.wixapis.com/iam/authentication/v2/change-password",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newPassword }),
+        }
+      );
+      if (res.ok) {
+        setPasswordMsg("Password changed successfully!");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || "Failed to change password");
+      }
+    } catch (e: any) {
+      alert(e?.message || "Failed to change password");
+    }
+    setPasswordChanging(false);
   }
 
   async function handleResetPassword() {
@@ -365,14 +404,28 @@ export default function MemberProfile({ member }: Props) {
 
         <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #222" }}>
           <label style={labelStyle}>Change Password</label>
-          <p style={{ color: "#888", fontSize: "0.8rem", marginBottom: "8px" }}>
-            To change your password, we'll send a secure link to <strong style={{ color: "#e0e0e0" }}>{member.loginEmail}</strong> where you can set a new password.
-          </p>
-          <button type="button" onClick={handleResetPassword} disabled={passwordSending}
-            style={smallButtonStyle}>
-            {passwordSending ? "Sending..." : "Send Change Password Link"}
-          </button>
-          {passwordMsg && <p style={{ fontSize: "0.8rem", color: passwordMsg.includes("sent") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{passwordMsg}</p>}
+          <div style={gridStyle}>
+            <div>
+              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New password" style={inputStyle} />
+            </div>
+            <div>
+              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm password" style={inputStyle} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center", marginTop: "8px" }}>
+            <button type="button" onClick={handleChangePassword} disabled={passwordChanging || !newPassword}
+              style={smallButtonStyle}>
+              {passwordChanging ? "Changing..." : "Change Password"}
+            </button>
+            <span style={{ color: "#444" }}>or</span>
+            <button type="button" onClick={handleResetPassword} disabled={passwordSending}
+              style={{ ...smallButtonStyle, borderColor: "#333", color: "#888" }}>
+              {passwordSending ? "Sending..." : "Send Reset Link"}
+            </button>
+          </div>
+          {passwordMsg && <p style={{ fontSize: "0.8rem", color: passwordMsg.includes("success") || passwordMsg.includes("sent") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{passwordMsg}</p>}
         </div>
       </div>
     </div>
