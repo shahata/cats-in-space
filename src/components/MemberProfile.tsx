@@ -310,6 +310,17 @@ export default function MemberProfile({ member }: Props) {
 
         <div style={gridStyle}>
           <div>
+            <label style={labelStyle}>City</label>
+            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Postal Code</label>
+            <input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+
+        <div style={gridStyle}>
+          <div>
             <label style={labelStyle}>Country</label>
             <select value={country} onChange={(e) => setCountry(e.target.value)} style={inputStyle}>
               <option value="">Select country...</option>
@@ -321,17 +332,6 @@ export default function MemberProfile({ member }: Props) {
           <div>
             <label style={labelStyle}>State / Province</label>
             <input type="text" value={subdivision} onChange={(e) => setSubdivision(e.target.value)} style={inputStyle} />
-          </div>
-        </div>
-
-        <div style={gridStyle}>
-          <div>
-            <label style={labelStyle}>City</label>
-            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Postal Code</label>
-            <input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} style={inputStyle} />
           </div>
         </div>
 
