@@ -69,21 +69,43 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       });
       const allComments = res.comments || [];
 
-      const rm: Record<string, any[]> = {};
+      // Collect all replies from commentReplies map
+      const allReplies: any[] = [];
       if (res.commentReplies) {
-        for (const [cid, replyData] of Object.entries(res.commentReplies)) {
-          rm[cid] = (replyData as any).replies || [];
+        for (const replyData of Object.values(res.commentReplies)) {
+          allReplies.push(...((replyData as any).replies || []));
         }
       }
 
+      // Also collect replies mixed into the flat comments list
       const topLevel: any[] = [];
       for (const c of allComments) {
         const parentId = c.parentComment?._id || (c.parentComment as any)?.id;
         if (parentId) {
-          if (!rm[parentId]) rm[parentId] = [];
-          rm[parentId].push(c);
+          allReplies.push(c);
         } else {
           topLevel.push(c);
+        }
+      }
+
+      // Deduplicate replies by ID
+      const seen = new Set<string>();
+      const uniqueReplies: any[] = [];
+      for (const r of allReplies) {
+        const rid = r._id || (r as any).id;
+        if (rid && !seen.has(rid)) {
+          seen.add(rid);
+          uniqueReplies.push(r);
+        }
+      }
+
+      // Group replies by their ACTUAL parent (not the top-level comment)
+      const rm: Record<string, any[]> = {};
+      for (const r of uniqueReplies) {
+        const parentId = r.parentComment?._id || (r.parentComment as any)?.id;
+        if (parentId) {
+          if (!rm[parentId]) rm[parentId] = [];
+          rm[parentId].push(r);
         }
       }
 
