@@ -9,8 +9,8 @@ import { getImageUrl } from '../../utils/image';
 type Metrics = posts.Metrics;
 type BlogTag = tagsApi.BlogTag;
 type Member = members.Member;
-// Post type extended with fields returned by METRICS fieldset (not in SDK type)
-type Post = posts.Post & { metrics?: Metrics; postCountInfo?: { comments?: number; likes?: number; views?: number } };
+// Post type extended with metrics field returned by METRICS fieldset (not in SDK type)
+type Post = posts.Post & { metrics?: Metrics };
 
 // Use queryPosts — returns real metrics (views, likes, comments). listPosts returns zeros.
 const queryResult = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).find();
