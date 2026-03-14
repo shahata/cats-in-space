@@ -121,19 +121,10 @@ export default function MemberProfile({ member }: Props) {
     setPasswordSending(true);
     setPasswordMsg("");
     try {
-      const res = await fetch("/api/member-auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reset-password", email: member.loginEmail }),
-      });
-      if (res.ok) {
-        setPasswordMsg("Password reset email sent! Check your inbox.");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setPasswordMsg(data.error || "Failed to send reset email");
-      }
+      await authentication.sendSetPasswordEmail(member.loginEmail);
+      setPasswordMsg("Password reset email sent! Check your inbox.");
     } catch (e: any) {
-      setPasswordMsg(e?.message || "Failed");
+      setPasswordMsg(e?.message || "Failed to send reset email");
     }
     setPasswordSending(false);
   }
