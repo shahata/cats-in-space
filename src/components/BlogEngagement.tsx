@@ -94,6 +94,7 @@ export default function BlogEngagement({ postId }: Props) {
     e.preventDefault();
     if (!newComment.trim()) return;
     setSubmitting(true);
+    const authorName = commentName.trim() || "Anonymous Space Cat";
     try {
       await commentsApi.createComment({
         appId: BLOG_APP_ID,
@@ -108,7 +109,14 @@ export default function BlogEngagement({ postId }: Props) {
                   {
                     type: "TEXT",
                     textData: {
-                      text: newComment.trim(),
+                      text: authorName,
+                      decorations: [{ type: "BOLD" }],
+                    },
+                  },
+                  {
+                    type: "TEXT",
+                    textData: {
+                      text: ": " + newComment.trim(),
                       decorations: [],
                     },
                   },
@@ -141,30 +149,36 @@ export default function BlogEngagement({ postId }: Props) {
     });
   }
 
-  function getCommentAuthorName(comment: any): string {
-    const author = comment.author;
-    if (!author) return "Space Visitor";
-    // The author object has visitorId, memberId, or userId — no display name directly.
-    // For now, show a friendly label based on identity type
-    if (author.memberId) return "Crew Member";
-    return "Space Visitor";
-  }
-
-  function getCommentText(comment: any): string {
-    // Content is under comment.content.richContent
+  function parseComment(comment: any): { author: string; text: string } {
+    // Comments are stored as: [BOLD "AuthorName"][": message text"]
+    // Parse the first paragraph to extract author and text
     const nodes = comment.content?.richContent?.nodes || [];
     for (const node of nodes) {
       if (node.type === "PARAGRAPH") {
-        const texts: string[] = [];
-        for (const child of node.nodes || []) {
-          if (child.type === "TEXT" && child.textData?.text) {
-            texts.push(child.textData.text);
-          }
+        const children = node.nodes || [];
+        // Check if first text node is bold (our author name format)
+        if (
+          children.length >= 2 &&
+          children[0]?.type === "TEXT" &&
+          children[0]?.textData?.decorations?.some((d: any) => d.type === "BOLD")
+        ) {
+          const author = children[0].textData.text;
+          const rest = children
+            .slice(1)
+            .map((c: any) => c.textData?.text || "")
+            .join("");
+          // Remove leading ": " from rest
+          const text = rest.startsWith(": ") ? rest.slice(2) : rest;
+          return { author, text };
         }
-        if (texts.length > 0) return texts.join("");
+        // Fallback: just combine all text
+        const allText = children
+          .map((c: any) => c.textData?.text || "")
+          .join("");
+        return { author: "Space Visitor", text: allText };
       }
     }
-    return "";
+    return { author: "Space Visitor", text: "" };
   }
 
   return (
@@ -205,19 +219,22 @@ export default function BlogEngagement({ postId }: Props) {
 
         {commentsList.length > 0 && (
           <div style={commentsListStyle}>
-            {commentsList.map((comment) => (
-              <div key={comment._id} style={commentCardStyle}>
-                <div style={commentHeaderStyle}>
-                  <span style={commentAuthorStyle}>
-                    {getCommentAuthorName(comment)}
-                  </span>
-                  <span style={commentDateStyle}>
-                    {formatCommentDate(comment._createdDate)}
-                  </span>
+            {commentsList.map((comment) => {
+              const parsed = parseComment(comment);
+              return (
+                <div key={comment._id} style={commentCardStyle}>
+                  <div style={commentHeaderStyle}>
+                    <span style={commentAuthorStyle}>
+                      {parsed.author}
+                    </span>
+                    <span style={commentDateStyle}>
+                      {formatCommentDate(comment._createdDate)}
+                    </span>
+                  </div>
+                  <p style={commentTextStyle}>{parsed.text}</p>
                 </div>
-                <p style={commentTextStyle}>{getCommentText(comment)}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
