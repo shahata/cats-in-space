@@ -8,12 +8,10 @@ const { slug } = Astro.params;
 
 let member: any = null;
 try {
-	// Try by ID first
 	member = await members.getMember(slug!, { fieldsets: ['FULL'] });
 } catch {}
 if (!member) {
 	try {
-		// Try by slug — list and filter
 		const result = await members.listMembers({ fieldsets: ['FULL'], paging: { limit: 100 } });
 		member = result.members?.find(m => m.profile?.slug === slug);
 	} catch {}
@@ -21,12 +19,17 @@ if (!member) {
 
 if (!member) return Astro.redirect('/');
 
+// Don't show private profiles
+if (member.privacyStatus === 'PRIVATE') return Astro.redirect('/');
+
 const nickname = member.profile?.nickname || member.contact?.firstName || 'Unknown Cat';
 const title = member.profile?.title || '';
 const photo = member.profile?.photo?.url;
+const cover = member.profile?.cover?.url;
 const joinDate = member._createdDate ? new Date(member._createdDate).toLocaleDateString('en-US', {
 	year: 'numeric', month: 'long', day: 'numeric'
 }) : '';
+const slug_ = member.profile?.slug || '';
 ---
 
 <Layout title={`${nickname} - Cats In Space`}>
@@ -35,7 +38,13 @@ const joinDate = member._createdDate ? new Date(member._createdDate).toLocaleDat
 		<div class="container">
 			<a href="/blog" class="back-link">&larr; Back to Ship's Log</a>
 
-			<div class="profile-card">
+			{cover && (
+				<div class="cover-wrapper">
+					<img src={cover} alt="" class="cover-photo" />
+				</div>
+			)}
+
+			<div class:list={['profile-card', { 'has-cover': !!cover }]}>
 				{photo ? (
 					<img src={photo} alt={nickname} class="profile-photo" />
 				) : (
@@ -44,7 +53,8 @@ const joinDate = member._createdDate ? new Date(member._createdDate).toLocaleDat
 				<div class="profile-info">
 					<h1>{nickname}</h1>
 					{title && <p class="profile-title">{title}</p>}
-					{joinDate && <p class="profile-joined">Crew member since {joinDate}</p>}
+					{joinDate && <p class="profile-meta">Crew member since {joinDate}</p>}
+					{slug_ && <p class="profile-meta">@{slug_}</p>}
 				</div>
 			</div>
 		</div>
@@ -71,6 +81,18 @@ const joinDate = member._createdDate ? new Date(member._createdDate).toLocaleDat
 		color: var(--accent);
 	}
 
+	.cover-wrapper {
+		border-radius: 16px 16px 0 0;
+		overflow: hidden;
+		height: 200px;
+	}
+
+	.cover-photo {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
 	.profile-card {
 		display: flex;
 		align-items: center;
@@ -81,6 +103,11 @@ const joinDate = member._createdDate ? new Date(member._createdDate).toLocaleDat
 		border-radius: 16px;
 	}
 
+	.profile-card.has-cover {
+		border-radius: 0 0 16px 16px;
+		margin-top: -1px;
+	}
+
 	.profile-photo {
 		width: 120px;
 		height: 120px;
@@ -88,6 +115,10 @@ const joinDate = member._createdDate ? new Date(member._createdDate).toLocaleDat
 		object-fit: cover;
 		border: 4px solid var(--accent);
 		flex-shrink: 0;
+	}
+
+	.has-cover .profile-photo {
+		margin-top: -80px;
 	}
 
 	.profile-photo-placeholder {
@@ -120,15 +151,20 @@ const joinDate = member._createdDate ? new Date(member._createdDate).toLocaleDat
 		margin-bottom: 8px;
 	}
 
-	.profile-joined {
+	.profile-meta {
 		font-size: 0.85rem;
 		color: var(--text-muted);
+		margin-bottom: 2px;
 	}
 
 	@media (max-width: 640px) {
 		.profile-card {
 			flex-direction: column;
 			text-align: center;
+		}
+
+		.has-cover .profile-photo {
+			margin-top: -60px;
 		}
 	}
 </style>
