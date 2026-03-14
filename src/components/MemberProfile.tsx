@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { members, authentication } from "@wix/members";
+import { getData as getCountries } from "country-list";
 
 function toE164(phone: string): string {
   // Strip everything except digits and leading +
@@ -309,8 +310,13 @@ export default function MemberProfile({ member }: Props) {
 
         <div style={gridStyle}>
           <div>
-            <label style={labelStyle}>City</label>
-            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
+            <label style={labelStyle}>Country</label>
+            <select value={country} onChange={(e) => setCountry(e.target.value)} style={inputStyle}>
+              <option value="">Select country...</option>
+              {getCountries().map(c => (
+                <option key={c.code} value={c.code}>{c.name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label style={labelStyle}>State / Province</label>
@@ -320,9 +326,8 @@ export default function MemberProfile({ member }: Props) {
 
         <div style={gridStyle}>
           <div>
-            <label style={labelStyle}>Country Code</label>
-            <input type="text" value={country} onChange={(e) => setCountry(e.target.value)}
-              placeholder="US, IL, GB..." maxLength={2} style={inputStyle} />
+            <label style={labelStyle}>City</label>
+            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Postal Code</label>

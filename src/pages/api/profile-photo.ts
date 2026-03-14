@@ -2,8 +2,9 @@ import type { APIRoute } from 'astro';
 import { files } from '@wix/media';
 import { members } from '@wix/members';
 import { auth } from '@wix/essentials';
+import sizeOf from 'image-size';
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const MIN_DIMENSION = 50;
 const MAX_DIMENSION = 4096;
@@ -18,28 +19,26 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(JSON.stringify({ error: 'file and memberId required' }), { status: 400 });
     }
 
-    // Validate image type
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return new Response(JSON.stringify({ error: `Invalid file type. Allowed: ${ALLOWED_TYPES.join(', ')}` }), { status: 400 });
+    if (!ALLOWED_TYPES.has(file.type)) {
+      return new Response(JSON.stringify({ error: 'Invalid file type. Allowed: jpeg, png, gif, webp.' }), { status: 400 });
     }
 
-    // Validate file size
     if (file.size > MAX_SIZE) {
       return new Response(JSON.stringify({ error: 'File too large. Maximum 5MB.' }), { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Validate image dimensions
-    const dimensions = getImageDimensions(buffer, file.type);
-    if (dimensions) {
-      const { width, height } = dimensions;
-      if (width < MIN_DIMENSION || height < MIN_DIMENSION) {
-        return new Response(JSON.stringify({ error: `Image too small. Minimum ${MIN_DIMENSION}x${MIN_DIMENSION}px.` }), { status: 400 });
-      }
-      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-        return new Response(JSON.stringify({ error: `Image too large. Maximum ${MAX_DIMENSION}x${MAX_DIMENSION}px.` }), { status: 400 });
-      }
+    // Validate image dimensions using image-size
+    const dimensions = sizeOf(buffer);
+    if (!dimensions.width || !dimensions.height) {
+      return new Response(JSON.stringify({ error: 'Could not read image dimensions.' }), { status: 400 });
+    }
+    if (dimensions.width < MIN_DIMENSION || dimensions.height < MIN_DIMENSION) {
+      return new Response(JSON.stringify({ error: `Image too small. Minimum ${MIN_DIMENSION}x${MIN_DIMENSION}px.` }), { status: 400 });
+    }
+    if (dimensions.width > MAX_DIMENSION || dimensions.height > MAX_DIMENSION) {
+      return new Response(JSON.stringify({ error: `Image too large. Maximum ${MAX_DIMENSION}x${MAX_DIMENSION}px.` }), { status: 400 });
     }
 
     // Upload to Wix Media
@@ -95,38 +94,3 @@ export const DELETE: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ error: e?.message || 'Failed to remove photo' }), { status: 500 });
   }
 };
-
-function getImageDimensions(buffer: Buffer, mimeType: string): { width: number; height: number } | null {
-  try {
-    if (mimeType === 'image/png' && buffer.length >= 24) {
-      return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
-    }
-    if (mimeType === 'image/gif' && buffer.length >= 10) {
-      return { width: buffer.readUInt16LE(6), height: buffer.readUInt16LE(8) };
-    }
-    if (mimeType === 'image/jpeg' && buffer.length >= 2) {
-      let offset = 2;
-      while (offset < buffer.length - 1) {
-        if (buffer[offset] !== 0xff) break;
-        const marker = buffer[offset + 1];
-        if (marker === 0xc0 || marker === 0xc2) {
-          if (offset + 9 <= buffer.length) {
-            return { height: buffer.readUInt16BE(offset + 5), width: buffer.readUInt16BE(offset + 7) };
-          }
-        }
-        const segmentLength = buffer.readUInt16BE(offset + 2);
-        offset += 2 + segmentLength;
-      }
-    }
-    if (mimeType === 'image/webp' && buffer.length >= 30) {
-      if (buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x20) {
-        return { width: (buffer[26] | (buffer[27] << 8)) & 0x3fff, height: (buffer[28] | (buffer[29] << 8)) & 0x3fff };
-      }
-      if (buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x4c) {
-        const bits = buffer[21] | (buffer[22] << 8) | (buffer[23] << 16) | (buffer[24] << 24);
-        return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
-      }
-    }
-  } catch {}
-  return null;
-}
