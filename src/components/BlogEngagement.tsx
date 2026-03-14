@@ -126,41 +126,17 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   }, [referenceId]);
 
   async function loadAllMyLikes() {
-    // Check post like via blog likes API
+    // queryLikes returns all likes by the current visitor (posts + comments)
     try {
-      const res = await likes.getLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: postId });
-      if (res.like) setLiked(true);
-    } catch {}
-
-    // Check comment reactions via middleware additional data
-    try {
-      const res = await httpClient.fetchWithAuth(
-        `${window.location.origin}/_api/comments-middleware/v1/bulk/additional-data`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            appId: BLOG_APP_ID,
-            contextId: referenceId,
-            resourceId: referenceId,
-            fieldsets: ["REACTIONS"],
-          }),
+      const res = await likes.queryLikes().limit(100).find();
+      const likedIds = new Set<string>();
+      for (const like of res.items) {
+        if (like.entityId) {
+          likedIds.add(like.entityId);
+          if (like.entityId === postId) setLiked(true);
         }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const reactions = data.additionalData?.reactions || {};
-        const likedIds = new Set<string>();
-        for (const [commentId, reactionData] of Object.entries(reactions as Record<string, any>)) {
-          const codeReactions = reactionData?.reactions || [];
-          for (const cr of codeReactions) {
-            if (cr.reactionCode === ":like:" && cr.hasReacted) {
-              likedIds.add(commentId);
-            }
-          }
-        }
-        setLikedCommentIds(likedIds);
       }
+      setLikedCommentIds(likedIds);
     } catch {}
   }
 
@@ -252,14 +228,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     if (!cid) { console.error("No comment ID for like"); return; }
     const isLiked = likedCommentIds.has(cid);
     try {
-      const method = isLiked ? "DELETE" : "PUT";
-      await httpClient.fetchWithAuth(
-        `${window.location.origin}/_api/comments-middleware/v1/comment/${cid}/reactions/:like:`,
-        { method }
-      );
       if (isLiked) {
+        await likes.deleteLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: cid });
         setLikedCommentIds((prev) => { const next = new Set(prev); next.delete(cid); return next; });
       } else {
+        await likes.createLike({ like: { fqdn: BLOG_POST_FQDN, entityId: cid } });
         setLikedCommentIds((prev) => new Set(prev).add(cid));
       }
     } catch (e) { console.error("Comment like error:", e); }
