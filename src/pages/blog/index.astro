@@ -13,7 +13,7 @@ const result = await posts.listPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRI
 const blogPosts = result.posts || [];
 
 // Fetch real metrics per post (METRICS fieldset returns zeros in managed headless)
-// Also count comments via Comments API since blog metrics don't reflect them
+// Count comments via REST API since SDK countComments fails silently
 const metricsMap = new Map<string, any>();
 const commentCountMap = new Map<string, number>();
 await Promise.all(blogPosts.map(async (post: any) => {
@@ -23,10 +23,12 @@ await Promise.all(blogPosts.map(async (post: any) => {
 	} catch {}
 	if (post.referenceId) {
 		try {
-			const c = await commentsApi.countComments(BLOG_APP_ID, {
-				filter: { resourceId: post.referenceId },
+			const c = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
+				contextId: post.referenceId,
+				resourceId: post.referenceId,
+				cursorPaging: { limit: 100 },
 			});
-			commentCountMap.set(post._id!, c.count ?? 0);
+			commentCountMap.set(post._id!, c.comments?.length ?? 0);
 		} catch {}
 	}
 }));

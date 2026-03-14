@@ -28,15 +28,23 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editRating, setEditRating] = useState(0);
-  const [currentVisitorId, setCurrentVisitorId] = useState<string | null>(null);
+  const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Restore visitor ID from localStorage
+    const stored = localStorage.getItem("cats-in-space-visitor-id");
+    if (stored) setMyVisitorId(stored);
+
     reportView();
     loadMetrics();
     loadComments();
     checkIfLiked();
-    detectCurrentVisitor();
   }, [postId]);
+
+  function saveVisitorId(id: string) {
+    setMyVisitorId(id);
+    localStorage.setItem("cats-in-space-visitor-id", id);
+  }
 
   async function reportView() {
     try {
@@ -66,61 +74,38 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         contextId: referenceId,
         resourceId: referenceId,
         commentSort: { order: "OLDEST_FIRST" },
+        replySort: { order: "OLDEST_FIRST" },
         cursorPaging: { limit: 100 },
       });
       const allComments = res.comments || [];
 
-      // Separate top-level comments from replies
-      const topLevel: any[] = [];
-      const replies: Record<string, any[]> = {};
+      // Replies are in commentReplies map when replySort is provided
+      const rm: Record<string, any[]> = {};
+      if (res.commentReplies) {
+        for (const [commentId, replyData] of Object.entries(res.commentReplies)) {
+          rm[commentId] = (replyData as any).replies || [];
+        }
+      }
 
+      // Also check for replies mixed into the flat list (fallback)
+      const topLevel: any[] = [];
       for (const c of allComments) {
-        if (c.parentComment?._id || (c.parentComment as any)?.id) {
-          const parentId = c.parentComment!._id || (c.parentComment as any).id;
-          if (!replies[parentId]) replies[parentId] = [];
-          replies[parentId].push(c);
+        const parentId = c.parentComment?._id || (c.parentComment as any)?.id;
+        if (parentId) {
+          if (!rm[parentId]) rm[parentId] = [];
+          rm[parentId].push(c);
         } else {
           topLevel.push(c);
         }
       }
 
+      // Count total including replies
+      const replyCount = Object.values(rm).reduce((sum, r) => sum + r.length, 0);
+
       setTopLevelComments(topLevel);
-      setRepliesMap(replies);
-      setTotalComments(allComments.length);
+      setRepliesMap(rm);
+      setTotalComments(topLevel.length + replyCount);
     } catch {}
-  }
-
-  async function detectCurrentVisitor() {
-    // Create a temporary like check to discover our visitor ID from any comment we authored
-    // Or try getLike which reveals identity in error
-    // Simplest: after we create our first comment, store our visitorId
-    // For now, check if any comment's content.author.visitorId matches by trying to get our identity
-    try {
-      // Try to get our like — if it exists, the response has our identity
-      const res = await likes.getLikeByFqdnAndEntityId({
-        fqdn: BLOG_POST_FQDN,
-        entityId: postId,
-      });
-      if (res.like) {
-        // We can identify ourselves from a like we created, but the like doesn't expose visitorId
-      }
-    } catch {}
-
-    // Alternative: check visitor identity from auth
-    try {
-      const res = await httpClient.fetchWithAuth(
-        "https://www.wixapis.com/members/v1/members/my"
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentVisitorId(data.member?.id || null);
-        return;
-      }
-    } catch {}
-
-    // For visitors (non-members), extract from a comment we try to query
-    // The visitor ID is set by Wix session — we'll match by checking content.author.visitorId
-    // We'll set it when we create a comment and get it back
   }
 
   async function checkIfLiked() {
@@ -139,16 +124,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     setLikeLoading(true);
     try {
       if (liked) {
-        await likes.deleteLikeByFqdnAndEntityId({
-          fqdn: BLOG_POST_FQDN,
-          entityId: postId,
-        });
+        await likes.deleteLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: postId });
         setLiked(false);
         setMetrics((m) => ({ ...m, likes: Math.max(0, m.likes - 1) }));
       } else {
-        await likes.createLike({
-          like: { fqdn: BLOG_POST_FQDN, entityId: postId },
-        });
+        await likes.createLike({ like: { fqdn: BLOG_POST_FQDN, entityId: postId } });
         setLiked(true);
         setMetrics((m) => ({ ...m, likes: m.likes + 1 }));
       }
@@ -161,15 +141,18 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   function makeRichContent(text: string) {
     return {
       richContent: {
-        nodes: [
-          {
-            type: "PARAGRAPH",
-            nodes: [{ type: "TEXT", textData: { text, decorations: [] } }],
-            paragraphData: {},
-          },
-        ],
+        nodes: [{
+          type: "PARAGRAPH",
+          nodes: [{ type: "TEXT", textData: { text, decorations: [] } }],
+          paragraphData: {},
+        }],
       },
     };
+  }
+
+  function captureVisitorId(comment: any) {
+    const vid = comment?.author?.visitorId || (comment?.content as any)?.author?.visitorId;
+    if (vid && !myVisitorId) saveVisitorId(vid);
   }
 
   async function submitComment(e: React.FormEvent) {
@@ -186,10 +169,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         content: makeRichContent(newComment.trim()),
         ...(commentRating > 0 ? { rating: commentRating } : {}),
       } as any);
-      // Capture our visitor ID from the created comment
-      if (created?.author?.visitorId && !currentVisitorId) {
-        setCurrentVisitorId(created.author.visitorId);
-      }
+      captureVisitorId(created);
       setNewComment("");
       setCommentRating(0);
       await loadComments();
@@ -210,12 +190,10 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         contextId: referenceId,
         resourceId: referenceId,
         author: { authorName },
-        parentComment: { id: parentId },
+        parentComment: { _id: parentId },
         content: makeRichContent(replyText.trim()),
       } as any);
-      if (created?.author?.visitorId && !currentVisitorId) {
-        setCurrentVisitorId(created.author.visitorId);
-      }
+      captureVisitorId(created);
       setReplyText("");
       setReplyingTo(null);
       await loadComments();
@@ -255,12 +233,9 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   }
 
   function isOwnComment(comment: any): boolean {
-    if (!currentVisitorId) return false;
-    const authorId =
-      comment.author?.visitorId ||
-      comment.author?.memberId ||
-      comment.author?.userId;
-    return authorId === currentVisitorId;
+    if (!myVisitorId) return false;
+    const vid = comment.author?.visitorId || comment.author?.memberId;
+    return vid === myVisitorId;
   }
 
   function getCommentText(comment: any): string {
@@ -269,9 +244,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     for (const node of nodes) {
       if (node.type === "PARAGRAPH") {
         for (const child of node.nodes || []) {
-          if (child.type === "TEXT" && child.textData?.text) {
-            texts.push(child.textData.text);
-          }
+          if (child.type === "TEXT" && child.textData?.text) texts.push(child.textData.text);
         }
       }
     }
@@ -281,36 +254,15 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   function formatDate(dateStr: string | Date | undefined) {
     if (!dateStr) return "";
     const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
-    return d.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
-  function StarRating({
-    value,
-    onChange,
-    readonly,
-  }: {
-    value: number;
-    onChange?: (v: number) => void;
-    readonly?: boolean;
-  }) {
+  function StarRating({ value, onChange, readonly }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
     return (
       <span style={{ display: "inline-flex", gap: "2px" }}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <span
-            key={star}
-            onClick={() => !readonly && onChange?.(star === value ? 0 : star)}
-            style={{
-              cursor: readonly ? "default" : "pointer",
-              fontSize: "1.1rem",
-              color: star <= value ? "#ffcc00" : "#444",
-            }}
-          >
+          <span key={star} onClick={() => !readonly && onChange?.(star === value ? 0 : star)}
+            style={{ cursor: readonly ? "default" : "pointer", fontSize: "1.1rem", color: star <= value ? "#ffcc00" : "#444" }}>
             ★
           </span>
         ))}
@@ -338,31 +290,17 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {isEditing ? (
           <div style={{ marginTop: "8px" }}>
-            <textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              rows={3}
-              style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }}
-            />
-            {comment.rating !== undefined && (
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                <span style={{ color: "#888", fontSize: "0.8rem" }}>Rating:</span>
-                <StarRating value={editRating} onChange={setEditRating} />
-              </div>
-            )}
+            <textarea value={editText} onChange={(e) => setEditText(e.target.value)}
+              rows={3} style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+              <span style={{ color: "#888", fontSize: "0.8rem" }}>Rating:</span>
+              <StarRating value={editRating} onChange={setEditRating} />
+            </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                onClick={() => handleEdit(comment._id, comment.revision)}
-                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}
-              >
-                Save
-              </button>
-              <button
-                onClick={() => { setEditingId(null); setEditText(""); setEditRating(0); }}
-                style={smallBtnStyle}
-              >
-                Cancel
-              </button>
+              <button onClick={() => handleEdit(comment._id, comment.revision)}
+                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>Save</button>
+              <button onClick={() => { setEditingId(null); setEditText(""); setEditRating(0); }}
+                style={smallBtnStyle}>Cancel</button>
             </div>
           </div>
         ) : (
@@ -372,65 +310,37 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         {!isEditing && (
           <div style={commentActionsStyle}>
             {!isReply && (
-              <button
-                onClick={() => {
-                  setReplyingTo(replyingTo === comment._id ? null : comment._id);
-                  setReplyText("");
-                }}
-                style={actionBtnStyle}
-              >
-                Reply{comment.replyCount > 0 ? ` (${comment.replyCount})` : ""}
+              <button onClick={() => { setReplyingTo(replyingTo === comment._id ? null : comment._id); setReplyText(""); }}
+                style={actionBtnStyle}>
+                Reply{replies.length > 0 ? ` (${replies.length})` : ""}
               </button>
             )}
             {isMine && (
               <>
-                <button
-                  onClick={() => {
-                    setEditingId(comment._id);
-                    setEditText(text);
-                    setEditRating(comment.rating || 0);
-                  }}
-                  style={actionBtnStyle}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(comment._id)}
-                  style={{ ...actionBtnStyle, color: "#cc0000" }}
-                >
-                  Delete
-                </button>
+                <button onClick={() => { setEditingId(comment._id); setEditText(text); setEditRating(comment.rating || 0); }}
+                  style={actionBtnStyle}>Edit</button>
+                <button onClick={() => handleDelete(comment._id)}
+                  style={{ ...actionBtnStyle, color: "#cc0000" }}>Delete</button>
               </>
             )}
           </div>
         )}
 
-        {/* Reply form */}
         {replyingTo === comment._id && (
           <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #222" }}>
-            <textarea
-              placeholder="Write a reply..."
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              rows={2}
-              style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }}
-            />
+            <textarea placeholder="Write a reply..." value={replyText}
+              onChange={(e) => setReplyText(e.target.value)} rows={2}
+              style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
             <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                onClick={() => submitReply(comment._id)}
-                disabled={submitting}
-                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}
-              >
+              <button onClick={() => submitReply(comment._id)} disabled={submitting}
+                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>
                 {submitting ? "Sending..." : "Send Reply"}
               </button>
-              <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>
-                Cancel
-              </button>
+              <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>Cancel</button>
             </div>
           </div>
         )}
 
-        {/* Replies */}
         {replies.length > 0 && (
           <div style={{ marginTop: "12px" }}>
             {replies.map((reply: any) => renderComment(reply, true))}
@@ -442,7 +352,6 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Engagement Stats */}
       <div style={statsBarStyle}>
         <div style={statItemStyle}>
           <span style={statNumStyle}>{metrics.views}</span>
@@ -456,20 +365,12 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
           <span style={statNumStyle}>{totalComments}</span>
           <span style={statLabelStyle}>Comments</span>
         </div>
-        <button
-          onClick={toggleLike}
-          disabled={likeLoading}
-          style={{
-            ...likeButtonStyle,
-            background: liked ? "#ff6600" : "transparent",
-            color: liked ? "#000" : "#ff6600",
-          }}
-        >
+        <button onClick={toggleLike} disabled={likeLoading}
+          style={{ ...likeButtonStyle, background: liked ? "#ff6600" : "transparent", color: liked ? "#000" : "#ff6600" }}>
           {liked ? "♥ Liked" : "♡ Like this post"}
         </button>
       </div>
 
-      {/* Comments Section */}
       <div style={commentsSectionStyle}>
         <h3 style={commentsHeadingStyle}>Transmissions ({totalComments})</h3>
 
@@ -481,27 +382,15 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         <form onSubmit={submitComment} style={commentFormStyle}>
           <h4 style={formTitleStyle}>Leave a Transmission</h4>
-          <input
-            type="text"
-            placeholder="Your name (optional)"
-            value={commentName}
-            onChange={(e) => setCommentName(e.target.value)}
-            style={inputStyle}
-          />
-          <textarea
-            placeholder="Write your message to the crew..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            rows={4}
-            style={{ ...inputStyle, resize: "vertical" as const }}
-            required
-          />
+          <input type="text" placeholder="Your name (optional)" value={commentName}
+            onChange={(e) => setCommentName(e.target.value)} style={inputStyle} />
+          <textarea placeholder="Write your message to the crew..." value={newComment}
+            onChange={(e) => setNewComment(e.target.value)} rows={4}
+            style={{ ...inputStyle, resize: "vertical" as const }} required />
           <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "12px" }}>
             <span style={{ color: "#888", fontSize: "0.85rem" }}>Rating:</span>
             <StarRating value={commentRating} onChange={setCommentRating} />
-            {commentRating > 0 && (
-              <span style={{ color: "#666", fontSize: "0.8rem" }}>{commentRating}/5</span>
-            )}
+            {commentRating > 0 && <span style={{ color: "#666", fontSize: "0.8rem" }}>{commentRating}/5</span>}
           </div>
           <button type="submit" disabled={submitting} style={submitButtonStyle}>
             {submitting ? "Transmitting..." : "Send Transmission"}
@@ -512,17 +401,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   );
 }
 
-const statsBarStyle: React.CSSProperties = {
-  display: "flex", alignItems: "center", gap: "32px", padding: "24px 0",
-  borderTop: "1px solid #222", borderBottom: "1px solid #222", marginTop: "40px", flexWrap: "wrap",
-};
+const statsBarStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "32px", padding: "24px 0", borderTop: "1px solid #222", borderBottom: "1px solid #222", marginTop: "40px", flexWrap: "wrap" };
 const statItemStyle: React.CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center" };
 const statNumStyle: React.CSSProperties = { fontFamily: "'Black Ops One', cursive", fontSize: "1.5rem", color: "#ff6600" };
 const statLabelStyle: React.CSSProperties = { fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "1px", marginTop: "2px" };
-const likeButtonStyle: React.CSSProperties = {
-  marginLeft: "auto", padding: "10px 24px", border: "2px solid #ff6600", borderRadius: "8px",
-  fontFamily: "'Bangers', cursive", fontSize: "1rem", letterSpacing: "1px", cursor: "pointer", transition: "all 0.3s",
-};
+const likeButtonStyle: React.CSSProperties = { marginLeft: "auto", padding: "10px 24px", border: "2px solid #ff6600", borderRadius: "8px", fontFamily: "'Bangers', cursive", fontSize: "1rem", letterSpacing: "1px", cursor: "pointer", transition: "all 0.3s" };
 const commentsSectionStyle: React.CSSProperties = { marginTop: "40px" };
 const commentsHeadingStyle: React.CSSProperties = { fontFamily: "'Bangers', cursive", fontSize: "1.5rem", color: "#ff6600", letterSpacing: "1px", marginBottom: "20px" };
 const commentsListStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "16px", marginBottom: "30px" };
