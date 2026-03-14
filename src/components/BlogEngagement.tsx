@@ -132,12 +132,13 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     if (!newComment.trim()) return;
     setSubmitting(true);
     try {
-      const created = await commentsApi.createComment({
+      const commentObj: any = {
         appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
         author: { authorName: commentName.trim() || "Anonymous Space Cat" },
         content: makeRichContent(newComment.trim()),
-        ...(commentRating > 0 ? { rating: commentRating } : {}),
-      } as any);
+      };
+      if (commentRating > 0) commentObj.rating = commentRating;
+      const created = await commentsApi.createComment(commentObj);
       captureIdentity(created);
       setNewComment("");
       setCommentRating(0);
