@@ -131,19 +131,23 @@ const links = [
 	}
 
 	.auth-link {
-		font-size: 0.85rem;
-		color: var(--text-muted);
+		padding: 8px 16px;
+		border-radius: 8px;
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--text-secondary);
+		transition: all 0.2s;
+		font-family: var(--font-heading);
+		letter-spacing: 1px;
 		background: none;
 		border: none;
 		cursor: pointer;
 		text-decoration: none;
-		font-family: var(--font-body);
-		padding: 0;
-		transition: color 0.2s;
 	}
 
 	.auth-link:hover {
 		color: var(--accent);
+		background: rgba(255, 102, 0, 0.1);
 	}
 
 	@media (max-width: 640px) {
