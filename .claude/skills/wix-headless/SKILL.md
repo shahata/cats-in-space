@@ -254,6 +254,41 @@ try {
 
 **CRITICAL:** `/api/auth/logout` is a **POST** endpoint. Use a `<form>` with `method="POST"`, not an `<a>` link.
 
+### Member Profile Management
+
+```typescript
+import { members } from '@wix/members';
+
+// Update member profile (client-side)
+await members.updateMember(member._id, {
+  profile: {
+    nickname: "New Name",
+    title: "New Title",
+  },
+  contact: {
+    firstName: "First",
+    lastName: "Last",
+    company: "Company",
+    jobTitle: "Job",
+    birthdate: "2000-01-15",  // YYYY-MM-DD format
+  },
+});
+```
+
+**Member fields:**
+- **Profile (public):** `nickname`, `title`, `photo` (`{ url, _id, width, height }`), `slug`, `cover`
+- **Contact (private):** `firstName`, `lastName`, `phones`, `emails`, `addresses`, `birthdate`, `company`, `jobTitle`
+- **Photo URL:** `member.profile.photo.url` — directly usable in `<img>` tags
+
+**Protect member-only pages:**
+```astro
+---
+const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+if (!res.member) return Astro.redirect('/api/auth/login');
+const member = res.member;
+---
+```
+
 ## Tips & Gotchas
 
 1. **No `.data` wrapper** — SDK query results have fields directly on items
