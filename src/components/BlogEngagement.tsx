@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { likes, posts } from "@wix/blog";
 import { comments as commentsApi } from "@wix/comments";
+import { members } from "@wix/members";
 import { httpClient } from "@wix/essentials";
 
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
@@ -39,15 +40,10 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   }, [postId]);
 
   async function detectCurrentVisitor() {
-    // Try member identity first
+    // Try member identity first via SDK
     try {
-      const res = await httpClient.fetchWithAuth(
-        "https://www.wixapis.com/members/v1/members/my"
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (data.member?.id) { setMyVisitorId(data.member.id); return; }
-      }
+      const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+      if (res.member?._id) { setMyVisitorId(res.member._id); return; }
     } catch {}
 
     // For visitors: query our own likes to discover our session identity
