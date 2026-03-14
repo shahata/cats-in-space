@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
-import { members } from '@wix/members';
+import { members, membersAbout } from '@wix/members';
 
 const { slug } = Astro.params;
 
@@ -21,6 +21,22 @@ if (!member) return Astro.redirect('/');
 
 // Don't show private profiles
 if (member.privacyStatus === 'PRIVATE') return Astro.redirect('/');
+
+// Fetch member about
+let aboutText = '';
+try {
+	const aboutRes = await membersAbout.getMemberAbout(member._id);
+	const nodes = aboutRes?.content?.nodes || [];
+	const texts: string[] = [];
+	for (const node of nodes) {
+		if (node.type === 'PARAGRAPH') {
+			for (const child of (node as any).nodes || []) {
+				if (child.type === 'TEXT' && child.textData?.text) texts.push(child.textData.text);
+			}
+		}
+	}
+	aboutText = texts.join('\n');
+} catch {}
 
 const nickname = member.profile?.nickname || member.contact?.firstName || 'Unknown Cat';
 const title = member.profile?.title || '';
@@ -57,6 +73,13 @@ const slug_ = member.profile?.slug || '';
 					{slug_ && <p class="profile-meta">@{slug_}</p>}
 				</div>
 			</div>
+
+			{aboutText && (
+				<div class="about-section">
+					<h2>About</h2>
+					{aboutText.split('\n').map(line => <p>{line}</p>)}
+				</div>
+			)}
 		</div>
 	</section>
 	<Footer />
@@ -155,6 +178,29 @@ const slug_ = member.profile?.slug || '';
 		font-size: 0.85rem;
 		color: var(--text-muted);
 		margin-bottom: 2px;
+	}
+
+	.about-section {
+		margin-top: 24px;
+		padding: 30px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+	}
+
+	.about-section h2 {
+		font-family: var(--font-heading);
+		font-size: 1.3rem;
+		color: var(--accent);
+		letter-spacing: 1px;
+		margin-bottom: 12px;
+	}
+
+	.about-section p {
+		color: var(--text-secondary);
+		font-size: 0.95rem;
+		line-height: 1.7;
+		margin-bottom: 8px;
 	}
 
 	@media (max-width: 640px) {
