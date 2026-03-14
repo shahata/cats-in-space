@@ -49,7 +49,6 @@ export default function MemberProfile({ member }: Props) {
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [error, setError] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
 
@@ -61,7 +60,6 @@ export default function MemberProfile({ member }: Props) {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoUploading(true);
-    setError("");
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -78,10 +76,10 @@ export default function MemberProfile({ member }: Props) {
         setPhoto(data.url);
         setRemovePhoto(false);
       } else {
-        setError(data.error || "Failed to upload image");
+        alert(data.error || "Failed to upload image");
       }
     } catch (err: any) {
-      setError(err?.message || "Upload failed");
+      alert(err?.message || "Upload failed");
     }
     setPhotoUploading(false);
   }
@@ -98,10 +96,10 @@ export default function MemberProfile({ member }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "Failed to remove photo");
+        alert(data.error || "Failed to remove photo");
       }
     } catch (err: any) {
-      setError(err?.message || "Failed to remove photo");
+      alert(err?.message || "Failed to remove photo");
     }
   }
 
@@ -136,7 +134,6 @@ export default function MemberProfile({ member }: Props) {
     e.preventDefault();
     setSaving(true);
     setSaved(false);
-    setError("");
     try {
       const profileUpdate: any = {
         nickname: nickname || undefined,
@@ -176,7 +173,7 @@ export default function MemberProfile({ member }: Props) {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
-      setError(e?.message || "Failed to update profile");
+      alert(e?.message || "Failed to update profile");
     }
     setSaving(false);
   }
@@ -184,13 +181,12 @@ export default function MemberProfile({ member }: Props) {
   async function handleSlugUpdate() {
     if (!slug.trim()) return;
     setSlugSaving(true);
-    setError("");
     try {
       await members.updateCurrentMemberSlug(slug.trim());
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
-      setError(e?.message || "Failed to update slug");
+      alert(e?.message || "Failed to update slug");
     }
     setSlugSaving(false);
   }
@@ -340,7 +336,6 @@ export default function MemberProfile({ member }: Props) {
             {saving ? "Saving..." : "Save Changes"}
           </button>
           {saved && <span style={{ color: "#4caf50", fontSize: "0.9rem" }}>Profile updated!</span>}
-          {error && <span style={{ color: "#cc0000", fontSize: "0.9rem" }}>{error}</span>}
         </div>
       </form>
 
