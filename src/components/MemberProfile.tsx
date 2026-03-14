@@ -130,8 +130,17 @@ export default function MemberProfile({ member }: Props) {
             postalCode: postalCode || undefined,
           }],
         },
-        privacyStatus,
       });
+
+      // Privacy is controlled via joinCommunity/leaveCommunity, not updateMember
+      const currentPrivacy = member.privacyStatus || "PUBLIC";
+      if (privacyStatus !== currentPrivacy) {
+        if (privacyStatus === "PUBLIC") {
+          await members.joinCommunity();
+        } else {
+          await members.leaveCommunity();
+        }
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
