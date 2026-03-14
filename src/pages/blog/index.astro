@@ -3,34 +3,12 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { posts, tags as tagsApi } from '@wix/blog';
-import { comments as commentsApi } from '@wix/comments';
 import { members } from '@wix/members';
 import { getImageUrl } from '../../utils/image';
 
-const BLOG_APP_ID = '14bcded7-0066-7c35-14d7-466cb3f09103';
-
-// Use queryPosts instead of listPosts — queryPosts returns real metrics, listPosts returns zeros
+// Use queryPosts — returns real metrics (views, likes, comments). listPosts returns zeros.
 const queryResult = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).find();
 const blogPosts = queryResult.items || [];
-
-// Count comments per post (SDK countComments and fetchWithAuth don't work server-side)
-const commentCountMap = new Map<string, number>();
-await Promise.all(blogPosts.map(async (post: any) => {
-	if (post.referenceId) {
-		try {
-			const c = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
-				contextId: post.referenceId,
-				resourceId: post.referenceId,
-				cursorPaging: { limit: 100, repliesLimit: 100 },
-			});
-			const topLevel = c.comments?.length ?? 0;
-			const replies = Object.values(c.commentReplies || {}).reduce(
-				(sum: number, r: any) => sum + (r.replies?.length ?? 0), 0
-			);
-			commentCountMap.set(post._id!, topLevel + replies);
-		} catch {}
-	}
-}));
 
 // Fetch all tags
 const tagsResult = await tagsApi.queryTags({});
@@ -73,7 +51,6 @@ function getExcerpt(post: any): string {
 }
 
 function getMetric(post: any, field: string): number {
-	if (field === 'comments') return commentCountMap.get(post._id) ?? 0;
 	return post.metrics?.[field] ?? 0;
 }
 
