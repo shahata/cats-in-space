@@ -46,33 +46,25 @@ export default function MemberProfile({ member }: Props) {
     setPhotoUploading(true);
     setError("");
     try {
-      // 1. Generate upload URL via server-side elevated API
-      const genRes = await fetch("/api/upload-url", {
+      // Upload via server endpoint (avoids CORS/ORB issues)
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload-url", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mimeType: file.type, fileName: file.name }),
-      });
-      if (!genRes.ok) throw new Error("Failed to generate upload URL");
-      const { uploadUrl } = await genRes.json();
-
-      // 2. PUT file binary to the upload URL
-      const uploadRes = await fetch(uploadUrl!, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+        body: formData,
       });
 
-      if (uploadRes.ok) {
-        const data = await uploadRes.json();
-        const mediaId = data.file?.id;
-        const url = data.file?.url;
-        if (mediaId && url) {
-          setPhotoId(mediaId);
+      if (res.ok) {
+        const { id, url } = await res.json();
+        if (id && url) {
+          setPhotoId(id);
           setPhoto(url);
           setRemovePhoto(false);
         }
       } else {
-        setError("Failed to upload image");
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to upload image");
       }
     } catch (err: any) {
       setError(err?.message || "Upload failed");
