@@ -105,7 +105,25 @@ export default function BlogEngagement({ postId }: Props) {
               name: commentName.trim() || "Anonymous Space Cat",
             },
           },
-          plainTextContent: { text: newComment.trim() },
+          content: {
+            richContent: {
+              nodes: [
+                {
+                  type: "PARAGRAPH",
+                  nodes: [
+                    {
+                      type: "TEXT",
+                      textData: {
+                        text: newComment.trim(),
+                        decorations: [],
+                      },
+                    },
+                  ],
+                  paragraphData: {},
+                },
+              ],
+            },
+          },
         },
       });
       setNewComment("");
