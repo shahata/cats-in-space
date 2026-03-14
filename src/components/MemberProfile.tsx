@@ -109,7 +109,7 @@ export default function MemberProfile({ member }: Props) {
           company: company || undefined,
           jobTitle: jobTitle || undefined,
           birthdate: birthdate || undefined,
-          phones: phone ? [phone] : undefined,
+          ...(phone !== (member.contact?.phones?.[0] || "") ? { phones: phone ? [phone] : [] } : {}),
           addresses: [{
             ...(addr._id ? { _id: addr._id } : {}),
             addressLine: addressLine || undefined,
@@ -239,7 +239,7 @@ export default function MemberProfile({ member }: Props) {
           <div>
             <label style={labelStyle}>Phone</label>
             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-              placeholder="+1234567890" style={inputStyle} />
+              placeholder="+12025551234 (E.164 format)" style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Birthdate</label>
