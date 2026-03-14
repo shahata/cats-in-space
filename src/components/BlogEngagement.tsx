@@ -99,33 +99,26 @@ export default function BlogEngagement({ postId }: Props) {
         appId: BLOG_APP_ID,
         contextId: postId,
         resourceId: postId,
-        comment: {
-          commentAuthor: {
-            guestAuthor: {
-              name: commentName.trim() || "Anonymous Space Cat",
-            },
-          },
-          content: {
-            richContent: {
-              nodes: [
-                {
-                  type: "PARAGRAPH",
-                  nodes: [
-                    {
-                      type: "TEXT",
-                      textData: {
-                        text: newComment.trim(),
-                        decorations: [],
-                      },
+        content: {
+          richContent: {
+            nodes: [
+              {
+                type: "PARAGRAPH",
+                nodes: [
+                  {
+                    type: "TEXT",
+                    textData: {
+                      text: newComment.trim(),
+                      decorations: [],
                     },
-                  ],
-                  paragraphData: {},
-                },
-              ],
-            },
+                  },
+                ],
+                paragraphData: {},
+              },
+            ],
           },
         },
-      });
+      } as any);
       setNewComment("");
       setCommentName("");
       setMetrics((m) => ({ ...m, comments: m.comments + 1 }));
