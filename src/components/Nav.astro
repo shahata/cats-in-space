@@ -1,5 +1,15 @@
 ---
+import { members } from '@wix/members';
+
 const currentPath = Astro.url.pathname;
+
+let loggedInMember: string | null = null;
+try {
+	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+	if (res.member) {
+		loggedInMember = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
+	}
+} catch {}
 
 const links = [
 	{ href: '/', label: 'Home' },
@@ -22,6 +32,14 @@ const links = [
 					{link.label}
 				</a>
 			))}
+			{loggedInMember ? (
+				<div class="auth-section">
+					<span class="member-name">{loggedInMember}</span>
+					<a href="/api/auth/logout" class="auth-btn">Logout</a>
+				</div>
+			) : (
+				<a href="/api/auth/login" class="auth-btn login-btn">Login</a>
+			)}
 		</div>
 	</div>
 </nav>
@@ -79,6 +97,49 @@ const links = [
 	.nav-link.active {
 		color: #000;
 		background: var(--accent);
+	}
+
+	.auth-section {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-left: 8px;
+		padding-left: 12px;
+		border-left: 1px solid #333;
+	}
+
+	.member-name {
+		font-family: var(--font-heading);
+		font-size: 0.85rem;
+		color: var(--accent-yellow);
+		letter-spacing: 1px;
+	}
+
+	.auth-btn {
+		padding: 6px 14px;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		font-family: var(--font-heading);
+		letter-spacing: 1px;
+		color: var(--text-secondary);
+		transition: all 0.2s;
+	}
+
+	.auth-btn:hover {
+		color: var(--accent);
+		background: rgba(255, 102, 0, 0.1);
+	}
+
+	.login-btn {
+		background: var(--accent);
+		color: #000;
+		margin-left: 8px;
+	}
+
+	.login-btn:hover {
+		background: var(--accent-yellow);
+		color: #000;
 	}
 
 	@media (max-width: 640px) {
