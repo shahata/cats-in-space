@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { likes, posts } from "@wix/blog";
 import { comments as commentsApi } from "@wix/comments";
+import { members } from "@wix/members";
 import { httpClient } from "@wix/essentials";
 
 type Comment = commentsApi.Comment;
@@ -31,6 +32,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [editText, setEditText] = useState("");
   const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
+  const [memberProfiles, setMemberProfiles] = useState<Map<string, { nickname: string; title?: string }>>(new Map());
 
   useEffect(() => {
     reportView();
@@ -122,8 +124,32 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       if (expectedMin && total < expectedMin) {
         setTimeout(() => loadComments(expectedMin), 2000);
       }
+
+      // Load member profiles for comments authored by members
+      const allWithReplies = [...topLevel, ...uniqueReplies];
+      const memberIds = new Set<string>();
+      for (const c of allWithReplies) {
+        if (c.author?.memberId) memberIds.add(c.author.memberId);
+      }
+      if (memberIds.size > 0) {
+        loadMemberProfiles(memberIds);
+      }
     } catch {}
   }, [referenceId]);
+
+  async function loadMemberProfiles(memberIds: Set<string>) {
+    const profiles = new Map(memberProfiles);
+    await Promise.all([...memberIds].filter(id => !profiles.has(id)).map(async (id) => {
+      try {
+        const m = await members.getMember(id, { fieldsets: ['FULL'] });
+        const nickname = m.profile?.nickname || m.contact?.firstName || undefined;
+        if (nickname) {
+          profiles.set(id, { nickname, title: m.profile?.title || undefined });
+        }
+      } catch {}
+    }));
+    setMemberProfiles(profiles);
+  }
 
   async function loadAllMyLikes() {
     // queryLikes returns all likes by the current visitor (posts + comments)
@@ -247,6 +273,16 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     } catch (e) { console.error("Delete error:", e); }
   }
 
+  function getAuthorDisplay(comment: Comment): { name: string; title?: string; isMember: boolean } {
+    const memberId = comment.author?.memberId;
+    if (memberId) {
+      const profile = memberProfiles.get(memberId);
+      if (profile) return { name: profile.nickname, title: profile.title, isMember: true };
+    }
+    const authorName = (comment.author as { authorName?: string })?.authorName;
+    return { name: authorName || "Space Visitor", isMember: false };
+  }
+
   function isOwnComment(comment: Comment): boolean {
     if (!myVisitorId) return false;
     return (comment.author?.visitorId || comment.author?.memberId || comment.author?.userId) === myVisitorId;
@@ -272,7 +308,8 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   }
 
   function renderReplyThread(reply: Comment, depth: number): React.ReactNode {
-    const rAuthor = (reply.author as { authorName?: string })?.authorName || "Space Visitor";
+    const rAuthorInfo = getAuthorDisplay(reply);
+    const rAuthor = rAuthorInfo.name;
     const rText = getCommentText(reply);
     const rIsMine = isOwnComment(reply);
     const rIsEditing = editingId === reply._id;
@@ -286,6 +323,8 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         <div style={commentHeaderStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={commentAuthorStyle}>{rAuthor}</span>
+            {rAuthorInfo.isMember && <span style={memberBadgeStyle}>crew</span>}
+            {rAuthorInfo.title && <span style={{ fontSize: "0.7rem", color: "#666", fontStyle: "italic" }}>{rAuthorInfo.title}</span>}
             <span style={{ fontSize: "0.75rem", color: "#555" }}>replying to {replyingToName}</span>
           </div>
           <span style={commentDateStyle}>{formatDate(reply._createdDate)}</span>
@@ -347,7 +386,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
   const commentElements = topLevelComments.map((comment) => {
     const commentId = comment._id!;
-    const author = (comment.author as { authorName?: string })?.authorName || "Space Visitor";
+    const authorInfo = getAuthorDisplay(comment);
     const text = getCommentText(comment);
 
     const replies = repliesMap[commentId] || [];
@@ -358,7 +397,9 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       <div key={commentId + "-" + myVisitorId} style={commentCardStyle}>
         <div style={commentHeaderStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <span style={commentAuthorStyle}>{author}</span>
+            <span style={commentAuthorStyle}>{authorInfo.name}</span>
+            {authorInfo.isMember && <span style={memberBadgeStyle}>crew</span>}
+            {authorInfo.title && <span style={{ fontSize: "0.7rem", color: "#666", fontStyle: "italic" }}>{authorInfo.title}</span>}
           </div>
           <span style={commentDateStyle}>{formatDate(comment._createdDate)}</span>
         </div>
@@ -474,6 +515,7 @@ const commentsListStyle: React.CSSProperties = { display: "flex", flexDirection:
 const commentCardStyle: React.CSSProperties = { background: "#141414", border: "1px solid #222", borderRadius: "12px", padding: "16px 20px" };
 const commentHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" };
 const commentAuthorStyle: React.CSSProperties = { fontFamily: "'Bangers', cursive", fontSize: "0.95rem", color: "#ffcc00", letterSpacing: "1px" };
+const memberBadgeStyle: React.CSSProperties = { display: "inline-block", padding: "1px 8px", background: "rgba(255, 102, 0, 0.15)", border: "1px solid rgba(255, 102, 0, 0.3)", borderRadius: "10px", fontSize: "0.6rem", color: "#ff6600", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px" };
 const commentDateStyle: React.CSSProperties = { fontSize: "0.75rem", color: "#666" };
 const commentTextStyle: React.CSSProperties = { color: "#aaa", fontSize: "0.9rem", lineHeight: "1.6", margin: 0 };
 const commentActionsStyle: React.CSSProperties = { display: "flex", gap: "12px", marginTop: "8px" };
