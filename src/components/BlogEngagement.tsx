@@ -28,27 +28,25 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editRating, setEditRating] = useState(0);
-  const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
+  const [ownCommentIds, setOwnCommentIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function init() {
       reportView();
       loadMetrics();
       checkIfLiked();
-      await detectCurrentVisitor();
-      await loadComments();
+
+      // Detect identity then load comments, marking owned ones
+      let myId: string | null = null;
+      try {
+        const tokenInfo = await auth.getTokenInfo();
+        myId = tokenInfo.subjectId ?? null;
+      } catch {}
+
+      await loadComments(myId);
     }
     init();
   }, [postId]);
-
-  async function detectCurrentVisitor() {
-    try {
-      const tokenInfo = await auth.getTokenInfo();
-      if (tokenInfo.subjectId) {
-        setMyVisitorId(tokenInfo.subjectId);
-      }
-    } catch {}
-  }
 
   async function reportView() {
     try {
@@ -72,7 +70,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     } catch {}
   }
 
-  async function loadComments() {
+  async function loadComments(myId?: string | null) {
     try {
       const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
         contextId: referenceId,
@@ -103,12 +101,23 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         }
       }
 
+      // Build set of owned comment IDs
+      const owned = new Set<string>();
+      if (myId) {
+        const allWithReplies = [...allComments, ...Object.values(rm).flat()];
+        for (const c of allWithReplies) {
+          const authorId = c.author?.visitorId || c.author?.memberId || c.author?.userId;
+          if (authorId === myId && c._id) owned.add(c._id);
+        }
+      }
+
       // Count total including replies
       const replyCount = Object.values(rm).reduce((sum, r) => sum + r.length, 0);
 
       setTopLevelComments(topLevel);
       setRepliesMap(rm);
       setTotalComments(topLevel.length + replyCount);
+      setOwnCommentIds(owned);
     } catch {}
   }
 
@@ -154,9 +163,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     };
   }
 
-  function captureVisitorId(comment: any) {
-    const vid = comment?.author?.visitorId || (comment?.content as any)?.author?.visitorId;
-    if (vid && !myVisitorId) setMyVisitorId(vid);
+  async function getMyId(): Promise<string | null> {
+    try {
+      const tokenInfo = await auth.getTokenInfo();
+      return tokenInfo.subjectId ?? null;
+    } catch { return null; }
   }
 
   async function submitComment(e: React.FormEvent) {
@@ -165,7 +176,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     setSubmitting(true);
     const authorName = commentName.trim() || "Anonymous Space Cat";
     try {
-      const created = await commentsApi.createComment({
+      await commentsApi.createComment({
         appId: BLOG_APP_ID,
         contextId: referenceId,
         resourceId: referenceId,
@@ -173,10 +184,10 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         content: makeRichContent(newComment.trim()),
         ...(commentRating > 0 ? { rating: commentRating } : {}),
       } as any);
-      captureVisitorId(created);
       setNewComment("");
       setCommentRating(0);
-      await loadComments();
+      const myId = await getMyId();
+      await loadComments(myId);
       await loadMetrics();
     } catch (e) {
       console.error("Comment error:", e);
@@ -189,7 +200,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     setSubmitting(true);
     const authorName = commentName.trim() || "Anonymous Space Cat";
     try {
-      const created = await commentsApi.createComment({
+      await commentsApi.createComment({
         appId: BLOG_APP_ID,
         contextId: referenceId,
         resourceId: referenceId,
@@ -197,10 +208,10 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         parentComment: { _id: parentId },
         content: makeRichContent(replyText.trim()),
       } as any);
-      captureVisitorId(created);
       setReplyText("");
       setReplyingTo(null);
-      await loadComments();
+      const myId = await getMyId();
+      await loadComments(myId);
       await loadMetrics();
     } catch (e) {
       console.error("Reply error:", e);
@@ -219,7 +230,8 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       setEditingId(null);
       setEditText("");
       setEditRating(0);
-      await loadComments();
+      const myId = await getMyId();
+      await loadComments(myId);
     } catch (e) {
       console.error("Edit error:", e);
     }
@@ -229,7 +241,8 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     if (!confirm("Delete this transmission?")) return;
     try {
       await commentsApi.deleteComment(commentId);
-      await loadComments();
+      const myId = await getMyId();
+      await loadComments(myId);
       await loadMetrics();
     } catch (e) {
       console.error("Delete error:", e);
@@ -237,9 +250,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   }
 
   function isOwnComment(comment: any): boolean {
-    if (!myVisitorId) return false;
-    const vid = comment.author?.visitorId || comment.author?.memberId;
-    return vid === myVisitorId;
+    return ownCommentIds.has(comment._id);
   }
 
   function getCommentText(comment: any): string {
