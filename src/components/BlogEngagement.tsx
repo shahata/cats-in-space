@@ -40,11 +40,11 @@ export default function BlogEngagement({ postId }: Props) {
 
   async function loadComments() {
     try {
-      const res = await commentsApi.listCommentsByResource({
-        appId: BLOG_APP_ID,
+      const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
+        contextId: postId,
         resourceId: postId,
-        limit: 50,
-        order: "OLDEST",
+        commentSort: { order: "OLDEST_FIRST" },
+        cursorPaging: { limit: 50 },
       });
       setCommentsList(res.comments || []);
     } catch {}
