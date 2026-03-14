@@ -21,13 +21,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [totalComments, setTotalComments] = useState(0);
   const [newComment, setNewComment] = useState("");
   const [commentName, setCommentName] = useState("");
-  const [commentRating, setCommentRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const [editRating, setEditRating] = useState(0);
   const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -132,36 +130,13 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     if (!newComment.trim()) return;
     setSubmitting(true);
     try {
-      let created: any;
-      if (commentRating > 0) {
-        // SDK strips rating field, use REST API directly
-        const res = await httpClient.fetchWithAuth(
-          "https://www.wixapis.com/comments/v1/comments",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              comment: {
-                appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
-                author: { authorName: commentName.trim() || "Anonymous Space Cat" },
-                content: makeRichContent(newComment.trim()),
-                rating: commentRating,
-              },
-            }),
-          }
-        );
-        const data = await res.json();
-        created = data.comment;
-      } else {
-        created = await commentsApi.createComment({
-          appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
-          author: { authorName: commentName.trim() || "Anonymous Space Cat" },
-          content: makeRichContent(newComment.trim()),
-        } as any);
-      }
+      const created = await commentsApi.createComment({
+        appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
+        author: { authorName: commentName.trim() || "Anonymous Space Cat" },
+        content: makeRichContent(newComment.trim()),
+      } as any);
       captureIdentity(created);
       setNewComment("");
-      setCommentRating(0);
       await loadComments();
       await loadMetrics();
     } catch (e) { console.error("Comment error:", e); }
@@ -190,31 +165,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   async function handleEdit(commentId: string, revision: string) {
     if (!editText.trim()) return;
     try {
-      if (editRating > 0) {
-        // SDK strips rating, use REST
-        await httpClient.fetchWithAuth(
-          `https://www.wixapis.com/comments/v1/comments/${commentId}`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              comment: {
-                _id: commentId,
-                revision,
-                content: makeRichContent(editText.trim()),
-                rating: editRating,
-              },
-            }),
-          }
-        );
-      } else {
-        await commentsApi.updateComment(commentId, {
-          revision, content: makeRichContent(editText.trim()),
-        } as any);
-      }
+      await commentsApi.updateComment(commentId, {
+        revision, content: makeRichContent(editText.trim()),
+      } as any);
       setEditingId(null);
       setEditText("");
-      setEditRating(0);
       await loadComments();
     } catch (e) { console.error("Edit error:", e); }
   }
@@ -286,14 +241,10 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
           <div style={{ marginTop: "8px" }}>
             <textarea value={editText} onChange={(e) => setEditText(e.target.value)}
               rows={3} style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-              <span style={{ color: "#888", fontSize: "0.8rem" }}>Rating:</span>
-              <StarRating value={editRating} onChange={setEditRating} />
-            </div>
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => handleEdit(comment._id, comment.revision)}
                 style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>Save</button>
-              <button onClick={() => { setEditingId(null); setEditText(""); setEditRating(0); }}
+              <button onClick={() => { setEditingId(null); setEditText(""); }}
                 style={smallBtnStyle}>Cancel</button>
             </div>
           </div>
@@ -307,7 +258,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
               style={actionBtnStyle}>Reply{replies.length > 0 ? ` (${replies.length})` : ""}</button>
             {isMine && (
               <>
-                <button onClick={() => { setEditingId(comment._id); setEditText(text); setEditRating(comment.rating || 0); }}
+                <button onClick={() => { setEditingId(comment._id); setEditText(text); }}
                   style={actionBtnStyle}>Edit</button>
                 <button onClick={() => handleDelete(comment._id)}
                   style={{ ...actionBtnStyle, color: "#cc0000" }}>Delete</button>
@@ -406,11 +357,6 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
           <textarea placeholder="Write your message to the crew..." value={newComment}
             onChange={(e) => setNewComment(e.target.value)} rows={4}
             style={{ ...inputStyle, resize: "vertical" as const }} required />
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "12px" }}>
-            <span style={{ color: "#888", fontSize: "0.85rem" }}>Rating:</span>
-            <StarRating value={commentRating} onChange={setCommentRating} />
-            {commentRating > 0 && <span style={{ color: "#666", fontSize: "0.8rem" }}>{commentRating}/5</span>}
-          </div>
           <button type="submit" disabled={submitting} style={submitButtonStyle}>
             {submitting ? "Transmitting..." : "Send Transmission"}
           </button>
