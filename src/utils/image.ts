@@ -1,6 +1,9 @@
+import { media } from '@wix/sdk';
+
 /**
- * Converts a Wix image URL (wix:image://v1/...) to a displayable static URL.
- * Falls back to the original string if it's already a regular URL.
+ * Converts a Wix image identifier to a displayable URL.
+ * Uses the official @wix/sdk media helpers.
+ * Supports wix:image:// strings, media IDs, and regular URLs.
  */
 export function getImageUrl(wixImage: string | undefined, width = 800, height = 800): string | null {
   if (!wixImage) return null;
@@ -8,10 +11,21 @@ export function getImageUrl(wixImage: string | undefined, width = 800, height = 
   // Already a regular URL
   if (wixImage.startsWith('http')) return wixImage;
 
-  // Parse wix:image://v1/{mediaId}/{filename}#{params}
-  const match = wixImage.match(/^wix:image:\/\/v1\/([^/]+)\//);
-  if (!match) return null;
+  // Use SDK media helper for wix:image:// strings
+  if (wixImage.startsWith('wix:image://')) {
+    try {
+      return media.getScaledToFillImageUrl(wixImage, width, height, {});
+    } catch {
+      // Fallback: parse manually
+      const parsed = media.getImageUrl(wixImage);
+      return parsed?.url || null;
+    }
+  }
 
-  const mediaId = match[1];
-  return `https://static.wixstatic.com/media/${mediaId}/v1/fill/w_${width},h_${height},al_c,q_80/${mediaId}`;
+  // Plain media ID — construct wix:image:// format and try again
+  try {
+    return media.getScaledToFillImageUrl(`wix:image://v1/${wixImage}/${wixImage}#originWidth=${width}&originHeight=${height}`, width, height, {});
+  } catch {
+    return `https://static.wixstatic.com/media/${wixImage}`;
+  }
 }

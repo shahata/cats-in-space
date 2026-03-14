@@ -179,14 +179,28 @@ IMAGE fields store: `wix:image://v1/{mediaId}/{filename}#originWidth={w}&originH
 
 ### Converting for Display
 
+Use `media` from `@wix/sdk` instead of building URLs manually:
+
 ```typescript
+import { media } from '@wix/sdk';
+
+// Parse wix:image:// string to get URL and metadata
+const parsed = media.getImageUrl('wix:image://v1/mediaId/file.png#originWidth=800&originHeight=600');
+// Returns: { id, url, height, width, altText, filename }
+
+// Get a scaled URL with specific dimensions
+const url = media.getScaledToFillImageUrl('wix:image://...', 800, 600, {});
+
+// Wrapper that handles all formats (wix:image://, media IDs, regular URLs)
 function getImageUrl(wixImage: string | undefined, width = 800, height = 800): string | null {
   if (!wixImage) return null;
   if (wixImage.startsWith('http')) return wixImage;
-  const match = wixImage.match(/^wix:image:\/\/v1\/([^/]+)\//);
-  if (!match) return null;
-  const mediaId = match[1];
-  return `https://static.wixstatic.com/media/${mediaId}/v1/fill/w_${width},h_${height},al_c,q_80/${mediaId}`;
+  if (wixImage.startsWith('wix:image://')) {
+    try { return media.getScaledToFillImageUrl(wixImage, width, height, {}); } catch {}
+    const parsed = media.getImageUrl(wixImage);
+    return parsed?.url || null;
+  }
+  return `https://static.wixstatic.com/media/${wixImage}`;
 }
 ```
 

@@ -35,8 +35,7 @@ function getCoverImage(post: any): string | null {
 	if (!post.coverMedia?.image) return null;
 	const img = post.coverMedia.image;
 	if (img.url) return img.url;
-	if (img.id) return `https://static.wixstatic.com/media/${img.id}/v1/fill/w_800,h_500,al_c,q_80/${img.id}`;
-	return getImageUrl(img.id);
+	return getImageUrl(img.id, 800, 500);
 }
 
 function getExcerpt(post: any): string {
