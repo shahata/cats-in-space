@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { members } from "@wix/members";
-import { httpClient } from "@wix/essentials";
+import { files } from "@wix/media";
 
 interface Props {
   member: any;
@@ -47,28 +47,18 @@ export default function MemberProfile({ member }: Props) {
     setPhotoUploading(true);
     setError("");
     try {
-      // Upload to Wix Media via import URL using a data URL
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
+      // 1. Generate upload URL
+      const { uploadUrl } = await files.generateFileUploadUrl(file.type, { fileName: file.name });
+
+      // 2. PUT file binary to the upload URL
+      const uploadRes = await fetch(uploadUrl!, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
       });
 
-      // Use fetchWithAuth to upload via the media import endpoint
-      const res = await httpClient.fetchWithAuth(
-        "https://www.wixapis.com/site-media/v1/files/import",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: dataUrl,
-            mediaType: "IMAGE",
-            displayName: file.name,
-          }),
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
+      if (uploadRes.ok) {
+        const data = await uploadRes.json();
         const mediaId = data.file?.id;
         const url = data.file?.url;
         if (mediaId && url) {
