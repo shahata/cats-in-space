@@ -28,6 +28,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
+  const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     reportView();
@@ -215,17 +216,16 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   async function toggleCommentLike(comment: any) {
     const cid = comment._id || (comment as any).id;
     if (!cid) { console.error("No comment ID for like"); return; }
+    const isLiked = likedCommentIds.has(cid);
     try {
-      const res = await likes.getLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: cid });
-      if (res.like) {
+      if (isLiked) {
         await likes.deleteLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: cid });
-      }
-    } catch {
-      // Not liked yet, create like
-      try {
+        setLikedCommentIds((prev) => { const next = new Set(prev); next.delete(cid); return next; });
+      } else {
         await likes.createLike({ like: { fqdn: BLOG_POST_FQDN, entityId: cid } });
-      } catch (e) { console.error("Comment like error:", e); }
-    }
+        setLikedCommentIds((prev) => new Set(prev).add(cid));
+      }
+    } catch (e) { console.error("Comment like error:", e); }
   }
 
   async function handleDelete(commentId: string) {
@@ -297,7 +297,9 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         )}
         {!rIsEditing && (
           <div style={commentActionsStyle}>
-            <button onClick={() => toggleCommentLike(reply)} style={actionBtnStyle}>♡ Like</button>
+            <button onClick={() => toggleCommentLike(reply)}
+              style={{ ...actionBtnStyle, color: likedCommentIds.has(reply._id || (reply as any).id) ? "#ff6600" : "#888" }}>
+              {likedCommentIds.has(reply._id || (reply as any).id) ? "♥ Liked" : "♡ Like"}</button>
             <button onClick={() => { setReplyingTo(replyingTo === reply._id ? null : reply._id); setReplyText(""); setReplyName(""); }}
               style={actionBtnStyle}>Reply</button>
             {rIsMine && (
@@ -368,7 +370,9 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {!isEditing && (
           <div style={commentActionsStyle}>
-            <button onClick={() => toggleCommentLike(comment)} style={actionBtnStyle}>♡ Like</button>
+            <button onClick={() => toggleCommentLike(comment)}
+              style={{ ...actionBtnStyle, color: likedCommentIds.has(comment._id) ? "#ff6600" : "#888" }}>
+              {likedCommentIds.has(comment._id) ? "♥ Liked" : "♡ Like"}</button>
             <button onClick={() => { setReplyingTo(replyingTo === comment._id ? null : comment._id); setReplyText(""); setReplyName(""); }}
               style={actionBtnStyle}>Reply{replies.length > 0 ? ` (${replies.length})` : ""}</button>
             {isMine && (
