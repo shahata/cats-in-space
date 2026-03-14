@@ -469,8 +469,12 @@ await commentsApi.createComment({
 });
 ```
 
-**Comment author info is on:** `comment.author.guestAuthorName` or `comment.author.memberName`
-**Comment text is on:** `comment.plainContent.text` or extract from `comment.richContent.nodes`
+**CRITICAL:** For Wix Blog comments, use the post's `referenceId` (NOT `_id`) for `contextId` and `resourceId`. Get it via `REFERENCE_ID` fieldset.
+
+**CRITICAL:** Guest display names use `author: { authorName: "Name" }` on the Comment object. The `CommentAuthor` type in the SDK doesn't show it, so cast with `as any`.
+
+**Comment author info is on:** `comment.author.authorName`
+**Comment text is on:** `comment.content.richContent.nodes` (extract TEXT nodes from PARAGRAPH nodes)
 
 ### Post Metrics (Client-Side)
 

@@ -8,7 +8,7 @@ import { posts, tags as tagsApi } from '@wix/blog';
 import { members } from '@wix/members';
 
 const { slug } = Astro.params;
-const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID'] });
+const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] });
 const post = result.post;
 
 if (!post) return Astro.redirect('/blog');
@@ -74,7 +74,7 @@ const writerTitle = writer?.profile?.title || '';
 				</div>
 			</div>
 
-			<BlogEngagement postId={post._id!} client:load />
+			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} client:load />
 
 			<footer class="post-footer">
 				<a href="/blog" class="btn btn-outline">&larr; More Transmissions</a>

@@ -8,9 +8,10 @@ const BLOG_POST_FQDN = "wix.blog.v3.post";
 
 interface Props {
   postId: string;
+  referenceId: string;
 }
 
-export default function BlogEngagement({ postId }: Props) {
+export default function BlogEngagement({ postId, referenceId }: Props) {
   const [metrics, setMetrics] = useState({ views: 0, likes: 0, comments: 0 });
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -41,8 +42,8 @@ export default function BlogEngagement({ postId }: Props) {
   async function loadComments() {
     try {
       const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
-        contextId: postId,
-        resourceId: postId,
+        contextId: referenceId,
+        resourceId: referenceId,
         commentSort: { order: "OLDEST_FIRST" },
         cursorPaging: { limit: 50 },
       });
@@ -98,8 +99,11 @@ export default function BlogEngagement({ postId }: Props) {
     try {
       await commentsApi.createComment({
         appId: BLOG_APP_ID,
-        contextId: postId,
-        resourceId: postId,
+        contextId: referenceId,
+        resourceId: referenceId,
+        author: {
+          authorName,
+        },
         content: {
           richContent: {
             nodes: [
@@ -109,14 +113,7 @@ export default function BlogEngagement({ postId }: Props) {
                   {
                     type: "TEXT",
                     textData: {
-                      text: authorName,
-                      decorations: [{ type: "BOLD" }],
-                    },
-                  },
-                  {
-                    type: "TEXT",
-                    textData: {
-                      text: ": " + newComment.trim(),
+                      text: newComment.trim(),
                       decorations: [],
                     },
                   },
@@ -150,35 +147,22 @@ export default function BlogEngagement({ postId }: Props) {
   }
 
   function parseComment(comment: any): { author: string; text: string } {
-    // Comments are stored as: [BOLD "AuthorName"][": message text"]
-    // Parse the first paragraph to extract author and text
+    // Author name is on comment.author.authorName
+    const author = comment.author?.authorName || "Space Visitor";
+
+    // Text is in comment.content.richContent.nodes
     const nodes = comment.content?.richContent?.nodes || [];
+    const texts: string[] = [];
     for (const node of nodes) {
       if (node.type === "PARAGRAPH") {
-        const children = node.nodes || [];
-        // Check if first text node is bold (our author name format)
-        if (
-          children.length >= 2 &&
-          children[0]?.type === "TEXT" &&
-          children[0]?.textData?.decorations?.some((d: any) => d.type === "BOLD")
-        ) {
-          const author = children[0].textData.text;
-          const rest = children
-            .slice(1)
-            .map((c: any) => c.textData?.text || "")
-            .join("");
-          // Remove leading ": " from rest
-          const text = rest.startsWith(": ") ? rest.slice(2) : rest;
-          return { author, text };
+        for (const child of node.nodes || []) {
+          if (child.type === "TEXT" && child.textData?.text) {
+            texts.push(child.textData.text);
+          }
         }
-        // Fallback: just combine all text
-        const allText = children
-          .map((c: any) => c.textData?.text || "")
-          .join("");
-        return { author: "Space Visitor", text: allText };
       }
     }
-    return { author: "Space Visitor", text: "" };
+    return { author, text: texts.join(" ") };
   }
 
   return (
