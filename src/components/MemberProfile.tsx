@@ -7,16 +7,33 @@ interface Props {
 }
 
 export default function MemberProfile({ member }: Props) {
+  // Public profile
   const [nickname, setNickname] = useState(member.profile?.nickname || "");
   const [title, setTitle] = useState(member.profile?.title || "");
+  const [slug, setSlug] = useState(member.profile?.slug || "");
+  const [privacyStatus, setPrivacyStatus] = useState(member.privacyStatus || "PUBLIC");
+
+  // Contact info
   const [firstName, setFirstName] = useState(member.contact?.firstName || "");
   const [lastName, setLastName] = useState(member.contact?.lastName || "");
   const [company, setCompany] = useState(member.contact?.company || "");
   const [jobTitle, setJobTitle] = useState(member.contact?.jobTitle || "");
   const [birthdate, setBirthdate] = useState(member.contact?.birthdate || "");
+  const [phone, setPhone] = useState(member.contact?.phones?.[0] || "");
+
+  // Address
+  const addr = member.contact?.addresses?.[0] || {};
+  const [addressLine, setAddressLine] = useState(addr.addressLine || "");
+  const [addressLine2, setAddressLine2] = useState(addr.addressLine2 || "");
+  const [city, setCity] = useState(addr.city || "");
+  const [subdivision, setSubdivision] = useState(addr.subdivision || "");
+  const [country, setCountry] = useState(addr.country || "");
+  const [postalCode, setPostalCode] = useState(addr.postalCode || "");
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [slugSaving, setSlugSaving] = useState(false);
 
   const photo = member.profile?.photo?.url;
 
@@ -37,7 +54,18 @@ export default function MemberProfile({ member }: Props) {
           company: company || undefined,
           jobTitle: jobTitle || undefined,
           birthdate: birthdate || undefined,
+          phones: phone ? [phone] : undefined,
+          addresses: [{
+            ...(addr._id ? { _id: addr._id } : {}),
+            addressLine: addressLine || undefined,
+            addressLine2: addressLine2 || undefined,
+            city: city || undefined,
+            subdivision: subdivision || undefined,
+            country: country || undefined,
+            postalCode: postalCode || undefined,
+          }],
         },
+        privacyStatus,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -45,6 +73,20 @@ export default function MemberProfile({ member }: Props) {
       setError(e?.message || "Failed to update profile");
     }
     setSaving(false);
+  }
+
+  async function handleSlugUpdate() {
+    if (!slug.trim()) return;
+    setSlugSaving(true);
+    setError("");
+    try {
+      await members.updateCurrentMemberSlug(slug.trim());
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e: any) {
+      setError(e?.message || "Failed to update slug");
+    }
+    setSlugSaving(false);
   }
 
   return (
@@ -60,6 +102,10 @@ export default function MemberProfile({ member }: Props) {
           <div style={headerNameStyle}>{nickname || firstName || "Unnamed Cat"}</div>
           {title && <div style={headerTitleStyle}>{title}</div>}
           <div style={headerEmailStyle}>{member.loginEmail}</div>
+          <div style={headerMetaStyle}>
+            Member since {member._createdDate ? new Date(member._createdDate).toLocaleDateString() : "unknown"}
+            {member.lastLoginDate && <> · Last login {new Date(member.lastLoginDate).toLocaleDateString()}</>}
+          </div>
         </div>
       </div>
 
@@ -76,11 +122,27 @@ export default function MemberProfile({ member }: Props) {
         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. Chief Napping Officer" style={inputStyle} />
 
+        <label style={labelStyle}>Profile Slug</label>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)}
+            placeholder="my-profile-url" style={{ ...inputStyle, flex: 1 }} />
+          <button type="button" onClick={handleSlugUpdate} disabled={slugSaving}
+            style={{ ...smallButtonStyle, marginTop: 0 }}>
+            {slugSaving ? "..." : "Update"}
+          </button>
+        </div>
+
+        <label style={labelStyle}>Privacy</label>
+        <select value={privacyStatus} onChange={(e) => setPrivacyStatus(e.target.value)} style={inputStyle}>
+          <option value="PUBLIC">Public — visible to everyone</option>
+          <option value="PRIVATE">Private — visible only to site admins</option>
+        </select>
+
         {/* Private Info */}
-        <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>Private Info</h3>
+        <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>Personal Info</h3>
         <p style={sectionDescStyle}>Only visible to site administrators</p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+        <div style={gridStyle}>
           <div>
             <label style={labelStyle}>First Name</label>
             <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
@@ -93,20 +155,69 @@ export default function MemberProfile({ member }: Props) {
           </div>
         </div>
 
-        <label style={labelStyle}>Company</label>
-        <input type="text" value={company} onChange={(e) => setCompany(e.target.value)}
-          style={inputStyle} />
+        <div style={gridStyle}>
+          <div>
+            <label style={labelStyle}>Company</label>
+            <input type="text" value={company} onChange={(e) => setCompany(e.target.value)}
+              style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Job Title</label>
+            <input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)}
+              style={inputStyle} />
+          </div>
+        </div>
 
-        <label style={labelStyle}>Job Title</label>
-        <input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)}
-          style={inputStyle} />
+        <div style={gridStyle}>
+          <div>
+            <label style={labelStyle}>Phone</label>
+            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1234567890" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Birthdate</label>
+            <input type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)}
+              style={inputStyle} />
+          </div>
+        </div>
 
-        <label style={labelStyle}>Birthdate</label>
-        <input type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)}
-          style={inputStyle} />
+        {/* Address */}
+        <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>Address</h3>
+        <p style={sectionDescStyle}>Only visible to site administrators</p>
+
+        <label style={labelStyle}>Address Line 1</label>
+        <input type="text" value={addressLine} onChange={(e) => setAddressLine(e.target.value)}
+          placeholder="Street and number" style={inputStyle} />
+
+        <label style={labelStyle}>Address Line 2</label>
+        <input type="text" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)}
+          placeholder="Apartment, suite, floor" style={inputStyle} />
+
+        <div style={gridStyle}>
+          <div>
+            <label style={labelStyle}>City</label>
+            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>State / Province</label>
+            <input type="text" value={subdivision} onChange={(e) => setSubdivision(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+
+        <div style={gridStyle}>
+          <div>
+            <label style={labelStyle}>Country Code</label>
+            <input type="text" value={country} onChange={(e) => setCountry(e.target.value)}
+              placeholder="US, IL, GB..." maxLength={2} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Postal Code</label>
+            <input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
 
         {/* Actions */}
-        <div style={{ marginTop: "24px", display: "flex", alignItems: "center", gap: "16px" }}>
+        <div style={{ marginTop: "32px", display: "flex", alignItems: "center", gap: "16px" }}>
           <button type="submit" disabled={saving} style={saveButtonStyle}>
             {saving ? "Saving..." : "Save Changes"}
           </button>
@@ -141,7 +252,10 @@ const headerTitleStyle: React.CSSProperties = {
   fontSize: "0.85rem", color: "#ff6600", fontStyle: "italic",
 };
 const headerEmailStyle: React.CSSProperties = {
-  fontSize: "0.8rem", color: "#666", marginTop: "4px",
+  fontSize: "0.8rem", color: "#888", marginTop: "4px",
+};
+const headerMetaStyle: React.CSSProperties = {
+  fontSize: "0.7rem", color: "#555", marginTop: "2px",
 };
 const sectionHeadingStyle: React.CSSProperties = {
   fontFamily: "'Bangers', cursive", fontSize: "1.3rem",
@@ -151,7 +265,7 @@ const sectionDescStyle: React.CSSProperties = {
   fontSize: "0.8rem", color: "#666", marginBottom: "16px",
 };
 const labelStyle: React.CSSProperties = {
-  display: "block", fontSize: "0.8rem", color: "#888",
+  display: "block", fontSize: "0.75rem", color: "#888",
   textTransform: "uppercase", letterSpacing: "1px",
   marginBottom: "4px", marginTop: "12px",
 };
@@ -161,9 +275,17 @@ const inputStyle: React.CSSProperties = {
   fontSize: "0.9rem", fontFamily: "'Inter', sans-serif",
   outline: "none", boxSizing: "border-box",
 };
+const gridStyle: React.CSSProperties = {
+  display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px",
+};
 const saveButtonStyle: React.CSSProperties = {
   padding: "12px 32px", background: "#ff6600", color: "#000",
   border: "none", borderRadius: "8px", fontFamily: "'Bangers', cursive",
   fontSize: "1rem", letterSpacing: "1px", cursor: "pointer",
-  transition: "all 0.3s",
+};
+const smallButtonStyle: React.CSSProperties = {
+  padding: "10px 16px", background: "transparent", color: "#ff6600",
+  border: "1px solid #ff6600", borderRadius: "8px",
+  fontFamily: "'Bangers', cursive", fontSize: "0.85rem",
+  letterSpacing: "1px", cursor: "pointer", whiteSpace: "nowrap",
 };
