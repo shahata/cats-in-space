@@ -21,7 +21,6 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [totalComments, setTotalComments] = useState(0);
   const [newComment, setNewComment] = useState("");
   const [commentName, setCommentName] = useState("");
-  const [commentRating, setCommentRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -136,9 +135,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         author: { authorName: commentName.trim() || "Anonymous Space Cat" },
         content: makeRichContent(newComment.trim()),
       };
-      if (commentRating > 0) commentBody.rating = commentRating;
 
-      // Use REST API directly — SDK strips rating field
       const res = await httpClient.fetchWithAuth(
         "https://www.wixapis.com/comments/v1/comments",
         {
@@ -150,7 +147,6 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       const data = await res.json();
       captureIdentity(data.comment);
       setNewComment("");
-      setCommentRating(0);
       await loadComments();
       await loadMetrics();
     } catch (e) { console.error("Comment error:", e); }
@@ -221,22 +217,10 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
-  function StarRating({ value, onChange, readonly }: { value: number; onChange?: (v: number) => void; readonly?: boolean }) {
-    return (
-      <span style={{ display: "inline-flex", gap: "2px" }}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <span key={star} onClick={() => !readonly && onChange?.(star === value ? 0 : star)}
-            style={{ cursor: readonly ? "default" : "pointer", fontSize: "1.1rem", color: star <= value ? "#ffcc00" : "#444" }}>★</span>
-        ))}
-      </span>
-    );
-  }
-
-  // Memoize to ensure re-render picks up myVisitorId changes
   const commentElements = topLevelComments.map((comment) => {
     const author = comment.author?.authorName || "Space Visitor";
     const text = getCommentText(comment);
-    const rating = comment.rating;
+
     const replies = repliesMap[comment._id] || [];
     const isEditing = editingId === comment._id;
     const isMine = isOwnComment(comment);
@@ -246,7 +230,6 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         <div style={commentHeaderStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={commentAuthorStyle}>{author}</span>
-            {rating > 0 && <StarRating value={rating} readonly />}
           </div>
           <span style={commentDateStyle}>{formatDate(comment._createdDate)}</span>
         </div>
@@ -371,11 +354,6 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
           <textarea placeholder="Write your message to the crew..." value={newComment}
             onChange={(e) => setNewComment(e.target.value)} rows={4}
             style={{ ...inputStyle, resize: "vertical" as const }} required />
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "12px" }}>
-            <span style={{ color: "#888", fontSize: "0.85rem" }}>Rating:</span>
-            <StarRating value={commentRating} onChange={setCommentRating} />
-            {commentRating > 0 && <span style={{ color: "#666", fontSize: "0.8rem" }}>{commentRating}/5</span>}
-          </div>
           <button type="submit" disabled={submitting} style={submitButtonStyle}>
             {submitting ? "Transmitting..." : "Send Transmission"}
           </button>

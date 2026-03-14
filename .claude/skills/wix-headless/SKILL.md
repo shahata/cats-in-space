@@ -486,6 +486,8 @@ await commentsApi.createComment({
 **Comment author info is on:** `comment.author.authorName`
 **Comment text is on:** `comment.content.richContent.nodes` (extract TEXT nodes from PARAGRAPH nodes)
 
+**CRITICAL:** The `rating` field on comments is **NOT controllable** through the public API. Both `createComment` and `updateComment` ignore the `rating` parameter. The field is always set to a system default (3) by Wix internally. Do NOT build rating input UI for comments.
+
 ### Post Metrics
 
 ```typescript
