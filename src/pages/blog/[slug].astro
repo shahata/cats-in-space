@@ -8,8 +8,11 @@ import { posts, tags as tagsApi } from '@wix/blog';
 import { members } from '@wix/members';
 
 const { slug } = Astro.params;
-const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] });
-const post = result.post;
+let post: any = null;
+try {
+	const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] });
+	post = result.post;
+} catch {}
 
 if (!post) return Astro.redirect('/blog');
 
