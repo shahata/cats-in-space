@@ -24,6 +24,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [replyName, setReplyName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
@@ -164,12 +165,13 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     try {
       const created = await commentsApi.createComment({
         appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
-        author: { authorName: commentName.trim() || "Anonymous Space Cat" },
+        author: { authorName: replyName.trim() || "Anonymous Space Cat" },
         parentComment: { _id: parentId },
         content: makeRichContent(replyText.trim()),
       } as any);
       captureIdentity(created);
       setReplyText("");
+      setReplyName("");
       setReplyingTo(null);
       await loadComments(totalComments + 1);
     } catch (e) { console.error("Reply error:", e); }
@@ -186,6 +188,20 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       setEditText("");
       await loadComments();
     } catch (e) { console.error("Edit error:", e); }
+  }
+
+  async function toggleCommentLike(commentId: string) {
+    try {
+      const res = await likes.getLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: commentId });
+      if (res.like) {
+        await likes.deleteLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: commentId });
+      }
+    } catch {
+      // Not liked yet, create like
+      try {
+        await likes.createLike({ like: { fqdn: BLOG_POST_FQDN, entityId: commentId } });
+      } catch {}
+    }
   }
 
   async function handleDelete(commentId: string) {
@@ -255,7 +271,8 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {!isEditing && (
           <div style={commentActionsStyle}>
-            <button onClick={() => { setReplyingTo(replyingTo === comment._id ? null : comment._id); setReplyText(""); }}
+            <button onClick={() => toggleCommentLike(comment._id)} style={actionBtnStyle}>♡ Like</button>
+            <button onClick={() => { setReplyingTo(replyingTo === comment._id ? null : comment._id); setReplyText(""); setReplyName(""); }}
               style={actionBtnStyle}>Reply{replies.length > 0 ? ` (${replies.length})` : ""}</button>
             {isMine && (
               <>
@@ -270,6 +287,9 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {replyingTo === comment._id && (
           <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #222" }}>
+            <input type="text" placeholder="Your name (optional)" value={replyName}
+              onChange={(e) => setReplyName(e.target.value)}
+              style={{ ...inputStyle, marginBottom: "8px" }} />
             <textarea placeholder="Write a reply..." value={replyText}
               onChange={(e) => setReplyText(e.target.value)} rows={2}
               style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
@@ -309,12 +329,35 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
                   ) : (
                     <p style={commentTextStyle}>{rText}</p>
                   )}
-                  {!rIsEditing && rIsMine && (
+                  {!rIsEditing && (
                     <div style={commentActionsStyle}>
-                      <button onClick={() => { setEditingId(reply._id); setEditText(rText); }}
-                        style={actionBtnStyle}>Edit</button>
-                      <button onClick={() => handleDelete(reply._id)}
-                        style={{ ...actionBtnStyle, color: "#cc0000" }}>Delete</button>
+                      <button onClick={() => toggleCommentLike(reply._id)} style={actionBtnStyle}>♡ Like</button>
+                      <button onClick={() => { setReplyingTo(replyingTo === reply._id ? null : reply._id); setReplyText(""); setReplyName(""); }}
+                        style={actionBtnStyle}>Reply</button>
+                      {rIsMine && (
+                        <>
+                          <button onClick={() => { setEditingId(reply._id); setEditText(rText); }}
+                            style={actionBtnStyle}>Edit</button>
+                          <button onClick={() => handleDelete(reply._id)}
+                            style={{ ...actionBtnStyle, color: "#cc0000" }}>Delete</button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {replyingTo === reply._id && (
+                    <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #222" }}>
+                      <input type="text" placeholder="Your name (optional)" value={replyName}
+                        onChange={(e) => setReplyName(e.target.value)}
+                        style={{ ...inputStyle, marginBottom: "8px" }} />
+                      <textarea placeholder="Write a reply..." value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)} rows={2}
+                        style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button onClick={() => submitReply(reply._id)} disabled={submitting}
+                          style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>
+                          {submitting ? "Sending..." : "Send Reply"}</button>
+                        <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>Cancel</button>
+                      </div>
                     </div>
                   )}
                 </div>
