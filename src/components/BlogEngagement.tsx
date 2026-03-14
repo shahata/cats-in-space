@@ -31,11 +31,14 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
 
   useEffect(() => {
-    reportView();
-    loadMetrics();
-    loadComments();
-    checkIfLiked();
-    detectCurrentVisitor();
+    async function init() {
+      reportView();
+      loadMetrics();
+      checkIfLiked();
+      await detectCurrentVisitor();
+      await loadComments();
+    }
+    init();
   }, [postId]);
 
   async function detectCurrentVisitor() {
