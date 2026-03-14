@@ -26,9 +26,12 @@ await Promise.all(blogPosts.map(async (post: any) => {
 			const c = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
 				contextId: post.referenceId,
 				resourceId: post.referenceId,
-				cursorPaging: { limit: 100 },
+				cursorPaging: { limit: 100, repliesLimit: 50 },
 			});
-			commentCountMap.set(post._id!, c.comments?.length ?? 0);
+			const replyCount = Object.values(c.commentReplies || {}).reduce(
+				(sum: number, r: any) => sum + (r.replies?.length ?? 0), 0
+			);
+			commentCountMap.set(post._id!, (c.comments?.length ?? 0) + replyCount);
 		} catch {}
 	}
 }));

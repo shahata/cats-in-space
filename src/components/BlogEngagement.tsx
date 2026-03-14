@@ -64,7 +64,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         resourceId: referenceId,
         commentSort: { order: "OLDEST_FIRST" },
         replySort: { order: "OLDEST_FIRST" },
-        cursorPaging: { limit: 100 },
+        cursorPaging: { limit: 100, repliesLimit: 50 },
       });
       const allComments = res.comments || [];
 
