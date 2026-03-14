@@ -39,12 +39,26 @@ const res = await posts.getPostBySlug('my-slug', {
   fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID']
 });
 const post = res.post;
-// Post has: _id, title, slug, firstPublishedDate, coverMedia, richContent,
-//           tagIds, memberId, metrics, excerpt, referenceId, etc.
+// Post has: _id, title, slug, firstPublishedDate, heroImage, richContent,
+//           tagIds, memberId, excerpt, referenceId, media, etc.
+// METRICS fieldset adds: metrics.views, metrics.likes, metrics.comments (not in SDK Post type!)
 ---
 ```
 
 **CRITICAL:** `getPostBySlug` throws `POST_NOT_FOUND` for invalid slugs (e.g. `.js.map` files hitting `[slug].astro`). Always wrap in try/catch and redirect.
+
+**CRITICAL:** The SDK `Post` type does NOT include `metrics`. Extend it:
+```typescript
+type Post = posts.Post & { metrics?: posts.Metrics };
+```
+
+**CRITICAL:** `members.getMember()` returns `Member` directly, NOT `{ member: Member }`. The SDK unwraps it.
+
+**CRITICAL:** Use `npx astro check` (not `tsc --noEmit`) for type checking. `tsc` does NOT check `.astro` files.
+
+## Source Code Reference
+
+Blog post service proto (internal): https://github.com/wix-private/blog-node/blob/master/packages/platformized-proto/src/main/proto/com/wixpress/npm/communities/platformized/blog/v3/post-service.proto
 
 ## Tags
 

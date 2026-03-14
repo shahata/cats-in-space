@@ -234,3 +234,6 @@ const planet = result.items[0];
 5. **Dev server port** — defaults to 4321, auto-increments if busy
 6. **`static.wixstatic.com`** — already in `astro.config.mjs` image domains
 7. **`httpClient.fetchWithAuth`** from `@wix/essentials` for authenticated REST calls client-side. Import from main module, NOT subpath.
+8. **Type checking** — Use `npx astro check` (not `tsc --noEmit`). `tsc` does NOT check `.astro` files.
+9. **`members.getMember()`** returns `Member` directly, NOT `{ member: Member }`. The SDK unwraps it.
+10. **Use `media` from `@wix/sdk`** for image URLs — `media.getImageUrl()`, `media.getScaledToFillImageUrl()`. Don't build URLs manually.
