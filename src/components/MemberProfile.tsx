@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { members } from "@wix/members";
+import { httpClient } from "@wix/essentials";
 
 interface Props {
   member: any;
@@ -34,8 +35,61 @@ export default function MemberProfile({ member }: Props) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
-  const photo = member.profile?.photo?.url;
+  const [photo, setPhoto] = useState<string | undefined>(member.profile?.photo?.url);
+  const [photoId, setPhotoId] = useState<string | undefined>(member.profile?.photo?._id);
+  const [removePhoto, setRemovePhoto] = useState(false);
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoUploading(true);
+    setError("");
+    try {
+      // Upload to Wix Media via import URL using a data URL
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      // Use fetchWithAuth to upload via the media import endpoint
+      const res = await httpClient.fetchWithAuth(
+        "https://www.wixapis.com/site-media/v1/files/import",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: dataUrl,
+            mediaType: "IMAGE",
+            displayName: file.name,
+          }),
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const mediaId = data.file?.id;
+        const url = data.file?.url;
+        if (mediaId && url) {
+          setPhotoId(mediaId);
+          setPhoto(url);
+          setRemovePhoto(false);
+        }
+      } else {
+        setError("Failed to upload image");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Upload failed");
+    }
+    setPhotoUploading(false);
+  }
+
+  function handleRemovePhoto() {
+    setPhoto(undefined);
+    setPhotoId(undefined);
+    setRemovePhoto(true);
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -43,11 +97,18 @@ export default function MemberProfile({ member }: Props) {
     setSaved(false);
     setError("");
     try {
+      const profileUpdate: any = {
+        nickname: nickname || undefined,
+        title: title || undefined,
+      };
+      if (removePhoto) {
+        profileUpdate.photo = { url: "", _id: "" };
+      } else if (photoId && photoId !== member.profile?.photo?._id) {
+        profileUpdate.photo = { _id: photoId, url: photo };
+      }
+
       await members.updateMember(member._id, {
-        profile: {
-          nickname: nickname || undefined,
-          title: title || undefined,
-        },
+        profile: profileUpdate,
         contact: {
           firstName: firstName || undefined,
           lastName: lastName || undefined,
@@ -93,11 +154,23 @@ export default function MemberProfile({ member }: Props) {
     <div style={{ maxWidth: "600px" }}>
       {/* Profile header */}
       <div style={headerStyle}>
-        {photo ? (
-          <img src={photo} alt={nickname} style={photoStyle} />
-        ) : (
-          <div style={photoPlaceholderStyle}>?</div>
-        )}
+        <div style={{ position: "relative" }}>
+          {photo ? (
+            <img src={photo} alt={nickname} style={photoStyle} />
+          ) : (
+            <div style={photoPlaceholderStyle}>?</div>
+          )}
+          <div style={photoActionsStyle}>
+            <label style={photoUploadLabelStyle}>
+              {photoUploading ? "..." : "Change"}
+              <input type="file" accept="image/*" onChange={handlePhotoUpload}
+                style={{ display: "none" }} disabled={photoUploading} />
+            </label>
+            {photo && (
+              <button type="button" onClick={handleRemovePhoto} style={photoRemoveBtnStyle}>Remove</button>
+            )}
+          </div>
+        </div>
         <div>
           <div style={headerNameStyle}>{nickname || firstName || "Unnamed Cat"}</div>
           {title && <div style={headerTitleStyle}>{title}</div>}
@@ -243,6 +316,18 @@ const photoPlaceholderStyle: React.CSSProperties = {
   background: "#1a1a1a", display: "flex", alignItems: "center",
   justifyContent: "center", fontFamily: "'Black Ops One', cursive",
   fontSize: "2rem", color: "#444", border: "3px solid #333",
+};
+const photoActionsStyle: React.CSSProperties = {
+  display: "flex", gap: "4px", justifyContent: "center", marginTop: "6px",
+};
+const photoUploadLabelStyle: React.CSSProperties = {
+  fontSize: "0.7rem", color: "#ff6600", cursor: "pointer",
+  padding: "2px 8px", border: "1px solid #ff6600", borderRadius: "4px",
+};
+const photoRemoveBtnStyle: React.CSSProperties = {
+  fontSize: "0.7rem", color: "#888", cursor: "pointer",
+  padding: "2px 8px", border: "1px solid #444", borderRadius: "4px",
+  background: "none",
 };
 const headerNameStyle: React.CSSProperties = {
   fontFamily: "'Bangers', cursive", fontSize: "1.5rem",
