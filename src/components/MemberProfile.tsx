@@ -40,6 +40,13 @@ export default function MemberProfile({ member }: Props) {
   const [country, setCountry] = useState(addr.country || "");
   const [postalCode, setPostalCode] = useState(addr.postalCode || "");
 
+  // Credentials
+  const [newEmail, setNewEmail] = useState("");
+  const [emailChanging, setEmailChanging] = useState(false);
+  const [emailMsg, setEmailMsg] = useState("");
+  const [passwordMsg, setPasswordMsg] = useState("");
+  const [passwordSending, setPasswordSending] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -93,6 +100,50 @@ export default function MemberProfile({ member }: Props) {
     } catch (err: any) {
       setError(err?.message || "Failed to remove photo");
     }
+  }
+
+  async function handleChangeEmail() {
+    if (!newEmail.trim()) return;
+    setEmailChanging(true);
+    setEmailMsg("");
+    try {
+      const res = await fetch("/api/member-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "change-email", memberId: member._id, email: newEmail.trim() }),
+      });
+      if (res.ok) {
+        setEmailMsg("Login email updated! You may need to log in again.");
+        setNewEmail("");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setEmailMsg(data.error || "Failed to change email");
+      }
+    } catch (e: any) {
+      setEmailMsg(e?.message || "Failed");
+    }
+    setEmailChanging(false);
+  }
+
+  async function handleResetPassword() {
+    setPasswordSending(true);
+    setPasswordMsg("");
+    try {
+      const res = await fetch("/api/member-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset-password", email: member.loginEmail }),
+      });
+      if (res.ok) {
+        setPasswordMsg("Password reset email sent! Check your inbox.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setPasswordMsg(data.error || "Failed to send reset email");
+      }
+    } catch (e: any) {
+      setPasswordMsg(e?.message || "Failed");
+    }
+    setPasswordSending(false);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -311,6 +362,38 @@ export default function MemberProfile({ member }: Props) {
           {error && <span style={{ color: "#cc0000", fontSize: "0.9rem" }}>{error}</span>}
         </div>
       </form>
+
+      {/* Login Credentials */}
+      <h3 style={{ ...sectionHeadingStyle, marginTop: "48px" }}>Login Credentials</h3>
+      <p style={sectionDescStyle}>Change your login email or reset your password</p>
+
+      <div style={{ background: "#141414", border: "1px solid #222", borderRadius: "12px", padding: "24px" }}>
+        <label style={labelStyle}>Current Login Email</label>
+        <p style={{ color: "#e0e0e0", fontSize: "0.9rem", marginBottom: "16px" }}>{member.loginEmail}</p>
+
+        <label style={labelStyle}>New Login Email</label>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="new@email.com" style={{ ...inputStyle, flex: 1 }} />
+          <button type="button" onClick={handleChangeEmail} disabled={emailChanging}
+            style={smallButtonStyle}>
+            {emailChanging ? "..." : "Change Email"}
+          </button>
+        </div>
+        {emailMsg && <p style={{ fontSize: "0.8rem", color: emailMsg.includes("updated") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{emailMsg}</p>}
+
+        <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #222" }}>
+          <label style={labelStyle}>Password</label>
+          <p style={{ color: "#888", fontSize: "0.8rem", marginBottom: "8px" }}>
+            A password reset link will be sent to your login email
+          </p>
+          <button type="button" onClick={handleResetPassword} disabled={passwordSending}
+            style={smallButtonStyle}>
+            {passwordSending ? "Sending..." : "Send Password Reset Email"}
+          </button>
+          {passwordMsg && <p style={{ fontSize: "0.8rem", color: passwordMsg.includes("sent") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{passwordMsg}</p>}
+        </div>
+      </div>
     </div>
   );
 }
