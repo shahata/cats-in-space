@@ -149,7 +149,9 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       captureIdentity(created);
       setNewComment("");
       // Optimistically add to list immediately
+      // REST returns 'id' but SDK/render uses '_id'
       if (created) {
+        if ((created as any).id && !created._id) created._id = (created as any).id;
         setTopLevelComments((prev) => [...prev, created]);
         setTotalComments((prev) => prev + 1);
       }
@@ -172,6 +174,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       setReplyingTo(null);
       // Optimistically add reply to list
       if (created) {
+        if ((created as any).id && !created._id) created._id = (created as any).id;
         setRepliesMap((prev) => ({
           ...prev,
           [parentId]: [...(prev[parentId] || []), created],
