@@ -57,7 +57,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     } catch {}
   }
 
-  const loadComments = useCallback(async () => {
+  const loadComments = useCallback(async (expectedMin?: number) => {
     try {
       const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
         contextId: referenceId,
@@ -87,9 +87,15 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       }
 
       const replyCount = Object.values(rm).reduce((sum, r) => sum + r.length, 0);
+      const total = topLevel.length + replyCount;
       setTopLevelComments(topLevel);
       setRepliesMap(rm);
-      setTotalComments(topLevel.length + replyCount);
+      setTotalComments(total);
+
+      // Retry if we expected more comments (eventual consistency)
+      if (expectedMin && total < expectedMin) {
+        setTimeout(() => loadComments(expectedMin), 2000);
+      }
     } catch {}
   }, [referenceId]);
 
@@ -147,7 +153,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       const data = await res.json();
       captureIdentity(data.comment);
       setNewComment("");
-      await loadComments();
+      await loadComments(totalComments + 1);
     } catch (e) { console.error("Comment error:", e); }
     setSubmitting(false);
   }
@@ -165,7 +171,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       captureIdentity(created);
       setReplyText("");
       setReplyingTo(null);
-      await loadComments();
+      await loadComments(totalComments + 1);
     } catch (e) { console.error("Reply error:", e); }
     setSubmitting(false);
   }
