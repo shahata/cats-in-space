@@ -147,6 +147,8 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       const data = await res.json();
       captureIdentity(data.comment);
       setNewComment("");
+      // Small delay for eventual consistency before reloading
+      await new Promise((r) => setTimeout(r, 1000));
       await loadComments();
       await loadMetrics();
     } catch (e) { console.error("Comment error:", e); }
@@ -166,6 +168,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       captureIdentity(created);
       setReplyText("");
       setReplyingTo(null);
+      await new Promise((r) => setTimeout(r, 1000));
       await loadComments();
       await loadMetrics();
     } catch (e) { console.error("Reply error:", e); }
