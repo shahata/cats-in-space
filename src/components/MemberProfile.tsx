@@ -56,6 +56,8 @@ export default function MemberProfile({ member }: Props) {
   const [photo, setPhoto] = useState<string | undefined>(member.profile?.photo?.url);
   const [photoId, setPhotoId] = useState<string | undefined>(member.profile?.photo?._id);
   const [removePhoto, setRemovePhoto] = useState(false);
+  const [cover, setCover] = useState<string | undefined>(member.profile?.cover?.url);
+  const [coverUploading, setCoverUploading] = useState(false);
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -101,6 +103,45 @@ export default function MemberProfile({ member }: Props) {
       }
     } catch (err: any) {
       alert(err?.message || "Failed to remove photo");
+    }
+  }
+
+  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCoverUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("memberId", member._id);
+      formData.append("field", "cover");
+      const res = await fetch("/api/profile-photo", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setCover(data.url);
+      } else {
+        alert(data.error || "Failed to upload cover");
+      }
+    } catch (err: any) {
+      alert(err?.message || "Upload failed");
+    }
+    setCoverUploading(false);
+  }
+
+  async function handleRemoveCover() {
+    setCover(undefined);
+    try {
+      const res = await fetch("/api/profile-photo", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: member._id, field: "cover" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to remove cover");
+      }
+    } catch (err: any) {
+      alert(err?.message || "Failed to remove cover");
     }
   }
 
@@ -194,8 +235,27 @@ export default function MemberProfile({ member }: Props) {
 
   return (
     <div style={{ maxWidth: "600px" }}>
+      {/* Cover photo */}
+      <div style={coverWrapperStyle}>
+        {cover ? (
+          <img src={cover} alt="Cover" style={coverImageStyle} referrerPolicy="no-referrer" />
+        ) : (
+          <div style={coverPlaceholderStyle}>No cover photo</div>
+        )}
+        <div style={coverActionsStyle}>
+          <label style={photoUploadLabelStyle}>
+            {coverUploading ? "..." : "Change Cover"}
+            <input type="file" accept="image/*" onChange={handleCoverUpload}
+              style={{ display: "none" }} disabled={coverUploading} />
+          </label>
+          {cover && (
+            <button type="button" onClick={handleRemoveCover} style={photoRemoveBtnStyle}>Remove</button>
+          )}
+        </div>
+      </div>
+
       {/* Profile header */}
-      <div style={headerStyle}>
+      <div style={{ ...headerStyle, borderTopLeftRadius: 0, borderTopRightRadius: 0, marginTop: "-1px" }}>
         <div style={{ position: "relative" }}>
           {photo ? (
             <img src={photo} alt={nickname} style={photoStyle} referrerPolicy="no-referrer" />
@@ -379,6 +439,21 @@ export default function MemberProfile({ member }: Props) {
   );
 }
 
+const coverWrapperStyle: React.CSSProperties = {
+  position: "relative", borderRadius: "16px 16px 0 0", overflow: "hidden",
+  height: "160px", background: "#1a1a1a",
+};
+const coverImageStyle: React.CSSProperties = {
+  width: "100%", height: "100%", objectFit: "cover",
+};
+const coverPlaceholderStyle: React.CSSProperties = {
+  width: "100%", height: "100%", display: "flex", alignItems: "center",
+  justifyContent: "center", color: "#333", fontSize: "0.9rem",
+};
+const coverActionsStyle: React.CSSProperties = {
+  position: "absolute", bottom: "8px", right: "8px",
+  display: "flex", gap: "4px",
+};
 const headerStyle: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: "20px",
   padding: "24px", background: "#141414", border: "1px solid #222",

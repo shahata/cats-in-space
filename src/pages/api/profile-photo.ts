@@ -14,6 +14,7 @@ export const POST: APIRoute = async ({ request }) => {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const memberId = formData.get('memberId') as string | null;
+    const field = (formData.get('field') as string) || 'photo'; // 'photo' or 'cover'
 
     if (!file || !memberId) {
       return new Response(JSON.stringify({ error: 'file and memberId required' }), { status: 400 });
@@ -63,10 +64,11 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(JSON.stringify({ error: 'Upload succeeded but no file data returned' }), { status: 500 });
     }
 
-    // Update member profile photo
-    await members.updateMember(memberId, {
-      profile: { photo: { _id: photoId, url: photoUrl } },
-    });
+    // Update member profile photo or cover
+    const profileUpdate = field === 'cover'
+      ? { cover: { _id: photoId, url: photoUrl } }
+      : { photo: { _id: photoId, url: photoUrl } };
+    await members.updateMember(memberId, { profile: profileUpdate });
 
     return new Response(JSON.stringify({ id: photoId, url: photoUrl }), {
       headers: { 'Content-Type': 'application/json' },
@@ -78,14 +80,15 @@ export const POST: APIRoute = async ({ request }) => {
 
 export const DELETE: APIRoute = async ({ request }) => {
   try {
-    const { memberId } = await request.json();
+    const { memberId, field = 'photo' } = await request.json();
     if (!memberId) {
       return new Response(JSON.stringify({ error: 'memberId required' }), { status: 400 });
     }
 
-    await members.updateMember(memberId, {
-      profile: { photo: { url: '' } },
-    });
+    const profileUpdate = field === 'cover'
+      ? { cover: { url: '' } }
+      : { photo: { url: '' } };
+    await members.updateMember(memberId, { profile: profileUpdate });
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' },
