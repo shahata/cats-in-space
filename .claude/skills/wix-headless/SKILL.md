@@ -454,7 +454,8 @@ const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
   contextId: post.referenceId,   // CRITICAL: referenceId, not _id
   resourceId: post.referenceId,  // CRITICAL: referenceId, not _id
   commentSort: { order: "OLDEST_FIRST" },
-  cursorPaging: { limit: 50 },
+  replySort: { order: "OLDEST_FIRST" },
+  cursorPaging: { limit: 50, repliesLimit: 20 },  // CRITICAL: repliesLimit required to get replies
 });
 const commentsList = res.comments || [];
 
