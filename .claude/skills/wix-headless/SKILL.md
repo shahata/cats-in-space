@@ -1,6 +1,6 @@
 ---
 name: wix-headless
-description: Use when building or working on Wix managed headless projects. Covers scaffolding, Astro + Wix SDK patterns, CMS collections, image handling, dynamic routes, and deployment. Trigger on Wix headless, headless site, Wix CMS, Wix Astro, wix managed, wix SDK data queries.
+description: Use when building or working on Wix managed headless projects. Covers scaffolding, Astro + Wix SDK patterns, CMS collections, image handling, dynamic routes, deployment, Wix Blog (posts, tags, likes, comments, rich content/ricos, writers/members, metrics). Trigger on Wix headless, headless site, Wix CMS, Wix Astro, wix managed, wix SDK data queries, Wix Blog, ricos, blog posts.
 ---
 
 # Wix Managed Headless - Developer Guide
@@ -266,6 +266,269 @@ const planet = result.items[0];
 | `npm run release` | Deploy to production |
 
 Hosted on Wix servers via Cloudflare. Production URL: `https://your-site-name.wix-host.com`.
+
+## Wix Blog
+
+### Setup
+
+1. Install the Blog app on the site via REST API:
+   ```
+   POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+   Body: { "tenant": { "tenantType": "SITE", "id": "<SITE_ID>" }, "appInstance": { "appDefId": "14bcded7-0066-7c35-14d7-466cb3f09103" } }
+   ```
+
+2. Install SDK packages:
+   ```bash
+   npm install @wix/blog        # Posts, tags, likes, draft posts
+   npm install @wix/comments     # Comments on blog posts
+   npm install @wix/members      # Member/writer profiles
+   npm install @wix/ricos        # Rich content viewer (React)
+   ```
+
+### Reading Blog Posts (Server-Side Astro)
+
+```astro
+---
+import { posts, tags as tagsApi } from '@wix/blog';
+import { members } from '@wix/members';
+
+// List posts with all metadata
+const result = await posts.listPosts({
+  fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID']
+});
+const blogPosts = result.posts || [];
+
+// Available fieldsets: URL, CONTENT_TEXT, METRICS, SEO, CONTACT_ID, RICH_CONTENT, REFERENCE_ID
+// METRICS gives: metrics.views, metrics.likes, metrics.comments
+// CONTACT_ID gives: memberId (the writer)
+
+// Get single post by slug
+const res = await posts.getPostBySlug('my-slug', {
+  fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID']
+});
+const post = res.post;
+
+// Post object has: _id, title, slug, firstPublishedDate, coverMedia, richContent,
+//                  tagIds, memberId, metrics, excerpt, etc.
+---
+```
+
+### Tags
+
+**CRITICAL:** `queryTags` is a direct async function, NOT a query builder. Do NOT chain `.find()`.
+
+```typescript
+import { tags as tagsApi } from '@wix/blog';
+
+// CORRECT
+const tagsResult = await tagsApi.queryTags({});
+const allTags = tagsResult.tags || [];  // Note: .tags, not .items
+
+// WRONG — will throw "queryTags(...).find is not a function"
+const tagsResult = await tagsApi.queryTags({}).find(); // ❌
+```
+
+**Create tags via REST:**
+```
+POST https://www.wixapis.com/blog/v3/tags
+Body: { "label": "My Tag", "language": "en" }
+```
+
+### Creating/Updating Blog Posts (REST API)
+
+**Create (bulk):** `POST https://www.wixapis.com/blog/v3/bulk/draft-posts/create`
+```json
+{
+  "draftPosts": [
+    {
+      "title": "My Post",
+      "memberId": "<member-guid>",
+      "tagIds": ["<tag-guid>"],
+      "richContent": { "nodes": [...] },
+      "media": {
+        "wixMedia": { "image": { "id": "<media-id>", "width": 1792, "height": 1024 } },
+        "displayed": true, "custom": true
+      }
+    }
+  ],
+  "publish": true,
+  "fieldsets": ["URL"]
+}
+```
+
+**Update (bulk):** `PATCH https://www.wixapis.com/blog/v3/draft-posts/update`
+```json
+{
+  "draftPosts": [
+    { "draftPost": { "id": "<post-id>", "memberId": "<member-id>", "tagIds": [...], "richContent": {...}, "media": {...} } }
+  ],
+  "action": "UPDATE_PUBLISH"
+}
+```
+
+**CRITICAL:** The action enum is `UPDATE_PUBLISH` (not `UPDATE_AND_PUBLISH`).
+
+### Rich Content (Ricos) Rendering
+
+Use `@wix/ricos` for rendering blog post rich content in React:
+
+```tsx
+"use client";
+import React from "react";
+import { quickStartViewerPlugins, RicosViewer } from "@wix/ricos";
+import "@wix/ricos/css/all-plugins-viewer.css";
+
+const plugins = quickStartViewerPlugins();
+
+const RichContentViewer = ({ content }: { content: any }) => {
+  return <RicosViewer content={content} plugins={plugins} />;
+};
+export default RichContentViewer;
+```
+
+In Astro, use with `client:load`:
+```astro
+<RichContentViewer content={post.richContent} client:load />
+```
+
+**CRITICAL:** Ricos renders with default light-theme (black text). On dark backgrounds, override with CSS:
+```css
+.post-content :global(span),
+.post-content :global(div),
+.post-content :global(p) {
+  color: var(--text-secondary) !important;
+}
+.post-content :global(h2), .post-content :global(h2 *) {
+  color: var(--accent) !important;
+}
+.post-content :global(blockquote) {
+  /* structural styles only on blockquote itself */
+}
+.post-content :global(blockquote *) {
+  /* color only on children — avoids duplicating border-left */
+  color: var(--text-primary) !important;
+}
+```
+
+### Likes (Client-Side React)
+
+```typescript
+import { likes } from '@wix/blog';
+
+const FQDN = "wix.blog.v3.post";
+
+// Check if current visitor liked a post
+const res = await likes.getLikeByFqdnAndEntityId({ fqdn: FQDN, entityId: postId });
+const isLiked = !!res.like;
+
+// Like a post
+await likes.createLike({ like: { fqdn: FQDN, entityId: postId } });
+
+// Unlike a post
+await likes.deleteLikeByFqdnAndEntityId({ fqdn: FQDN, entityId: postId });
+```
+
+**CRITICAL:** `getLikeByFqdnAndEntityId` and `deleteLikeByFqdnAndEntityId` take a single **object** `{ fqdn, entityId }`, NOT positional arguments.
+
+**CRITICAL:** `createLike` will throw `ALREADY_EXISTS` if the visitor already liked the post. Always check first with `getLikeByFqdnAndEntityId`.
+
+### Comments (Client-Side React)
+
+```typescript
+import { comments as commentsApi } from '@wix/comments';
+
+const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
+
+// List comments for a post
+const res = await commentsApi.listCommentsByResource({
+  appId: BLOG_APP_ID,
+  resourceId: postId,
+  limit: 50,
+  order: "OLDEST",
+});
+const commentsList = res.comments || [];
+
+// Create a comment (guest)
+// CRITICAL: use `content.richContent` with Ricos nodes, NOT `plainTextContent`
+await commentsApi.createComment({
+  appId: BLOG_APP_ID,
+  contextId: postId,
+  resourceId: postId,
+  comment: {
+    commentAuthor: { guestAuthor: { name: "Visitor Name" } },
+    content: {
+      richContent: {
+        nodes: [{
+          type: "PARAGRAPH",
+          nodes: [{ type: "TEXT", textData: { text: "My comment", decorations: [] } }],
+          paragraphData: {},
+        }],
+      },
+    },
+  },
+});
+```
+
+**Comment author info is on:** `comment.author.guestAuthorName` or `comment.author.memberName`
+**Comment text is on:** `comment.plainContent.text` or extract from `comment.richContent.nodes`
+
+### Post Metrics (Client-Side)
+
+```typescript
+import { posts } from '@wix/blog';
+
+const res = await posts.getPostMetrics(postId);
+// res.metrics = { views: number, likes: number, comments: number }
+```
+
+**Note:** There is no public API to increment view counts for headless sites. Views are tracked internally by Wix's native blog widget only.
+
+### Members / Writers
+
+```typescript
+import { members } from '@wix/members';
+
+// Get member profile
+const res = await members.getMember(memberId, { fieldsets: ['FULL'] });
+const member = res.member;
+// member.profile.nickname, member.profile.title, member.contact.firstName
+```
+
+**Create members via REST:**
+```
+POST https://www.wixapis.com/members/v1/members
+Body: {
+  "member": {
+    "loginEmail": "writer@example.com",
+    "contact": { "firstName": "Captain", "lastName": "Whiskers" },
+    "profile": { "nickname": "Captain Whiskers", "title": "Ship Captain" }
+  }
+}
+```
+
+### Ricos Rich Content JSON Structure
+
+Common node types for blog post content:
+
+```json
+{
+  "nodes": [
+    { "type": "PARAGRAPH", "nodes": [{ "type": "TEXT", "textData": { "text": "...", "decorations": [] } }], "paragraphData": {} },
+    { "type": "HEADING", "nodes": [{ "type": "TEXT", "textData": { "text": "...", "decorations": [] } }], "headingData": { "level": 2 } },
+    { "type": "BULLETED_LIST", "nodes": [{ "type": "LIST_ITEM", "nodes": [{ "type": "PARAGRAPH", "nodes": [{ "type": "TEXT", "textData": { "text": "...", "decorations": [] } }], "paragraphData": {} }] }], "bulletedListData": {} },
+    { "type": "ORDERED_LIST", "nodes": [...same as bulleted...], "orderedListData": {} },
+    { "type": "BLOCKQUOTE", "nodes": [{ "type": "PARAGRAPH", "nodes": [...] , "paragraphData": {} }], "blockquoteData": { "indentation": 1 } },
+    { "type": "IMAGE", "nodes": [], "imageData": { "containerData": { "width": { "size": "CONTENT" }, "alignment": "CENTER" }, "image": { "src": { "id": "<media-id>" }, "width": 1792, "height": 1024 }, "altText": "..." } }
+  ]
+}
+```
+
+**CRITICAL Ricos rules:**
+- ALL `TEXT` nodes MUST be wrapped in `PARAGRAPH` nodes inside their parent containers
+- `BLOCKQUOTE` → `PARAGRAPH` → `TEXT` (never `BLOCKQUOTE` → `TEXT`)
+- `LIST_ITEM` → `PARAGRAPH` → `TEXT` (never `LIST_ITEM` → `TEXT`)
+- Text decorations: `[{ "type": "BOLD" }]`, `[{ "type": "ITALIC" }]`
+- IMAGE nodes use media ID only (no `wix:image://` prefix) in `image.src.id`
 
 ## Tips & Gotchas
 
