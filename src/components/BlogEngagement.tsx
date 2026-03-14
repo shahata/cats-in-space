@@ -145,16 +145,9 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         }
       );
       const data = await res.json();
-      const created = data.comment;
-      captureIdentity(created);
+      captureIdentity(data.comment);
       setNewComment("");
-      // Optimistically add to list immediately
-      // REST returns 'id' but SDK/render uses '_id'
-      if (created) {
-        if ((created as any).id && !created._id) created._id = (created as any).id;
-        setTopLevelComments((prev) => [...prev, created]);
-        setTotalComments((prev) => prev + 1);
-      }
+      await loadComments();
     } catch (e) { console.error("Comment error:", e); }
     setSubmitting(false);
   }
@@ -172,15 +165,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       captureIdentity(created);
       setReplyText("");
       setReplyingTo(null);
-      // Optimistically add reply to list
-      if (created) {
-        if ((created as any).id && !created._id) created._id = (created as any).id;
-        setRepliesMap((prev) => ({
-          ...prev,
-          [parentId]: [...(prev[parentId] || []), created],
-        }));
-        setTotalComments((prev) => prev + 1);
-      }
+      await loadComments();
     } catch (e) { console.error("Reply error:", e); }
     setSubmitting(false);
   }
