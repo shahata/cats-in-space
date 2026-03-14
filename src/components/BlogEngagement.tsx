@@ -21,6 +21,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [totalComments, setTotalComments] = useState(0);
   const [newComment, setNewComment] = useState("");
   const [commentName, setCommentName] = useState("");
+  const [commentRating, setCommentRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -130,13 +131,26 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     if (!newComment.trim()) return;
     setSubmitting(true);
     try {
-      const created = await commentsApi.createComment({
+      const commentBody: any = {
         appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
         author: { authorName: commentName.trim() || "Anonymous Space Cat" },
         content: makeRichContent(newComment.trim()),
-      } as any);
-      captureIdentity(created);
+      };
+      if (commentRating > 0) commentBody.rating = commentRating;
+
+      // Use REST API directly — SDK strips rating field
+      const res = await httpClient.fetchWithAuth(
+        "https://www.wixapis.com/comments/v1/comments",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comment: commentBody }),
+        }
+      );
+      const data = await res.json();
+      captureIdentity(data.comment);
       setNewComment("");
+      setCommentRating(0);
       await loadComments();
       await loadMetrics();
     } catch (e) { console.error("Comment error:", e); }
@@ -357,6 +371,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
           <textarea placeholder="Write your message to the crew..." value={newComment}
             onChange={(e) => setNewComment(e.target.value)} rows={4}
             style={{ ...inputStyle, resize: "vertical" as const }} required />
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "12px" }}>
+            <span style={{ color: "#888", fontSize: "0.85rem" }}>Rating:</span>
+            <StarRating value={commentRating} onChange={setCommentRating} />
+            {commentRating > 0 && <span style={{ color: "#666", fontSize: "0.8rem" }}>{commentRating}/5</span>}
+          </div>
           <button type="submit" disabled={submitting} style={submitButtonStyle}>
             {submitting ? "Transmitting..." : "Send Transmission"}
           </button>
