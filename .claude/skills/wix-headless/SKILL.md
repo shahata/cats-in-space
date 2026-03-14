@@ -289,6 +289,52 @@ const member = res.member;
 ---
 ```
 
+**Remove profile photo:** Send `{ url: "" }` — not `null`, not `{ url: "", _id: "" }`.
+
+### File Upload to Wix Media
+
+`files.generateFileUploadUrl` requires `Manage Media Manager` permission — visitors/members get 403. Use `auth.elevate()` server-side.
+
+**Pattern:** Create a server API endpoint, handle the entire upload there:
+
+```typescript
+// src/pages/api/upload-url.ts
+import type { APIRoute } from 'astro';
+import { files } from '@wix/media';
+import { auth } from '@wix/essentials';
+
+export const POST: APIRoute = async ({ request }) => {
+  const formData = await request.formData();
+  const file = formData.get('file') as File;
+
+  // 1. Generate upload URL with elevated permissions
+  const elevatedGenerate = auth.elevate(files.generateFileUploadUrl);
+  const { uploadUrl } = await elevatedGenerate(file.type, { fileName: file.name });
+
+  // 2. Upload file binary server-side (avoids CORS/ORB in browser)
+  const uploadRes = await fetch(uploadUrl!, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: Buffer.from(await file.arrayBuffer()),
+  });
+
+  const data = await uploadRes.json();
+  return new Response(JSON.stringify({ id: data.file?.id, url: data.file?.url }));
+};
+```
+
+Client sends file as FormData:
+```typescript
+const formData = new FormData();
+formData.append("file", file);
+const res = await fetch("/api/upload-url", { method: "POST", body: formData });
+const { id, url } = await res.json();
+```
+
+**CRITICAL:** Do NOT upload from the browser directly — the PUT to Wix upload servers causes ERR_BLOCKED_BY_ORB (cross-origin response blocking). Handle both `generateFileUploadUrl` and the PUT on the server.
+
+**CRITICAL:** `auth.elevate()` only works server-side (Astro API routes, not client-side React).
+
 ## Tips & Gotchas
 
 1. **No `.data` wrapper** — SDK query results have fields directly on items
