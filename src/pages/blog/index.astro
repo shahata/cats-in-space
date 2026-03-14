@@ -9,18 +9,13 @@ import { getImageUrl } from '../../utils/image';
 
 const BLOG_APP_ID = '14bcded7-0066-7c35-14d7-466cb3f09103';
 
-const result = await posts.listPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] });
-const blogPosts = result.posts || [];
+// Use queryPosts instead of listPosts — queryPosts returns real metrics, listPosts returns zeros
+const queryResult = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).find();
+const blogPosts = queryResult.items || [];
 
-// Fetch real metrics per post (METRICS fieldset returns zeros in managed headless)
-// Count comments via REST API since SDK countComments fails silently
-const metricsMap = new Map<string, any>();
+// Count comments per post via Comments API (blog metrics.comments doesn't reflect Wix Comments)
 const commentCountMap = new Map<string, number>();
 await Promise.all(blogPosts.map(async (post: any) => {
-	try {
-		const m = await posts.getPostMetrics(post._id!);
-		metricsMap.set(post._id!, m.metrics);
-	} catch {}
 	if (post.referenceId) {
 		try {
 			const c = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
@@ -78,7 +73,7 @@ function getExcerpt(post: any): string {
 
 function getMetric(post: any, field: string): number {
 	if (field === 'comments') return commentCountMap.get(post._id) ?? 0;
-	return metricsMap.get(post._id)?.[field] ?? 0;
+	return post.metrics?.[field] ?? 0;
 }
 
 function getWriter(post: any): string {
