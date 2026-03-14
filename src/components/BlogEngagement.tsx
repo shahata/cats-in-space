@@ -135,7 +135,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     // Check comment reactions via middleware additional data
     try {
       const res = await httpClient.fetchWithAuth(
-        `/_api/comments-middleware/v1/bulk/additional-data`,
+        `${window.location.origin}/_api/comments-middleware/v1/bulk/additional-data`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -254,7 +254,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     try {
       const method = isLiked ? "DELETE" : "PUT";
       await httpClient.fetchWithAuth(
-        `/_api/comments-middleware/v1/comment/${cid}/reactions/:like:`,
+        `${window.location.origin}/_api/comments-middleware/v1/comment/${cid}/reactions/:like:`,
         { method }
       );
       if (isLiked) {
