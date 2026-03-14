@@ -61,6 +61,8 @@ export default function MemberProfile({ member }: Props) {
           setPhotoId(id);
           setPhoto(url);
           setRemovePhoto(false);
+          // Save immediately
+          await members.updateMember(member._id, { profile: { photo: { _id: id, url } } });
         }
       } else {
         const data = await res.json().catch(() => ({}));
@@ -72,10 +74,15 @@ export default function MemberProfile({ member }: Props) {
     setPhotoUploading(false);
   }
 
-  function handleRemovePhoto() {
+  async function handleRemovePhoto() {
     setPhoto(undefined);
     setPhotoId(undefined);
     setRemovePhoto(true);
+    try {
+      await members.updateMember(member._id, { profile: { photo: { url: "" } } });
+    } catch (err: any) {
+      setError(err?.message || "Failed to remove photo");
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
