@@ -3,19 +3,32 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { posts, tags as tagsApi } from '@wix/blog';
+import { comments as commentsApi } from '@wix/comments';
 import { members } from '@wix/members';
 import { getImageUrl } from '../../utils/image';
 
-const result = await posts.listPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID'] });
+const BLOG_APP_ID = '14bcded7-0066-7c35-14d7-466cb3f09103';
+
+const result = await posts.listPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] });
 const blogPosts = result.posts || [];
 
-// listPosts METRICS fieldset returns zeros in managed headless — fetch real metrics per post
+// Fetch real metrics per post (METRICS fieldset returns zeros in managed headless)
+// Also count comments via Comments API since blog metrics don't reflect them
 const metricsMap = new Map<string, any>();
-await Promise.all(blogPosts.map(async (post) => {
+const commentCountMap = new Map<string, number>();
+await Promise.all(blogPosts.map(async (post: any) => {
 	try {
 		const m = await posts.getPostMetrics(post._id!);
 		metricsMap.set(post._id!, m.metrics);
 	} catch {}
+	if (post.referenceId) {
+		try {
+			const c = await commentsApi.countComments(BLOG_APP_ID, {
+				filter: { resourceId: post.referenceId },
+			});
+			commentCountMap.set(post._id!, c.count ?? 0);
+		} catch {}
+	}
 }));
 
 // Fetch all tags
@@ -59,6 +72,7 @@ function getExcerpt(post: any): string {
 }
 
 function getMetric(post: any, field: string): number {
+	if (field === 'comments') return commentCountMap.get(post._id) ?? 0;
 	return metricsMap.get(post._id)?.[field] ?? 0;
 }
 

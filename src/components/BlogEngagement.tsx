@@ -16,8 +16,9 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [metrics, setMetrics] = useState({ views: 0, likes: 0, comments: 0 });
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
-  const [commentsList, setCommentsList] = useState<any[]>([]);
+  const [topLevelComments, setTopLevelComments] = useState<any[]>([]);
   const [repliesMap, setRepliesMap] = useState<Record<string, any[]>>({});
+  const [totalComments, setTotalComments] = useState(0);
   const [newComment, setNewComment] = useState("");
   const [commentName, setCommentName] = useState("");
   const [commentRating, setCommentRating] = useState(0);
@@ -26,12 +27,15 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [replyText, setReplyText] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [editRating, setEditRating] = useState(0);
+  const [currentVisitorId, setCurrentVisitorId] = useState<string | null>(null);
 
   useEffect(() => {
     reportView();
     loadMetrics();
     loadComments();
     checkIfLiked();
+    detectCurrentVisitor();
   }, [postId]);
 
   async function reportView() {
@@ -62,18 +66,61 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         contextId: referenceId,
         resourceId: referenceId,
         commentSort: { order: "OLDEST_FIRST" },
-        cursorPaging: { limit: 50 },
+        cursorPaging: { limit: 100 },
       });
-      setCommentsList(res.comments || []);
-      // Build replies map from commentReplies
-      const rm: Record<string, any[]> = {};
-      if (res.commentReplies) {
-        for (const [commentId, replyData] of Object.entries(res.commentReplies)) {
-          rm[commentId] = (replyData as any).replies || [];
+      const allComments = res.comments || [];
+
+      // Separate top-level comments from replies
+      const topLevel: any[] = [];
+      const replies: Record<string, any[]> = {};
+
+      for (const c of allComments) {
+        if (c.parentComment?._id || (c.parentComment as any)?.id) {
+          const parentId = c.parentComment!._id || (c.parentComment as any).id;
+          if (!replies[parentId]) replies[parentId] = [];
+          replies[parentId].push(c);
+        } else {
+          topLevel.push(c);
         }
       }
-      setRepliesMap(rm);
+
+      setTopLevelComments(topLevel);
+      setRepliesMap(replies);
+      setTotalComments(allComments.length);
     } catch {}
+  }
+
+  async function detectCurrentVisitor() {
+    // Create a temporary like check to discover our visitor ID from any comment we authored
+    // Or try getLike which reveals identity in error
+    // Simplest: after we create our first comment, store our visitorId
+    // For now, check if any comment's content.author.visitorId matches by trying to get our identity
+    try {
+      // Try to get our like — if it exists, the response has our identity
+      const res = await likes.getLikeByFqdnAndEntityId({
+        fqdn: BLOG_POST_FQDN,
+        entityId: postId,
+      });
+      if (res.like) {
+        // We can identify ourselves from a like we created, but the like doesn't expose visitorId
+      }
+    } catch {}
+
+    // Alternative: check visitor identity from auth
+    try {
+      const res = await httpClient.fetchWithAuth(
+        "https://www.wixapis.com/members/v1/members/my"
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentVisitorId(data.member?.id || null);
+        return;
+      }
+    } catch {}
+
+    // For visitors (non-members), extract from a comment we try to query
+    // The visitor ID is set by Wix session — we'll match by checking content.author.visitorId
+    // We'll set it when we create a comment and get it back
   }
 
   async function checkIfLiked() {
@@ -131,7 +178,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     setSubmitting(true);
     const authorName = commentName.trim() || "Anonymous Space Cat";
     try {
-      await commentsApi.createComment({
+      const created = await commentsApi.createComment({
         appId: BLOG_APP_ID,
         contextId: referenceId,
         resourceId: referenceId,
@@ -139,10 +186,14 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         content: makeRichContent(newComment.trim()),
         ...(commentRating > 0 ? { rating: commentRating } : {}),
       } as any);
+      // Capture our visitor ID from the created comment
+      if (created?.author?.visitorId && !currentVisitorId) {
+        setCurrentVisitorId(created.author.visitorId);
+      }
       setNewComment("");
       setCommentRating(0);
-      setMetrics((m) => ({ ...m, comments: m.comments + 1 }));
       await loadComments();
+      await loadMetrics();
     } catch (e) {
       console.error("Comment error:", e);
     }
@@ -154,7 +205,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     setSubmitting(true);
     const authorName = commentName.trim() || "Anonymous Space Cat";
     try {
-      await commentsApi.createComment({
+      const created = await commentsApi.createComment({
         appId: BLOG_APP_ID,
         contextId: referenceId,
         resourceId: referenceId,
@@ -162,6 +213,9 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         parentComment: { id: parentId },
         content: makeRichContent(replyText.trim()),
       } as any);
+      if (created?.author?.visitorId && !currentVisitorId) {
+        setCurrentVisitorId(created.author.visitorId);
+      }
       setReplyText("");
       setReplyingTo(null);
       await loadComments();
@@ -178,9 +232,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       await commentsApi.updateComment(commentId, {
         revision,
         content: makeRichContent(editText.trim()),
+        ...(editRating > 0 ? { rating: editRating } : {}),
       } as any);
       setEditingId(null);
       setEditText("");
+      setEditRating(0);
       await loadComments();
     } catch (e) {
       console.error("Edit error:", e);
@@ -196,6 +252,15 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     } catch (e) {
       console.error("Delete error:", e);
     }
+  }
+
+  function isOwnComment(comment: any): boolean {
+    if (!currentVisitorId) return false;
+    const authorId =
+      comment.author?.visitorId ||
+      comment.author?.memberId ||
+      comment.author?.userId;
+    return authorId === currentVisitorId;
   }
 
   function getCommentText(comment: any): string {
@@ -259,12 +324,10 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     const rating = comment.rating;
     const replies = repliesMap[comment._id] || [];
     const isEditing = editingId === comment._id;
+    const isMine = isOwnComment(comment);
 
     return (
-      <div
-        key={comment._id}
-        style={{ ...commentCardStyle, marginLeft: isReply ? 32 : 0 }}
-      >
+      <div key={comment._id} style={{ ...commentCardStyle, marginLeft: isReply ? 32 : 0 }}>
         <div style={commentHeaderStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={commentAuthorStyle}>{author}</span>
@@ -281,6 +344,12 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
               rows={3}
               style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }}
             />
+            {comment.rating !== undefined && (
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                <span style={{ color: "#888", fontSize: "0.8rem" }}>Rating:</span>
+                <StarRating value={editRating} onChange={setEditRating} />
+              </div>
+            )}
             <div style={{ display: "flex", gap: "8px" }}>
               <button
                 onClick={() => handleEdit(comment._id, comment.revision)}
@@ -289,7 +358,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
                 Save
               </button>
               <button
-                onClick={() => { setEditingId(null); setEditText(""); }}
+                onClick={() => { setEditingId(null); setEditText(""); setEditRating(0); }}
                 style={smallBtnStyle}
               >
                 Cancel
@@ -302,30 +371,37 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {!isEditing && (
           <div style={commentActionsStyle}>
-            <button
-              onClick={() => {
-                setReplyingTo(replyingTo === comment._id ? null : comment._id);
-                setReplyText("");
-              }}
-              style={actionBtnStyle}
-            >
-              Reply
-            </button>
-            <button
-              onClick={() => {
-                setEditingId(comment._id);
-                setEditText(text);
-              }}
-              style={actionBtnStyle}
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => handleDelete(comment._id)}
-              style={{ ...actionBtnStyle, color: "#cc0000" }}
-            >
-              Delete
-            </button>
+            {!isReply && (
+              <button
+                onClick={() => {
+                  setReplyingTo(replyingTo === comment._id ? null : comment._id);
+                  setReplyText("");
+                }}
+                style={actionBtnStyle}
+              >
+                Reply{comment.replyCount > 0 ? ` (${comment.replyCount})` : ""}
+              </button>
+            )}
+            {isMine && (
+              <>
+                <button
+                  onClick={() => {
+                    setEditingId(comment._id);
+                    setEditText(text);
+                    setEditRating(comment.rating || 0);
+                  }}
+                  style={actionBtnStyle}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(comment._id)}
+                  style={{ ...actionBtnStyle, color: "#cc0000" }}
+                >
+                  Delete
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -347,10 +423,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
               >
                 {submitting ? "Sending..." : "Send Reply"}
               </button>
-              <button
-                onClick={() => setReplyingTo(null)}
-                style={smallBtnStyle}
-              >
+              <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>
                 Cancel
               </button>
             </div>
@@ -380,7 +453,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
           <span style={statLabelStyle}>Likes</span>
         </div>
         <div style={statItemStyle}>
-          <span style={statNumStyle}>{metrics.comments}</span>
+          <span style={statNumStyle}>{totalComments}</span>
           <span style={statLabelStyle}>Comments</span>
         </div>
         <button
@@ -398,13 +471,11 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
       {/* Comments Section */}
       <div style={commentsSectionStyle}>
-        <h3 style={commentsHeadingStyle}>
-          Transmissions ({metrics.comments})
-        </h3>
+        <h3 style={commentsHeadingStyle}>Transmissions ({totalComments})</h3>
 
-        {commentsList.length > 0 && (
+        {topLevelComments.length > 0 && (
           <div style={commentsListStyle}>
-            {commentsList.map((comment) => renderComment(comment))}
+            {topLevelComments.map((comment) => renderComment(comment))}
           </div>
         )}
 
@@ -442,148 +513,28 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 }
 
 const statsBarStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "32px",
-  padding: "24px 0",
-  borderTop: "1px solid #222",
-  borderBottom: "1px solid #222",
-  marginTop: "40px",
-  flexWrap: "wrap",
+  display: "flex", alignItems: "center", gap: "32px", padding: "24px 0",
+  borderTop: "1px solid #222", borderBottom: "1px solid #222", marginTop: "40px", flexWrap: "wrap",
 };
-const statItemStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-};
-const statNumStyle: React.CSSProperties = {
-  fontFamily: "'Black Ops One', cursive",
-  fontSize: "1.5rem",
-  color: "#ff6600",
-};
-const statLabelStyle: React.CSSProperties = {
-  fontSize: "0.75rem",
-  color: "#888",
-  textTransform: "uppercase",
-  letterSpacing: "1px",
-  marginTop: "2px",
-};
+const statItemStyle: React.CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center" };
+const statNumStyle: React.CSSProperties = { fontFamily: "'Black Ops One', cursive", fontSize: "1.5rem", color: "#ff6600" };
+const statLabelStyle: React.CSSProperties = { fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "1px", marginTop: "2px" };
 const likeButtonStyle: React.CSSProperties = {
-  marginLeft: "auto",
-  padding: "10px 24px",
-  border: "2px solid #ff6600",
-  borderRadius: "8px",
-  fontFamily: "'Bangers', cursive",
-  fontSize: "1rem",
-  letterSpacing: "1px",
-  cursor: "pointer",
-  transition: "all 0.3s",
+  marginLeft: "auto", padding: "10px 24px", border: "2px solid #ff6600", borderRadius: "8px",
+  fontFamily: "'Bangers', cursive", fontSize: "1rem", letterSpacing: "1px", cursor: "pointer", transition: "all 0.3s",
 };
 const commentsSectionStyle: React.CSSProperties = { marginTop: "40px" };
-const commentsHeadingStyle: React.CSSProperties = {
-  fontFamily: "'Bangers', cursive",
-  fontSize: "1.5rem",
-  color: "#ff6600",
-  letterSpacing: "1px",
-  marginBottom: "20px",
-};
-const commentsListStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "16px",
-  marginBottom: "30px",
-};
-const commentCardStyle: React.CSSProperties = {
-  background: "#141414",
-  border: "1px solid #222",
-  borderRadius: "12px",
-  padding: "16px 20px",
-};
-const commentHeaderStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: "8px",
-  flexWrap: "wrap",
-  gap: "8px",
-};
-const commentAuthorStyle: React.CSSProperties = {
-  fontFamily: "'Bangers', cursive",
-  fontSize: "0.95rem",
-  color: "#ffcc00",
-  letterSpacing: "1px",
-};
-const commentDateStyle: React.CSSProperties = {
-  fontSize: "0.75rem",
-  color: "#666",
-};
-const commentTextStyle: React.CSSProperties = {
-  color: "#aaa",
-  fontSize: "0.9rem",
-  lineHeight: "1.6",
-  margin: 0,
-};
-const commentActionsStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "12px",
-  marginTop: "8px",
-};
-const actionBtnStyle: React.CSSProperties = {
-  background: "none",
-  border: "none",
-  color: "#888",
-  fontSize: "0.8rem",
-  cursor: "pointer",
-  padding: "2px 0",
-  fontFamily: "'Inter', sans-serif",
-};
-const smallBtnStyle: React.CSSProperties = {
-  padding: "6px 16px",
-  border: "1px solid #444",
-  borderRadius: "6px",
-  background: "transparent",
-  color: "#aaa",
-  fontSize: "0.85rem",
-  cursor: "pointer",
-  fontFamily: "'Bangers', cursive",
-  letterSpacing: "0.5px",
-};
-const commentFormStyle: React.CSSProperties = {
-  background: "#141414",
-  border: "1px solid #222",
-  borderRadius: "12px",
-  padding: "24px",
-};
-const formTitleStyle: React.CSSProperties = {
-  fontFamily: "'Bangers', cursive",
-  fontSize: "1.1rem",
-  color: "#ffcc00",
-  letterSpacing: "1px",
-  marginBottom: "16px",
-  marginTop: 0,
-};
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "12px 16px",
-  background: "#0a0a0a",
-  border: "1px solid #333",
-  borderRadius: "8px",
-  color: "#e0e0e0",
-  fontSize: "0.9rem",
-  fontFamily: "'Inter', sans-serif",
-  marginBottom: "12px",
-  outline: "none",
-  boxSizing: "border-box",
-};
-const submitButtonStyle: React.CSSProperties = {
-  padding: "12px 32px",
-  background: "#ff6600",
-  color: "#000",
-  border: "none",
-  borderRadius: "8px",
-  fontFamily: "'Bangers', cursive",
-  fontSize: "1rem",
-  letterSpacing: "1px",
-  cursor: "pointer",
-  transition: "all 0.3s",
-};
+const commentsHeadingStyle: React.CSSProperties = { fontFamily: "'Bangers', cursive", fontSize: "1.5rem", color: "#ff6600", letterSpacing: "1px", marginBottom: "20px" };
+const commentsListStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "16px", marginBottom: "30px" };
+const commentCardStyle: React.CSSProperties = { background: "#141414", border: "1px solid #222", borderRadius: "12px", padding: "16px 20px" };
+const commentHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" };
+const commentAuthorStyle: React.CSSProperties = { fontFamily: "'Bangers', cursive", fontSize: "0.95rem", color: "#ffcc00", letterSpacing: "1px" };
+const commentDateStyle: React.CSSProperties = { fontSize: "0.75rem", color: "#666" };
+const commentTextStyle: React.CSSProperties = { color: "#aaa", fontSize: "0.9rem", lineHeight: "1.6", margin: 0 };
+const commentActionsStyle: React.CSSProperties = { display: "flex", gap: "12px", marginTop: "8px" };
+const actionBtnStyle: React.CSSProperties = { background: "none", border: "none", color: "#888", fontSize: "0.8rem", cursor: "pointer", padding: "2px 0", fontFamily: "'Inter', sans-serif" };
+const smallBtnStyle: React.CSSProperties = { padding: "6px 16px", border: "1px solid #444", borderRadius: "6px", background: "transparent", color: "#aaa", fontSize: "0.85rem", cursor: "pointer", fontFamily: "'Bangers', cursive", letterSpacing: "0.5px" };
+const commentFormStyle: React.CSSProperties = { background: "#141414", border: "1px solid #222", borderRadius: "12px", padding: "24px" };
+const formTitleStyle: React.CSSProperties = { fontFamily: "'Bangers', cursive", fontSize: "1.1rem", color: "#ffcc00", letterSpacing: "1px", marginBottom: "16px", marginTop: 0 };
+const inputStyle: React.CSSProperties = { width: "100%", padding: "12px 16px", background: "#0a0a0a", border: "1px solid #333", borderRadius: "8px", color: "#e0e0e0", fontSize: "0.9rem", fontFamily: "'Inter', sans-serif", marginBottom: "12px", outline: "none", boxSizing: "border-box" };
+const submitButtonStyle: React.CSSProperties = { padding: "12px 32px", background: "#ff6600", color: "#000", border: "none", borderRadius: "8px", fontFamily: "'Bangers', cursive", fontSize: "1rem", letterSpacing: "1px", cursor: "pointer", transition: "all 0.3s" };
