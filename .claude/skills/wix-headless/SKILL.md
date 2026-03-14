@@ -291,6 +291,17 @@ const member = res.member;
 
 **Remove profile photo:** Send `{ url: "" }` — not `null`, not `{ url: "", _id: "" }`.
 
+**Phone numbers must be E.164 format:** The API rejects phone numbers not in `+[country code][number]` format. Convert before saving:
+```typescript
+function toE164(phone: string): string {
+  const cleaned = phone.replace(/[^\d+]/g, "");
+  if (cleaned.startsWith("+")) return cleaned;
+  if (cleaned.length === 10) return `+1${cleaned}`; // assume US
+  return `+${cleaned}`;
+}
+// Usage: phones: phone ? [toE164(phone)] : []
+```
+
 ### File Upload to Wix Media
 
 `files.generateFileUploadUrl` requires `Manage Media Manager` permission — visitors/members get 403. Use `auth.elevate()` server-side.
