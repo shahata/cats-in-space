@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from "react";
 import { members, authentication } from "@wix/members";
-import { httpClient } from "@wix/essentials";
 import { getData as getCountries } from "country-list";
 
 function toE164(phone: string): string {
@@ -136,14 +135,11 @@ export default function MemberProfile({ member }: Props) {
     setPasswordChanging(true);
     setPasswordMsg("");
     try {
-      const res = await httpClient.fetchWithAuth(
-        "https://www.wixapis.com/iam/authentication/v2/change-password",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newPassword }),
-        }
-      );
+      const res = await fetch("/api/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword }),
+      });
       if (res.ok) {
         setPasswordMsg("Password changed successfully!");
         setNewPassword("");
