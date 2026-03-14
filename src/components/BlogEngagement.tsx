@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { likes, posts } from "@wix/blog";
 import { comments as commentsApi } from "@wix/comments";
-import { members } from "@wix/members";
-import { httpClient } from "@wix/essentials";
+import { auth, httpClient } from "@wix/essentials";
 
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
 const BLOG_POST_FQDN = "wix.blog.v3.post";
@@ -40,19 +39,10 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   }, [postId]);
 
   async function detectCurrentVisitor() {
-    // Try member identity first via SDK
     try {
-      const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
-      if (res.member?._id) { setMyVisitorId(res.member._id); return; }
-    } catch {}
-
-    // For visitors: query our own likes to discover our session identity
-    try {
-      const myLikes = await likes.queryLikes().limit(1).find();
-      if (myLikes.items.length > 0) {
-        // We have a like — now find a comment with matching content.author
-        // by checking which comments we can successfully get via the API
-        // The like proves we have a session, but doesn't give us the visitorId directly
+      const tokenInfo = await auth.getTokenInfo();
+      if (tokenInfo.subjectId) {
+        setMyVisitorId(tokenInfo.subjectId);
       }
     } catch {}
   }
