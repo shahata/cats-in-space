@@ -1,8 +1,7 @@
 "use client";
-import React, { useState, useEffect, useReducer } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { likes, posts } from "@wix/blog";
 import { comments as commentsApi } from "@wix/comments";
-import { members } from "@wix/members";
 import { httpClient } from "@wix/essentials";
 
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
@@ -14,7 +13,6 @@ interface Props {
 }
 
 export default function BlogEngagement({ postId, referenceId }: Props) {
-  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
   const [metrics, setMetrics] = useState({ views: 0, likes: 0, comments: 0 });
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -31,36 +29,13 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [editText, setEditText] = useState("");
   const [editRating, setEditRating] = useState(0);
   const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState("loading...");
 
   useEffect(() => {
     reportView();
     loadMetrics();
     checkIfLiked();
-    detectIdentity();
     loadComments();
   }, [postId]);
-
-  async function detectIdentity() {
-    let id: string | null = null;
-    let method = "none";
-
-    // Try members SDK
-    try {
-      const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
-      if (res.member?._id) {
-        id = res.member._id;
-        method = "member:" + id;
-      }
-    } catch (e: any) {
-      method = "member-err:" + (e?.message || "unknown").slice(0, 50);
-    }
-
-    setDebugInfo(method);
-    if (id) {
-      setMyVisitorId(id);
-    }
-  }
 
   async function reportView() {
     try {
@@ -84,7 +59,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     } catch {}
   }
 
-  async function loadComments() {
+  const loadComments = useCallback(async () => {
     try {
       const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
         contextId: referenceId,
@@ -97,8 +72,8 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
       const rm: Record<string, any[]> = {};
       if (res.commentReplies) {
-        for (const [commentId, replyData] of Object.entries(res.commentReplies)) {
-          rm[commentId] = (replyData as any).replies || [];
+        for (const [cid, replyData] of Object.entries(res.commentReplies)) {
+          rm[cid] = (replyData as any).replies || [];
         }
       }
 
@@ -114,23 +89,17 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       }
 
       const replyCount = Object.values(rm).reduce((sum, r) => sum + r.length, 0);
-
       setTopLevelComments(topLevel);
       setRepliesMap(rm);
       setTotalComments(topLevel.length + replyCount);
     } catch {}
-  }
+  }, [referenceId]);
 
   async function checkIfLiked() {
     try {
-      const res = await likes.getLikeByFqdnAndEntityId({
-        fqdn: BLOG_POST_FQDN,
-        entityId: postId,
-      });
+      const res = await likes.getLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: postId });
       if (res.like) setLiked(true);
-    } catch {
-      setLiked(false);
-    }
+    } catch { setLiked(false); }
   }
 
   async function toggleLike() {
@@ -145,75 +114,55 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         setLiked(true);
         setMetrics((m) => ({ ...m, likes: m.likes + 1 }));
       }
-    } catch (e) {
-      console.error("Like error:", e);
-    }
+    } catch (e) { console.error("Like error:", e); }
     setLikeLoading(false);
   }
 
   function makeRichContent(text: string) {
-    return {
-      richContent: {
-        nodes: [{
-          type: "PARAGRAPH",
-          nodes: [{ type: "TEXT", textData: { text, decorations: [] } }],
-          paragraphData: {},
-        }],
-      },
-    };
+    return { richContent: { nodes: [{ type: "PARAGRAPH", nodes: [{ type: "TEXT", textData: { text, decorations: [] } }], paragraphData: {} }] } };
+  }
+
+  function captureIdentity(comment: any) {
+    const vid = comment?.author?.visitorId || comment?.author?.memberId;
+    if (vid) setMyVisitorId(vid);
   }
 
   async function submitComment(e: React.FormEvent) {
     e.preventDefault();
     if (!newComment.trim()) return;
     setSubmitting(true);
-    const authorName = commentName.trim() || "Anonymous Space Cat";
     try {
       const created = await commentsApi.createComment({
-        appId: BLOG_APP_ID,
-        contextId: referenceId,
-        resourceId: referenceId,
-        author: { authorName },
+        appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
+        author: { authorName: commentName.trim() || "Anonymous Space Cat" },
         content: makeRichContent(newComment.trim()),
         ...(commentRating > 0 ? { rating: commentRating } : {}),
       } as any);
-      // Capture visitor ID from created comment
-      const vid = created?.author?.visitorId || created?.author?.memberId;
-      if (vid) setMyVisitorId(vid);
+      captureIdentity(created);
       setNewComment("");
       setCommentRating(0);
       await loadComments();
       await loadMetrics();
-      forceUpdate();
-    } catch (e) {
-      console.error("Comment error:", e);
-    }
+    } catch (e) { console.error("Comment error:", e); }
     setSubmitting(false);
   }
 
   async function submitReply(parentId: string) {
     if (!replyText.trim()) return;
     setSubmitting(true);
-    const authorName = commentName.trim() || "Anonymous Space Cat";
     try {
       const created = await commentsApi.createComment({
-        appId: BLOG_APP_ID,
-        contextId: referenceId,
-        resourceId: referenceId,
-        author: { authorName },
+        appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
+        author: { authorName: commentName.trim() || "Anonymous Space Cat" },
         parentComment: { _id: parentId },
         content: makeRichContent(replyText.trim()),
       } as any);
-      const vid = created?.author?.visitorId || created?.author?.memberId;
-      if (vid) setMyVisitorId(vid);
+      captureIdentity(created);
       setReplyText("");
       setReplyingTo(null);
       await loadComments();
       await loadMetrics();
-      forceUpdate();
-    } catch (e) {
-      console.error("Reply error:", e);
-    }
+    } catch (e) { console.error("Reply error:", e); }
     setSubmitting(false);
   }
 
@@ -221,17 +170,14 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     if (!editText.trim()) return;
     try {
       await commentsApi.updateComment(commentId, {
-        revision,
-        content: makeRichContent(editText.trim()),
+        revision, content: makeRichContent(editText.trim()),
         ...(editRating > 0 ? { rating: editRating } : {}),
       } as any);
       setEditingId(null);
       setEditText("");
       setEditRating(0);
       await loadComments();
-    } catch (e) {
-      console.error("Edit error:", e);
-    }
+    } catch (e) { console.error("Edit error:", e); }
   }
 
   async function handleDelete(commentId: string) {
@@ -240,15 +186,12 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       await commentsApi.deleteComment(commentId);
       await loadComments();
       await loadMetrics();
-    } catch (e) {
-      console.error("Delete error:", e);
-    }
+    } catch (e) { console.error("Delete error:", e); }
   }
 
   function isOwnComment(comment: any): boolean {
     if (!myVisitorId) return false;
-    const authorId = comment.author?.visitorId || comment.author?.memberId || comment.author?.userId;
-    return authorId === myVisitorId;
+    return (comment.author?.visitorId || comment.author?.memberId || comment.author?.userId) === myVisitorId;
   }
 
   function getCommentText(comment: any): string {
@@ -275,15 +218,14 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       <span style={{ display: "inline-flex", gap: "2px" }}>
         {[1, 2, 3, 4, 5].map((star) => (
           <span key={star} onClick={() => !readonly && onChange?.(star === value ? 0 : star)}
-            style={{ cursor: readonly ? "default" : "pointer", fontSize: "1.1rem", color: star <= value ? "#ffcc00" : "#444" }}>
-            ★
-          </span>
+            style={{ cursor: readonly ? "default" : "pointer", fontSize: "1.1rem", color: star <= value ? "#ffcc00" : "#444" }}>★</span>
         ))}
       </span>
     );
   }
 
-  function renderComment(comment: any, isReply = false) {
+  // Memoize to ensure re-render picks up myVisitorId changes
+  const commentElements = topLevelComments.map((comment) => {
     const author = comment.author?.authorName || "Space Visitor";
     const text = getCommentText(comment);
     const rating = comment.rating;
@@ -292,7 +234,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     const isMine = isOwnComment(comment);
 
     return (
-      <div key={comment._id} style={{ ...commentCardStyle, marginLeft: isReply ? 32 : 0 }}>
+      <div key={comment._id + "-" + myVisitorId} style={commentCardStyle}>
         <div style={commentHeaderStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span style={commentAuthorStyle}>{author}</span>
@@ -322,12 +264,8 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {!isEditing && (
           <div style={commentActionsStyle}>
-            {!isReply && (
-              <button onClick={() => { setReplyingTo(replyingTo === comment._id ? null : comment._id); setReplyText(""); }}
-                style={actionBtnStyle}>
-                Reply{replies.length > 0 ? ` (${replies.length})` : ""}
-              </button>
-            )}
+            <button onClick={() => { setReplyingTo(replyingTo === comment._id ? null : comment._id); setReplyText(""); }}
+              style={actionBtnStyle}>Reply{replies.length > 0 ? ` (${replies.length})` : ""}</button>
             {isMine && (
               <>
                 <button onClick={() => { setEditingId(comment._id); setEditText(text); setEditRating(comment.rating || 0); }}
@@ -347,8 +285,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => submitReply(comment._id)} disabled={submitting}
                 style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>
-                {submitting ? "Sending..." : "Send Reply"}
-              </button>
+                {submitting ? "Sending..." : "Send Reply"}</button>
               <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>Cancel</button>
             </div>
           </div>
@@ -356,20 +293,50 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {replies.length > 0 && (
           <div style={{ marginTop: "12px" }}>
-            {replies.map((reply: any) => renderComment(reply, true))}
+            {replies.map((reply: any) => {
+              const rAuthor = reply.author?.authorName || "Space Visitor";
+              const rText = getCommentText(reply);
+              const rIsMine = isOwnComment(reply);
+              const rIsEditing = editingId === reply._id;
+              return (
+                <div key={reply._id + "-" + myVisitorId} style={{ ...commentCardStyle, marginLeft: 32 }}>
+                  <div style={commentHeaderStyle}>
+                    <span style={commentAuthorStyle}>{rAuthor}</span>
+                    <span style={commentDateStyle}>{formatDate(reply._createdDate)}</span>
+                  </div>
+                  {rIsEditing ? (
+                    <div style={{ marginTop: "8px" }}>
+                      <textarea value={editText} onChange={(e) => setEditText(e.target.value)}
+                        rows={2} style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button onClick={() => handleEdit(reply._id, reply.revision)}
+                          style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>Save</button>
+                        <button onClick={() => { setEditingId(null); setEditText(""); }}
+                          style={smallBtnStyle}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p style={commentTextStyle}>{rText}</p>
+                  )}
+                  {!rIsEditing && rIsMine && (
+                    <div style={commentActionsStyle}>
+                      <button onClick={() => { setEditingId(reply._id); setEditText(rText); }}
+                        style={actionBtnStyle}>Edit</button>
+                      <button onClick={() => handleDelete(reply._id)}
+                        style={{ ...actionBtnStyle, color: "#cc0000" }}>Delete</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
     );
-  }
+  });
 
   return (
     <div style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* DEBUG - remove after fixing */}
-      <div style={{ fontSize: "0.65rem", color: "#555", padding: "4px 0" }}>
-        debug: identity={debugInfo} myVisitorId={myVisitorId || "null"} comments={topLevelComments.length}
-      </div>
-
       <div style={statsBarStyle}>
         <div style={statItemStyle}>
           <span style={statNumStyle}>{metrics.views}</span>
@@ -391,12 +358,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
       <div style={commentsSectionStyle}>
         <h3 style={commentsHeadingStyle}>Transmissions ({totalComments})</h3>
-
-        {topLevelComments.length > 0 && (
-          <div style={commentsListStyle}>
-            {topLevelComments.map((comment) => renderComment(comment))}
-          </div>
-        )}
+        {commentElements.length > 0 && <div style={commentsListStyle}>{commentElements}</div>}
 
         <form onSubmit={submitComment} style={commentFormStyle}>
           <h4 style={formTitleStyle}>Leave a Transmission</h4>
