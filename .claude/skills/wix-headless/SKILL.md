@@ -299,17 +299,27 @@ const result = await posts.listPosts({
 const blogPosts = result.posts || [];
 
 // Available fieldsets: URL, CONTENT_TEXT, METRICS, SEO, CONTACT_ID, RICH_CONTENT, REFERENCE_ID
-// METRICS gives: metrics.views, metrics.likes, metrics.comments
 // CONTACT_ID gives: memberId (the writer)
+// REFERENCE_ID gives: referenceId (needed for comments API)
 
-// Get single post by slug
+// **CRITICAL:** METRICS fieldset on listPosts returns ZEROS in managed headless.
+// Use getPostMetrics() per post instead:
+const metricsMap = new Map();
+await Promise.all(blogPosts.map(async (post) => {
+  try {
+    const m = await posts.getPostMetrics(post._id!);
+    metricsMap.set(post._id!, m.metrics); // { views, likes, comments }
+  } catch {}
+}));
+
+// Get single post by slug (include REFERENCE_ID for comments)
 const res = await posts.getPostBySlug('my-slug', {
-  fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID']
+  fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID']
 });
 const post = res.post;
 
 // Post object has: _id, title, slug, firstPublishedDate, coverMedia, richContent,
-//                  tagIds, memberId, metrics, excerpt, etc.
+//                  tagIds, memberId, metrics, excerpt, referenceId, etc.
 ---
 ```
 
@@ -439,34 +449,34 @@ import { comments as commentsApi } from '@wix/comments';
 
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
 
-// List comments for a post
-const res = await commentsApi.listCommentsByResource({
-  appId: BLOG_APP_ID,
-  resourceId: postId,
-  limit: 50,
-  order: "OLDEST",
+// List comments for a post — use referenceId, NOT post._id
+const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
+  contextId: post.referenceId,   // CRITICAL: referenceId, not _id
+  resourceId: post.referenceId,  // CRITICAL: referenceId, not _id
+  commentSort: { order: "OLDEST_FIRST" },
+  cursorPaging: { limit: 50 },
 });
 const commentsList = res.comments || [];
 
-// Create a comment (guest)
+// Create a comment with guest author name
 // CRITICAL: use `content.richContent` with Ricos nodes, NOT `plainTextContent`
+// CRITICAL: use referenceId for contextId/resourceId
+// CRITICAL: author.authorName sets the display name for the commenter
 await commentsApi.createComment({
   appId: BLOG_APP_ID,
-  contextId: postId,
-  resourceId: postId,
-  comment: {
-    commentAuthor: { guestAuthor: { name: "Visitor Name" } },
-    content: {
-      richContent: {
-        nodes: [{
-          type: "PARAGRAPH",
-          nodes: [{ type: "TEXT", textData: { text: "My comment", decorations: [] } }],
-          paragraphData: {},
-        }],
-      },
+  contextId: post.referenceId,
+  resourceId: post.referenceId,
+  author: { authorName: "Visitor Name" },
+  content: {
+    richContent: {
+      nodes: [{
+        type: "PARAGRAPH",
+        nodes: [{ type: "TEXT", textData: { text: "My comment", decorations: [] } }],
+        paragraphData: {},
+      }],
     },
   },
-});
+} as any);  // cast needed — SDK types don't include authorName
 ```
 
 **CRITICAL:** For Wix Blog comments, use the post's `referenceId` (NOT `_id`) for `contextId` and `resourceId`. Get it via `REFERENCE_ID` fieldset.
@@ -476,14 +486,17 @@ await commentsApi.createComment({
 **Comment author info is on:** `comment.author.authorName`
 **Comment text is on:** `comment.content.richContent.nodes` (extract TEXT nodes from PARAGRAPH nodes)
 
-### Post Metrics (Client-Side)
+### Post Metrics
 
 ```typescript
 import { posts } from '@wix/blog';
 
+// Works both server-side and client-side
 const res = await posts.getPostMetrics(postId);
 // res.metrics = { views: number, likes: number, comments: number }
 ```
+
+**CRITICAL:** The `METRICS` fieldset on `listPosts` returns **zeros** in managed headless context. Always use `getPostMetrics(postId)` per post to get real counts.
 
 **Note:** There is no public API to increment view counts for headless sites. Views are tracked internally by Wix's native blog widget only.
 
