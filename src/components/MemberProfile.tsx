@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { members } from "@wix/members";
+import { members, authentication } from "@wix/members";
 
 function toE164(phone: string): string {
   // Strip everything except digits and leading +
@@ -107,20 +107,12 @@ export default function MemberProfile({ member }: Props) {
     setEmailChanging(true);
     setEmailMsg("");
     try {
-      const res = await fetch("/api/member-auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "change-email", memberId: member._id, email: newEmail.trim() }),
-      });
-      if (res.ok) {
-        setEmailMsg("Login email updated! You may need to log in again.");
-        setNewEmail("");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setEmailMsg(data.error || "Failed to change email");
-      }
+      // Must be called as the member (not elevated) — requires Member identity
+      await authentication.changeLoginEmail(member._id, newEmail.trim());
+      setEmailMsg("Login email updated! You may need to log in again.");
+      setNewEmail("");
     } catch (e: any) {
-      setEmailMsg(e?.message || "Failed");
+      setEmailMsg(e?.message || "Failed to change email");
     }
     setEmailChanging(false);
   }
