@@ -132,13 +132,33 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     if (!newComment.trim()) return;
     setSubmitting(true);
     try {
-      const commentObj: any = {
-        appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
-        author: { authorName: commentName.trim() || "Anonymous Space Cat" },
-        content: makeRichContent(newComment.trim()),
-      };
-      if (commentRating > 0) commentObj.rating = commentRating;
-      const created = await commentsApi.createComment(commentObj);
+      let created: any;
+      if (commentRating > 0) {
+        // SDK strips rating field, use REST API directly
+        const res = await httpClient.fetchWithAuth(
+          "https://www.wixapis.com/comments/v1/comments",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              comment: {
+                appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
+                author: { authorName: commentName.trim() || "Anonymous Space Cat" },
+                content: makeRichContent(newComment.trim()),
+                rating: commentRating,
+              },
+            }),
+          }
+        );
+        const data = await res.json();
+        created = data.comment;
+      } else {
+        created = await commentsApi.createComment({
+          appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
+          author: { authorName: commentName.trim() || "Anonymous Space Cat" },
+          content: makeRichContent(newComment.trim()),
+        } as any);
+      }
       captureIdentity(created);
       setNewComment("");
       setCommentRating(0);
@@ -170,10 +190,28 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   async function handleEdit(commentId: string, revision: string) {
     if (!editText.trim()) return;
     try {
-      await commentsApi.updateComment(commentId, {
-        revision, content: makeRichContent(editText.trim()),
-        ...(editRating > 0 ? { rating: editRating } : {}),
-      } as any);
+      if (editRating > 0) {
+        // SDK strips rating, use REST
+        await httpClient.fetchWithAuth(
+          `https://www.wixapis.com/comments/v1/comments/${commentId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              comment: {
+                _id: commentId,
+                revision,
+                content: makeRichContent(editText.trim()),
+                rating: editRating,
+              },
+            }),
+          }
+        );
+      } else {
+        await commentsApi.updateComment(commentId, {
+          revision, content: makeRichContent(editText.trim()),
+        } as any);
+      }
       setEditingId(null);
       setEditText("");
       setEditRating(0);
