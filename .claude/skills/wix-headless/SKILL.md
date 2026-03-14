@@ -422,25 +422,34 @@ In Astro, use with `client:load`:
 
 ### Likes (Client-Side React)
 
+The same FQDN (`wix.blog.v3.post`) and Likes API works for both **posts** and **comments/replies**.
+
 ```typescript
 import { likes } from '@wix/blog';
 
 const FQDN = "wix.blog.v3.post";
 
-// Check if current visitor liked a post
-const res = await likes.getLikeByFqdnAndEntityId({ fqdn: FQDN, entityId: postId });
-const isLiked = !!res.like;
+// Load ALL likes by current visitor on mount (posts + comments in one call)
+const res = await likes.queryLikes().limit(100).find();
+const likedEntityIds = new Set(res.items.map(l => l.entityId).filter(Boolean));
+const postIsLiked = likedEntityIds.has(postId);
+// likedEntityIds also contains comment IDs the visitor liked
 
-// Like a post
-await likes.createLike({ like: { fqdn: FQDN, entityId: postId } });
+// Like a post or comment
+await likes.createLike({ like: { fqdn: FQDN, entityId: entityId } });
 
-// Unlike a post
-await likes.deleteLikeByFqdnAndEntityId({ fqdn: FQDN, entityId: postId });
+// Unlike a post or comment
+await likes.deleteLikeByFqdnAndEntityId({ fqdn: FQDN, entityId: entityId });
+
+// Check single entity
+const res = await likes.getLikeByFqdnAndEntityId({ fqdn: FQDN, entityId: entityId });
 ```
 
 **CRITICAL:** `getLikeByFqdnAndEntityId` and `deleteLikeByFqdnAndEntityId` take a single **object** `{ fqdn, entityId }`, NOT positional arguments.
 
-**CRITICAL:** `createLike` will throw `ALREADY_EXISTS` if the visitor already liked the post. Always check first with `getLikeByFqdnAndEntityId`.
+**CRITICAL:** `createLike` will throw `ALREADY_EXISTS` if the visitor already liked. Use `queryLikes()` on mount to pre-populate liked state, then track locally.
+
+**CRITICAL:** `queryLikes()` only returns likes created via the API, NOT likes from the Wix Blog UI.
 
 ### Comments (Client-Side React)
 
@@ -457,37 +466,108 @@ const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
   replySort: { order: "OLDEST_FIRST" },
   cursorPaging: { limit: 50, repliesLimit: 20 },  // CRITICAL: repliesLimit required to get replies
 });
-const commentsList = res.comments || [];
+const topLevelComments = res.comments || [];
+// Replies are in res.commentReplies (Map<parentId, { replies: Comment[] }>)
+```
 
-// Create a comment with guest author name
-// CRITICAL: use `content.richContent` with Ricos nodes, NOT `plainTextContent`
-// CRITICAL: use referenceId for contextId/resourceId
-// CRITICAL: author.authorName sets the display name for the commenter
+**CRITICAL: `cursorPaging.repliesLimit`** is required to get replies. Without it, only top-level comments are returned and `commentReplies` is empty.
+
+#### Reply Threading
+
+The API groups ALL replies under the **top-level comment's ID** in `commentReplies`, not under their actual parent. To build a proper thread tree:
+
+```typescript
+// 1. Collect all replies from commentReplies + flat list
+const allReplies = [];
+for (const replyData of Object.values(res.commentReplies || {})) {
+  allReplies.push(...(replyData.replies || []));
+}
+// Also check flat list for replies mixed in
+for (const c of allComments) {
+  if (c.parentComment?._id) allReplies.push(c);
+}
+
+// 2. Deduplicate by ID
+const seen = new Set();
+const unique = allReplies.filter(r => {
+  const id = r._id || r.id;
+  if (seen.has(id)) return false;
+  seen.add(id);
+  return true;
+});
+
+// 3. Regroup by ACTUAL parentComment._id (not top-level comment)
+const repliesMap = {};
+for (const r of unique) {
+  const parentId = r.parentComment?._id || r.parentComment?.id;
+  if (!repliesMap[parentId]) repliesMap[parentId] = [];
+  repliesMap[parentId].push(r);
+}
+// Now repliesMap[commentId] gives direct replies to that comment
+// Render recursively for nested threading
+```
+
+**CRITICAL:** `parentComment.author.authorName` contains the actual parent author name for "replying to" labels.
+
+#### Creating Comments
+
+```typescript
+// Top-level comment (use REST via fetchWithAuth — SDK strips some fields)
+const res = await httpClient.fetchWithAuth(
+  "https://www.wixapis.com/comments/v1/comments",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      comment: {
+        appId: BLOG_APP_ID,
+        contextId: post.referenceId,
+        resourceId: post.referenceId,
+        author: { authorName: "Visitor Name" },
+        content: { richContent: { nodes: [{ type: "PARAGRAPH", nodes: [{ type: "TEXT", textData: { text: "Hello", decorations: [] } }], paragraphData: {} }] } },
+      },
+    }),
+  }
+);
+const created = (await res.json()).comment;
+// REST returns 'id', SDK uses '_id' — normalize: if (created.id && !created._id) created._id = created.id;
+
+// Reply to a comment
 await commentsApi.createComment({
   appId: BLOG_APP_ID,
   contextId: post.referenceId,
   resourceId: post.referenceId,
   author: { authorName: "Visitor Name" },
-  content: {
-    richContent: {
-      nodes: [{
-        type: "PARAGRAPH",
-        nodes: [{ type: "TEXT", textData: { text: "My comment", decorations: [] } }],
-        paragraphData: {},
-      }],
-    },
-  },
-} as any);  // cast needed — SDK types don't include authorName
+  parentComment: { _id: parentCommentId },  // makes it a reply
+  content: { richContent: { nodes: [...] } },
+} as any);
+
+// Edit a comment
+await commentsApi.updateComment(commentId, {
+  revision: comment.revision,
+  content: { richContent: { nodes: [...] } },
+} as any);
+
+// Delete a comment
+await commentsApi.deleteComment(commentId);
 ```
 
 **CRITICAL:** For Wix Blog comments, use the post's `referenceId` (NOT `_id`) for `contextId` and `resourceId`. Get it via `REFERENCE_ID` fieldset.
 
 **CRITICAL:** Guest display names use `author: { authorName: "Name" }` on the Comment object. The `CommentAuthor` type in the SDK doesn't show it, so cast with `as any`.
 
+**CRITICAL:** After creating a comment, the API has **eventual consistency**. Call `loadComments()` immediately but pass an expected count — if the new comment isn't returned yet, retry after 2 seconds.
+
 **Comment author info is on:** `comment.author.authorName`
 **Comment text is on:** `comment.content.richContent.nodes` (extract TEXT nodes from PARAGRAPH nodes)
 
 **CRITICAL:** The `rating` field on comments is **NOT controllable** through the public API. Both `createComment` and `updateComment` ignore the `rating` parameter. The field is always set to a system default (3) by Wix internally. Do NOT build rating input UI for comments.
+
+#### Visitor Identity for Own-Comment Detection
+
+There is **no reliable client-side API** to get a visitor's ID before they interact. `auth.getTokenInfo()` is backend-only, `members.getCurrentMember()` is members-only.
+
+Approach: capture `visitorId` from the `createComment` response (`comment.author.visitorId`), then match against `comment.author.visitorId` on other comments to show Edit/Delete buttons only on own comments. Buttons only appear after the visitor's first interaction in the session.
 
 ### Post Metrics
 
