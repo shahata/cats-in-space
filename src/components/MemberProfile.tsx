@@ -2,6 +2,16 @@
 import React, { useState } from "react";
 import { members } from "@wix/members";
 
+function toE164(phone: string): string {
+  // Strip everything except digits and leading +
+  const cleaned = phone.replace(/[^\d+]/g, "");
+  if (cleaned.startsWith("+")) return cleaned;
+  // If it's 10 digits, assume US and prepend +1
+  if (cleaned.length === 10) return `+1${cleaned}`;
+  // Otherwise prepend +
+  return `+${cleaned}`;
+}
+
 interface Props {
   member: any;
 }
@@ -109,7 +119,7 @@ export default function MemberProfile({ member }: Props) {
           company: company || undefined,
           jobTitle: jobTitle || undefined,
           birthdate: birthdate || undefined,
-          ...(phone !== (member.contact?.phones?.[0] || "") ? { phones: phone ? [phone] : [] } : {}),
+          phones: phone ? [toE164(phone)] : [],
           addresses: [{
             ...(addr._id ? { _id: addr._id } : {}),
             addressLine: addressLine || undefined,
