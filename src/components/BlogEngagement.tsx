@@ -237,20 +237,23 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
-  function renderReplyThread(reply: any, parentAuthor: string, depth: number): React.ReactNode {
+  function renderReplyThread(reply: any, depth: number): React.ReactNode {
     const rAuthor = reply.author?.authorName || "Space Visitor";
     const rText = getCommentText(reply);
     const rIsMine = isOwnComment(reply);
     const rIsEditing = editingId === reply._id;
     const nestedReplies = repliesMap[reply._id] || [];
-    const indent = Math.min(depth * 24, 72); // cap indentation at 3 levels
+    const indent = Math.min(depth * 24, 72);
+    const replyingToName = reply.parentComment?.author?.authorName
+      || (reply.parentComment as any)?.authorName
+      || "someone";
 
     return (
       <div key={reply._id + "-" + myVisitorId} style={{ ...commentCardStyle, marginLeft: indent, borderLeft: "2px solid #333" }}>
         <div style={commentHeaderStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={commentAuthorStyle}>{rAuthor}</span>
-            <span style={{ fontSize: "0.75rem", color: "#555" }}>replying to {parentAuthor}</span>
+            <span style={{ fontSize: "0.75rem", color: "#555" }}>replying to {replyingToName}</span>
           </div>
           <span style={commentDateStyle}>{formatDate(reply._createdDate)}</span>
         </div>
@@ -300,7 +303,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         )}
         {nestedReplies.length > 0 && (
           <div style={{ marginTop: "8px" }}>
-            {nestedReplies.map((nr: any) => renderReplyThread(nr, rAuthor, depth + 1))}
+            {nestedReplies.map((nr: any) => renderReplyThread(nr, depth + 1))}
           </div>
         )}
       </div>
@@ -374,7 +377,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {replies.length > 0 && (
           <div style={{ marginTop: "12px" }}>
-            {replies.map((reply: any) => renderReplyThread(reply, author, 1))}
+            {replies.map((reply: any) => renderReplyThread(reply, 1))}
           </div>
         )}
       </div>
