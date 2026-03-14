@@ -364,13 +364,13 @@ export default function MemberProfile({ member }: Props) {
         {emailMsg && <p style={{ fontSize: "0.8rem", color: emailMsg.includes("updated") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{emailMsg}</p>}
 
         <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #222" }}>
-          <label style={labelStyle}>Password</label>
+          <label style={labelStyle}>Change Password</label>
           <p style={{ color: "#888", fontSize: "0.8rem", marginBottom: "8px" }}>
-            A password reset link will be sent to your login email
+            To change your password, we'll send a secure link to <strong style={{ color: "#e0e0e0" }}>{member.loginEmail}</strong> where you can set a new password.
           </p>
           <button type="button" onClick={handleResetPassword} disabled={passwordSending}
             style={smallButtonStyle}>
-            {passwordSending ? "Sending..." : "Send Password Reset Email"}
+            {passwordSending ? "Sending..." : "Send Change Password Link"}
           </button>
           {passwordMsg && <p style={{ fontSize: "0.8rem", color: passwordMsg.includes("sent") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{passwordMsg}</p>}
         </div>
