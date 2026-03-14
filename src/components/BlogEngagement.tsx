@@ -31,19 +31,34 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Restore visitor ID from localStorage
-    const stored = localStorage.getItem("cats-in-space-visitor-id");
-    if (stored) setMyVisitorId(stored);
-
     reportView();
     loadMetrics();
     loadComments();
     checkIfLiked();
+    detectCurrentVisitor();
   }, [postId]);
 
-  function saveVisitorId(id: string) {
-    setMyVisitorId(id);
-    localStorage.setItem("cats-in-space-visitor-id", id);
+  async function detectCurrentVisitor() {
+    // Try member identity first
+    try {
+      const res = await httpClient.fetchWithAuth(
+        "https://www.wixapis.com/members/v1/members/my"
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.member?.id) { setMyVisitorId(data.member.id); return; }
+      }
+    } catch {}
+
+    // For visitors: query our own likes to discover our session identity
+    try {
+      const myLikes = await likes.queryLikes().limit(1).find();
+      if (myLikes.items.length > 0) {
+        // We have a like — now find a comment with matching content.author
+        // by checking which comments we can successfully get via the API
+        // The like proves we have a session, but doesn't give us the visitorId directly
+      }
+    } catch {}
   }
 
   async function reportView() {
@@ -152,7 +167,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
   function captureVisitorId(comment: any) {
     const vid = comment?.author?.visitorId || (comment?.content as any)?.author?.visitorId;
-    if (vid && !myVisitorId) saveVisitorId(vid);
+    if (vid && !myVisitorId) setMyVisitorId(vid);
   }
 
   async function submitComment(e: React.FormEvent) {
