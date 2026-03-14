@@ -63,26 +63,21 @@ export default function MemberProfile({ member }: Props) {
     setPhotoUploading(true);
     setError("");
     try {
-      // Upload via server endpoint (avoids CORS/ORB issues)
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("memberId", member._id);
 
-      const res = await fetch("/api/upload-url", {
+      const res = await fetch("/api/profile-photo", {
         method: "POST",
         body: formData,
       });
 
-      if (res.ok) {
-        const { id, url } = await res.json();
-        if (id && url) {
-          setPhotoId(id);
-          setPhoto(url);
-          setRemovePhoto(false);
-          // Save immediately
-          await members.updateMember(member._id, { profile: { photo: { _id: id, url } } });
-        }
+      const data = await res.json();
+      if (res.ok && data.id && data.url) {
+        setPhotoId(data.id);
+        setPhoto(data.url);
+        setRemovePhoto(false);
       } else {
-        const data = await res.json().catch(() => ({}));
         setError(data.error || "Failed to upload image");
       }
     } catch (err: any) {
@@ -96,7 +91,15 @@ export default function MemberProfile({ member }: Props) {
     setPhotoId(undefined);
     setRemovePhoto(true);
     try {
-      await members.updateMember(member._id, { profile: { photo: { url: "" } } });
+      const res = await fetch("/api/profile-photo", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: member._id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to remove photo");
+      }
     } catch (err: any) {
       setError(err?.message || "Failed to remove photo");
     }
@@ -139,11 +142,6 @@ export default function MemberProfile({ member }: Props) {
         nickname: nickname || undefined,
         title: title || undefined,
       };
-      if (removePhoto) {
-        profileUpdate.photo = { url: "" };
-      } else if (photoId && photoId !== member.profile?.photo?._id) {
-        profileUpdate.photo = { _id: photoId, url: photo };
-      }
 
       await members.updateMember(member._id, {
         profile: profileUpdate,
