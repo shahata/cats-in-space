@@ -17,9 +17,15 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [commentsList, setCommentsList] = useState<any[]>([]);
+  const [repliesMap, setRepliesMap] = useState<Record<string, any[]>>({});
   const [newComment, setNewComment] = useState("");
   const [commentName, setCommentName] = useState("");
+  const [commentRating, setCommentRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
 
   useEffect(() => {
     reportView();
@@ -30,9 +36,10 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
   async function reportView() {
     try {
-      await httpClient.fetchWithAuth(`https://www.wixapis.com/blog/v3/posts/${postId}/view`, {
-        method: "POST",
-      });
+      await httpClient.fetchWithAuth(
+        `https://www.wixapis.com/blog/v3/posts/${postId}/view`,
+        { method: "POST" }
+      );
     } catch {}
   }
 
@@ -58,6 +65,14 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         cursorPaging: { limit: 50 },
       });
       setCommentsList(res.comments || []);
+      // Build replies map from commentReplies
+      const rm: Record<string, any[]> = {};
+      if (res.commentReplies) {
+        for (const [commentId, replyData] of Object.entries(res.commentReplies)) {
+          rm[commentId] = (replyData as any).replies || [];
+        }
+      }
+      setRepliesMap(rm);
     } catch {}
   }
 
@@ -67,9 +82,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         fqdn: BLOG_POST_FQDN,
         entityId: postId,
       });
-      if (res.like) {
-        setLiked(true);
-      }
+      if (res.like) setLiked(true);
     } catch {
       setLiked(false);
     }
@@ -87,10 +100,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         setMetrics((m) => ({ ...m, likes: Math.max(0, m.likes - 1) }));
       } else {
         await likes.createLike({
-          like: {
-            fqdn: BLOG_POST_FQDN,
-            entityId: postId,
-          },
+          like: { fqdn: BLOG_POST_FQDN, entityId: postId },
         });
         setLiked(true);
         setMetrics((m) => ({ ...m, likes: m.likes + 1 }));
@@ -99,6 +109,20 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
       console.error("Like error:", e);
     }
     setLikeLoading(false);
+  }
+
+  function makeRichContent(text: string) {
+    return {
+      richContent: {
+        nodes: [
+          {
+            type: "PARAGRAPH",
+            nodes: [{ type: "TEXT", textData: { text, decorations: [] } }],
+            paragraphData: {},
+          },
+        ],
+      },
+    };
   }
 
   async function submitComment(e: React.FormEvent) {
@@ -111,31 +135,12 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         appId: BLOG_APP_ID,
         contextId: referenceId,
         resourceId: referenceId,
-        author: {
-          authorName,
-        },
-        content: {
-          richContent: {
-            nodes: [
-              {
-                type: "PARAGRAPH",
-                nodes: [
-                  {
-                    type: "TEXT",
-                    textData: {
-                      text: newComment.trim(),
-                      decorations: [],
-                    },
-                  },
-                ],
-                paragraphData: {},
-              },
-            ],
-          },
-        },
+        author: { authorName },
+        content: makeRichContent(newComment.trim()),
+        ...(commentRating > 0 ? { rating: commentRating } : {}),
       } as any);
       setNewComment("");
-      setCommentName("");
+      setCommentRating(0);
       setMetrics((m) => ({ ...m, comments: m.comments + 1 }));
       await loadComments();
     } catch (e) {
@@ -144,23 +149,56 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     setSubmitting(false);
   }
 
-  function formatCommentDate(dateStr: string | Date | undefined) {
-    if (!dateStr) return "";
-    const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
-    return d.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  async function submitReply(parentId: string) {
+    if (!replyText.trim()) return;
+    setSubmitting(true);
+    const authorName = commentName.trim() || "Anonymous Space Cat";
+    try {
+      await commentsApi.createComment({
+        appId: BLOG_APP_ID,
+        contextId: referenceId,
+        resourceId: referenceId,
+        author: { authorName },
+        parentComment: { id: parentId },
+        content: makeRichContent(replyText.trim()),
+      } as any);
+      setReplyText("");
+      setReplyingTo(null);
+      await loadComments();
+      await loadMetrics();
+    } catch (e) {
+      console.error("Reply error:", e);
+    }
+    setSubmitting(false);
   }
 
-  function parseComment(comment: any): { author: string; text: string } {
-    // Author name is on comment.author.authorName
-    const author = comment.author?.authorName || "Space Visitor";
+  async function handleEdit(commentId: string, revision: string) {
+    if (!editText.trim()) return;
+    try {
+      await commentsApi.updateComment(commentId, {
+        revision,
+        content: makeRichContent(editText.trim()),
+      } as any);
+      setEditingId(null);
+      setEditText("");
+      await loadComments();
+    } catch (e) {
+      console.error("Edit error:", e);
+    }
+  }
 
-    // Text is in comment.content.richContent.nodes
+  async function handleDelete(commentId: string) {
+    if (!confirm("Delete this transmission?")) return;
+    try {
+      await commentsApi.deleteComment(commentId);
+      await loadComments();
+      await loadMetrics();
+    } catch (e) {
+      console.error("Delete error:", e);
+    }
+  }
+
+  function getCommentText(comment: any): string {
     const nodes = comment.content?.richContent?.nodes || [];
     const texts: string[] = [];
     for (const node of nodes) {
@@ -172,7 +210,161 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         }
       }
     }
-    return { author, text: texts.join(" ") };
+    return texts.join(" ");
+  }
+
+  function formatDate(dateStr: string | Date | undefined) {
+    if (!dateStr) return "";
+    const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
+    return d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function StarRating({
+    value,
+    onChange,
+    readonly,
+  }: {
+    value: number;
+    onChange?: (v: number) => void;
+    readonly?: boolean;
+  }) {
+    return (
+      <span style={{ display: "inline-flex", gap: "2px" }}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <span
+            key={star}
+            onClick={() => !readonly && onChange?.(star === value ? 0 : star)}
+            style={{
+              cursor: readonly ? "default" : "pointer",
+              fontSize: "1.1rem",
+              color: star <= value ? "#ffcc00" : "#444",
+            }}
+          >
+            ★
+          </span>
+        ))}
+      </span>
+    );
+  }
+
+  function renderComment(comment: any, isReply = false) {
+    const author = comment.author?.authorName || "Space Visitor";
+    const text = getCommentText(comment);
+    const rating = comment.rating;
+    const replies = repliesMap[comment._id] || [];
+    const isEditing = editingId === comment._id;
+
+    return (
+      <div
+        key={comment._id}
+        style={{ ...commentCardStyle, marginLeft: isReply ? 32 : 0 }}
+      >
+        <div style={commentHeaderStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={commentAuthorStyle}>{author}</span>
+            {rating > 0 && <StarRating value={rating} readonly />}
+          </div>
+          <span style={commentDateStyle}>{formatDate(comment._createdDate)}</span>
+        </div>
+
+        {isEditing ? (
+          <div style={{ marginTop: "8px" }}>
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              rows={3}
+              style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }}
+            />
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                onClick={() => handleEdit(comment._id, comment.revision)}
+                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => { setEditingId(null); setEditText(""); }}
+                style={smallBtnStyle}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p style={commentTextStyle}>{text}</p>
+        )}
+
+        {!isEditing && (
+          <div style={commentActionsStyle}>
+            <button
+              onClick={() => {
+                setReplyingTo(replyingTo === comment._id ? null : comment._id);
+                setReplyText("");
+              }}
+              style={actionBtnStyle}
+            >
+              Reply
+            </button>
+            <button
+              onClick={() => {
+                setEditingId(comment._id);
+                setEditText(text);
+              }}
+              style={actionBtnStyle}
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => handleDelete(comment._id)}
+              style={{ ...actionBtnStyle, color: "#cc0000" }}
+            >
+              Delete
+            </button>
+          </div>
+        )}
+
+        {/* Reply form */}
+        {replyingTo === comment._id && (
+          <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #222" }}>
+            <textarea
+              placeholder="Write a reply..."
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              rows={2}
+              style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }}
+            />
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                onClick={() => submitReply(comment._id)}
+                disabled={submitting}
+                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}
+              >
+                {submitting ? "Sending..." : "Send Reply"}
+              </button>
+              <button
+                onClick={() => setReplyingTo(null)}
+                style={smallBtnStyle}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Replies */}
+        {replies.length > 0 && (
+          <div style={{ marginTop: "12px" }}>
+            {replies.map((reply: any) => renderComment(reply, true))}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -191,7 +383,6 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
           <span style={statNumStyle}>{metrics.comments}</span>
           <span style={statLabelStyle}>Comments</span>
         </div>
-
         <button
           onClick={toggleLike}
           disabled={likeLoading}
@@ -213,22 +404,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {commentsList.length > 0 && (
           <div style={commentsListStyle}>
-            {commentsList.map((comment) => {
-              const parsed = parseComment(comment);
-              return (
-                <div key={comment._id} style={commentCardStyle}>
-                  <div style={commentHeaderStyle}>
-                    <span style={commentAuthorStyle}>
-                      {parsed.author}
-                    </span>
-                    <span style={commentDateStyle}>
-                      {formatCommentDate(comment._createdDate)}
-                    </span>
-                  </div>
-                  <p style={commentTextStyle}>{parsed.text}</p>
-                </div>
-              );
-            })}
+            {commentsList.map((comment) => renderComment(comment))}
           </div>
         )}
 
@@ -249,6 +425,13 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
             style={{ ...inputStyle, resize: "vertical" as const }}
             required
           />
+          <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "12px" }}>
+            <span style={{ color: "#888", fontSize: "0.85rem" }}>Rating:</span>
+            <StarRating value={commentRating} onChange={setCommentRating} />
+            {commentRating > 0 && (
+              <span style={{ color: "#666", fontSize: "0.8rem" }}>{commentRating}/5</span>
+            )}
+          </div>
           <button type="submit" disabled={submitting} style={submitButtonStyle}>
             {submitting ? "Transmitting..." : "Send Transmission"}
           </button>
@@ -268,19 +451,16 @@ const statsBarStyle: React.CSSProperties = {
   marginTop: "40px",
   flexWrap: "wrap",
 };
-
 const statItemStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
 };
-
 const statNumStyle: React.CSSProperties = {
   fontFamily: "'Black Ops One', cursive",
   fontSize: "1.5rem",
   color: "#ff6600",
 };
-
 const statLabelStyle: React.CSSProperties = {
   fontSize: "0.75rem",
   color: "#888",
@@ -288,7 +468,6 @@ const statLabelStyle: React.CSSProperties = {
   letterSpacing: "1px",
   marginTop: "2px",
 };
-
 const likeButtonStyle: React.CSSProperties = {
   marginLeft: "auto",
   padding: "10px 24px",
@@ -300,11 +479,7 @@ const likeButtonStyle: React.CSSProperties = {
   cursor: "pointer",
   transition: "all 0.3s",
 };
-
-const commentsSectionStyle: React.CSSProperties = {
-  marginTop: "40px",
-};
-
+const commentsSectionStyle: React.CSSProperties = { marginTop: "40px" };
 const commentsHeadingStyle: React.CSSProperties = {
   fontFamily: "'Bangers', cursive",
   fontSize: "1.5rem",
@@ -312,54 +487,73 @@ const commentsHeadingStyle: React.CSSProperties = {
   letterSpacing: "1px",
   marginBottom: "20px",
 };
-
 const commentsListStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "16px",
   marginBottom: "30px",
 };
-
 const commentCardStyle: React.CSSProperties = {
   background: "#141414",
   border: "1px solid #222",
   borderRadius: "12px",
   padding: "16px 20px",
 };
-
 const commentHeaderStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   marginBottom: "8px",
+  flexWrap: "wrap",
+  gap: "8px",
 };
-
 const commentAuthorStyle: React.CSSProperties = {
   fontFamily: "'Bangers', cursive",
   fontSize: "0.95rem",
   color: "#ffcc00",
   letterSpacing: "1px",
 };
-
 const commentDateStyle: React.CSSProperties = {
   fontSize: "0.75rem",
   color: "#666",
 };
-
 const commentTextStyle: React.CSSProperties = {
   color: "#aaa",
   fontSize: "0.9rem",
   lineHeight: "1.6",
   margin: 0,
 };
-
+const commentActionsStyle: React.CSSProperties = {
+  display: "flex",
+  gap: "12px",
+  marginTop: "8px",
+};
+const actionBtnStyle: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  color: "#888",
+  fontSize: "0.8rem",
+  cursor: "pointer",
+  padding: "2px 0",
+  fontFamily: "'Inter', sans-serif",
+};
+const smallBtnStyle: React.CSSProperties = {
+  padding: "6px 16px",
+  border: "1px solid #444",
+  borderRadius: "6px",
+  background: "transparent",
+  color: "#aaa",
+  fontSize: "0.85rem",
+  cursor: "pointer",
+  fontFamily: "'Bangers', cursive",
+  letterSpacing: "0.5px",
+};
 const commentFormStyle: React.CSSProperties = {
   background: "#141414",
   border: "1px solid #222",
   borderRadius: "12px",
   padding: "24px",
 };
-
 const formTitleStyle: React.CSSProperties = {
   fontFamily: "'Bangers', cursive",
   fontSize: "1.1rem",
@@ -368,7 +562,6 @@ const formTitleStyle: React.CSSProperties = {
   marginBottom: "16px",
   marginTop: 0,
 };
-
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "12px 16px",
@@ -382,7 +575,6 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
   boxSizing: "border-box",
 };
-
 const submitButtonStyle: React.CSSProperties = {
   padding: "12px 32px",
   background: "#ff6600",
