@@ -34,17 +34,19 @@ const links = [
 					{link.label}
 				</a>
 			))}
-			{loggedInMember ? (
-				<div class="auth-section">
-					{memberPhoto && <img src={memberPhoto} alt={loggedInMember} class="member-avatar" />}
-					<span class="member-name">{loggedInMember}</span>
-					<form action="/api/auth/logout" method="POST" style="display:inline">
-						<button type="submit" class="auth-btn">Logout</button>
-					</form>
-				</div>
-			) : (
-				<a href="/api/auth/login" class="auth-btn login-btn">Login</a>
-			)}
+			<div class="auth-section">
+				{loggedInMember ? (
+					<>
+						{memberPhoto && <img src={memberPhoto} alt={loggedInMember} class="member-avatar" />}
+						<span class="member-name">{loggedInMember}</span>
+						<form action="/api/auth/logout" method="POST" style="display:inline">
+							<button type="submit" class="auth-link">Logout</button>
+						</form>
+					</>
+				) : (
+					<a href="/api/auth/login" class="auth-link">Login</a>
+				)}
+			</div>
 		</div>
 	</div>
 </nav>
@@ -128,30 +130,20 @@ const links = [
 		letter-spacing: 1px;
 	}
 
-	.auth-btn {
-		padding: 6px 14px;
-		border-radius: 8px;
-		font-size: 0.8rem;
-		font-weight: 600;
-		font-family: var(--font-heading);
-		letter-spacing: 1px;
-		color: var(--text-secondary);
-		transition: all 0.2s;
+	.auth-link {
+		font-size: 0.85rem;
+		color: var(--text-muted);
 		background: none;
 		border: none;
 		cursor: pointer;
 		text-decoration: none;
+		font-family: var(--font-body);
+		padding: 0;
+		transition: color 0.2s;
 	}
 
-	.auth-btn:hover {
+	.auth-link:hover {
 		color: var(--accent);
-		background: rgba(255, 102, 0, 0.1);
-	}
-
-	.login-btn {
-		margin-left: 8px;
-		padding-left: 12px;
-		border-left: 1px solid #333;
 	}
 
 	@media (max-width: 640px) {
