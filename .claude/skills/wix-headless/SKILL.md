@@ -498,7 +498,35 @@ const res = await posts.getPostMetrics(postId);
 
 **CRITICAL:** The `METRICS` fieldset on `listPosts` returns **zeros** in managed headless context. Always use `getPostMetrics(postId)` per post to get real counts.
 
-**Note:** There is no public API to increment view counts for headless sites. Views are tracked internally by Wix's native blog widget only.
+### Reporting Post Views (Client-Side)
+
+There is an **undocumented** endpoint to increment blog post views:
+
+```
+POST https://www.wixapis.com/blog/v3/posts/{postId}/view
+Returns: { "views": <new_count> }
+```
+
+Use `httpClient.fetchWithAuth` from `@wix/essentials` for authenticated calls:
+
+```tsx
+"use client";
+import { httpClient } from "@wix/essentials";
+
+// Call on component mount to report a view
+async function reportView(postId: string) {
+  try {
+    await httpClient.fetchWithAuth(
+      `https://www.wixapis.com/blog/v3/posts/${postId}/view`,
+      { method: "POST" }
+    );
+  } catch {}
+}
+```
+
+**CRITICAL:** Import `httpClient` from `"@wix/essentials"` (main module), NOT from `"@wix/essentials/http-client"` (subpath import fails Vite build).
+
+**CRITICAL:** Use `httpClient.fetchWithAuth` (not `httpClient.request`) — it's a fetch wrapper that adds Wix auth headers automatically. Works in client-side React components in managed headless.
 
 ### Members / Writers
 
