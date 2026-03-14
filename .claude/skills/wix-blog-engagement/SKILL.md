@@ -168,16 +168,15 @@ const res = await posts.getPostMetrics(postId);
 // res.metrics = { views: number, likes: number, comments: number }
 ```
 
-**CRITICAL:** `METRICS` fieldset on `listPosts` returns **zeros** in managed headless. Use `queryPosts` instead — it returns real metrics:
+**CRITICAL:** `METRICS` fieldset on `listPosts` returns **zeros** in managed headless. Use `queryPosts` instead — it returns real metrics including comments:
 
 ```typescript
-// queryPosts returns real metrics, listPosts returns zeros
+// queryPosts returns real metrics (views, likes, comments), listPosts returns zeros
 const result = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).find();
 const blogPosts = result.items || [];
-// post.metrics.views, post.metrics.likes — populated correctly
+// post.metrics.views, post.metrics.likes, post.metrics.comments — all populated correctly
+// No need for per-post getPostMetrics or separate comment counting
 ```
-
-**CRITICAL:** Blog `metrics.comments` does NOT include Wix Comments API comments. Use `listCommentsByResource` to count comments separately.
 
 ## Reporting Post Views
 
