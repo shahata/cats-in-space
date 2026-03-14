@@ -89,7 +89,7 @@ export default function MemberProfile({ member }: Props) {
         title: title || undefined,
       };
       if (removePhoto) {
-        profileUpdate.photo = null;
+        profileUpdate.photo = { url: "" };
       } else if (photoId && photoId !== member.profile?.photo?._id) {
         profileUpdate.photo = { _id: photoId, url: photo };
       }
