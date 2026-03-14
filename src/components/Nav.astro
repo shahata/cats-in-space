@@ -37,8 +37,10 @@ const links = [
 			<div class="auth-section">
 				{loggedInMember ? (
 					<>
-						{memberPhoto && <img src={memberPhoto} alt={loggedInMember} class="member-avatar" />}
-						<span class="member-name">{loggedInMember}</span>
+						<a href="/member" class="member-link">
+							{memberPhoto && <img src={memberPhoto} alt={loggedInMember} class="member-avatar" />}
+							<span class="member-name">{loggedInMember}</span>
+						</a>
 						<form action="/api/auth/logout" method="POST" style="display:inline">
 							<button type="submit" class="auth-link">Logout</button>
 						</form>
@@ -104,6 +106,18 @@ const links = [
 	.nav-link.active {
 		color: #000;
 		background: var(--accent);
+	}
+
+	.member-link {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		text-decoration: none;
+		transition: opacity 0.2s;
+	}
+
+	.member-link:hover {
+		opacity: 0.8;
 	}
 
 	.member-avatar {
