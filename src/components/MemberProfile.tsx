@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { members, authentication } from "@wix/members";
+import { members, authentication, membersAbout } from "@wix/members";
 import { getData as getCountries } from "country-list";
 
 function toE164(phone: string): string {
@@ -58,6 +58,35 @@ export default function MemberProfile({ member }: Props) {
   const [removePhoto, setRemovePhoto] = useState(false);
   const [cover, setCover] = useState<string | undefined>(member.profile?.cover?.url);
   const [coverUploading, setCoverUploading] = useState(false);
+  const [about, setAbout] = useState("");
+  const [aboutId, setAboutId] = useState<string | null>(null);
+  const [aboutRevision, setAboutRevision] = useState<string | null>(null);
+  const [aboutSaving, setAboutSaving] = useState(false);
+  const [aboutSaved, setAboutSaved] = useState(false);
+
+  // Load existing about on mount
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await membersAbout.getMyMemberAbout();
+        const aboutData = res.memberAbout;
+        if (aboutData) {
+          setAboutId(aboutData._id || null);
+          setAboutRevision(aboutData.revision || null);
+          const nodes = aboutData.content?.nodes || [];
+          const texts: string[] = [];
+          for (const node of nodes) {
+            if (node.type === "PARAGRAPH") {
+              for (const child of (node as any).nodes || []) {
+                if (child.type === "TEXT" && child.textData?.text) texts.push(child.textData.text);
+              }
+            }
+          }
+          setAbout(texts.join("\n"));
+        }
+      } catch {}
+    })();
+  }, []);
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -143,6 +172,37 @@ export default function MemberProfile({ member }: Props) {
     } catch (err: any) {
       alert(err?.message || "Failed to remove cover");
     }
+  }
+
+  function makeAboutContent(text: string) {
+    return {
+      nodes: text.split("\n").map(line => ({
+        type: "PARAGRAPH" as const,
+        nodes: [{ type: "TEXT" as const, textData: { text: line, decorations: [] } }],
+        paragraphData: {},
+      })),
+    };
+  }
+
+  async function handleSaveAbout() {
+    setAboutSaving(true);
+    try {
+      const content = makeAboutContent(about);
+      if (aboutId && aboutRevision) {
+        const res = await membersAbout.updateMemberAbout(aboutId, { content, revision: aboutRevision });
+        setAboutRevision(res.revision || aboutRevision);
+        setAboutSaved(true);
+      } else {
+        const res = await membersAbout.createMemberAbout({ memberId: member._id, content } as any);
+        setAboutId(res._id || null);
+        setAboutRevision(res.revision || null);
+        setAboutSaved(true);
+      }
+      setTimeout(() => setAboutSaved(false), 3000);
+    } catch (e: any) {
+      alert(e?.message || "Failed to save about");
+    }
+    setAboutSaving(false);
   }
 
   async function handleChangeEmail() {
@@ -314,6 +374,20 @@ export default function MemberProfile({ member }: Props) {
         </select>
 
         {/* Private Info */}
+        {/* About */}
+        <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>About</h3>
+        <p style={sectionDescStyle}>Tell other crew members about yourself</p>
+        <textarea value={about} onChange={(e) => setAbout(e.target.value)}
+          placeholder="Write something about yourself..." rows={4}
+          style={{ ...inputStyle, resize: "vertical" as const }} />
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "8px" }}>
+          <button type="button" onClick={handleSaveAbout} disabled={aboutSaving}
+            style={smallButtonStyle}>
+            {aboutSaving ? "Saving..." : "Save About"}
+          </button>
+          {aboutSaved && <span style={{ color: "#4caf50", fontSize: "0.8rem" }}>Saved!</span>}
+        </div>
+
         <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>Personal Info</h3>
         <p style={sectionDescStyle}>Only visible to site administrators</p>
 
