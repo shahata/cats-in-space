@@ -154,11 +154,54 @@ await commentsApi.deleteComment(commentId);
 **Comment author info:** `comment.author.authorName`
 **Comment text:** `comment.content.richContent.nodes` (extract TEXT from PARAGRAPH nodes)
 
+### Member Comments
+
+Comments by logged-in members have `comment.author.memberId`. Fetch their profile to show real name:
+
+```typescript
+import { members } from '@wix/members';
+
+// Collect memberIds from comments, fetch profiles
+const memberIds = new Set(comments.filter(c => c.author?.memberId).map(c => c.author!.memberId!));
+const profiles = new Map();
+for (const id of memberIds) {
+  try {
+    const m = await members.getMember(id, { fieldsets: ['FULL'] });
+    profiles.set(id, { nickname: m.profile?.nickname, title: m.profile?.title });
+  } catch {}
+}
+
+// Display: use member nickname if available, fall back to authorName
+const memberId = comment.author?.memberId;
+const profile = memberId ? profiles.get(memberId) : undefined;
+const displayName = profile?.nickname || comment.author?.authorName || "Space Visitor";
+```
+
 ### Visitor Identity for Own-Comment Detection
 
 No reliable client-side API to get visitor ID before interaction. `auth.getTokenInfo()` is backend-only, `members.getCurrentMember()` is members-only.
 
 Approach: capture `visitorId` from `createComment` response (`comment.author.visitorId`), match against comments to show Edit/Delete only on own comments. Use `myVisitorId` in element keys to force re-render when identity changes.
+
+### Authentication (Login/Logout)
+
+Wix Astro middleware provides auth endpoints:
+- **Login:** `<a href="/api/auth/login">` — redirects to Wix login page
+- **Logout:** `<form action="/api/auth/logout" method="POST">` — POST handler, use a form not a link
+- **Detect login state server-side:** `members.getCurrentMember()` returns `{ member }` if logged in, throws if not
+
+```astro
+---
+import { members } from '@wix/members';
+let loggedIn = false;
+try {
+  const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+  if (res.member) loggedIn = true;
+} catch {}
+---
+```
+
+**CRITICAL:** `getCurrentMember()` returns `{ member?: Member }` (wrapped), NOT `Member` directly. Check `res.member`.
 
 ## Post Metrics
 
@@ -193,3 +236,19 @@ await httpClient.fetchWithAuth(
 ```
 
 **CRITICAL:** Import `httpClient` from `"@wix/essentials"` (main module), NOT from `"@wix/essentials/http-client"` (subpath fails Vite build).
+
+## Source Code References
+
+- Comment service proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-ng/proto/wix/comments/ng/v1/comments_ng.proto
+- Comment entity proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-ng/proto/wix/comments/ng/v1/comment.proto
+- Comments middleware proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-middleware/proto/wix/comments/middleware/v1/comments_middleware.proto
+
+### Comment Reactions (Internal)
+
+Reactions (like `:like:`) are managed by the comments middleware, NOT the public Comments API. The middleware endpoints (`/_api/comments-middleware/v1/comment/{id}/reactions/:like:`) are INTERNAL and not accessible in managed headless via `fetchWithAuth`. The `_api` path is a site-level proxy only available on the site's own domain, not on `wixapis.com`.
+
+For comment likes in headless, use the blog Likes API (`likes.createLike` with `fqdn: "wix.blog.v3.post"`) as a workaround.
+
+### Comment Rating (Internal)
+
+The `rating` field on comments is `readOnly` in the public API. It's set through the middleware's `CreateCommentRequest.rating_action` (internal). Do NOT build rating input UI.
