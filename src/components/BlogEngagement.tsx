@@ -13,9 +13,12 @@ const BLOG_POST_FQDN = "wix.blog.v3.post";
 interface Props {
   postId: string;
   referenceId: string;
+  memberName?: string;
+  memberPhoto?: string;
 }
 
-export default function BlogEngagement({ postId, referenceId }: Props) {
+export default function BlogEngagement({ postId, referenceId, memberName, memberPhoto }: Props) {
+  const isLoggedIn = !!memberName;
   const [metrics, setMetrics] = useState({ views: 0, likes: 0, comments: 0 });
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -198,7 +201,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     try {
       const commentBody = {
         appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
-        author: { authorName: commentName.trim() || "Anonymous Space Cat" },
+        author: isLoggedIn ? {} : { authorName: commentName.trim() || "Anonymous Space Cat" },
         content: makeRichContent(newComment.trim()),
       };
 
@@ -224,7 +227,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     try {
       const created = await commentsApi.createComment({
         appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
-        author: { authorName: replyName.trim() || "Anonymous Space Cat" } as commentsApi.CommentAuthor,
+        author: (isLoggedIn ? {} : { authorName: replyName.trim() || "Anonymous Space Cat" }) as commentsApi.CommentAuthor,
         parentComment: { _id: parentId },
         content: makeRichContent(replyText.trim()),
       });
@@ -362,8 +365,15 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         )}
         {replyingTo === replyId && (
           <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #222" }}>
-            <input type="text" placeholder="Your name (optional)" value={replyName}
-              onChange={(e) => setReplyName(e.target.value)} style={{ ...inputStyle, marginBottom: "8px" }} />
+            {isLoggedIn ? (
+              <div style={{ ...memberIndicatorStyle, marginBottom: "8px" }}>
+                {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} />}
+                <span>Replying as <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
+              </div>
+            ) : (
+              <input type="text" placeholder="Your name (optional)" value={replyName}
+                onChange={(e) => setReplyName(e.target.value)} style={{ ...inputStyle, marginBottom: "8px" }} />
+            )}
             <textarea placeholder="Write a reply..." value={replyText}
               onChange={(e) => setReplyText(e.target.value)} rows={2}
               style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
@@ -492,8 +502,15 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         <form onSubmit={submitComment} style={commentFormStyle}>
           <h4 style={formTitleStyle}>Leave a Transmission</h4>
-          <input type="text" placeholder="Your name (optional)" value={commentName}
-            onChange={(e) => setCommentName(e.target.value)} style={inputStyle} />
+          {isLoggedIn ? (
+            <div style={memberIndicatorStyle}>
+              {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} />}
+              <span>Commenting as <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
+            </div>
+          ) : (
+            <input type="text" placeholder="Your name (optional)" value={commentName}
+              onChange={(e) => setCommentName(e.target.value)} style={inputStyle} />
+          )}
           <textarea placeholder="Write your message to the crew..." value={newComment}
             onChange={(e) => setNewComment(e.target.value)} rows={4}
             style={{ ...inputStyle, resize: "vertical" as const }} required />
@@ -517,6 +534,7 @@ const commentsListStyle: React.CSSProperties = { display: "flex", flexDirection:
 const commentCardStyle: React.CSSProperties = { background: "#141414", border: "1px solid #222", borderRadius: "12px", padding: "16px 20px" };
 const commentHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" };
 const commentAuthorStyle: React.CSSProperties = { fontFamily: "'Bangers', cursive", fontSize: "0.95rem", color: "#ffcc00", letterSpacing: "1px" };
+const memberIndicatorStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem", color: "#888", marginBottom: "12px" };
 const editedBadgeStyle: React.CSSProperties = { fontSize: "0.7rem", color: "#555", fontStyle: "italic" };
 const avatarStyle: React.CSSProperties = { width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover", border: "1px solid #ff6600" };
 const memberBadgeStyle: React.CSSProperties = { display: "inline-block", padding: "1px 8px", background: "rgba(255, 102, 0, 0.15)", border: "1px solid rgba(255, 102, 0, 0.3)", borderRadius: "10px", fontSize: "0.6rem", color: "#ff6600", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px" };

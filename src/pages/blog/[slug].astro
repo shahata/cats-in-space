@@ -28,6 +28,17 @@ if (post.memberId) {
 	} catch {}
 }
 
+// Fetch current member (for comment form)
+let currentMemberName: string | undefined;
+let currentMemberPhoto: string | undefined;
+try {
+	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+	if (res.member) {
+		currentMemberName = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
+		currentMemberPhoto = res.member.profile?.photo?.url || undefined;
+	}
+} catch {}
+
 // Fetch tags
 const tagsResult = await tagsApi.queryTags({});
 const tagsMap = new Map<string, BlogTag>((tagsResult.tags || []).map((t) => [t._id!, t]));
@@ -80,7 +91,7 @@ const writerTitle = writer?.profile?.title || '';
 				</div>
 			</div>
 
-			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} client:load />
+			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} memberName={currentMemberName} memberPhoto={currentMemberPhoto} client:load />
 
 			<footer class="post-footer">
 				<a href="/blog" class="btn btn-outline">&larr; More Transmissions</a>
