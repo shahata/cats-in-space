@@ -237,6 +237,76 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
+  function renderReplyThread(reply: any, parentAuthor: string, depth: number): React.ReactNode {
+    const rAuthor = reply.author?.authorName || "Space Visitor";
+    const rText = getCommentText(reply);
+    const rIsMine = isOwnComment(reply);
+    const rIsEditing = editingId === reply._id;
+    const nestedReplies = repliesMap[reply._id] || [];
+    const indent = Math.min(depth * 24, 72); // cap indentation at 3 levels
+
+    return (
+      <div key={reply._id + "-" + myVisitorId} style={{ ...commentCardStyle, marginLeft: indent, borderLeft: "2px solid #333" }}>
+        <div style={commentHeaderStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={commentAuthorStyle}>{rAuthor}</span>
+            <span style={{ fontSize: "0.75rem", color: "#555" }}>replying to {parentAuthor}</span>
+          </div>
+          <span style={commentDateStyle}>{formatDate(reply._createdDate)}</span>
+        </div>
+        {rIsEditing ? (
+          <div style={{ marginTop: "8px" }}>
+            <textarea value={editText} onChange={(e) => setEditText(e.target.value)}
+              rows={2} style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => handleEdit(reply._id, reply.revision)}
+                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>Save</button>
+              <button onClick={() => { setEditingId(null); setEditText(""); }}
+                style={smallBtnStyle}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <p style={commentTextStyle}>{rText}</p>
+        )}
+        {!rIsEditing && (
+          <div style={commentActionsStyle}>
+            <button onClick={() => toggleCommentLike(reply._id)} style={actionBtnStyle}>♡ Like</button>
+            <button onClick={() => { setReplyingTo(replyingTo === reply._id ? null : reply._id); setReplyText(""); setReplyName(""); }}
+              style={actionBtnStyle}>Reply</button>
+            {rIsMine && (
+              <>
+                <button onClick={() => { setEditingId(reply._id); setEditText(rText); }}
+                  style={actionBtnStyle}>Edit</button>
+                <button onClick={() => handleDelete(reply._id)}
+                  style={{ ...actionBtnStyle, color: "#cc0000" }}>Delete</button>
+              </>
+            )}
+          </div>
+        )}
+        {replyingTo === reply._id && (
+          <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #222" }}>
+            <input type="text" placeholder="Your name (optional)" value={replyName}
+              onChange={(e) => setReplyName(e.target.value)} style={{ ...inputStyle, marginBottom: "8px" }} />
+            <textarea placeholder="Write a reply..." value={replyText}
+              onChange={(e) => setReplyText(e.target.value)} rows={2}
+              style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => submitReply(reply._id)} disabled={submitting}
+                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>
+                {submitting ? "Sending..." : "Send Reply"}</button>
+              <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>Cancel</button>
+            </div>
+          </div>
+        )}
+        {nestedReplies.length > 0 && (
+          <div style={{ marginTop: "8px" }}>
+            {nestedReplies.map((nr: any) => renderReplyThread(nr, rAuthor, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const commentElements = topLevelComments.map((comment) => {
     const author = comment.author?.authorName || "Space Visitor";
     const text = getCommentText(comment);
@@ -304,65 +374,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {replies.length > 0 && (
           <div style={{ marginTop: "12px" }}>
-            {replies.map((reply: any) => {
-              const rAuthor = reply.author?.authorName || "Space Visitor";
-              const rText = getCommentText(reply);
-              const rIsMine = isOwnComment(reply);
-              const rIsEditing = editingId === reply._id;
-              return (
-                <div key={reply._id + "-" + myVisitorId} style={{ ...commentCardStyle, marginLeft: 32 }}>
-                  <div style={commentHeaderStyle}>
-                    <span style={commentAuthorStyle}>{rAuthor}</span>
-                    <span style={commentDateStyle}>{formatDate(reply._createdDate)}</span>
-                  </div>
-                  {rIsEditing ? (
-                    <div style={{ marginTop: "8px" }}>
-                      <textarea value={editText} onChange={(e) => setEditText(e.target.value)}
-                        rows={2} style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <button onClick={() => handleEdit(reply._id, reply.revision)}
-                          style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>Save</button>
-                        <button onClick={() => { setEditingId(null); setEditText(""); }}
-                          style={smallBtnStyle}>Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p style={commentTextStyle}>{rText}</p>
-                  )}
-                  {!rIsEditing && (
-                    <div style={commentActionsStyle}>
-                      <button onClick={() => toggleCommentLike(reply._id)} style={actionBtnStyle}>♡ Like</button>
-                      <button onClick={() => { setReplyingTo(replyingTo === reply._id ? null : reply._id); setReplyText(""); setReplyName(""); }}
-                        style={actionBtnStyle}>Reply</button>
-                      {rIsMine && (
-                        <>
-                          <button onClick={() => { setEditingId(reply._id); setEditText(rText); }}
-                            style={actionBtnStyle}>Edit</button>
-                          <button onClick={() => handleDelete(reply._id)}
-                            style={{ ...actionBtnStyle, color: "#cc0000" }}>Delete</button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {replyingTo === reply._id && (
-                    <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #222" }}>
-                      <input type="text" placeholder="Your name (optional)" value={replyName}
-                        onChange={(e) => setReplyName(e.target.value)}
-                        style={{ ...inputStyle, marginBottom: "8px" }} />
-                      <textarea placeholder="Write a reply..." value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)} rows={2}
-                        style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <button onClick={() => submitReply(reply._id)} disabled={submitting}
-                          style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>
-                          {submitting ? "Sending..." : "Send Reply"}</button>
-                        <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>Cancel</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {replies.map((reply: any) => renderReplyThread(reply, author, 1))}
           </div>
         )}
       </div>
