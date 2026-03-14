@@ -171,11 +171,42 @@ for (const id of memberIds) {
   } catch {}
 }
 
-// Display: use member nickname if available, fall back to authorName
+// Display: use member nickname + photo if available, fall back to authorName
 const memberId = comment.author?.memberId;
 const profile = memberId ? profiles.get(memberId) : undefined;
 const displayName = profile?.nickname || comment.author?.authorName || "Space Visitor";
+const photo = profile?.photo; // member.profile.photo.url
 ```
+
+### Comment Form for Logged-in Members
+
+When the user is logged in, hide the name input and show their identity instead. Pass member info from the Astro page:
+
+```astro
+---
+// In [slug].astro — detect current member
+let currentMemberName: string | undefined;
+let currentMemberPhoto: string | undefined;
+try {
+  const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+  if (res.member) {
+    currentMemberName = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
+    currentMemberPhoto = res.member.profile?.photo?.url || undefined;
+  }
+} catch {}
+---
+<BlogEngagement postId={post._id!} referenceId={post.referenceId!}
+  memberName={currentMemberName} memberPhoto={currentMemberPhoto} client:load />
+```
+
+In the React component:
+- If `memberName` prop is set → show "Commenting as **Name**" with avatar, hide name input
+- If not → show the name text input for visitors
+- When logged in, send empty `author: {}` — the server uses the member identity automatically
+
+### Edited Comments
+
+`comment.contentEdited` (boolean) indicates if a comment was edited. Show "(edited)" next to author name.
 
 ### Visitor Identity for Own-Comment Detection
 
