@@ -4,10 +4,12 @@ import { members } from '@wix/members';
 const currentPath = Astro.url.pathname;
 
 let loggedInMember: string | null = null;
+let memberPhoto: string | null = null;
 try {
 	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
 	if (res.member) {
 		loggedInMember = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
+		memberPhoto = res.member.profile?.photo?.url || null;
 	}
 } catch {}
 
@@ -34,6 +36,7 @@ const links = [
 			))}
 			{loggedInMember ? (
 				<div class="auth-section">
+					{memberPhoto && <img src={memberPhoto} alt={loggedInMember} class="member-avatar" />}
 					<span class="member-name">{loggedInMember}</span>
 					<form action="/api/auth/logout" method="POST" style="display:inline">
 						<button type="submit" class="auth-btn">Logout</button>
@@ -99,6 +102,14 @@ const links = [
 	.nav-link.active {
 		color: #000;
 		background: var(--accent);
+	}
+
+	.member-avatar {
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
+		object-fit: cover;
+		border: 2px solid var(--accent);
 	}
 
 	.auth-section {
