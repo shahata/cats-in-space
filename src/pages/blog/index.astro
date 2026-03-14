@@ -49,6 +49,11 @@ function getExcerpt(post: any): string {
 	return '';
 }
 
+function getMetric(post: any, field: string): number {
+	// SDK may put metrics under 'metrics' or 'postCountInfo'
+	return post.metrics?.[field] ?? (post as any).postCountInfo?.[field] ?? 0;
+}
+
 function getWriter(post: any): string {
 	const m = membersMap.get(post.memberId);
 	return m?.profile?.nickname || m?.contact?.firstName || 'Anonymous Cat';
@@ -101,9 +106,9 @@ function getPostTags(post: any): any[] {
 								<p class="blog-excerpt">{getExcerpt(post)}...</p>
 								<div class="blog-footer">
 									<div class="blog-stats">
-										<span class="stat" title="Views">{post.metrics?.views ?? 0} views</span>
-										<span class="stat" title="Likes">{post.metrics?.likes ?? 0} likes</span>
-										<span class="stat" title="Comments">{post.metrics?.comments ?? 0} comments</span>
+										<span class="stat" title="Views">{getMetric(post, 'views')} views</span>
+										<span class="stat" title="Likes">{getMetric(post, 'likes')} likes</span>
+										<span class="stat" title="Comments">{getMetric(post, 'comments')} comments</span>
 									</div>
 									<span class="read-more">Read Transmission &rarr;</span>
 								</div>
