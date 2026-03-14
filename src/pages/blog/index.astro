@@ -6,41 +6,43 @@ import { posts, tags as tagsApi } from '@wix/blog';
 import { members } from '@wix/members';
 import { getImageUrl } from '../../utils/image';
 
+type Metrics = posts.Metrics;
+type BlogTag = tagsApi.BlogTag;
+type Member = members.Member;
+// Post type extended with fields returned by METRICS fieldset (not in SDK type)
+type Post = posts.Post & { metrics?: Metrics; postCountInfo?: { comments?: number; likes?: number; views?: number } };
+
 // Use queryPosts — returns real metrics (views, likes, comments). listPosts returns zeros.
 const queryResult = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).find();
 const blogPosts = queryResult.items || [];
 // Fetch all tags
 const tagsResult = await tagsApi.queryTags({});
-const tagsMap = new Map((tagsResult.tags || []).map((t: any) => [t._id, t]));
+const tagsMap = new Map<string, BlogTag>((tagsResult.tags || []).map((t) => [t._id!, t]));
 
 // Fetch all members for writer info
-const memberIds = [...new Set(blogPosts.map((p: any) => p.memberId).filter(Boolean))];
-const membersMap = new Map<string, any>();
+const memberIds = [...new Set(blogPosts.map((p) => p.memberId).filter((id): id is string => !!id))];
+const membersMap = new Map<string, Member>();
 for (const id of memberIds) {
 	try {
 		const m = await members.getMember(id, { fieldsets: ['FULL'] });
-		if (m.member) membersMap.set(id, m.member);
+		if (m._id) membersMap.set(id, m);
 	} catch {}
 }
 
-function formatDate(dateStr: string | undefined) {
+function formatDate(dateStr: string | Date | null | undefined) {
 	if (!dateStr) return '';
 	return new Date(dateStr).toLocaleDateString('en-US', {
 		year: 'numeric', month: 'long', day: 'numeric'
 	});
 }
 
-function getCoverImage(post: any): string | null {
-	// queryPosts returns media.wixMedia.image as a wix:image:// string
+function getCoverImage(post: Post): string | null {
 	const wixImage = post.media?.wixMedia?.image;
-	if (typeof wixImage === 'string') return getImageUrl(wixImage, 800, 500);
-	// Fallback for object format
-	if (wixImage?.url) return wixImage.url;
-	if (wixImage?.id) return getImageUrl(wixImage.id, 800, 500);
+	if (wixImage) return getImageUrl(wixImage, 800, 500);
 	return null;
 }
 
-function getExcerpt(post: any): string {
+function getExcerpt(post: Post): string {
 	if (post.excerpt) return post.excerpt.slice(0, 200);
 	const nodes = post.richContent?.nodes || [];
 	for (const node of nodes) {
@@ -51,22 +53,17 @@ function getExcerpt(post: any): string {
 	return '';
 }
 
-function getMetric(post: any, field: string): number {
+function getMetric(post: Post, field: keyof Metrics): number {
 	return post.metrics?.[field] ?? 0;
 }
 
-function getWriter(post: any): string {
-	const m = membersMap.get(post.memberId);
+function getWriter(post: Post): string {
+	const m = post.memberId ? membersMap.get(post.memberId) : undefined;
 	return m?.profile?.nickname || m?.contact?.firstName || 'Anonymous Cat';
 }
 
-function getWriterTitle(post: any): string {
-	const m = membersMap.get(post.memberId);
-	return m?.profile?.title || '';
-}
-
-function getPostTags(post: any): any[] {
-	return (post.tagIds || []).map((id: string) => tagsMap.get(id)).filter(Boolean);
+function getPostTags(post: Post): BlogTag[] {
+	return (post.tagIds || []).map((id) => tagsMap.get(id)).filter((t): t is BlogTag => !!t);
 }
 ---
 
@@ -99,7 +96,7 @@ function getPostTags(post: any): any[] {
 								<h2>{post.title}</h2>
 								{getPostTags(post).length > 0 && (
 									<div class="blog-tags">
-										{getPostTags(post).map((tag: any) => (
+										{getPostTags(post).map((tag) => (
 											<span class="tag">{tag.label}</span>
 										))}
 									</div>

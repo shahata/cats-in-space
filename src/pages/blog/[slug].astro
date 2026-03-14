@@ -7,8 +7,12 @@ import BlogEngagement from '../../components/BlogEngagement';
 import { posts, tags as tagsApi } from '@wix/blog';
 import { members } from '@wix/members';
 
+type Post = posts.Post;
+type BlogTag = tagsApi.BlogTag;
+type Member = members.Member;
+
 const { slug } = Astro.params;
-let post: any = null;
+let post: Post | undefined;
 try {
 	const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] });
 	post = result.post;
@@ -17,20 +21,19 @@ try {
 if (!post) return Astro.redirect('/blog');
 
 // Fetch writer info
-let writer: any = null;
+let writer: Member | undefined;
 if (post.memberId) {
 	try {
-		const m = await members.getMember(post.memberId, { fieldsets: ['FULL'] });
-		writer = m.member;
+		writer = await members.getMember(post.memberId, { fieldsets: ['FULL'] });
 	} catch {}
 }
 
 // Fetch tags
 const tagsResult = await tagsApi.queryTags({});
-const tagsMap = new Map((tagsResult.tags || []).map((t: any) => [t._id, t]));
-const postTags = (post.tagIds || []).map((id: string) => tagsMap.get(id)).filter(Boolean);
+const tagsMap = new Map<string, BlogTag>((tagsResult.tags || []).map((t) => [t._id!, t]));
+const postTags: BlogTag[] = (post.tagIds || []).map((id) => tagsMap.get(id)).filter((t): t is BlogTag => !!t);
 
-function formatDate(dateStr: string | undefined) {
+function formatDate(dateStr: string | Date | null | undefined) {
 	if (!dateStr) return '';
 	return new Date(dateStr).toLocaleDateString('en-US', {
 		year: 'numeric', month: 'long', day: 'numeric'
@@ -58,7 +61,7 @@ const writerTitle = writer?.profile?.title || '';
 				<h1>{post.title}</h1>
 				{postTags.length > 0 && (
 					<div class="post-tags">
-						{postTags.map((tag: any) => (
+						{postTags.map((tag) => (
 							<span class="tag">{tag.label}</span>
 						))}
 					</div>
