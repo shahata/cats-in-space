@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { likes, posts } from "@wix/blog";
 import { comments as commentsApi } from "@wix/comments";
+import { httpClient } from "@wix/essentials";
 
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
 const BLOG_POST_FQDN = "wix.blog.v3.post";
@@ -21,10 +22,19 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    reportView();
     loadMetrics();
     loadComments();
     checkIfLiked();
   }, [postId]);
+
+  async function reportView() {
+    try {
+      await httpClient.fetchWithAuth(`https://www.wixapis.com/blog/v3/posts/${postId}/view`, {
+        method: "POST",
+      });
+    } catch {}
+  }
 
   async function loadMetrics() {
     try {
