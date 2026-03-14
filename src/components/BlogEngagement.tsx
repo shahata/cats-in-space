@@ -316,7 +316,6 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     const replyId = reply._id!;
     const nestedReplies = repliesMap[replyId] || [];
     const indent = Math.min(depth * 24, 72);
-    const replyingToName = (reply.parentComment?.author as { authorName?: string })?.authorName || "someone";
 
     return (
       <div key={replyId + "-" + myVisitorId} style={{ ...commentCardStyle, marginLeft: indent, borderLeft: "2px solid #333" }}>
@@ -326,7 +325,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
             <span style={commentAuthorStyle}>{rAuthor}</span>
             {rAuthorInfo.isMember && <span style={memberBadgeStyle}>crew</span>}
             {rAuthorInfo.title && <span style={{ fontSize: "0.7rem", color: "#666", fontStyle: "italic" }}>{rAuthorInfo.title}</span>}
-            <span style={{ fontSize: "0.75rem", color: "#555" }}>replying to {replyingToName}</span>
+            {reply.contentEdited && <span style={editedBadgeStyle}>(edited)</span>}
           </div>
           <span style={commentDateStyle}>{formatDate(reply._createdDate)}</span>
         </div>
@@ -402,6 +401,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
             <span style={commentAuthorStyle}>{authorInfo.name}</span>
             {authorInfo.isMember && <span style={memberBadgeStyle}>crew</span>}
             {authorInfo.title && <span style={{ fontSize: "0.7rem", color: "#666", fontStyle: "italic" }}>{authorInfo.title}</span>}
+            {comment.contentEdited && <span style={editedBadgeStyle}>(edited)</span>}
           </div>
           <span style={commentDateStyle}>{formatDate(comment._createdDate)}</span>
         </div>
@@ -517,6 +517,7 @@ const commentsListStyle: React.CSSProperties = { display: "flex", flexDirection:
 const commentCardStyle: React.CSSProperties = { background: "#141414", border: "1px solid #222", borderRadius: "12px", padding: "16px 20px" };
 const commentHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" };
 const commentAuthorStyle: React.CSSProperties = { fontFamily: "'Bangers', cursive", fontSize: "0.95rem", color: "#ffcc00", letterSpacing: "1px" };
+const editedBadgeStyle: React.CSSProperties = { fontSize: "0.7rem", color: "#555", fontStyle: "italic" };
 const avatarStyle: React.CSSProperties = { width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover", border: "1px solid #ff6600" };
 const memberBadgeStyle: React.CSSProperties = { display: "inline-block", padding: "1px 8px", background: "rgba(255, 102, 0, 0.15)", border: "1px solid rgba(255, 102, 0, 0.3)", borderRadius: "10px", fontSize: "0.6rem", color: "#ff6600", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px" };
 const commentDateStyle: React.CSSProperties = { fontSize: "0.75rem", color: "#666" };
