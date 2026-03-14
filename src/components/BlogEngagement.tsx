@@ -35,7 +35,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
   const [editText, setEditText] = useState("");
   const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
-  const [memberProfiles, setMemberProfiles] = useState<Map<string, { nickname: string; title?: string; photo?: string }>>(new Map());
+  const [memberProfiles, setMemberProfiles] = useState<Map<string, { nickname: string; title?: string; photo?: string; slug?: string }>>(new Map());
 
   useEffect(() => {
     reportView();
@@ -147,7 +147,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
         const m = await members.getMember(id, { fieldsets: ['FULL'] });
         const nickname = m.profile?.nickname || m.contact?.firstName || undefined;
         if (nickname) {
-          profiles.set(id, { nickname, title: m.profile?.title || undefined, photo: m.profile?.photo?.url || undefined });
+          profiles.set(id, { nickname, title: m.profile?.title || undefined, photo: m.profile?.photo?.url || undefined, slug: m.profile?.slug || undefined });
         }
       } catch {}
     }));
@@ -276,11 +276,15 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
     } catch (e) { console.error("Delete error:", e); }
   }
 
-  function getAuthorDisplay(comment: Comment): { name: string; title?: string; photo?: string; isMember: boolean } {
+  function getAuthorDisplay(comment: Comment): { name: string; title?: string; photo?: string; profileUrl?: string; isMember: boolean } {
     const memberId = comment.author?.memberId;
     if (memberId) {
       const profile = memberProfiles.get(memberId);
-      if (profile) return { name: profile.nickname, title: profile.title, photo: profile.photo, isMember: true };
+      if (profile) return {
+        name: profile.nickname, title: profile.title, photo: profile.photo,
+        profileUrl: `/member/${profile.slug || memberId}`,
+        isMember: true,
+      };
     }
     const authorName = (comment.author as { authorName?: string })?.authorName;
     return { name: authorName || "Space Visitor", isMember: false };
@@ -324,8 +328,17 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
       <div key={replyId + "-" + myVisitorId} style={{ ...commentCardStyle, marginLeft: indent, borderLeft: "2px solid #333" }}>
         <div style={commentHeaderStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {rAuthorInfo.photo && <img src={rAuthorInfo.photo} alt={rAuthor} style={avatarStyle} />}
-            <span style={commentAuthorStyle}>{rAuthor}</span>
+            {rAuthorInfo.profileUrl ? (
+              <a href={rAuthorInfo.profileUrl} style={authorLinkStyle}>
+                {rAuthorInfo.photo && <img src={rAuthorInfo.photo} alt={rAuthor} style={avatarStyle} />}
+                <span style={commentAuthorStyle}>{rAuthor}</span>
+              </a>
+            ) : (
+              <>
+                {rAuthorInfo.photo && <img src={rAuthorInfo.photo} alt={rAuthor} style={avatarStyle} />}
+                <span style={commentAuthorStyle}>{rAuthor}</span>
+              </>
+            )}
             {rAuthorInfo.isMember && <span style={memberBadgeStyle}>crew</span>}
             {rAuthorInfo.title && <span style={{ fontSize: "0.7rem", color: "#666", fontStyle: "italic" }}>{rAuthorInfo.title}</span>}
             {reply.contentEdited && <span style={editedBadgeStyle}>(edited)</span>}
@@ -407,8 +420,17 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
       <div key={commentId + "-" + myVisitorId} style={commentCardStyle}>
         <div style={commentHeaderStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            {authorInfo.photo && <img src={authorInfo.photo} alt={authorInfo.name} style={avatarStyle} />}
-            <span style={commentAuthorStyle}>{authorInfo.name}</span>
+            {authorInfo.profileUrl ? (
+              <a href={authorInfo.profileUrl} style={authorLinkStyle}>
+                {authorInfo.photo && <img src={authorInfo.photo} alt={authorInfo.name} style={avatarStyle} />}
+                <span style={commentAuthorStyle}>{authorInfo.name}</span>
+              </a>
+            ) : (
+              <>
+                {authorInfo.photo && <img src={authorInfo.photo} alt={authorInfo.name} style={avatarStyle} />}
+                <span style={commentAuthorStyle}>{authorInfo.name}</span>
+              </>
+            )}
             {authorInfo.isMember && <span style={memberBadgeStyle}>crew</span>}
             {authorInfo.title && <span style={{ fontSize: "0.7rem", color: "#666", fontStyle: "italic" }}>{authorInfo.title}</span>}
             {comment.contentEdited && <span style={editedBadgeStyle}>(edited)</span>}
@@ -534,6 +556,7 @@ const commentsListStyle: React.CSSProperties = { display: "flex", flexDirection:
 const commentCardStyle: React.CSSProperties = { background: "#141414", border: "1px solid #222", borderRadius: "12px", padding: "16px 20px" };
 const commentHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "8px" };
 const commentAuthorStyle: React.CSSProperties = { fontFamily: "'Bangers', cursive", fontSize: "0.95rem", color: "#ffcc00", letterSpacing: "1px" };
+const authorLinkStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "8px", textDecoration: "none" };
 const memberIndicatorStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem", color: "#888", marginBottom: "12px" };
 const editedBadgeStyle: React.CSSProperties = { fontSize: "0.7rem", color: "#555", fontStyle: "italic" };
 const avatarStyle: React.CSSProperties = { width: "24px", height: "24px", borderRadius: "50%", objectFit: "cover", border: "1px solid #ff6600" };

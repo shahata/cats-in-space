@@ -1,0 +1,134 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import { members } from '@wix/members';
+
+const { slug } = Astro.params;
+
+let member: any = null;
+try {
+	// Try by ID first
+	member = await members.getMember(slug!, { fieldsets: ['FULL'] });
+} catch {}
+if (!member) {
+	try {
+		// Try by slug — list and filter
+		const result = await members.listMembers({ fieldsets: ['FULL'], paging: { limit: 100 } });
+		member = result.members?.find(m => m.profile?.slug === slug);
+	} catch {}
+}
+
+if (!member) return Astro.redirect('/');
+
+const nickname = member.profile?.nickname || member.contact?.firstName || 'Unknown Cat';
+const title = member.profile?.title || '';
+const photo = member.profile?.photo?.url;
+const joinDate = member._createdDate ? new Date(member._createdDate).toLocaleDateString('en-US', {
+	year: 'numeric', month: 'long', day: 'numeric'
+}) : '';
+---
+
+<Layout title={`${nickname} - Cats In Space`}>
+	<Nav />
+	<section class="profile-page">
+		<div class="container">
+			<a href="/blog" class="back-link">&larr; Back to Ship's Log</a>
+
+			<div class="profile-card">
+				{photo ? (
+					<img src={photo} alt={nickname} class="profile-photo" />
+				) : (
+					<div class="profile-photo-placeholder">?</div>
+				)}
+				<div class="profile-info">
+					<h1>{nickname}</h1>
+					{title && <p class="profile-title">{title}</p>}
+					{joinDate && <p class="profile-joined">Crew member since {joinDate}</p>}
+				</div>
+			</div>
+		</div>
+	</section>
+	<Footer />
+</Layout>
+
+<style>
+	.profile-page {
+		padding: 40px 0 80px;
+	}
+
+	.back-link {
+		display: inline-block;
+		font-family: var(--font-heading);
+		color: var(--text-muted);
+		font-size: 0.9rem;
+		letter-spacing: 1px;
+		margin-bottom: 30px;
+		transition: color 0.2s;
+	}
+
+	.back-link:hover {
+		color: var(--accent);
+	}
+
+	.profile-card {
+		display: flex;
+		align-items: center;
+		gap: 30px;
+		padding: 40px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 16px;
+	}
+
+	.profile-photo {
+		width: 120px;
+		height: 120px;
+		border-radius: 50%;
+		object-fit: cover;
+		border: 4px solid var(--accent);
+		flex-shrink: 0;
+	}
+
+	.profile-photo-placeholder {
+		width: 120px;
+		height: 120px;
+		border-radius: 50%;
+		background: #1a1a1a;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-family: var(--font-title);
+		font-size: 3rem;
+		color: var(--text-dark);
+		border: 4px solid #333;
+		flex-shrink: 0;
+	}
+
+	h1 {
+		font-family: var(--font-heading);
+		font-size: clamp(1.8rem, 4vw, 2.5rem);
+		color: var(--accent-yellow);
+		letter-spacing: 2px;
+		margin-bottom: 4px;
+	}
+
+	.profile-title {
+		font-size: 1rem;
+		color: var(--accent);
+		font-style: italic;
+		margin-bottom: 8px;
+	}
+
+	.profile-joined {
+		font-size: 0.85rem;
+		color: var(--text-muted);
+	}
+
+	@media (max-width: 640px) {
+		.profile-card {
+			flex-direction: column;
+			text-align: center;
+		}
+	}
+</style>
