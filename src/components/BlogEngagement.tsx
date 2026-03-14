@@ -129,9 +129,10 @@ export default function BlogEngagement({ postId }: Props) {
     setSubmitting(false);
   }
 
-  function formatCommentDate(dateStr: string | undefined) {
+  function formatCommentDate(dateStr: string | Date | undefined) {
     if (!dateStr) return "";
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
+    return d.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -142,22 +143,25 @@ export default function BlogEngagement({ postId }: Props) {
 
   function getCommentAuthorName(comment: any): string {
     const author = comment.author;
-    if (!author) return "Anonymous Space Cat";
-    if (author.guestAuthorName) return author.guestAuthorName;
-    if (author.memberName) return author.memberName;
-    return "Anonymous Space Cat";
+    if (!author) return "Space Visitor";
+    // The author object has visitorId, memberId, or userId — no display name directly.
+    // For now, show a friendly label based on identity type
+    if (author.memberId) return "Crew Member";
+    return "Space Visitor";
   }
 
   function getCommentText(comment: any): string {
-    if (comment.plainContent?.text) return comment.plainContent.text;
-    const nodes = comment.richContent?.nodes || [];
+    // Content is under comment.content.richContent
+    const nodes = comment.content?.richContent?.nodes || [];
     for (const node of nodes) {
       if (node.type === "PARAGRAPH") {
+        const texts: string[] = [];
         for (const child of node.nodes || []) {
           if (child.type === "TEXT" && child.textData?.text) {
-            return child.textData.text;
+            texts.push(child.textData.text);
           }
         }
+        if (texts.length > 0) return texts.join("");
       }
     }
     return "";
