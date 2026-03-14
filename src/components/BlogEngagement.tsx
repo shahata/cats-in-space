@@ -212,17 +212,19 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
     } catch (e) { console.error("Edit error:", e); }
   }
 
-  async function toggleCommentLike(commentId: string) {
+  async function toggleCommentLike(comment: any) {
+    const cid = comment._id || (comment as any).id;
+    if (!cid) { console.error("No comment ID for like"); return; }
     try {
-      const res = await likes.getLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: commentId });
+      const res = await likes.getLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: cid });
       if (res.like) {
-        await likes.deleteLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: commentId });
+        await likes.deleteLikeByFqdnAndEntityId({ fqdn: BLOG_POST_FQDN, entityId: cid });
       }
     } catch {
       // Not liked yet, create like
       try {
-        await likes.createLike({ like: { fqdn: BLOG_POST_FQDN, entityId: commentId } });
-      } catch {}
+        await likes.createLike({ like: { fqdn: BLOG_POST_FQDN, entityId: cid } });
+      } catch (e) { console.error("Comment like error:", e); }
     }
   }
 
@@ -295,7 +297,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
         )}
         {!rIsEditing && (
           <div style={commentActionsStyle}>
-            <button onClick={() => toggleCommentLike(reply._id)} style={actionBtnStyle}>♡ Like</button>
+            <button onClick={() => toggleCommentLike(reply)} style={actionBtnStyle}>♡ Like</button>
             <button onClick={() => { setReplyingTo(replyingTo === reply._id ? null : reply._id); setReplyText(""); setReplyName(""); }}
               style={actionBtnStyle}>Reply</button>
             {rIsMine && (
@@ -366,7 +368,7 @@ export default function BlogEngagement({ postId, referenceId }: Props) {
 
         {!isEditing && (
           <div style={commentActionsStyle}>
-            <button onClick={() => toggleCommentLike(comment._id)} style={actionBtnStyle}>♡ Like</button>
+            <button onClick={() => toggleCommentLike(comment)} style={actionBtnStyle}>♡ Like</button>
             <button onClick={() => { setReplyingTo(replyingTo === comment._id ? null : comment._id); setReplyText(""); setReplyName(""); }}
               style={actionBtnStyle}>Reply{replies.length > 0 ? ` (${replies.length})` : ""}</button>
             {isMine && (
