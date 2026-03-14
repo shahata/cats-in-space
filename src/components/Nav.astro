@@ -38,7 +38,7 @@ const links = [
 				{loggedInMember ? (
 					<>
 						<a href="/member" class="member-link">
-							{memberPhoto && <img src={memberPhoto} alt={loggedInMember} class="member-avatar" />}
+							{memberPhoto && <img src={memberPhoto} alt={loggedInMember} class="member-avatar" referrerpolicy="no-referrer" />}
 							<span class="member-name">{loggedInMember}</span>
 						</a>
 						<form action="/api/auth/logout" method="POST" style="display:inline">

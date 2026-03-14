@@ -330,12 +330,12 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             {rAuthorInfo.profileUrl ? (
               <a href={rAuthorInfo.profileUrl} style={authorLinkStyle}>
-                {rAuthorInfo.photo && <img src={rAuthorInfo.photo} alt={rAuthor} style={avatarStyle} />}
+                {rAuthorInfo.photo && <img src={rAuthorInfo.photo} alt={rAuthor} style={avatarStyle} referrerPolicy="no-referrer" />}
                 <span style={commentAuthorStyle}>{rAuthor}</span>
               </a>
             ) : (
               <>
-                {rAuthorInfo.photo && <img src={rAuthorInfo.photo} alt={rAuthor} style={avatarStyle} />}
+                {rAuthorInfo.photo && <img src={rAuthorInfo.photo} alt={rAuthor} style={avatarStyle} referrerPolicy="no-referrer" />}
                 <span style={commentAuthorStyle}>{rAuthor}</span>
               </>
             )}
@@ -380,7 +380,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
           <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #222" }}>
             {isLoggedIn ? (
               <div style={{ ...memberIndicatorStyle, marginBottom: "8px" }}>
-                {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} />}
+                {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} referrerPolicy="no-referrer" />}
                 <span>Replying as <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
               </div>
             ) : (
@@ -422,12 +422,12 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {authorInfo.profileUrl ? (
               <a href={authorInfo.profileUrl} style={authorLinkStyle}>
-                {authorInfo.photo && <img src={authorInfo.photo} alt={authorInfo.name} style={avatarStyle} />}
+                {authorInfo.photo && <img src={authorInfo.photo} alt={authorInfo.name} style={avatarStyle} referrerPolicy="no-referrer" />}
                 <span style={commentAuthorStyle}>{authorInfo.name}</span>
               </a>
             ) : (
               <>
-                {authorInfo.photo && <img src={authorInfo.photo} alt={authorInfo.name} style={avatarStyle} />}
+                {authorInfo.photo && <img src={authorInfo.photo} alt={authorInfo.name} style={avatarStyle} referrerPolicy="no-referrer" />}
                 <span style={commentAuthorStyle}>{authorInfo.name}</span>
               </>
             )}
@@ -526,7 +526,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
           <h4 style={formTitleStyle}>Leave a Transmission</h4>
           {isLoggedIn ? (
             <div style={memberIndicatorStyle}>
-              {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} />}
+              {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} referrerPolicy="no-referrer" />}
               <span>Commenting as <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
             </div>
           ) : (

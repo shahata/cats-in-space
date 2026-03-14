@@ -46,7 +46,7 @@ const slug_ = member.profile?.slug || '';
 
 			<div class:list={['profile-card', { 'has-cover': !!cover }]}>
 				{photo ? (
-					<img src={photo} alt={nickname} class="profile-photo" />
+					<img src={photo} alt={nickname} class="profile-photo" referrerpolicy="no-referrer" />
 				) : (
 					<div class="profile-photo-placeholder">?</div>
 				)}

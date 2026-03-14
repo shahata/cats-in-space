@@ -13,7 +13,7 @@ export default defineConfig({
   ...(isBuild && { adapter: cloudProviderFetchAdapter({}) }),
 
   image: {
-    domains: ["static.wixstatic.com"],
+    domains: ["static.wixstatic.com", "lh3.googleusercontent.com"],
   },
 
   output: "server",

@@ -169,7 +169,7 @@ export default function MemberProfile({ member }: Props) {
       <div style={headerStyle}>
         <div style={{ position: "relative" }}>
           {photo ? (
-            <img src={photo} alt={nickname} style={photoStyle} />
+            <img src={photo} alt={nickname} style={photoStyle} referrerPolicy="no-referrer" />
           ) : (
             <div style={photoPlaceholderStyle}>?</div>
           )}
