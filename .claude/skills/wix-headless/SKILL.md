@@ -291,6 +291,8 @@ const member = res.member;
 
 **Remove profile photo:** Send `{ url: "" }` — not `null`, not `{ url: "", _id: "" }`.
 
+**CRITICAL:** `updateMember` silently ignores `privacyStatus`. Use `members.joinCommunity()` (PUBLIC) and `members.leaveCommunity()` (PRIVATE) instead.
+
 **Phone numbers must be E.164 format:** The API rejects phone numbers not in `+[country code][number]` format. Convert before saving:
 ```typescript
 function toE164(phone: string): string {
