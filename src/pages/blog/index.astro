@@ -9,7 +9,6 @@ import { getImageUrl } from '../../utils/image';
 // Use queryPosts — returns real metrics (views, likes, comments). listPosts returns zeros.
 const queryResult = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).find();
 const blogPosts = queryResult.items || [];
-
 // Fetch all tags
 const tagsResult = await tagsApi.queryTags({});
 const tagsMap = new Map((tagsResult.tags || []).map((t: any) => [t._id, t]));
@@ -32,10 +31,13 @@ function formatDate(dateStr: string | undefined) {
 }
 
 function getCoverImage(post: any): string | null {
-	if (!post.coverMedia?.image) return null;
-	const img = post.coverMedia.image;
-	if (img.url) return img.url;
-	return getImageUrl(img.id, 800, 500);
+	// queryPosts returns media.wixMedia.image as a wix:image:// string
+	const wixImage = post.media?.wixMedia?.image;
+	if (typeof wixImage === 'string') return getImageUrl(wixImage, 800, 500);
+	// Fallback for object format
+	if (wixImage?.url) return wixImage.url;
+	if (wixImage?.id) return getImageUrl(wixImage.id, 800, 500);
+	return null;
 }
 
 function getExcerpt(post: any): string {
