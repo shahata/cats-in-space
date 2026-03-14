@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from "react";
 import { members } from "@wix/members";
-import { files } from "@wix/media";
 
 interface Props {
   member: any;
@@ -47,8 +46,14 @@ export default function MemberProfile({ member }: Props) {
     setPhotoUploading(true);
     setError("");
     try {
-      // 1. Generate upload URL
-      const { uploadUrl } = await files.generateFileUploadUrl(file.type, { fileName: file.name });
+      // 1. Generate upload URL via server-side elevated API
+      const genRes = await fetch("/api/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mimeType: file.type, fileName: file.name }),
+      });
+      if (!genRes.ok) throw new Error("Failed to generate upload URL");
+      const { uploadUrl } = await genRes.json();
 
       // 2. PUT file binary to the upload URL
       const uploadRes = await fetch(uploadUrl!, {
@@ -92,7 +97,7 @@ export default function MemberProfile({ member }: Props) {
         title: title || undefined,
       };
       if (removePhoto) {
-        profileUpdate.photo = { url: "", _id: "" };
+        profileUpdate.photo = null;
       } else if (photoId && photoId !== member.profile?.photo?._id) {
         profileUpdate.photo = { _id: photoId, url: photo };
       }
