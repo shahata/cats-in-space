@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
+import RichContentViewer from '../../components/RichContentViewer';
 import { members, membersAbout } from '@wix/members';
 
 const { slug } = Astro.params;
@@ -23,19 +24,12 @@ if (!member) return Astro.redirect('/');
 if (member.privacyStatus === 'PRIVATE') return Astro.redirect('/');
 
 // Fetch member about
-let aboutText = '';
+let aboutContent: any = null;
 try {
-	const aboutRes = await membersAbout.getMemberAbout(member._id);
-	const nodes = aboutRes?.content?.nodes || [];
-	const texts: string[] = [];
-	for (const node of nodes) {
-		if (node.type === 'PARAGRAPH') {
-			for (const child of (node as any).nodes || []) {
-				if (child.type === 'TEXT' && child.textData?.text) texts.push(child.textData.text);
-			}
-		}
+	const result = await membersAbout.queryMemberAbouts().eq('memberId', member._id).limit(1).find();
+	if (result.items.length > 0) {
+		aboutContent = result.items[0].content;
 	}
-	aboutText = texts.join('\n');
 } catch {}
 
 const nickname = member.profile?.nickname || member.contact?.firstName || 'Unknown Cat';
@@ -74,10 +68,12 @@ const slug_ = member.profile?.slug || '';
 				</div>
 			</div>
 
-			{aboutText && (
+			{aboutContent && (
 				<div class="about-section">
 					<h2>About</h2>
-					{aboutText.split('\n').map(line => <p>{line}</p>)}
+					<div class="about-content">
+						<RichContentViewer content={aboutContent} client:load />
+					</div>
 				</div>
 			)}
 		</div>
@@ -196,11 +192,12 @@ const slug_ = member.profile?.slug || '';
 		margin-bottom: 12px;
 	}
 
-	.about-section p {
-		color: var(--text-secondary);
+	.about-content :global(span),
+	.about-content :global(div),
+	.about-content :global(p) {
+		color: var(--text-secondary) !important;
 		font-size: 0.95rem;
 		line-height: 1.7;
-		margin-bottom: 8px;
 	}
 
 	@media (max-width: 640px) {
