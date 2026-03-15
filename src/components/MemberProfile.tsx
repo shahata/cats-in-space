@@ -1,6 +1,8 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { members, authentication, membersAbout } from "@wix/members";
+import RichContentEditor from "./RichContentEditor";
+import type { RichContentEditorHandle } from "./RichContentEditor";
 import { getData as getCountries } from "country-list";
 
 function toE164(phone: string): string {
@@ -58,11 +60,13 @@ export default function MemberProfile({ member }: Props) {
   const [removePhoto, setRemovePhoto] = useState(false);
   const [cover, setCover] = useState<string | undefined>(member.profile?.cover?.url);
   const [coverUploading, setCoverUploading] = useState(false);
-  const [about, setAbout] = useState("");
+  const [aboutContent, setAboutContent] = useState<any>(null);
   const [aboutId, setAboutId] = useState<string | null>(null);
   const [aboutRevision, setAboutRevision] = useState<string | null>(null);
   const [aboutSaving, setAboutSaving] = useState(false);
   const [aboutSaved, setAboutSaved] = useState(false);
+  const [aboutLoaded, setAboutLoaded] = useState(false);
+  const aboutEditorRef = useRef<RichContentEditorHandle>(null);
 
   // Load existing about on mount
   React.useEffect(() => {
@@ -73,18 +77,10 @@ export default function MemberProfile({ member }: Props) {
         if (aboutData) {
           setAboutId(aboutData._id || null);
           setAboutRevision(aboutData.revision || null);
-          const nodes = aboutData.content?.nodes || [];
-          const texts: string[] = [];
-          for (const node of nodes) {
-            if (node.type === "PARAGRAPH") {
-              for (const child of (node as any).nodes || []) {
-                if (child.type === "TEXT" && child.textData?.text) texts.push(child.textData.text);
-              }
-            }
-          }
-          setAbout(texts.join("\n"));
+          setAboutContent(aboutData.content || null);
         }
       } catch {}
+      setAboutLoaded(true);
     })();
   }, []);
 
@@ -174,20 +170,11 @@ export default function MemberProfile({ member }: Props) {
     }
   }
 
-  function makeAboutContent(text: string) {
-    return {
-      nodes: text.split("\n").map(line => ({
-        type: "PARAGRAPH" as const,
-        nodes: [{ type: "TEXT" as const, textData: { text: line, decorations: [] } }],
-        paragraphData: {},
-      })),
-    };
-  }
-
   async function handleSaveAbout() {
     setAboutSaving(true);
     try {
-      const content = makeAboutContent(about);
+      const content = aboutEditorRef.current ? await aboutEditorRef.current.getContent() : aboutContent;
+      if (!content) { setAboutSaving(false); return; }
       if (aboutId && aboutRevision) {
         const res = await membersAbout.updateMemberAbout(aboutId, { content, revision: aboutRevision });
         setAboutRevision(res.revision || aboutRevision);
@@ -377,9 +364,13 @@ export default function MemberProfile({ member }: Props) {
         {/* About */}
         <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>About</h3>
         <p style={sectionDescStyle}>Tell other crew members about yourself</p>
-        <textarea value={about} onChange={(e) => setAbout(e.target.value)}
-          placeholder="Write something about yourself..." rows={4}
-          style={{ ...inputStyle, resize: "vertical" as const }} />
+        {aboutLoaded && (
+          <RichContentEditor
+            ref={aboutEditorRef}
+            content={aboutContent}
+            placeholder="Write something about yourself..."
+          />
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "8px" }}>
           <button type="button" onClick={handleSaveAbout} disabled={aboutSaving}
             style={smallButtonStyle}>
