@@ -15,9 +15,10 @@ function toE164(phone: string): string {
 
 interface Props {
   member: any;
+  aboutData: { id: string | null; revision: string | null; text: string };
 }
 
-export default function MemberProfile({ member }: Props) {
+export default function MemberProfile({ member, aboutData }: Props) {
   // Public profile
   const [nickname, setNickname] = useState(member.profile?.nickname || "");
   const [title, setTitle] = useState(member.profile?.title || "");
@@ -58,36 +59,11 @@ export default function MemberProfile({ member }: Props) {
   const [removePhoto, setRemovePhoto] = useState(false);
   const [cover, setCover] = useState<string | undefined>(member.profile?.cover?.url);
   const [coverUploading, setCoverUploading] = useState(false);
-  const [about, setAbout] = useState("");
-  const [aboutId, setAboutId] = useState<string | null>(null);
-  const [aboutRevision, setAboutRevision] = useState<string | null>(null);
+  const [about, setAbout] = useState(aboutData.text);
+  const [aboutId, setAboutId] = useState<string | null>(aboutData.id);
+  const [aboutRevision, setAboutRevision] = useState<string | null>(aboutData.revision);
   const [aboutSaving, setAboutSaving] = useState(false);
   const [aboutSaved, setAboutSaved] = useState(false);
-
-  // Load existing about on mount
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const res = await membersAbout.getMyMemberAbout();
-        const aboutData = res.memberAbout;
-        if (aboutData) {
-          setAboutId(aboutData._id || null);
-          setAboutRevision(aboutData.revision || null);
-          // Extract plain text from rich content
-          const nodes = aboutData.content?.nodes || [];
-          const texts: string[] = [];
-          for (const node of nodes) {
-            if (node.type === "PARAGRAPH") {
-              for (const child of (node as any).nodes || []) {
-                if (child.type === "TEXT" && child.textData?.text) texts.push(child.textData.text);
-              }
-            }
-          }
-          setAbout(texts.join("\n"));
-        }
-      } catch {}
-    })();
-  }, []);
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

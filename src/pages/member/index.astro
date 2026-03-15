@@ -3,8 +3,9 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import MemberProfile from '../../components/MemberProfile';
-import MemberSubscriptions from '../../components/MemberSubscriptions';
-import { members } from '@wix/members';
+import CancelSubscription from '../../components/CancelSubscription';
+import { members, membersAbout } from '@wix/members';
+import { orders } from '@wix/pricing-plans';
 
 let member: any = null;
 try {
@@ -13,6 +14,32 @@ try {
 } catch {}
 
 if (!member) return Astro.redirect('/api/auth/login');
+
+let myOrders: any[] = [];
+try {
+	const result = await orders.memberListOrders();
+	myOrders = result.orders || [];
+} catch {}
+
+// Fetch member about
+let aboutData: { id: string | null; revision: string | null; text: string } = { id: null, revision: null, text: "" };
+try {
+	const res = await membersAbout.getMyMemberAbout();
+	const ma = res.memberAbout;
+	if (ma) {
+		aboutData.id = ma._id || null;
+		aboutData.revision = ma.revision || null;
+		const texts: string[] = [];
+		for (const node of (ma.content?.nodes || [])) {
+			if (node.type === "PARAGRAPH") {
+				for (const child of ((node as any).nodes || [])) {
+					if (child.type === "TEXT" && child.textData?.text) texts.push(child.textData.text);
+				}
+			}
+		}
+		aboutData.text = texts.join("\n");
+	}
+} catch {}
 ---
 
 <Layout title="My Profile - Cats In Space">
@@ -26,12 +53,72 @@ if (!member) return Astro.redirect('/api/auth/login');
 
 	<section class="content">
 		<div class="container">
-			<MemberProfile member={member} client:load />
+			<MemberProfile member={member} aboutData={aboutData} client:load />
 
 			<div class="subscriptions-section">
 				<h2 class="section-title subscriptions-title">My Subscriptions</h2>
 				<p class="section-subtitle">Your active plans and membership history</p>
-				<MemberSubscriptions client:load />
+
+				{myOrders.length === 0 ? (
+					<div class="empty-subs">
+						<p>You don't have any subscriptions yet.</p>
+						<a href="/plans">Browse Plans</a>
+					</div>
+				) : (
+					myOrders.map((order: any) => {
+						const isFree = parseFloat(order.priceDetails?.planPrice || "0") === 0;
+						const currency = order.priceDetails?.currency || "USD";
+						const planPrice = order.priceDetails?.planPrice || "0";
+						const startDate = order.startDate ? new Date(order.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+						const endDate = order.endDate ? new Date(order.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+						const cancellable = order.status === 'ACTIVE' && !order.autoRenewCanceled;
+
+						return (
+							<div class="sub-card">
+								<div class="sub-header">
+									<div>
+										<div class="sub-plan-name">{order.planName || 'Unknown Plan'}</div>
+										{order.planDescription && <div class="sub-plan-desc">{order.planDescription}</div>}
+									</div>
+									<span class:list={['sub-badge', `sub-badge-${order.autoRenewCanceled ? 'canceling' : (order.status || 'unknown').toLowerCase()}`]}>
+										{order.autoRenewCanceled ? 'Canceling' : order.status}
+									</span>
+								</div>
+								<div class="sub-details">
+									<div class="sub-detail">
+										<span class="sub-detail-label">Price</span>
+										<span class="sub-detail-value">{isFree ? 'Free' : `${currency === 'USD' ? '$' : currency}${planPrice}`}</span>
+									</div>
+									<div class="sub-detail">
+										<span class="sub-detail-label">Started</span>
+										<span class="sub-detail-value">{startDate}</span>
+									</div>
+									{endDate && (
+										<div class="sub-detail">
+											<span class="sub-detail-label">Ends</span>
+											<span class="sub-detail-value">{endDate}</span>
+										</div>
+									)}
+									{order.currentCycle && (
+										<div class="sub-detail">
+											<span class="sub-detail-label">Cycle</span>
+											<span class="sub-detail-value">#{order.currentCycle.index}</span>
+										</div>
+									)}
+									<div class="sub-detail">
+										<span class="sub-detail-label">Type</span>
+										<span class="sub-detail-value">{order.type === 'ONLINE' ? 'Online' : order.type === 'OFFLINE' ? 'Offline' : order.type}</span>
+									</div>
+								</div>
+								{cancellable && (
+									<div class="sub-footer">
+										<CancelSubscription orderId={order._id} client:load />
+									</div>
+								)}
+							</div>
+						);
+					})
+				)}
 			</div>
 		</div>
 	</section>
@@ -55,5 +142,104 @@ if (!member) return Astro.redirect('/api/auth/login');
 	.subscriptions-title {
 		font-size: 1.5rem !important;
 		margin-bottom: 4px;
+	}
+
+	.empty-subs {
+		padding: 30px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+		text-align: center;
+	}
+
+	.empty-subs p {
+		color: var(--text-muted);
+		margin-bottom: 12px;
+	}
+
+	.empty-subs a {
+		color: var(--accent);
+		font-family: var(--font-heading);
+		font-size: 0.9rem;
+		letter-spacing: 1px;
+	}
+
+	.sub-card {
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+		padding: 24px;
+		margin-bottom: 16px;
+	}
+
+	.sub-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 16px;
+		gap: 12px;
+	}
+
+	.sub-plan-name {
+		font-family: var(--font-heading);
+		font-size: 1.2rem;
+		color: var(--accent-yellow);
+		letter-spacing: 1px;
+	}
+
+	.sub-plan-desc {
+		font-size: 0.8rem;
+		color: var(--text-muted);
+		margin-top: 4px;
+		line-height: 1.4;
+	}
+
+	.sub-badge {
+		font-size: 0.7rem;
+		font-family: var(--font-heading);
+		letter-spacing: 1px;
+		padding: 4px 12px;
+		border-radius: 12px;
+		color: #000;
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+
+	.sub-badge-active { background: #4caf50; }
+	.sub-badge-canceled { background: #f44336; }
+	.sub-badge-ended { background: #888; }
+	.sub-badge-paused, .sub-badge-canceling { background: #ff9800; }
+	.sub-badge-pending { background: #2196f3; }
+
+	.sub-details {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 16px;
+		padding-top: 12px;
+		border-top: 1px solid #222;
+	}
+
+	.sub-detail {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.sub-detail-label {
+		font-size: 0.65rem;
+		color: #666;
+		text-transform: uppercase;
+		letter-spacing: 1px;
+	}
+
+	.sub-detail-value {
+		font-size: 0.85rem;
+		color: var(--text-secondary);
+	}
+
+	.sub-footer {
+		margin-top: 16px;
+		padding-top: 12px;
+		border-top: 1px solid #222;
 	}
 </style>
