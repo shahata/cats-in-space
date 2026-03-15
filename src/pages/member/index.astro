@@ -3,6 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import MemberProfile from '../../components/MemberProfile';
+import MemberSubscriptions from '../../components/MemberSubscriptions';
 import { members } from '@wix/members';
 
 let member: any = null;
@@ -26,6 +27,12 @@ if (!member) return Astro.redirect('/api/auth/login');
 	<section class="content">
 		<div class="container">
 			<MemberProfile member={member} client:load />
+
+			<div class="subscriptions-section">
+				<h2 class="section-title subscriptions-title">My Subscriptions</h2>
+				<p class="section-subtitle">Your active plans and membership history</p>
+				<MemberSubscriptions client:load />
+			</div>
 		</div>
 	</section>
 	<Footer />
@@ -38,5 +45,15 @@ if (!member) return Astro.redirect('/api/auth/login');
 
 	.content {
 		padding-bottom: 60px;
+	}
+
+	.subscriptions-section {
+		margin-top: 48px;
+		max-width: 600px;
+	}
+
+	.subscriptions-title {
+		font-size: 1.5rem !important;
+		margin-bottom: 4px;
 	}
 </style>
