@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { files } from '@wix/media';
 import { members } from '@wix/members';
-import { auth } from '@wix/essentials';
+import { auth, httpClient } from '@wix/essentials';
 import sizeOf from 'image-size';
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
@@ -42,11 +42,30 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response(JSON.stringify({ error: `Image too large. Maximum ${MAX_DIMENSION}x${MAX_DIMENSION}px.` }), { status: 400 });
     }
 
-    // Upload to Wix Media
-    const elevatedGenerateUrl = auth.elevate(files.generateFileUploadUrl);
-    const result = await elevatedGenerateUrl(file.type, { fileName: file.name });
+    // Upload to Wix Media — use REST API directly since auth.elevate may fail in dev
+    let uploadUrl: string;
+    try {
+      const elevatedGenerateUrl = auth.elevate(files.generateFileUploadUrl);
+      const result = await elevatedGenerateUrl(file.type, { fileName: file.name });
+      uploadUrl = result.uploadUrl!;
+    } catch {
+      // Fallback: call REST API directly via fetchWithAuth
+      const res = await httpClient.fetchWithAuth(
+        'https://www.wixapis.com/site-media/v1/files/generate-upload-url',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mimeType: file.type, fileName: file.name }),
+        }
+      );
+      if (!res.ok) {
+        return new Response(JSON.stringify({ error: 'Failed to generate upload URL' }), { status: 500 });
+      }
+      const data = await res.json();
+      uploadUrl = data.uploadUrl;
+    }
 
-    const uploadRes = await fetch(result.uploadUrl!, {
+    const uploadRes = await fetch(uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': file.type },
       body: buffer,
