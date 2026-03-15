@@ -293,6 +293,47 @@ const member = res.member;
 
 **CRITICAL:** `updateMember` silently ignores `privacyStatus`. Use `members.joinCommunity()` (PUBLIC) and `members.leaveCommunity()` (PRIVATE) instead.
 
+### Member About (Bio)
+
+The about/bio is a **separate API**, not part of the Member profile:
+
+```typescript
+import { membersAbout } from '@wix/members';
+
+// Read own about (client-side)
+const res = await membersAbout.getMyMemberAbout();
+const content = res.memberAbout?.content; // RichContent (Ricos format)
+// Note: getMyMemberAbout returns { memberAbout } (wrapped)
+
+// Read any member's about (server-side)
+const result = await membersAbout.queryMemberAbouts().eq('memberId', memberId).limit(1).find();
+const content = result.items[0]?.content; // RichContent
+
+// Create about
+await membersAbout.createMemberAbout({ memberId, content: richContent });
+
+// Update about (requires revision)
+await membersAbout.updateMemberAbout(aboutId, { content: richContent, revision });
+```
+
+**CRITICAL:** `getMyMemberAbout()` returns `{ memberAbout }` (wrapped), but `getMemberAbout(id)` returns `MemberAbout` directly. Use `queryMemberAbouts` for consistency.
+
+**Content is RichContent (Ricos format)** — render with `RicosViewer`, create with PARAGRAPH/TEXT nodes.
+
+### Member Authentication
+
+```typescript
+import { authentication } from '@wix/members';
+
+// Change login email (client-side, needs member session)
+await authentication.changeLoginEmail(memberId, newEmail);
+
+// Send password reset email (client-side, needs member session)
+await authentication.sendSetPasswordEmail(email);
+```
+
+**CRITICAL:** Both require **member identity** — call from client-side where the member session is active. `auth.elevate()` strips member identity and causes 403.
+
 **Phone numbers must be E.164 format:** The API rejects phone numbers not in `+[country code][number]` format. Convert before saving:
 ```typescript
 function toE164(phone: string): string {
