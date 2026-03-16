@@ -16,9 +16,10 @@ function toE164(phone: string): string {
 interface Props {
   member: any;
   aboutData: { id: string | null; revision: string | null; text: string };
+  tab?: "profile" | "personal" | "account";
 }
 
-export default function MemberProfile({ member, aboutData }: Props) {
+export default function MemberProfile({ member, aboutData, tab = "profile" }: Props) {
   // Public profile
   const [nickname, setNickname] = useState(member.profile?.nickname || "");
   const [title, setTitle] = useState(member.profile?.title || "");
@@ -273,220 +274,233 @@ export default function MemberProfile({ member, aboutData }: Props) {
 
   return (
     <div style={{ maxWidth: "600px" }}>
-      {/* Cover photo */}
-      <div style={coverWrapperStyle}>
-        {cover ? (
-          <img src={cover} alt="Cover" style={coverImageStyle} referrerPolicy="no-referrer" />
-        ) : (
-          <div style={coverPlaceholderStyle}>No cover photo</div>
-        )}
-        <div style={coverActionsStyle}>
-          <label style={photoUploadLabelStyle}>
-            {coverUploading ? "..." : "Change Cover"}
-            <input type="file" accept="image/*" onChange={handleCoverUpload}
-              style={{ display: "none" }} disabled={coverUploading} />
-          </label>
-          {cover && (
-            <button type="button" onClick={handleRemoveCover} style={photoRemoveBtnStyle}>Remove</button>
-          )}
-        </div>
-      </div>
-
-      {/* Profile header */}
-      <div style={{ ...headerStyle, borderTopLeftRadius: 0, borderTopRightRadius: 0, marginTop: "-1px" }}>
-        <div style={{ position: "relative" }}>
-          {photo ? (
-            <img src={photo} alt={nickname} style={photoStyle} referrerPolicy="no-referrer" />
-          ) : (
-            <div style={photoPlaceholderStyle}>?</div>
-          )}
-          <div style={photoActionsStyle}>
-            <label style={photoUploadLabelStyle}>
-              {photoUploading ? "..." : "Change"}
-              <input type="file" accept="image/*" onChange={handlePhotoUpload}
-                style={{ display: "none" }} disabled={photoUploading} />
-            </label>
-            {photo && (
-              <button type="button" onClick={handleRemovePhoto} style={photoRemoveBtnStyle}>Remove</button>
+      {tab === "profile" && (
+        <>
+          {/* Cover photo */}
+          <div style={coverWrapperStyle}>
+            {cover ? (
+              <img src={cover} alt="Cover" style={coverImageStyle} referrerPolicy="no-referrer" />
+            ) : (
+              <div style={coverPlaceholderStyle}>No cover photo</div>
             )}
+            <div style={coverActionsStyle}>
+              <label style={photoUploadLabelStyle}>
+                {coverUploading ? "..." : "Change Cover"}
+                <input type="file" accept="image/*" onChange={handleCoverUpload}
+                  style={{ display: "none" }} disabled={coverUploading} />
+              </label>
+              {cover && (
+                <button type="button" onClick={handleRemoveCover} style={photoRemoveBtnStyle}>Remove</button>
+              )}
+            </div>
           </div>
-        </div>
-        <div>
-          <div style={headerNameStyle}>{nickname || firstName || "Unnamed Cat"}</div>
-          {title && <div style={headerTitleStyle}>{title}</div>}
-          <div style={headerEmailStyle}>{member.loginEmail}</div>
-          <div style={headerMetaStyle}>
-            Member since {member._createdDate ? new Date(member._createdDate).toLocaleDateString() : "unknown"}
-            {member.lastLoginDate && <> · Last login {new Date(member.lastLoginDate).toLocaleDateString()}</>}
+
+          {/* Profile header */}
+          <div style={{ ...headerStyle, borderTopLeftRadius: 0, borderTopRightRadius: 0, marginTop: "-1px" }}>
+            <div style={{ position: "relative" }}>
+              {photo ? (
+                <img src={photo} alt={nickname} style={photoStyle} referrerPolicy="no-referrer" />
+              ) : (
+                <div style={photoPlaceholderStyle}>?</div>
+              )}
+              <div style={photoActionsStyle}>
+                <label style={photoUploadLabelStyle}>
+                  {photoUploading ? "..." : "Change"}
+                  <input type="file" accept="image/*" onChange={handlePhotoUpload}
+                    style={{ display: "none" }} disabled={photoUploading} />
+                </label>
+                {photo && (
+                  <button type="button" onClick={handleRemovePhoto} style={photoRemoveBtnStyle}>Remove</button>
+                )}
+              </div>
+            </div>
+            <div>
+              <div style={headerNameStyle}>{nickname || firstName || "Unnamed Cat"}</div>
+              {title && <div style={headerTitleStyle}>{title}</div>}
+              <div style={headerEmailStyle}>{member.loginEmail}</div>
+              <div style={headerMetaStyle}>
+                Member since {member._createdDate ? new Date(member._createdDate).toLocaleDateString() : "unknown"}
+                {member.lastLoginDate && <> · Last login {new Date(member.lastLoginDate).toLocaleDateString()}</>}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <form onSubmit={handleSave}>
-        {/* Public Profile */}
-        <h3 style={sectionHeadingStyle}>Public Profile</h3>
-        <p style={sectionDescStyle}>Visible to other crew members and visitors</p>
+          <form onSubmit={handleSave}>
+            <h3 style={sectionHeadingStyle}>Public Profile</h3>
+            <p style={sectionDescStyle}>Visible to other crew members and visitors</p>
 
-        <label style={labelStyle}>Nickname</label>
-        <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)}
-          placeholder="How others see you" style={inputStyle} />
+            <label style={labelStyle}>Nickname</label>
+            <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)}
+              placeholder="How others see you" style={inputStyle} />
 
-        <label style={labelStyle}>Title</label>
-        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. Chief Napping Officer" style={inputStyle} />
+            <label style={labelStyle}>Title</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Chief Napping Officer" style={inputStyle} />
 
-        <label style={labelStyle}>Profile Slug</label>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)}
-            placeholder="my-profile-url" style={{ ...inputStyle, flex: 1 }} />
-          <button type="button" onClick={handleSlugUpdate} disabled={slugSaving}
-            style={{ ...smallButtonStyle, marginTop: 0 }}>
-            {slugSaving ? "..." : "Update"}
-          </button>
-        </div>
+            <label style={labelStyle}>Profile Slug</label>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)}
+                placeholder="my-profile-url" style={{ ...inputStyle, flex: 1 }} />
+              <button type="button" onClick={handleSlugUpdate} disabled={slugSaving}
+                style={{ ...smallButtonStyle, marginTop: 0 }}>
+                {slugSaving ? "..." : "Update"}
+              </button>
+            </div>
 
-        <label style={labelStyle}>Privacy</label>
-        <select value={privacyStatus} onChange={(e) => setPrivacyStatus(e.target.value)} style={inputStyle}>
-          <option value="PUBLIC">Public — visible to everyone</option>
-          <option value="PRIVATE">Private — visible only to site admins</option>
-        </select>
-
-        {/* Private Info */}
-        {/* About */}
-        <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>About</h3>
-        <p style={sectionDescStyle}>Tell other crew members about yourself</p>
-        <textarea value={about} onChange={(e) => setAbout(e.target.value)}
-          placeholder="Write something about yourself..." rows={4}
-          style={{ ...inputStyle, resize: "vertical" as const }} />
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "8px" }}>
-          <button type="button" onClick={handleSaveAbout} disabled={aboutSaving}
-            style={smallButtonStyle}>
-            {aboutSaving ? "Saving..." : "Save About"}
-          </button>
-          {aboutSaved && <span style={{ color: "#4caf50", fontSize: "0.8rem" }}>Saved!</span>}
-        </div>
-
-        <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>Personal Info</h3>
-        <p style={sectionDescStyle}>Only visible to site administrators</p>
-
-        <div style={gridStyle}>
-          <div>
-            <label style={labelStyle}>First Name</label>
-            <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
-              style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Last Name</label>
-            <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
-              style={inputStyle} />
-          </div>
-        </div>
-
-        <div style={gridStyle}>
-          <div>
-            <label style={labelStyle}>Company</label>
-            <input type="text" value={company} onChange={(e) => setCompany(e.target.value)}
-              style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Job Title</label>
-            <input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)}
-              style={inputStyle} />
-          </div>
-        </div>
-
-        <div style={gridStyle}>
-          <div>
-            <label style={labelStyle}>Phone</label>
-            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-              placeholder="+12025551234 (E.164 format)" style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Birthdate</label>
-            <input type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)}
-              style={inputStyle} />
-          </div>
-        </div>
-
-        {/* Address */}
-        <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>Address</h3>
-        <p style={sectionDescStyle}>Only visible to site administrators</p>
-
-        <label style={labelStyle}>Address Line 1</label>
-        <input type="text" value={addressLine} onChange={(e) => setAddressLine(e.target.value)}
-          placeholder="Street and number" style={inputStyle} />
-
-        <label style={labelStyle}>Address Line 2</label>
-        <input type="text" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)}
-          placeholder="Apartment, suite, floor" style={inputStyle} />
-
-        <div style={gridStyle}>
-          <div>
-            <label style={labelStyle}>City</label>
-            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Postal Code</label>
-            <input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} style={inputStyle} />
-          </div>
-        </div>
-
-        <div style={gridStyle}>
-          <div>
-            <label style={labelStyle}>Country</label>
-            <select value={country} onChange={(e) => setCountry(e.target.value)} style={inputStyle}>
-              <option value="">Select country...</option>
-              {getCountries().map(c => (
-                <option key={c.code} value={c.code}>{c.name}</option>
-              ))}
+            <label style={labelStyle}>Privacy</label>
+            <select value={privacyStatus} onChange={(e) => setPrivacyStatus(e.target.value)} style={inputStyle}>
+              <option value="PUBLIC">Public — visible to everyone</option>
+              <option value="PRIVATE">Private — visible only to site admins</option>
             </select>
+
+            <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>About</h3>
+            <p style={sectionDescStyle}>Tell other crew members about yourself</p>
+            <textarea value={about} onChange={(e) => setAbout(e.target.value)}
+              placeholder="Write something about yourself..." rows={4}
+              style={{ ...inputStyle, resize: "vertical" as const }} />
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "8px" }}>
+              <button type="button" onClick={handleSaveAbout} disabled={aboutSaving}
+                style={smallButtonStyle}>
+                {aboutSaving ? "Saving..." : "Save About"}
+              </button>
+              {aboutSaved && <span style={{ color: "#4caf50", fontSize: "0.8rem" }}>Saved!</span>}
+            </div>
+
+            <div style={{ marginTop: "32px", display: "flex", alignItems: "center", gap: "16px" }}>
+              <button type="submit" disabled={saving} style={saveButtonStyle}>
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+              {saved && <span style={{ color: "#4caf50", fontSize: "0.9rem" }}>Profile updated!</span>}
+            </div>
+          </form>
+        </>
+      )}
+
+      {tab === "personal" && (
+        <form onSubmit={handleSave}>
+          <h3 style={sectionHeadingStyle}>Personal Info</h3>
+          <p style={sectionDescStyle}>Only visible to site administrators</p>
+
+          <div style={gridStyle}>
+            <div>
+              <label style={labelStyle}>First Name</label>
+              <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Last Name</label>
+              <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
+                style={inputStyle} />
+            </div>
           </div>
-          <div>
-            <label style={labelStyle}>State / Province</label>
-            <input type="text" value={subdivision} onChange={(e) => setSubdivision(e.target.value)} style={inputStyle} />
+
+          <div style={gridStyle}>
+            <div>
+              <label style={labelStyle}>Company</label>
+              <input type="text" value={company} onChange={(e) => setCompany(e.target.value)}
+                style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Job Title</label>
+              <input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)}
+                style={inputStyle} />
+            </div>
           </div>
-        </div>
 
-        {/* Actions */}
-        <div style={{ marginTop: "32px", display: "flex", alignItems: "center", gap: "16px" }}>
-          <button type="submit" disabled={saving} style={saveButtonStyle}>
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
-          {saved && <span style={{ color: "#4caf50", fontSize: "0.9rem" }}>Profile updated!</span>}
-        </div>
-      </form>
+          <div style={gridStyle}>
+            <div>
+              <label style={labelStyle}>Phone</label>
+              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                placeholder="+12025551234 (E.164 format)" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Birthdate</label>
+              <input type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)}
+                style={inputStyle} />
+            </div>
+          </div>
 
-      {/* Login Credentials */}
-      <h3 style={{ ...sectionHeadingStyle, marginTop: "48px" }}>Login Credentials</h3>
-      <p style={sectionDescStyle}>Change your login email or reset your password</p>
+          <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>Address</h3>
+          <p style={sectionDescStyle}>Only visible to site administrators</p>
 
-      <div style={{ background: "#141414", border: "1px solid #222", borderRadius: "12px", padding: "24px" }}>
-        <label style={labelStyle}>Current Login Email</label>
-        <p style={{ color: "#e0e0e0", fontSize: "0.9rem", marginBottom: "16px" }}>{member.loginEmail}</p>
+          <label style={labelStyle}>Address Line 1</label>
+          <input type="text" value={addressLine} onChange={(e) => setAddressLine(e.target.value)}
+            placeholder="Street and number" style={inputStyle} />
 
-        <label style={labelStyle}>New Login Email</label>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
-            placeholder="new@email.com" style={{ ...inputStyle, flex: 1 }} />
-          <button type="button" onClick={handleChangeEmail} disabled={emailChanging}
-            style={smallButtonStyle}>
-            {emailChanging ? "..." : "Change Email"}
-          </button>
-        </div>
-        {emailMsg && <p style={{ fontSize: "0.8rem", color: emailMsg.includes("updated") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{emailMsg}</p>}
+          <label style={labelStyle}>Address Line 2</label>
+          <input type="text" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)}
+            placeholder="Apartment, suite, floor" style={inputStyle} />
 
-        <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #222" }}>
-          <label style={labelStyle}>Change Password</label>
-          <p style={{ color: "#888", fontSize: "0.8rem", marginBottom: "8px" }}>
-            We'll send a secure link to <strong style={{ color: "#e0e0e0" }}>{member.loginEmail}</strong> where you can set a new password.
-          </p>
-          <button type="button" onClick={handleResetPassword} disabled={passwordSending}
-            style={smallButtonStyle}>
-            {passwordSending ? "Sending..." : "Send Change Password Link"}
-          </button>
-          {passwordMsg && <p style={{ fontSize: "0.8rem", color: passwordMsg.includes("sent") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{passwordMsg}</p>}
-        </div>
-      </div>
+          <div style={gridStyle}>
+            <div>
+              <label style={labelStyle}>City</label>
+              <input type="text" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Postal Code</label>
+              <input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+
+          <div style={gridStyle}>
+            <div>
+              <label style={labelStyle}>Country</label>
+              <select value={country} onChange={(e) => setCountry(e.target.value)} style={inputStyle}>
+                <option value="">Select country...</option>
+                {getCountries().map(c => (
+                  <option key={c.code} value={c.code}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>State / Province</label>
+              <input type="text" value={subdivision} onChange={(e) => setSubdivision(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+
+          <div style={{ marginTop: "32px", display: "flex", alignItems: "center", gap: "16px" }}>
+            <button type="submit" disabled={saving} style={saveButtonStyle}>
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+            {saved && <span style={{ color: "#4caf50", fontSize: "0.9rem" }}>Profile updated!</span>}
+          </div>
+        </form>
+      )}
+
+      {tab === "account" && (
+        <>
+          <h3 style={sectionHeadingStyle}>Login Credentials</h3>
+          <p style={sectionDescStyle}>Change your login email or reset your password</p>
+
+          <div style={{ background: "#141414", border: "1px solid #222", borderRadius: "12px", padding: "24px" }}>
+            <label style={labelStyle}>Current Login Email</label>
+            <p style={{ color: "#e0e0e0", fontSize: "0.9rem", marginBottom: "16px" }}>{member.loginEmail}</p>
+
+            <label style={labelStyle}>New Login Email</label>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="new@email.com" style={{ ...inputStyle, flex: 1 }} />
+              <button type="button" onClick={handleChangeEmail} disabled={emailChanging}
+                style={smallButtonStyle}>
+                {emailChanging ? "..." : "Change Email"}
+              </button>
+            </div>
+            {emailMsg && <p style={{ fontSize: "0.8rem", color: emailMsg.includes("updated") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{emailMsg}</p>}
+
+            <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #222" }}>
+              <label style={labelStyle}>Change Password</label>
+              <p style={{ color: "#888", fontSize: "0.8rem", marginBottom: "8px" }}>
+                We'll send a secure link to <strong style={{ color: "#e0e0e0" }}>{member.loginEmail}</strong> where you can set a new password.
+              </p>
+              <button type="button" onClick={handleResetPassword} disabled={passwordSending}
+                style={smallButtonStyle}>
+                {passwordSending ? "Sending..." : "Send Change Password Link"}
+              </button>
+              {passwordMsg && <p style={{ fontSize: "0.8rem", color: passwordMsg.includes("sent") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{passwordMsg}</p>}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

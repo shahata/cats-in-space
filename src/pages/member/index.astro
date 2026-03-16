@@ -40,6 +40,13 @@ try {
 		aboutData.text = texts.join("\n");
 	}
 } catch {}
+
+const tabs = [
+	{ id: 'profile', label: 'Profile', icon: '&#9734;' },
+	{ id: 'personal', label: 'Personal Info', icon: '&#9998;' },
+	{ id: 'subscriptions', label: 'Subscriptions', icon: '&#9830;' },
+	{ id: 'account', label: 'Account', icon: '&#9881;' },
+];
 ---
 
 <Layout title="My Profile - Cats In Space">
@@ -52,78 +59,126 @@ try {
 	</section>
 
 	<section class="content">
-		<div class="container">
-			<MemberProfile member={member} aboutData={aboutData} client:load />
+		<div class="container member-layout">
+			<nav class="tab-nav">
+				{tabs.map((tab) => (
+					<a href={`#${tab.id}`} class="tab" data-tab={tab.id}>
+						<span class="tab-icon" set:html={tab.icon} />
+						<span class="tab-label">{tab.label}</span>
+					</a>
+				))}
+			</nav>
 
-			<div class="subscriptions-section">
-				<h2 class="section-title subscriptions-title">My Subscriptions</h2>
-				<p class="section-subtitle">Your active plans and membership history</p>
+			<div class="tab-panels">
+				<div class="tab-panel" id="panel-profile">
+					<MemberProfile member={member} aboutData={aboutData} tab="profile" client:load />
+				</div>
 
-				{myOrders.length === 0 ? (
-					<div class="empty-subs">
-						<p>You don't have any subscriptions yet.</p>
-						<a href="/plans">Browse Plans</a>
-					</div>
-				) : (
-					myOrders.map((order: any) => {
-						const isFree = parseFloat(order.priceDetails?.planPrice || "0") === 0;
-						const currency = order.priceDetails?.currency || "USD";
-						const planPrice = order.priceDetails?.planPrice || "0";
-						const startDate = order.startDate ? new Date(order.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
-						const endDate = order.endDate ? new Date(order.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
-						const cancellable = order.status === 'ACTIVE' && !order.autoRenewCanceled;
+				<div class="tab-panel" id="panel-personal" style="display:none">
+					<MemberProfile member={member} aboutData={aboutData} tab="personal" client:load />
+				</div>
 
-						return (
-							<div class="sub-card">
-								<div class="sub-header">
-									<div>
-										<div class="sub-plan-name">{order.planName || 'Unknown Plan'}</div>
-										{order.planDescription && <div class="sub-plan-desc">{order.planDescription}</div>}
-									</div>
-									<span class:list={['sub-badge', `sub-badge-${order.autoRenewCanceled ? 'canceling' : (order.status || 'unknown').toLowerCase()}`]}>
-										{order.autoRenewCanceled ? 'Canceling' : order.status}
-									</span>
-								</div>
-								<div class="sub-details">
-									<div class="sub-detail">
-										<span class="sub-detail-label">Price</span>
-										<span class="sub-detail-value">{isFree ? 'Free' : `${currency === 'USD' ? '$' : currency}${planPrice}`}</span>
-									</div>
-									<div class="sub-detail">
-										<span class="sub-detail-label">Started</span>
-										<span class="sub-detail-value">{startDate}</span>
-									</div>
-									{endDate && (
-										<div class="sub-detail">
-											<span class="sub-detail-label">Ends</span>
-											<span class="sub-detail-value">{endDate}</span>
+				<div class="tab-panel" id="panel-subscriptions" style="display:none">
+					{myOrders.length === 0 ? (
+						<div class="empty-subs">
+							<p>You don't have any subscriptions yet.</p>
+							<a href="/plans">Browse Plans</a>
+						</div>
+					) : (
+						<div class="subs-list">
+							{myOrders.map((order: any) => {
+								const isFree = parseFloat(order.priceDetails?.planPrice || "0") === 0;
+								const currency = order.priceDetails?.currency || "USD";
+								const planPrice = order.priceDetails?.planPrice || "0";
+								const startDate = order.startDate ? new Date(order.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+								const endDate = order.endDate ? new Date(order.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+								const cancellable = order.status === 'ACTIVE' && !order.autoRenewCanceled;
+
+								return (
+									<div class="sub-card">
+										<div class="sub-header">
+											<div>
+												<div class="sub-plan-name">{order.planName || 'Unknown Plan'}</div>
+												{order.planDescription && <div class="sub-plan-desc">{order.planDescription}</div>}
+											</div>
+											<span class:list={['sub-badge', `sub-badge-${order.autoRenewCanceled ? 'canceling' : (order.status || 'unknown').toLowerCase()}`]}>
+												{order.autoRenewCanceled ? 'Canceling' : order.status}
+											</span>
 										</div>
-									)}
-									{order.currentCycle && (
-										<div class="sub-detail">
-											<span class="sub-detail-label">Cycle</span>
-											<span class="sub-detail-value">#{order.currentCycle.index}</span>
+										<div class="sub-details">
+											<div class="sub-detail">
+												<span class="sub-detail-label">Price</span>
+												<span class="sub-detail-value">{isFree ? 'Free' : `${currency === 'USD' ? '$' : currency}${planPrice}`}</span>
+											</div>
+											<div class="sub-detail">
+												<span class="sub-detail-label">Started</span>
+												<span class="sub-detail-value">{startDate}</span>
+											</div>
+											{endDate && (
+												<div class="sub-detail">
+													<span class="sub-detail-label">Ends</span>
+													<span class="sub-detail-value">{endDate}</span>
+												</div>
+											)}
+											{order.currentCycle && (
+												<div class="sub-detail">
+													<span class="sub-detail-label">Cycle</span>
+													<span class="sub-detail-value">#{order.currentCycle.index}</span>
+												</div>
+											)}
+											<div class="sub-detail">
+												<span class="sub-detail-label">Type</span>
+												<span class="sub-detail-value">{order.type === 'ONLINE' ? 'Online' : order.type === 'OFFLINE' ? 'Offline' : order.type}</span>
+											</div>
 										</div>
-									)}
-									<div class="sub-detail">
-										<span class="sub-detail-label">Type</span>
-										<span class="sub-detail-value">{order.type === 'ONLINE' ? 'Online' : order.type === 'OFFLINE' ? 'Offline' : order.type}</span>
+										{cancellable && (
+											<div class="sub-footer">
+												<CancelSubscription orderId={order._id} client:load />
+											</div>
+										)}
 									</div>
-								</div>
-								{cancellable && (
-									<div class="sub-footer">
-										<CancelSubscription orderId={order._id} client:load />
-									</div>
-								)}
-							</div>
-						);
-					})
-				)}
+								);
+							})}
+						</div>
+					)}
+				</div>
+
+				<div class="tab-panel" id="panel-account" style="display:none">
+					<MemberProfile member={member} aboutData={aboutData} tab="account" client:load />
+				</div>
 			</div>
 		</div>
 	</section>
 	<Footer />
 </Layout>
+
+<script>
+	function activateTab(tabId: string) {
+		document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+		document.querySelectorAll('.tab-panel').forEach(p => (p as HTMLElement).style.display = 'none');
+
+		const tab = document.querySelector(`.tab[data-tab="${tabId}"]`);
+		const panel = document.getElementById(`panel-${tabId}`);
+		if (tab) tab.classList.add('active');
+		if (panel) panel.style.display = 'block';
+	}
+
+	function onHashChange() {
+		const hash = window.location.hash.replace('#', '') || 'profile';
+		activateTab(hash);
+	}
+
+	document.querySelectorAll('.tab').forEach(tab => {
+		tab.addEventListener('click', (e) => {
+			e.preventDefault();
+			const tabId = (tab as HTMLElement).dataset.tab!;
+			window.location.hash = tabId;
+		});
+	});
+
+	window.addEventListener('hashchange', onHashChange);
+	onHashChange();
+</script>
 
 <style>
 	.page-header {
@@ -134,16 +189,54 @@ try {
 		padding-bottom: 60px;
 	}
 
-	.subscriptions-section {
-		margin-top: 48px;
+	/* Tab navigation */
+	.tab-nav {
+		display: flex;
+		gap: 2px;
+		margin-bottom: 32px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+		padding: 6px;
 		max-width: 600px;
 	}
 
-	.subscriptions-title {
-		font-size: 1.5rem !important;
-		margin-bottom: 4px;
+	.tab {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		padding: 10px 12px;
+		font-family: var(--font-heading);
+		font-size: 0.8rem;
+		letter-spacing: 1px;
+		color: var(--text-muted);
+		text-decoration: none;
+		border-radius: 8px;
+		transition: all 0.2s;
+		cursor: pointer;
 	}
 
+	.tab:hover {
+		color: var(--text-secondary);
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.tab.active {
+		color: #000;
+		background: var(--accent);
+	}
+
+	.tab-icon {
+		font-size: 1rem;
+	}
+
+	.tab-panels {
+		max-width: 600px;
+	}
+
+	/* Subscriptions */
 	.empty-subs {
 		padding: 30px;
 		background: var(--bg-card);
@@ -241,5 +334,24 @@ try {
 		margin-top: 16px;
 		padding-top: 12px;
 		border-top: 1px solid #222;
+	}
+
+	@media (max-width: 640px) {
+		.tab-nav {
+			flex-wrap: wrap;
+		}
+
+		.tab {
+			font-size: 0.7rem;
+			padding: 8px 6px;
+		}
+
+		.tab-label {
+			display: none;
+		}
+
+		.tab-icon {
+			font-size: 1.2rem;
+		}
 	}
 </style>

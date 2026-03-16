@@ -85,21 +85,9 @@ const writerTitle = writer?.profile?.title || '';
 					<PremiumContentResolver slug={slug!} previewContent={post.richContent} client:load />
 				</div>
 			) : (
-				<>
-					<div class:list={['post-content', { 'post-preview': post.preview }]}>
-						<RichContentViewer content={post.richContent} client:load />
-					</div>
-					{post.preview && (
-						<div class="paywall">
-							<div class="paywall-fade"></div>
-							<div class="paywall-content">
-								<h3>This content is for crew members only</h3>
-								<p>Subscribe to a plan to read the full transmission</p>
-								<a href="/plans" class="paywall-btn">View Plans</a>
-							</div>
-						</div>
-					)}
-				</>
+				<div class="post-content">
+					<RichContentViewer content={post.richContent} client:load />
+				</div>
 			)}
 
 			<div class="writer-card">
@@ -352,13 +340,13 @@ const writerTitle = writer?.profile?.title || '';
 		box-shadow: 0 0 20px var(--accent-glow);
 	}
 
-	.post-preview {
+	:global(.post-preview) {
 		position: relative;
 		max-height: 600px;
 		overflow: hidden;
 	}
 
-	.paywall {
+	:global(.paywall) {
 		position: relative;
 		margin-top: -120px;
 		padding-top: 120px;
@@ -366,7 +354,7 @@ const writerTitle = writer?.profile?.title || '';
 		margin-bottom: 30px;
 	}
 
-	.paywall-fade {
+	:global(.paywall-fade) {
 		position: absolute;
 		top: 0;
 		left: 0;
@@ -376,7 +364,7 @@ const writerTitle = writer?.profile?.title || '';
 		pointer-events: none;
 	}
 
-	.paywall-content {
+	:global(.paywall-content) {
 		position: relative;
 		padding: 40px;
 		background: var(--bg-card);
@@ -385,7 +373,7 @@ const writerTitle = writer?.profile?.title || '';
 		box-shadow: 0 0 40px var(--accent-glow);
 	}
 
-	.paywall-content h3 {
+	:global(.paywall-content h3) {
 		font-family: var(--font-heading);
 		font-size: 1.4rem;
 		color: var(--accent-yellow);
@@ -393,26 +381,27 @@ const writerTitle = writer?.profile?.title || '';
 		margin-bottom: 8px;
 	}
 
-	.paywall-content p {
+	:global(.paywall-content p) {
 		color: var(--text-muted);
 		font-size: 0.9rem;
 		margin-bottom: 20px;
 	}
 
-	.paywall-btn {
+	:global(.paywall-btn) {
 		display: inline-block;
 		padding: 12px 32px;
 		background: var(--accent);
-		color: #000;
+		color: #000 !important;
 		font-family: var(--font-heading);
 		font-size: 1rem;
 		letter-spacing: 1px;
 		border-radius: 8px;
 		transition: all 0.2s;
 		font-weight: bold;
+		text-decoration: none;
 	}
 
-	.paywall-btn:hover {
+	:global(.paywall-btn:hover) {
 		background: var(--accent-yellow);
 		transform: translateY(-2px);
 	}

@@ -284,10 +284,12 @@ await members.updateMember(member._id, {
 ```astro
 ---
 const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
-if (!res.member) return Astro.redirect('/api/auth/login');
+if (!res.member) return Astro.redirect(`/api/auth/login?returnToUrl=${encodeURIComponent('/member')}`);
 const member = res.member;
 ---
 ```
+
+**Member area tab pattern:** Use URL hash fragments for tab navigation in the member area. Split MemberProfile into sections via a `tab` prop (`"profile"`, `"personal"`, `"account"`). Render one `<MemberProfile>` per tab panel with the appropriate tab value. Use a `<script>` block for hash-based tab switching. This keeps each tab lightweight and allows easy addition of new tabs.
 
 **Remove profile photo:** Send `{ url: "" }` — not `null`, not `{ url: "", _id: "" }`.
 
