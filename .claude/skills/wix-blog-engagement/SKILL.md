@@ -92,45 +92,56 @@ for (const r of unique) {
 
 **CRITICAL:** `parentComment.author.authorName` has the actual parent author name for "replying to" labels.
 
-### Creating Comments
+### Creating Comments & Replies
 
 ```typescript
-// Use REST via fetchWithAuth (SDK strips fields like authorName)
-import { httpClient } from "@wix/essentials";
-
-const res = await httpClient.fetchWithAuth(
-  "https://www.wixapis.com/comments/v1/comments",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      comment: {
-        appId: BLOG_APP_ID,
-        contextId: post.referenceId,
-        resourceId: post.referenceId,
-        author: { authorName: "Visitor Name" },
-        content: { richContent: { nodes: [{ type: "PARAGRAPH", nodes: [{ type: "TEXT", textData: { text: "Hello", decorations: [] } }], paragraphData: {} }] } },
-      },
-    }),
-  }
-);
-const created = (await res.json()).comment;
-// REST returns 'id', SDK uses '_id' — normalize if needed
-```
-
-### Replies
-
-```typescript
-// Reply to a comment (SDK works for replies)
-await commentsApi.createComment({
+// Top-level comment
+const created = await commentsApi.createComment({
   appId: BLOG_APP_ID,
   contextId: post.referenceId,
   resourceId: post.referenceId,
-  author: { authorName: "Visitor Name" },
-  parentComment: { _id: parentCommentId },  // makes it a reply
+  author: (isLoggedIn ? {} : { authorName: "Visitor Name" }) as commentsApi.CommentAuthor,
+  content: { richContent: { nodes: [{ type: "PARAGRAPH", nodes: [{ type: "TEXT", textData: { text: "Hello", decorations: [] } }], paragraphData: {} }] } },
+});
+
+// Reply to a comment (same API, add parentComment)
+const reply = await commentsApi.createComment({
+  appId: BLOG_APP_ID,
+  contextId: post.referenceId,
+  resourceId: post.referenceId,
+  author: (isLoggedIn ? {} : { authorName: "Visitor Name" }) as commentsApi.CommentAuthor,
+  parentComment: { _id: parentCommentId },
   content: { richContent: { nodes: [...] } },
-} as any);
+});
 ```
+
+**CRITICAL:** Guest display names use `author: { authorName: "Name" }`. SDK types don't include it — cast with `as commentsApi.CommentAuthor`.
+
+**CRITICAL:** When logged in, send empty `author: {}` — the server uses the member identity automatically.
+
+### Permission Denied (403) Handling
+
+The comments API may return `PERMISSION_DENIED` if the site requires members to be logged in to comment. Handle this gracefully:
+
+```typescript
+function isPermissionDenied(e: any): boolean {
+  return e?.details?.applicationError?.code === 'PERMISSION_DENIED' ||
+    e?.message?.includes('Permission denied');
+}
+
+try {
+  await commentsApi.createComment({ ... });
+} catch (e: any) {
+  if (isPermissionDenied(e)) {
+    // Show login prompt instead of comment form
+    setLoginRequired(true);
+  }
+}
+```
+
+**CRITICAL:** The SDK error has `details.applicationError.code === 'PERMISSION_DENIED'`, NOT an HTTP status code. The error message is `"Permission denied: UNKNOWN"`.
+
+**Background:** Comment permissions are controlled by the Comments Category service (`wix.comments.v1.category`) which has `permissionsSettings.createComment.role` set to `ALL`, `MEMBER`, or `ADMIN`. The blog implements a `CommentsContextHost` SPI that resolves these into per-user boolean permissions. This SPI is internal and not accessible from headless — so the best approach is to handle the error at the point of failure rather than pre-checking permissions.
 
 ### Edit & Delete
 
@@ -144,8 +155,6 @@ await commentsApi.deleteComment(commentId);
 ```
 
 ### Key Gotchas
-
-**CRITICAL:** Guest display names use `author: { authorName: "Name" }`. SDK types don't include it — cast with `as any`.
 
 **CRITICAL:** After creating, the API has **eventual consistency**. Load comments immediately but retry after 2 seconds if the new comment isn't in the response.
 
@@ -204,6 +213,19 @@ In the React component:
 - If not → show the name text input for visitors
 - When logged in, send empty `author: {}` — the server uses the member identity automatically
 
+### Blog Post Commenting & Preview Flags
+
+```astro
+---
+// post.commentingEnabled — controls whether comments are allowed
+// post.preview — true if content is a premium preview (truncated)
+---
+<BlogEngagement commentingEnabled={post.commentingEnabled !== false} client:load />
+```
+
+- `commentingEnabled === false`: hide comment form and reply buttons, show "Comments are disabled"
+- `post.preview === true`: show paywall after truncated content linking to plans page
+
 ### Edited Comments
 
 `comment.contentEdited` (boolean) indicates if a comment was edited. Show "(edited)" next to author name.
@@ -249,8 +271,21 @@ await httpClient.fetchWithAuth(
 
 **CRITICAL:** Import `httpClient` from `"@wix/essentials"` (main module), NOT from `"@wix/essentials/http-client"` (subpath fails Vite build).
 
+## Comment Permissions Architecture
+
+The Wix Comments system uses a layered permission model:
+
+1. **Comments Category** (`@wix/comments` → `categories`): Stores role-based settings (`permissionsSettings.createComment.role`: `ALL`/`MEMBER`/`ADMIN`) per app. However, in managed headless, querying categories may not return the actual blog-configured setting.
+
+2. **CommentsContextHost SPI** (internal): The blog implements `GetCommentContext` which resolves per-user boolean permissions (`create_comment: true/false`) based on the caller's identity. This is an internal service not accessible from headless SDK.
+
+3. **Best approach for headless**: Don't pre-check permissions. Let the user attempt the action and handle `PERMISSION_DENIED` errors gracefully by showing a login prompt.
+
 ## Source Code References
 
 - Comment service proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-ng/proto/wix/comments/ng/v1/comments_ng.proto
 - Comment entity proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-ng/proto/wix/comments/ng/v1/comment.proto
 - Comments middleware proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-middleware/proto/wix/comments/middleware/v1/comments_middleware.proto
+- Comments category proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-categories/proto/wix/comments/categories/v1/category.proto
+- Comments context host proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-context-host/proto/wix/comments/context/v1/comments_context_host.proto
+- Comments widget permissions: https://github.com/wix-private/wix-comments/blob/master/comments-web/comments-ooi-client/src/common/store/comments/comments-permissions.ts

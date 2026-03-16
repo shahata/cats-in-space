@@ -15,9 +15,10 @@ interface Props {
   referenceId: string;
   memberName?: string;
   memberPhoto?: string;
+  commentingEnabled?: boolean;
 }
 
-export default function BlogEngagement({ postId, referenceId, memberName, memberPhoto }: Props) {
+export default function BlogEngagement({ postId, referenceId, memberName, memberPhoto, commentingEnabled = true }: Props) {
   const isLoggedIn = !!memberName;
   const [metrics, setMetrics] = useState({ views: 0, likes: 0, comments: 0 });
   const [liked, setLiked] = useState(false);
@@ -36,6 +37,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
   const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
   const [memberProfiles, setMemberProfiles] = useState<Map<string, { nickname: string; title?: string; photo?: string; slug?: string }>>(new Map());
+  const [loginRequired, setLoginRequired] = useState(false);
 
   useEffect(() => {
     reportView();
@@ -194,30 +196,27 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
     if (vid) setMyVisitorId(vid);
   }
 
+  function isPermissionDenied(e: any): boolean {
+    return e?.details?.applicationError?.code === 'PERMISSION_DENIED' || e?.details?.httpStatusCode === 403 || e?.message?.includes('Permission denied');
+  }
+
   async function submitComment(e: React.FormEvent) {
     e.preventDefault();
     if (!newComment.trim()) return;
     setSubmitting(true);
     try {
-      const commentBody = {
+      const created = await commentsApi.createComment({
         appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
-        author: isLoggedIn ? {} : { authorName: commentName.trim() || "Anonymous Space Cat" },
+        author: (isLoggedIn ? {} : { authorName: commentName.trim() || "Anonymous Space Cat" }) as commentsApi.CommentAuthor,
         content: makeRichContent(newComment.trim()),
-      };
-
-      const res = await httpClient.fetchWithAuth(
-        "https://www.wixapis.com/comments/v1/comments",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ comment: commentBody }),
-        }
-      );
-      const data: { comment?: Comment } = await res.json();
-      captureIdentity(data.comment);
+      });
+      captureIdentity(created);
       setNewComment("");
+      setCommentName("");
       await loadComments(totalComments + 1);
-    } catch (e) { console.error("Comment error:", e); }
+    } catch (e: any) {
+      if (isPermissionDenied(e)) { setLoginRequired(true); } else { console.error("Comment error:", e); }
+    }
     setSubmitting(false);
   }
 
@@ -236,7 +235,9 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
       setReplyName("");
       setReplyingTo(null);
       await loadComments(totalComments + 1);
-    } catch (e) { console.error("Reply error:", e); }
+    } catch (e: any) {
+      if (isPermissionDenied(e)) { setLoginRequired(true); } else { console.error("Reply error:", e); }
+    }
     setSubmitting(false);
   }
 
@@ -364,8 +365,8 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
             <button onClick={() => toggleCommentLike(reply)}
               style={{ ...actionBtnStyle, color: likedCommentIds.has(replyId) ? "#ff6600" : "#888" }}>
               {likedCommentIds.has(replyId) ? "♥ Liked" : "♡ Like"}</button>
-            <button onClick={() => { setReplyingTo(replyingTo === replyId ? null : replyId); setReplyText(""); setReplyName(""); }}
-              style={actionBtnStyle}>Reply</button>
+            {commentingEnabled && !loginRequired && <button onClick={() => { setReplyingTo(replyingTo === replyId ? null : replyId); setReplyText(""); setReplyName(""); }}
+              style={actionBtnStyle}>Reply</button>}
             {rIsMine && (
               <>
                 <button onClick={() => { setEditingId(replyId); setEditText(rText); }}
@@ -458,8 +459,8 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
             <button onClick={() => toggleCommentLike(comment)}
               style={{ ...actionBtnStyle, color: likedCommentIds.has(commentId) ? "#ff6600" : "#888" }}>
               {likedCommentIds.has(commentId) ? "♥ Liked" : "♡ Like"}</button>
-            <button onClick={() => { setReplyingTo(replyingTo === commentId ? null : commentId); setReplyText(""); setReplyName(""); }}
-              style={actionBtnStyle}>Reply{replies.length > 0 ? ` (${replies.length})` : ""}</button>
+            {commentingEnabled && !loginRequired && <button onClick={() => { setReplyingTo(replyingTo === commentId ? null : commentId); setReplyText(""); setReplyName(""); }}
+              style={actionBtnStyle}>Reply{replies.length > 0 ? ` (${replies.length})` : ""}</button>}
             {isMine && (
               <>
                 <button onClick={() => { setEditingId(commentId); setEditText(text); }}
@@ -522,29 +523,42 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
         <h3 style={commentsHeadingStyle}>Transmissions ({totalComments})</h3>
         {commentElements.length > 0 && <div style={commentsListStyle}>{commentElements}</div>}
 
-        <form onSubmit={submitComment} style={commentFormStyle}>
-          <h4 style={formTitleStyle}>Leave a Transmission</h4>
-          {isLoggedIn ? (
-            <div style={memberIndicatorStyle}>
-              {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} referrerPolicy="no-referrer" />}
-              <span>Commenting as <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
-            </div>
-          ) : (
-            <input type="text" placeholder="Your name (optional)" value={commentName}
-              onChange={(e) => setCommentName(e.target.value)} style={inputStyle} />
-          )}
-          <textarea placeholder="Write your message to the crew..." value={newComment}
-            onChange={(e) => setNewComment(e.target.value)} rows={4}
-            style={{ ...inputStyle, resize: "vertical" as const }} required />
-          <button type="submit" disabled={submitting} style={submitButtonStyle}>
-            {submitting ? "Transmitting..." : "Send Transmission"}
-          </button>
-        </form>
+        {!commentingEnabled ? (
+          <div style={{ ...commentFormStyle, textAlign: "center" as const }}>
+            <p style={{ color: "#666", fontSize: "0.9rem", fontStyle: "italic" }}>Comments are disabled for this post.</p>
+          </div>
+        ) : loginRequired ? (
+          <div style={{ ...commentFormStyle, textAlign: "center" as const }}>
+            <h4 style={formTitleStyle}>Login Required</h4>
+            <p style={{ color: "#888", fontSize: "0.85rem", marginBottom: "16px" }}>You need to be logged in to leave a transmission.</p>
+            <a href="/api/auth/login" style={loginLinkStyle}>Log In / Sign Up</a>
+          </div>
+        ) : (
+          <form onSubmit={submitComment} style={commentFormStyle}>
+            <h4 style={formTitleStyle}>Leave a Transmission</h4>
+            {isLoggedIn ? (
+              <div style={memberIndicatorStyle}>
+                {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} referrerPolicy="no-referrer" />}
+                <span>Commenting as <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
+              </div>
+            ) : (
+              <input type="text" placeholder="Your name (optional)" value={commentName}
+                onChange={(e) => setCommentName(e.target.value)} style={inputStyle} />
+            )}
+            <textarea placeholder="Write your message to the crew..." value={newComment}
+              onChange={(e) => setNewComment(e.target.value)} rows={4}
+              style={{ ...inputStyle, resize: "vertical" as const }} required />
+            <button type="submit" disabled={submitting} style={submitButtonStyle}>
+              {submitting ? "Transmitting..." : "Send Transmission"}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
 }
 
+const loginLinkStyle: React.CSSProperties = { display: "inline-block", padding: "10px 24px", background: "#ff6600", color: "#000", fontFamily: "'Bangers', cursive", fontSize: "0.9rem", letterSpacing: "1px", borderRadius: "8px", textDecoration: "none", fontWeight: "bold" };
 const statsBarStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: "32px", padding: "24px 0", borderTop: "1px solid #222", borderBottom: "1px solid #222", marginTop: "40px", flexWrap: "wrap" };
 const statItemStyle: React.CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center" };
 const statNumStyle: React.CSSProperties = { fontFamily: "'Black Ops One', cursive", fontSize: "1.5rem", color: "#ff6600" };
