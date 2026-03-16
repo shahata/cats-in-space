@@ -54,6 +54,8 @@ function formatDate(dateStr: string | Date | null | undefined) {
 
 const writerName = writer?.profile?.nickname || writer?.contact?.firstName || 'Anonymous Cat';
 const writerTitle = writer?.profile?.title || '';
+const writerPhoto = writer?.profile?.photo?.url;
+const writerSlug = writer?.profile?.slug;
 ---
 
 <Layout title={`${post.title} - Ship's Log`}>
@@ -65,11 +67,22 @@ const writerTitle = writer?.profile?.title || '';
 			<header class="post-header">
 				<div class="post-meta-row">
 					<div class="writer-info">
-						<span class="writer-name">{writerName}</span>
-						{writerTitle && <span class="writer-title">{writerTitle}</span>}
+						{writerPhoto && (
+							<a href={writerSlug ? `/member/${writerSlug}` : '#'}>
+								<img src={writerPhoto} alt={writerName} class="writer-avatar" referrerpolicy="no-referrer" />
+							</a>
+						)}
+						<div>
+							<span class="writer-name">{writerName}</span>
+							{writerTitle && <span class="writer-title">{writerTitle}</span>}
+						</div>
 					</div>
-					<span class="post-date">{formatDate(post.firstPublishedDate)}</span>
+					<div class="post-date-info">
+						<span class="post-date">{formatDate(post.firstPublishedDate)}</span>
+						{post.minutesToRead && <span class="read-time">{post.minutesToRead} min read</span>}
+					</div>
 				</div>
+				{post.pinned && <div class="pinned-indicator">&#128204; Pinned Post</div>}
 				<h1>{post.title}</h1>
 				{postTags.length > 0 && (
 					<div class="post-tags">
@@ -91,9 +104,14 @@ const writerTitle = writer?.profile?.title || '';
 			)}
 
 			<div class="writer-card">
+				{writerPhoto && (
+					<a href={writerSlug ? `/member/${writerSlug}` : '#'}>
+						<img src={writerPhoto} alt={writerName} class="writer-card-photo" referrerpolicy="no-referrer" />
+					</a>
+				)}
 				<div class="writer-card-info">
 					<span class="writer-card-label">Written by</span>
-					<span class="writer-card-name">{writerName}</span>
+					<a href={writerSlug ? `/member/${writerSlug}` : '#'} class="writer-card-name">{writerName}</a>
 					{writerTitle && <span class="writer-card-title">{writerTitle}</span>}
 				</div>
 			</div>
@@ -146,6 +164,34 @@ const writerTitle = writer?.profile?.title || '';
 		display: flex;
 		align-items: center;
 		gap: 10px;
+	}
+
+	.writer-avatar {
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		object-fit: cover;
+		border: 2px solid var(--accent);
+	}
+
+	.post-date-info {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 2px;
+	}
+
+	.read-time {
+		font-size: 0.75rem;
+		color: var(--text-muted);
+	}
+
+	.pinned-indicator {
+		font-size: 0.8rem;
+		color: var(--accent-yellow);
+		font-family: var(--font-heading);
+		letter-spacing: 1px;
+		margin-bottom: 12px;
 	}
 
 	.writer-name {
@@ -287,6 +333,15 @@ const writerTitle = writer?.profile?.title || '';
 		align-items: center;
 		gap: 16px;
 		max-width: 400px;
+	}
+
+	.writer-card-photo {
+		width: 50px;
+		height: 50px;
+		border-radius: 50%;
+		object-fit: cover;
+		border: 2px solid var(--accent);
+		flex-shrink: 0;
 	}
 
 	.writer-card-label {

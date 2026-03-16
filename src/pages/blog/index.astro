@@ -92,8 +92,17 @@ function getPostTags(post: Post): BlogTag[] {
 									<span class="blog-writer">{getWriter(post)}</span>
 									<span class="meta-sep">&middot;</span>
 									<span class="blog-date">{formatDate(post.firstPublishedDate)}</span>
+									{post.minutesToRead && (
+										<>
+											<span class="meta-sep">&middot;</span>
+											<span class="blog-read-time">{post.minutesToRead} min read</span>
+										</>
+									)}
 								</div>
-								<h2>{post.title}</h2>
+								<div class="blog-title-row">
+									{post.pinned && <span class="pinned-badge" title="Pinned">&#128204;</span>}
+									<h2>{post.title}</h2>
+								</div>
 								{getPostTags(post).length > 0 && (
 									<div class="blog-tags">
 										{getPostTags(post).map((tag) => (
@@ -230,12 +239,30 @@ function getPostTags(post: Post): BlogTag[] {
 		letter-spacing: 0.5px;
 	}
 
+	.blog-read-time {
+		font-size: 0.75rem;
+		color: var(--text-muted);
+	}
+
+	.blog-title-row {
+		display: flex;
+		align-items: flex-start;
+		gap: 8px;
+		margin-bottom: 10px;
+	}
+
+	.pinned-badge {
+		font-size: 1rem;
+		flex-shrink: 0;
+		margin-top: 2px;
+	}
+
 	h2 {
 		font-family: var(--font-heading);
 		font-size: 1.4rem;
 		color: var(--accent-yellow);
 		letter-spacing: 1px;
-		margin-bottom: 10px;
+		margin-bottom: 0;
 		line-height: 1.3;
 	}
 

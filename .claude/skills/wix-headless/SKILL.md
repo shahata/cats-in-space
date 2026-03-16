@@ -230,7 +230,7 @@ const planet = result.items[0];
 The Wix Astro middleware provides auth endpoints out of the box:
 
 - **Login:** `<a href="/api/auth/login">` — GET, redirects to Wix login page. Supports `returnToUrl` query param to redirect back after login: `/api/auth/login?returnToUrl=/current-page`
-- **Logout:** `<form action="/api/auth/logout" method="POST">` — **POST** handler, use a form not a link
+- **Logout:** `<form action="/api/auth/logout" method="POST">` — **POST** handler, use a form not a link. Also supports `returnToUrl` query param: `/api/auth/logout?returnToUrl=/current-page`
 
 **Detect login state server-side:**
 ```astro

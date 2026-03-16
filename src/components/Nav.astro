@@ -42,7 +42,7 @@ const links = [
 							{memberPhoto && <img src={memberPhoto} alt={loggedInMember} class="member-avatar" referrerpolicy="no-referrer" />}
 							<span class="member-name">{loggedInMember}</span>
 						</a>
-						<form action="/api/auth/logout" method="POST" style="display:inline">
+						<form action={`/api/auth/logout?returnToUrl=${encodeURIComponent(currentPath)}`} method="POST" style="display:inline">
 							<button type="submit" class="auth-link">Logout</button>
 						</form>
 					</>

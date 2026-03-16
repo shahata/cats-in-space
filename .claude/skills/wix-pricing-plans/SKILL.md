@@ -102,12 +102,18 @@ After checkout, Wix redirects to `postFlowUrl` (or `thankYouPageUrl`) with query
 ```typescript
 import { orders } from '@wix/pricing-plans';
 
-// List current member's orders (client-side, uses member session automatically)
+// List current member's orders (uses member session automatically)
 const result = await orders.memberListOrders();
-const myOrders = result.orders || [];
+const today = new Date().toISOString().split('T')[0];
+const myOrders = (result.orders || []).filter((o: any) =>
+  o.status !== 'DRAFT' &&
+  !(o.endDate && new Date(o.endDate).toISOString().split('T')[0] < today)
+);
 ```
 
 **CRITICAL:** `memberListOrders()` uses the logged-in member's session automatically — no need to pass a member ID.
+
+**CRITICAL:** Filter out `DRAFT` orders (incomplete purchases) and expired orders (endDate before today). Compare dates using date-only strings (YYYY-MM-DD) to avoid timezone issues.
 
 ### Order Shape
 

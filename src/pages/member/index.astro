@@ -18,7 +18,8 @@ if (!member) return Astro.redirect(`/api/auth/login?returnToUrl=${encodeURICompo
 let myOrders: any[] = [];
 try {
 	const result = await orders.memberListOrders();
-	myOrders = result.orders || [];
+	const today = new Date().toISOString().split('T')[0];
+	myOrders = (result.orders || []).filter((o: any) => o.status !== 'DRAFT' && !(o.endDate && new Date(o.endDate).toISOString().split('T')[0] < today));
 } catch {}
 
 // Fetch member about
@@ -87,12 +88,23 @@ const tabs = [
 					) : (
 						<div class="subs-list">
 							{myOrders.map((order: any) => {
+								const fmt = (d: any) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
 								const isFree = parseFloat(order.priceDetails?.planPrice || "0") === 0;
-								const currency = order.priceDetails?.currency || "USD";
+								const curr = order.priceDetails?.currency === 'USD' ? '$' : (order.priceDetails?.currency || '$');
 								const planPrice = order.priceDetails?.planPrice || "0";
-								const startDate = order.startDate ? new Date(order.startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
-								const endDate = order.endDate ? new Date(order.endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+								const discount = order.priceDetails?.discount && parseFloat(order.priceDetails.discount) > 0 ? order.priceDetails.discount : null;
+								const couponCode = order.priceDetails?.coupon?.code;
+								const total = order.priceDetails?.total || planPrice;
+								const startDate = fmt(order.startDate);
+								const endDate = fmt(order.endDate);
 								const cancellable = order.status === 'ACTIVE' && !order.autoRenewCanceled;
+								const inTrial = order.freeTrialDays && order.currentCycle?.index === 0;
+								const nextBilling = fmt(order.currentCycle?.endedDate);
+								const sub = order.priceDetails?.subscription;
+								const cycleDuration = sub?.cycleDuration;
+								const cycleLabel = cycleDuration ? `Every ${cycleDuration.count > 1 ? cycleDuration.count + ' ' : ''}${(cycleDuration.unit || '').toLowerCase()}${cycleDuration.count > 1 ? 's' : ''}` : null;
+								const paymentStatus = order.lastPaymentStatus;
+								const cancellation = order.cancellation;
 
 								return (
 									<div class="sub-card">
@@ -101,36 +113,95 @@ const tabs = [
 												<div class="sub-plan-name">{order.planName || 'Unknown Plan'}</div>
 												{order.planDescription && <div class="sub-plan-desc">{order.planDescription}</div>}
 											</div>
-											<span class:list={['sub-badge', `sub-badge-${order.autoRenewCanceled ? 'canceling' : (order.status || 'unknown').toLowerCase()}`]}>
-												{order.autoRenewCanceled ? 'Canceling' : order.status}
-											</span>
+											<div class="sub-badges">
+												{inTrial && <span class="sub-badge sub-badge-trial">Free Trial</span>}
+												<span class:list={['sub-badge', `sub-badge-${order.autoRenewCanceled ? 'canceling' : (order.status || 'unknown').toLowerCase()}`]}>
+													{order.autoRenewCanceled ? 'Canceling' : order.status}
+												</span>
+											</div>
 										</div>
+
 										<div class="sub-details">
 											<div class="sub-detail">
 												<span class="sub-detail-label">Price</span>
-												<span class="sub-detail-value">{isFree ? 'Free' : `${currency === 'USD' ? '$' : currency}${planPrice}`}</span>
+												<span class="sub-detail-value">
+													{isFree ? 'Free' : `${curr}${planPrice}`}
+													{cycleLabel && !isFree && <span class="sub-cycle"> / {cycleLabel.replace('Every ', '')}</span>}
+												</span>
 											</div>
+											{discount && (
+												<div class="sub-detail">
+													<span class="sub-detail-label">Discount</span>
+													<span class="sub-detail-value sub-discount">-{curr}{discount}{couponCode && ` (${couponCode})`}</span>
+												</div>
+											)}
+											{discount && (
+												<div class="sub-detail">
+													<span class="sub-detail-label">Total Paid</span>
+													<span class="sub-detail-value">{curr}{total}</span>
+												</div>
+											)}
+											{inTrial && order.freeTrialDays && (
+												<div class="sub-detail">
+													<span class="sub-detail-label">Trial</span>
+													<span class="sub-detail-value">{order.freeTrialDays} days</span>
+												</div>
+											)}
 											<div class="sub-detail">
 												<span class="sub-detail-label">Started</span>
-												<span class="sub-detail-value">{startDate}</span>
+												<span class="sub-detail-value">{startDate || '—'}</span>
 											</div>
+											{nextBilling && order.status === 'ACTIVE' && !order.autoRenewCanceled && (
+												<div class="sub-detail">
+													<span class="sub-detail-label">Next Billing</span>
+													<span class="sub-detail-value">{nextBilling}</span>
+												</div>
+											)}
 											{endDate && (
 												<div class="sub-detail">
-													<span class="sub-detail-label">Ends</span>
+													<span class="sub-detail-label">{order.status === 'CANCELED' || order.autoRenewCanceled ? 'Expires' : 'Ends'}</span>
 													<span class="sub-detail-value">{endDate}</span>
 												</div>
 											)}
-											{order.currentCycle && (
+											{order.currentCycle && order.currentCycle.index > 0 && (
 												<div class="sub-detail">
-													<span class="sub-detail-label">Cycle</span>
+													<span class="sub-detail-label">Billing Cycle</span>
 													<span class="sub-detail-value">#{order.currentCycle.index}</span>
 												</div>
 											)}
-											<div class="sub-detail">
-												<span class="sub-detail-label">Type</span>
-												<span class="sub-detail-value">{order.type === 'ONLINE' ? 'Online' : order.type === 'OFFLINE' ? 'Offline' : order.type}</span>
-											</div>
+											{paymentStatus && (
+												<div class="sub-detail">
+													<span class="sub-detail-label">Last Payment</span>
+													<span class:list={['sub-detail-value', { 'sub-payment-paid': paymentStatus === 'PAID', 'sub-payment-unpaid': paymentStatus === 'UNPAID' || paymentStatus === 'FAILED' }]}>
+														{paymentStatus === 'PAID' ? 'Paid' : paymentStatus === 'NOT_APPLICABLE' ? 'N/A' : paymentStatus}
+													</span>
+												</div>
+											)}
 										</div>
+
+										{cancellation && (
+											<div class="sub-cancellation">
+												<span class="sub-detail-label">Cancellation</span>
+												<span class="sub-detail-value">
+													{cancellation.cause === 'OWNER_ACTION' ? 'Canceled by you' : cancellation.cause === 'UNDEFINED' ? 'Canceled' : cancellation.cause}
+													{cancellation.requestedDate && ` on ${fmt(cancellation.requestedDate)}`}
+													{cancellation.effectiveAt === 'NEXT_PAYMENT_DATE' && ' — active until next billing date'}
+													{cancellation.effectiveAt === 'IMMEDIATELY' && ' — effective immediately'}
+												</span>
+											</div>
+										)}
+
+										{order.pausePeriods?.length > 0 && (
+											<div class="sub-pauses">
+												<span class="sub-detail-label">Pause History</span>
+												{order.pausePeriods.map((p: any) => (
+													<span class="sub-detail-value">
+														{fmt(p.pauseDate)} — {p.resumeDate ? fmt(p.resumeDate) : 'ongoing'}
+													</span>
+												))}
+											</div>
+										)}
+
 										{cancellable && (
 											<div class="sub-footer">
 												<CancelSubscription orderId={order._id} client:load />
@@ -328,6 +399,43 @@ const tabs = [
 	.sub-detail-value {
 		font-size: 0.85rem;
 		color: var(--text-secondary);
+	}
+
+	.sub-badges {
+		display: flex;
+		gap: 6px;
+		flex-shrink: 0;
+	}
+
+	.sub-badge-trial {
+		background: #9c27b0;
+	}
+
+	.sub-cycle {
+		font-size: 0.7rem;
+		color: var(--text-muted);
+	}
+
+	.sub-discount {
+		color: #4caf50;
+	}
+
+	.sub-payment-paid {
+		color: #4caf50;
+	}
+
+	.sub-payment-unpaid {
+		color: #f44336;
+	}
+
+	.sub-cancellation,
+	.sub-pauses {
+		margin-top: 12px;
+		padding-top: 12px;
+		border-top: 1px solid #222;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
 	}
 
 	.sub-footer {
