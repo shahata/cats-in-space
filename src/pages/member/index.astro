@@ -13,7 +13,7 @@ try {
 	member = res.member;
 } catch {}
 
-if (!member) return Astro.redirect('/api/auth/login');
+if (!member) return Astro.redirect(`/api/auth/login?returnToUrl=${encodeURIComponent('/member')}`);
 
 let myOrders: any[] = [];
 try {

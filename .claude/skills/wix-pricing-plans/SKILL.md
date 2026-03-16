@@ -68,16 +68,7 @@ const perksList = plan.perks?.values || [];
 
 ## Checkout Flow
 
-### Free Plans — Direct Order
-
-```typescript
-import { orders } from '@wix/pricing-plans';
-
-// Creates order directly (member must be logged in)
-await orders.createOnlineOrder(planId);
-```
-
-### Paid Plans — Redirect to Wix Checkout
+**Always use `createRedirectSession`** for all plans (free and paid). The Wix checkout redirect page handles login, free plan enrollment, and paid checkout — no need to branch logic client-side.
 
 ```typescript
 import { redirects } from '@wix/redirects';
@@ -95,7 +86,9 @@ if (redirectSession?.fullUrl) {
 }
 ```
 
-**CRITICAL:** `createRedirectSession` must be called client-side where the member session is active.
+**CRITICAL:** Do NOT check login state or free/paid before redirecting. The redirect page handles all cases: prompts login if needed, processes free plans directly, and shows payment for paid plans.
+
+**CRITICAL:** `createRedirectSession` works even for visitors who are not logged in — the redirect page will prompt login first.
 
 ### Callback Parameters
 
@@ -218,27 +211,25 @@ POST https://www.wixapis.com/stores/v2/coupons
 
 ```tsx
 import { redirects } from "@wix/redirects";
-import { orders } from "@wix/pricing-plans";
 
-function PlanCheckout({ planId, isFree, isLoggedIn }) {
+function PlanCheckout({ planId }: { planId: string }) {
+  const [loading, setLoading] = useState(false);
+
   const handleClick = async () => {
-    if (!isLoggedIn) {
-      window.location.href = "/api/auth/login";
-      return;
-    }
-    if (isFree) {
-      await orders.createOnlineOrder(planId);
-      alert("Joined!");
-      window.location.reload();
-    } else {
+    setLoading(true);
+    try {
       const { redirectSession } = await redirects.createRedirectSession({
         paidPlansCheckout: { planId },
         callbacks: { postFlowUrl: window.location.origin + "/plans?success=true" },
       });
       if (redirectSession?.fullUrl) window.location.href = redirectSession.fullUrl;
+    } catch (e: any) {
+      alert(e?.message || "Something went wrong");
+    } finally {
+      setLoading(false);
     }
   };
-  return <button onClick={handleClick}>{isFree ? "Join Free" : "Subscribe"}</button>;
+  return <button onClick={handleClick} disabled={loading}>{loading ? "Processing..." : "Subscribe"}</button>;
 }
 ```
 

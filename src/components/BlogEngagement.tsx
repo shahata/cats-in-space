@@ -531,7 +531,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
           <div style={{ ...commentFormStyle, textAlign: "center" as const }}>
             <h4 style={formTitleStyle}>Login Required</h4>
             <p style={{ color: "#888", fontSize: "0.85rem", marginBottom: "16px" }}>You need to be logged in to leave a transmission.</p>
-            <a href="/api/auth/login" style={loginLinkStyle}>Log In / Sign Up</a>
+            <a href={`/api/auth/login?returnToUrl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`} style={loginLinkStyle}>Log In / Sign Up</a>
           </div>
         ) : (
           <form onSubmit={submitComment} style={commentFormStyle}>

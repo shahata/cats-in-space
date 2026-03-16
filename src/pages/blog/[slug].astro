@@ -3,6 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import RichContentViewer from '../../components/RichContentViewer';
+import PremiumContentResolver from '../../components/PremiumContentResolver';
 import BlogEngagement from '../../components/BlogEngagement';
 import { posts, tags as tagsApi } from '@wix/blog';
 import { members } from '@wix/members';
@@ -79,19 +80,26 @@ const writerTitle = writer?.profile?.title || '';
 				)}
 			</header>
 
-			<div class:list={['post-content', { 'post-preview': post.preview }]}>
-				<RichContentViewer content={post.richContent} client:load />
-			</div>
-
-			{post.preview && (
-				<div class="paywall">
-					<div class="paywall-fade"></div>
-					<div class="paywall-content">
-						<h3>This content is for crew members only</h3>
-						<p>Subscribe to a plan to read the full transmission</p>
-						<a href="/plans" class="paywall-btn">View Plans</a>
-					</div>
+			{post.preview ? (
+				<div class="post-content">
+					<PremiumContentResolver slug={slug!} previewContent={post.richContent} client:load />
 				</div>
+			) : (
+				<>
+					<div class:list={['post-content', { 'post-preview': post.preview }]}>
+						<RichContentViewer content={post.richContent} client:load />
+					</div>
+					{post.preview && (
+						<div class="paywall">
+							<div class="paywall-fade"></div>
+							<div class="paywall-content">
+								<h3>This content is for crew members only</h3>
+								<p>Subscribe to a plan to read the full transmission</p>
+								<a href="/plans" class="paywall-btn">View Plans</a>
+							</div>
+						</div>
+					)}
+				</>
 			)}
 
 			<div class="writer-card">

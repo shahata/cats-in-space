@@ -47,7 +47,7 @@ const links = [
 						</form>
 					</>
 				) : (
-					<a href="/api/auth/login" class="auth-link">Login</a>
+					<a href={`/api/auth/login?returnToUrl=${encodeURIComponent(currentPath)}`} class="auth-link">Login</a>
 				)}
 			</div>
 		</div>

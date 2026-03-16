@@ -111,6 +111,64 @@ Body: { "label": "My Tag", "language": "en" }
 
 **CRITICAL:** The action enum is `UPDATE_PUBLISH` (not `UPDATE_AND_PUBLISH`).
 
+## Premium/Paid Content (Preview Posts)
+
+Blog posts linked to pricing plans return `preview: true` with truncated content for non-subscribers. The SSR response is cached and returns the preview for everyone.
+
+**Pattern:** For logged-in members, re-fetch client-side to check if they have access:
+
+```tsx
+// PremiumContentResolver.tsx — client component
+"use client";
+import { useEffect, useState } from "react";
+import { posts } from "@wix/blog";
+import RichContentViewer from "./RichContentViewer";
+
+export default function PremiumContentResolver({ slug, previewContent }) {
+  const [content, setContent] = useState(previewContent);
+  const [isPreview, setIsPreview] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await posts.getPostBySlug(slug, { fieldsets: ["RICH_CONTENT"] });
+        if (result.post && !result.post.preview) {
+          setContent(result.post.richContent);
+          setIsPreview(false);
+        }
+      } catch {}
+    })();
+  }, [slug]);
+
+  return (
+    <>
+      <div className={isPreview ? "post-preview" : undefined}>
+        <RichContentViewer content={content} />
+      </div>
+      {isPreview && (
+        <div className="paywall">/* paywall UI */</div>
+      )}
+    </>
+  );
+}
+```
+
+In the Astro page:
+```astro
+{post.preview && currentMemberName ? (
+  <!-- Logged in + preview: re-fetch client-side with member session -->
+  <PremiumContentResolver slug={slug} previewContent={post.richContent} client:load />
+) : (
+  <!-- Not logged in or not preview: render server content -->
+  <RichContentViewer content={post.richContent} client:load />
+  {post.preview && <Paywall />}
+)}
+```
+
+**CRITICAL:** The server-side `getPostBySlug` returns cached preview for everyone. Only the client-side re-fetch with the member's browser session can return the full content if they have a valid subscription.
+
+**CRITICAL:** `post.preview` is a boolean. `post.pricingPlanIds` contains the plan IDs the post is gated behind.
+
 ## Rich Content (Ricos) Rendering
 
 ```tsx
