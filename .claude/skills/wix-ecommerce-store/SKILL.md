@@ -33,11 +33,11 @@ const { catalogVersion } = await catalogVersioning.getCatalogVersion();
 
 ### catalogReference.appId
 
-The `appId` for Wix Stores in `catalogReference` (used in cart, checkout, orders) is **always**:
+The `appId` for Wix Stores in `catalogReference` is:
 ```
-215238eb-22a5-4c36-9e7b-e7c08025e04e
+1380b703-ce81-ff05-f115-39571d94dfcd
 ```
-This is the same for both V1 and V3. Do NOT use `1380b703-ce81-ff05-f115-39571d94dfcd` — that is a legacy ID that causes `CATALOG_ITEMS_RETRIEVAL_FAILURE` errors.
+Use this everywhere: cart, checkout, orders, back-in-stock.
 
 ## SDK Packages
 
@@ -131,7 +131,7 @@ Key fields from `queryProducts().find().items`:
 
 ### catalogReference — buildCatalogRef pattern
 ```typescript
-const STORES_APP_ID = '215238eb-22a5-4c36-9e7b-e7c08025e04e';
+const STORES_APP_ID = '1380b703-ce81-ff05-f115-39571d94dfcd';
 
 function buildCatalogRef(product, variantId, hasOptions) {
   const ref = { catalogItemId: product._id, appId: STORES_APP_ID };
@@ -218,11 +218,16 @@ The SDK method takes **two separate arguments** (request, itemDetails) — not a
 ```typescript
 import { backInStockNotifications } from '@wix/ecom';
 await (backInStockNotifications as any).createBackInStockNotificationRequest(
-  { catalogReference: { catalogItemId, appId: '215238eb-22a5-4c36-9e7b-e7c08025e04e' }, email: 'customer@email.com' },
+  { catalogReference: { catalogItemId, appId: '1380b703-ce81-ff05-f115-39571d94dfcd' }, email: 'customer@email.com' },
   { name: 'Product Name', price: '49.99' },  // itemDetails — both fields required
 );
 ```
 Works client-side, no server API endpoint needed.
+
+### Setup required
+The Back In Stock app must be installed and request collection enabled:
+1. Install app: `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` with `appDefId: "16be6c71-d061-4f56-8cda-c6aa911d1832"`
+2. Enable collecting: `POST https://www.wixapis.com/back-in-stock-service/v1/back-in-stock-notification-requests/settings/start-collecting` with `appId: "1380b703-ce81-ff05-f115-39571d94dfcd"` (note: this settings endpoint uses the **old** Stores app ID, not the eCommerce one)
 
 ## Working with Product Media
 
@@ -355,7 +360,7 @@ This triggers CartSidebar to re-fetch the cart and update the badge count.
 
 ## Gotchas & Lessons Learned
 
-1. **appId confusion**: The Stores appId `215238eb-22a5-4c36-9e7b-e7c08025e04e` is used everywhere in eCommerce (cart, checkout, back-in-stock). The old ID `1380b703-ce81-ff05-f115-39571d94dfcd` is wrong and causes `CATALOG_ITEMS_RETRIEVAL_FAILURE`.
+1. **Stores appId**: Use `1380b703-ce81-ff05-f115-39571d94dfcd` everywhere (cart, checkout, back-in-stock).
 
 2. **V1 site + V3 API = 428 error**: Always check catalog version before choosing endpoints. V3 calls on a V1 site fail with `428 Precondition Required`.
 

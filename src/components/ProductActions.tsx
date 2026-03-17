@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { currentCart, backInStockNotifications } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 
-const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
+const STORES_APP_ID = "1380b703-ce81-ff05-f115-39571d94dfcd";
 
 interface ProductData {
   _id: string;
@@ -133,14 +133,19 @@ export default function ProductActions({ product }: Props) {
     try {
       const catalogRef: any = {
         catalogItemId: product._id,
-        appId: STORES_APP_ID,
+        appId: "1380b703-ce81-ff05-f115-39571d94dfcd",
       };
       if (hasOptions && variantId) {
         catalogRef.options = { variantId };
       }
-      await (backInStockNotifications as any).createBackInStockNotificationRequest(
+      await (
+        backInStockNotifications as any
+      ).createBackInStockNotificationRequest(
         { catalogReference: catalogRef, email: bisEmail },
-        { name: product.name || "Product", price: String(product.priceData?.price || "0") },
+        {
+          name: product.name || "Product",
+          price: String(product.priceData?.price || "0"),
+        },
       );
       setBisSubmitted(true);
       setMessage({
