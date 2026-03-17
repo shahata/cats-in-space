@@ -269,43 +269,6 @@ export default function ProductActions({ product }: Props) {
           {message.text}
         </div>
       )}
-
-      <style>{`
-        .pa-root { margin-top: 4px; }
-        .pa-options { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
-        .pa-option-label { display: block; font-family: 'Bangers', cursive; font-size: 0.8rem; letter-spacing: 1px; color: #888; margin-bottom: 6px; text-transform: uppercase; }
-        .pa-choices { display: flex; flex-wrap: wrap; gap: 6px; }
-        .pa-choice { padding: 8px 16px; border-radius: 8px; border: 1px solid #333; background: #1a1a1a; color: #aaa; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .pa-choice:hover { border-color: #ff6600; color: #e0e0e0; }
-        .pa-choice-active { border-color: #ff6600; background: rgba(255, 102, 0, 0.15); color: #ff6600; }
-        .pa-selected-price { font-size: 1.3rem; font-weight: 700; color: #ffcc00; margin-bottom: 8px; }
-        .pa-stock-status { margin-bottom: 16px; }
-        .pa-in-stock { color: #4caf50; font-size: 0.85rem; font-weight: 600; }
-        .pa-oos { color: #f44336; font-size: 0.85rem; font-weight: 600; }
-        .pa-quantity { margin-bottom: 20px; }
-        .pa-qty-controls { display: flex; align-items: center; gap: 0; width: fit-content; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
-        .pa-qty-btn { width: 36px; height: 36px; background: #1a1a1a; border: none; color: #aaa; font-size: 1.1rem; cursor: pointer; transition: background 0.2s; }
-        .pa-qty-btn:hover:not(:disabled) { background: #222; color: #ff6600; }
-        .pa-qty-btn:disabled { opacity: 0.3; cursor: default; }
-        .pa-qty-value { width: 44px; text-align: center; font-weight: 700; font-size: 0.95rem; color: #e0e0e0; background: #141414; height: 36px; line-height: 36px; }
-        .pa-actions { display: flex; gap: 10px; margin-bottom: 12px; }
-        .pa-btn { padding: 12px 24px; border-radius: 8px; font-family: 'Bangers', cursive; font-size: 1rem; letter-spacing: 1.5px; border: none; cursor: pointer; transition: all 0.2s; }
-        .pa-btn:disabled { opacity: 0.5; cursor: default; }
-        .pa-btn-cart { background: var(--accent, #ff6600); color: #000; flex: 1; }
-        .pa-btn-cart:hover:not(:disabled) { background: #ff8533; }
-        .pa-btn-buy { background: #ffcc00; color: #000; flex: 1; }
-        .pa-btn-buy:hover:not(:disabled) { background: #ffd633; }
-        .pa-bis { margin-top: 4px; }
-        .pa-bis-text { color: #aaa; font-size: 0.85rem; margin-bottom: 8px; }
-        .pa-bis-form { display: flex; gap: 8px; }
-        .pa-bis-input { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid #333; background: #1a1a1a; color: #e0e0e0; font-size: 0.9rem; outline: none; }
-        .pa-bis-input:focus { border-color: #ff6600; }
-        .pa-btn-bis { padding: 10px 18px; background: #ff6600; color: #000; font-family: 'Bangers', cursive; font-size: 0.85rem; letter-spacing: 1px; border: none; border-radius: 8px; cursor: pointer; }
-        .pa-bis-done { color: #4caf50; font-size: 0.9rem; }
-        .pa-message { margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; }
-        .pa-message-success { background: rgba(76, 175, 80, 0.15); border: 1px solid #4caf50; color: #4caf50; }
-        .pa-message-error { background: rgba(244, 67, 54, 0.15); border: 1px solid #f44336; color: #f44336; }
-      `}</style>
     </div>
   );
 }

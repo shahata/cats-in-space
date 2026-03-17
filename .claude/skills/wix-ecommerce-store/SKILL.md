@@ -358,6 +358,14 @@ window.dispatchEvent(new CustomEvent('cart-updated'));
 ```
 This triggers CartSidebar to re-fetch the cart and update the badge count.
 
+## React Island Styling
+
+Don't use inline `<style>{...}` in React components rendered via Astro's `client:load`. The server HTML-encodes quotes (`'` → `&#x27;`) causing hydration mismatches. Instead, put styles in the host Astro page/layout:
+- ProductActions styles → `[slug].astro` `<style>` with `:global(.pa-*)` selectors
+- CartSidebar styles → `Layout.astro` `<style is:global>` (since it's site-wide)
+
+Use CSS variables (`var(--font-heading)`, `var(--accent)`) instead of hardcoded values.
+
 ## Gotchas & Lessons Learned
 
 1. **Stores appId**: Use `1380b703-ce81-ff05-f115-39571d94dfcd` everywhere (cart, checkout, back-in-stock).

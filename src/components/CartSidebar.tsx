@@ -213,44 +213,6 @@ export default function CartSidebar() {
         )}
       </div>
 
-      <style>{`
-        .cs-badge { position: fixed; bottom: 24px; right: 24px; z-index: 90; width: 56px; height: 56px; border-radius: 50%; background: #ff6600; color: #000; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(255, 102, 0, 0.4); transition: transform 0.2s; }
-        .cs-badge:hover { transform: scale(1.05); }
-        .cs-count { position: absolute; top: -4px; right: -4px; background: #ffcc00; color: #000; font-size: 0.7rem; font-weight: 800; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .cs-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
-        .cs-panel { position: fixed; top: 0; right: -420px; width: 400px; max-width: 90vw; height: 100vh; background: #0f0f0f; border-left: 1px solid #222; z-index: 100; display: flex; flex-direction: column; transition: right 0.3s ease; }
-        .cs-panel-open { right: 0; }
-        .cs-header { display: flex; align-items: center; justify-content: space-between; padding: 20px; border-bottom: 1px solid #222; }
-        .cs-title { font-family: 'Bangers', cursive; font-size: 1.3rem; color: #ff6600; letter-spacing: 2px; }
-        .cs-close { background: none; border: none; color: #888; font-size: 1.8rem; cursor: pointer; padding: 0; line-height: 1; }
-        .cs-close:hover { color: #ff6600; }
-        .cs-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #888; }
-        .cs-empty a { color: #ff6600; font-family: 'Bangers', cursive; letter-spacing: 1px; text-decoration: none; }
-        .cs-items { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-        .cs-item { display: flex; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid #1a1a1a; }
-        .cs-item-img { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: #1a1a2e; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-        .cs-item-img img { width: 100%; height: 100%; object-fit: cover; }
-        .cs-item-placeholder { font-size: 2rem; }
-        .cs-item-details { flex: 1; min-width: 0; }
-        .cs-item-name { font-family: 'Bangers', cursive; font-size: 0.9rem; color: #e0e0e0; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .cs-item-options { font-size: 0.75rem; color: #666; margin-top: 2px; }
-        .cs-item-price { font-size: 0.85rem; color: #ffcc00; font-weight: 700; margin-top: 4px; }
-        .cs-item-qty { display: flex; align-items: center; gap: 0; margin-top: 6px; }
-        .cs-qty-btn { width: 26px; height: 26px; background: #1a1a1a; border: 1px solid #333; color: #aaa; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .cs-qty-btn:first-child { border-radius: 4px 0 0 4px; }
-        .cs-qty-btn:hover:not(:disabled) { background: #222; color: #ff6600; }
-        .cs-qty-btn:disabled { opacity: 0.3; cursor: default; }
-        .cs-qty-val { width: 32px; height: 26px; line-height: 26px; text-align: center; font-size: 0.8rem; font-weight: 700; color: #e0e0e0; background: #141414; border-top: 1px solid #333; border-bottom: 1px solid #333; }
-        .cs-remove { margin-left: 8px; width: 26px; height: 26px; background: none; border: 1px solid #333; border-radius: 4px; color: #666; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .cs-remove:hover:not(:disabled) { color: #f44336; border-color: #f44336; }
-        .cs-footer { padding: 16px 20px; border-top: 1px solid #222; }
-        .cs-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: #aaa; margin-bottom: 6px; }
-        .cs-discount { color: #4caf50; }
-        .cs-total { font-size: 1rem; font-weight: 700; color: #e0e0e0; margin-bottom: 16px; padding-top: 8px; border-top: 1px solid #222; }
-        .cs-checkout-btn { width: 100%; padding: 14px; background: #ffcc00; color: #000; border: none; border-radius: 8px; font-family: 'Bangers', cursive; font-size: 1.1rem; letter-spacing: 2px; cursor: pointer; transition: background 0.2s; }
-        .cs-checkout-btn:hover:not(:disabled) { background: #ffd633; }
-        .cs-checkout-btn:disabled { opacity: 0.5; cursor: default; }
-      `}</style>
     </>
   );
 }
