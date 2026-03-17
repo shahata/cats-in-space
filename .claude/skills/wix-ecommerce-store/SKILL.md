@@ -214,15 +214,15 @@ const storeOrders = (result.orders || []).filter(o => o.status !== 'INITIALIZED'
 
 ## Back-in-Stock Notifications
 
-The SDK method takes **two separate arguments** (request, itemDetails) — not a single options object:
+The SDK method takes **two separate arguments** (request, itemDetails) — not a single options object. Call it directly client-side (no server API endpoint needed):
 ```typescript
 import { backInStockNotifications } from '@wix/ecom';
-await (backInStockNotifications as any).createBackInStockNotificationRequest(
+// Cast needed because SDK overloads don't match the two-arg signature
+await (backInStockNotifications.createBackInStockNotificationRequest as Function)(
   { catalogReference: { catalogItemId, appId: '1380b703-ce81-ff05-f115-39571d94dfcd' }, email: 'customer@email.com' },
   { name: 'Product Name', price: '49.99' },  // itemDetails — both fields required
 );
 ```
-Works client-side, no server API endpoint needed.
 
 ### Setup required
 The Back In Stock app must be installed and request collection enabled:
@@ -385,3 +385,7 @@ Use CSS variables (`var(--font-heading)`, `var(--accent)`) instead of hardcoded 
 8. **DALL-E model choice matters**: `dall-e-3` supports `response_format: "url"` and returns temporary hosted URLs (~2hr). `gpt-image-1` only returns `b64_json` — there's no URL option. For the MCP workflow (JSON-only), you MUST use `dall-e-3`.
 
 9. **Wix permanently hosts uploaded media**: Once you call Add Product Media with an external URL, Wix downloads it and hosts it on `static.wixstatic.com` forever. The original URL can expire after that — Wix has its own copy.
+
+10. **estimateCurrentCartTotals response shape**: `priceSummary` is at the top level of `EstimateTotalsResponse`, NOT nested under `estimatedTotals`. Use `totals?.priceSummary?.subtotal`, not `totals?.estimatedTotals?.priceSummary?.subtotal`.
+
+11. **Use real SDK types, avoid `any`**: Import types from `@wix/stores` (`products.Product`, `products.ProductOption`, `products.Variant`, `products.PriceData`, `products.Stock`) and `@wix/ecom` (`cart.Cart`, `cart.EstimateTotalsResponse`). Use `as Function` instead of `as any` when SDK overloads don't match (e.g., `backInStockNotifications.createBackInStockNotificationRequest`).
