@@ -1,0 +1,253 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import ProductActions from '../../components/ProductActions';
+import { products, collections } from '@wix/stores';
+import { getImageUrl } from '../../utils/image';
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/store');
+
+const result = await products.queryProducts().eq('slug', slug).limit(1).find();
+const product = result.items?.[0];
+if (!product) return Astro.redirect('/store');
+
+let variantData: any[] = [];
+try {
+	const vr = await (products as any).queryStoreVariants({
+		filter: { productId: product._id },
+		paging: { limit: 100 }
+	});
+	variantData = vr.variants || [];
+} catch {
+	variantData = product.variants || [];
+}
+
+const collResult = await collections.queryCollections().limit(100).find();
+const collectionMap = new Map<string, string>();
+for (const c of (collResult.items || [])) {
+	if (c._id !== '00000000-000000-000000-000000000001') {
+		collectionMap.set(c._id!, c.name!);
+	}
+}
+
+const productCollections: string[] = (product.collectionIds || [])
+	.map((id: any) => collectionMap.get(id))
+	.filter((x: any): x is string => !!x);
+
+const images: string[] = (product.media?.items || [])
+	.filter((m: any) => m.mediaType === 'image' || m.image)
+	.map((m: any) => getImageUrl(m.image?.url, 600, 600))
+	.filter((x: any): x is string => !!x);
+
+const productData: any = {
+	_id: product._id,
+	name: product.name,
+	slug: product.slug,
+	description: product.description,
+	priceData: product.priceData,
+	priceRange: product.priceRange,
+	productOptions: product.productOptions || [],
+	variants: variantData.length > 0 ? variantData : (product.variants || []),
+	stock: product.stock,
+	manageVariants: product.manageVariants,
+};
+---
+
+<Layout title={`${product.name} - Cats In Space Store`}>
+	<Nav />
+	<section class="product-page">
+		<div class="container">
+			<a href="/store" class="back-link">&larr; Back to Store</a>
+
+			<div class="product-layout">
+				<div class="product-gallery">
+					{images.length > 0 ? (
+						<>
+							<div class="gallery-main">
+								<img id="main-image" src={images[0]} alt={product.name} />
+							</div>
+							{images.length > 1 && (
+								<div class="gallery-thumbs">
+									{images.map((img: string, i: number) => (
+										<button class:list={['thumb', { active: i === 0 }]} data-src={img} data-index={i}>
+											<img src={img} alt={`${product.name} ${i + 1}`} />
+										</button>
+									))}
+								</div>
+							)}
+						</>
+					) : (
+						<div class="gallery-placeholder">
+							<span>&#128049;</span>
+						</div>
+					)}
+				</div>
+
+				<div class="product-details">
+					{productCollections.length > 0 && (
+						<div class="product-collections">
+							{productCollections.map((name: string) => (
+								<span class="collection-tag">{name}</span>
+							))}
+						</div>
+					)}
+
+					<h1 class="product-title">{product.name}</h1>
+
+					<div class="product-price-display">
+						{product.priceRange && product.priceRange.minValue !== product.priceRange.maxValue ? (
+							<span>{product.priceData?.formatted?.price?.charAt(0)}{product.priceRange.minValue} – {product.priceData?.formatted?.price?.charAt(0)}{product.priceRange.maxValue}</span>
+						) : (
+							<span>{product.priceData?.formatted?.price}</span>
+						)}
+					</div>
+
+					{product.description && (
+						<div class="product-description" set:html={product.description} />
+					)}
+
+					<ProductActions product={productData} client:load />
+				</div>
+			</div>
+		</div>
+	</section>
+	<Footer />
+</Layout>
+
+<script>
+	document.querySelectorAll('.thumb').forEach(thumb => {
+		thumb.addEventListener('click', () => {
+			const src = (thumb as HTMLElement).dataset.src;
+			const mainImg = document.getElementById('main-image') as HTMLImageElement;
+			if (mainImg && src) mainImg.src = src;
+			document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
+			thumb.classList.add('active');
+		});
+	});
+</script>
+
+<style>
+	.product-page {
+		padding: 30px 0 60px;
+	}
+
+	.back-link {
+		display: inline-block;
+		margin-bottom: 24px;
+		font-family: var(--font-heading);
+		font-size: 0.85rem;
+		letter-spacing: 1px;
+		color: var(--text-muted);
+	}
+
+	.back-link:hover {
+		color: var(--accent);
+	}
+
+	.product-layout {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 48px;
+		align-items: start;
+	}
+
+	.gallery-main {
+		border-radius: 12px;
+		overflow: hidden;
+		background: #111;
+		aspect-ratio: 1;
+	}
+
+	.gallery-main img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.gallery-placeholder {
+		border-radius: 12px;
+		background: linear-gradient(135deg, #1a1a2e, #16213e);
+		aspect-ratio: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 8rem;
+		opacity: 0.7;
+	}
+
+	.gallery-thumbs {
+		display: flex;
+		gap: 8px;
+		margin-top: 12px;
+	}
+
+	.thumb {
+		width: 64px;
+		height: 64px;
+		border-radius: 8px;
+		overflow: hidden;
+		border: 2px solid transparent;
+		cursor: pointer;
+		padding: 0;
+		background: #111;
+	}
+
+	.thumb.active {
+		border-color: var(--accent);
+	}
+
+	.thumb img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.product-collections {
+		display: flex;
+		gap: 6px;
+		margin-bottom: 12px;
+	}
+
+	.collection-tag {
+		background: var(--accent);
+		color: #000;
+		padding: 4px 10px;
+		border-radius: 6px;
+		font-family: var(--font-heading);
+		font-size: 0.7rem;
+		letter-spacing: 1px;
+	}
+
+	.product-title {
+		font-family: var(--font-heading);
+		font-size: clamp(1.5rem, 3vw, 2.2rem);
+		color: var(--text-primary);
+		letter-spacing: 1px;
+		margin-bottom: 12px;
+	}
+
+	.product-price-display {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--accent-yellow);
+		margin-bottom: 16px;
+	}
+
+	.product-description {
+		color: var(--text-secondary);
+		font-size: 0.95rem;
+		line-height: 1.7;
+		margin-bottom: 24px;
+		padding-bottom: 24px;
+		border-bottom: 1px solid #222;
+	}
+
+	@media (max-width: 768px) {
+		.product-layout {
+			grid-template-columns: 1fr;
+			gap: 24px;
+		}
+	}
+</style>

@@ -1,4 +1,6 @@
 ---
+import CartSidebar from '../components/CartSidebar';
+
 interface Props {
 	title?: string;
 	description?: string;
@@ -22,6 +24,7 @@ const { title = "Cats In Space", description = "Feline explorers searching the g
 	</head>
 	<body>
 		<slot />
+		<CartSidebar client:load />
 	</body>
 </html>
 

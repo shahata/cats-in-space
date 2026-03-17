@@ -1,0 +1,291 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import { products, collections } from '@wix/stores';
+import { getImageUrl } from '../../utils/image';
+
+const productResult = await products.queryProducts().limit(100).find();
+const allProducts = (productResult.items || []).filter((p: any) => p.visible);
+
+const collResult = await collections.queryCollections().limit(100).find();
+const allCollections = (collResult.items || []).filter((c: any) => c.id !== '00000000-000000-000000-000000000001');
+
+const collectionMap = new Map<string, string>();
+for (const c of allCollections) {
+	collectionMap.set(c._id!, c.name!);
+}
+
+function getCollectionName(product: any): string {
+	const ids = product.collectionIds || [];
+	for (const id of ids) {
+		const name = collectionMap.get(id);
+		if (name) return name;
+	}
+	return '';
+}
+
+const success = Astro.url.searchParams.get('success') === 'true';
+---
+
+<Layout title="Store - Cats In Space">
+	<Nav />
+	<section class="page-header">
+		<div class="container">
+			<h1 class="section-title">Space Cat Supply Depot</h1>
+			<p class="section-subtitle">Gear up for the mission. Every purchase supports the Feline Space Program.</p>
+		</div>
+	</section>
+
+	{success && (
+		<div class="container">
+			<div class="success-banner">Order completed successfully! Check your email for confirmation.</div>
+		</div>
+	)}
+
+	<section class="store-content">
+		<div class="container">
+			<div class="filter-tabs" id="filter-tabs">
+				{allCollections.map((c: any, i: number) => (
+					<button class:list={['filter-tab', { active: i === 0 }]} data-collection={c._id}>{c.name}</button>
+				))}
+			</div>
+
+			<div class="product-grid" id="product-grid">
+				{allProducts.map((product: any) => {
+					const imgUrl = getImageUrl(product.media?.items?.[0]?.image?.url, 400, 400);
+					const collection = getCollectionName(product);
+					const collIds = (product.collectionIds || []).join(',');
+					const price = product.priceData?.formatted?.price || `${product.priceData?.currency || ''}${product.priceData?.price || ''}`;
+					const hasRange = product.priceRange && product.priceRange.minValue !== product.priceRange.maxValue;
+					const priceDisplay = hasRange
+						? `${product.priceData?.currency === 'ILS' ? '₪' : '$'}${product.priceRange.minValue} – ${product.priceData?.currency === 'ILS' ? '₪' : '$'}${product.priceRange.maxValue}`
+						: price;
+
+					return (
+						<a href={`/store/${product.slug}`} class="product-card" data-collections={collIds}>
+							<div class="product-image">
+								{imgUrl ? (
+									<img src={imgUrl} alt={product.name} loading="lazy" />
+								) : (
+									<div class="product-placeholder">
+										<span>&#128049;</span>
+									</div>
+								)}
+								{collection && <span class="product-badge">{collection}</span>}
+							</div>
+							<div class="product-info">
+								<h3 class="product-name">{product.name}</h3>
+								<div class="product-price">{priceDisplay}</div>
+								{product.stock?.inventoryStatus === 'OUT_OF_STOCK' && (
+									<span class="oos-badge">Out of Stock</span>
+								)}
+							</div>
+						</a>
+					);
+				})}
+			</div>
+
+			{allProducts.length === 0 && (
+				<div class="empty-store">
+					<p>No products available yet. Check back soon!</p>
+				</div>
+			)}
+		</div>
+	</section>
+	<Footer />
+</Layout>
+
+<script>
+	document.querySelectorAll('.filter-tab').forEach(tab => {
+		tab.addEventListener('click', () => {
+			document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+			tab.classList.add('active');
+			const collection = (tab as HTMLElement).dataset.collection!;
+			document.querySelectorAll('.product-card').forEach(card => {
+				const el = card as HTMLElement;
+				const ids = el.dataset.collections || '';
+				el.style.display = ids.includes(collection) ? '' : 'none';
+			});
+		});
+	});
+	// Apply initial filter from first active tab
+	const activeTab = document.querySelector('.filter-tab.active') as HTMLElement;
+	if (activeTab) {
+		const collection = activeTab.dataset.collection!;
+		document.querySelectorAll('.product-card').forEach(card => {
+			const el = card as HTMLElement;
+			const ids = el.dataset.collections || '';
+			el.style.display = ids.includes(collection) ? '' : 'none';
+		});
+	}
+</script>
+
+<style>
+	.page-header {
+		padding: 60px 0 30px;
+	}
+
+	.success-banner {
+		background: rgba(76, 175, 80, 0.15);
+		border: 1px solid #4caf50;
+		color: #4caf50;
+		padding: 12px 20px;
+		border-radius: 8px;
+		margin-bottom: 24px;
+		font-size: 0.9rem;
+	}
+
+	.store-content {
+		padding-bottom: 60px;
+	}
+
+	.filter-tabs {
+		display: flex;
+		gap: 4px;
+		margin-bottom: 32px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+		padding: 6px;
+		width: fit-content;
+	}
+
+	.filter-tab {
+		padding: 10px 20px;
+		font-family: var(--font-heading);
+		font-size: 0.85rem;
+		letter-spacing: 1px;
+		color: var(--text-muted);
+		background: none;
+		border: none;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.filter-tab:hover {
+		color: var(--text-secondary);
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.filter-tab.active {
+		color: #000;
+		background: var(--accent);
+	}
+
+	.product-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		gap: 24px;
+	}
+
+	.product-card {
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+		overflow: hidden;
+		transition: all 0.2s;
+		text-decoration: none;
+		color: inherit;
+	}
+
+	.product-card:hover {
+		border-color: var(--accent);
+		transform: translateY(-2px);
+		box-shadow: 0 8px 24px rgba(255, 102, 0, 0.1);
+		color: inherit;
+	}
+
+	.product-image {
+		position: relative;
+		aspect-ratio: 1;
+		background: #111;
+		overflow: hidden;
+	}
+
+	.product-image img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.product-placeholder {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 4rem;
+		background: linear-gradient(135deg, #1a1a2e, #16213e);
+		opacity: 0.7;
+	}
+
+	.product-badge {
+		position: absolute;
+		top: 10px;
+		left: 10px;
+		background: var(--accent);
+		color: #000;
+		padding: 4px 10px;
+		border-radius: 6px;
+		font-family: var(--font-heading);
+		font-size: 0.7rem;
+		letter-spacing: 1px;
+	}
+
+	.product-info {
+		padding: 16px;
+	}
+
+	.product-name {
+		font-family: var(--font-heading);
+		font-size: 1.05rem;
+		color: var(--text-primary);
+		letter-spacing: 0.5px;
+		margin-bottom: 6px;
+	}
+
+	.product-price {
+		font-size: 1.1rem;
+		font-weight: 700;
+		color: var(--accent-yellow);
+	}
+
+	.oos-badge {
+		display: inline-block;
+		margin-top: 6px;
+		padding: 2px 8px;
+		border-radius: 4px;
+		font-size: 0.7rem;
+		font-weight: 700;
+		background: #cc0000;
+		color: #fff;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.empty-store {
+		text-align: center;
+		padding: 60px 20px;
+		color: var(--text-muted);
+	}
+
+	@media (max-width: 640px) {
+		.product-grid {
+			grid-template-columns: repeat(2, 1fr);
+			gap: 12px;
+		}
+
+		.filter-tabs {
+			overflow-x: auto;
+			width: 100%;
+		}
+
+		.filter-tab {
+			white-space: nowrap;
+			font-size: 0.75rem;
+			padding: 8px 14px;
+		}
+	}
+</style>
