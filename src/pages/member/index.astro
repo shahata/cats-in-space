@@ -45,11 +45,8 @@ try {
 	}
 } catch {}
 
-let storeOrders: Record<string, any>[] = [];
-try {
-	const result = await ecomOrders.searchOrders({ cursorPaging: { limit: 50 } }) as { orders?: Record<string, any>[] };
-	storeOrders = (result.orders || []).filter(o => o.status !== 'INITIALIZED');
-} catch {}
+const storeOrdersResult = await ecomOrders.searchOrders({ cursorPaging: { limit: 50 } }).catch(() => null);
+const storeOrders = (storeOrdersResult?.orders || []).filter(o => o.status !== 'INITIALIZED');
 
 const fmtDate = (d: string | Date | null | undefined) => d ? new Date(d as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
 const statusColors = { APPROVED: '#4caf50', FULFILLED: '#4caf50', CANCELED: '#f44336', PARTIALLY_FULFILLED: '#ff9800', PENDING: '#2196f3' } as const;
@@ -110,7 +107,7 @@ const tabs = [
 									<div class="sub-header">
 										<div>
 											<div class="sub-plan-name">Order #{sOrder.number || sOrder._id?.slice(-8)}</div>
-											<div class="sub-plan-desc">{fmtDate(sOrder._createdDate || sOrder.createdDate)}</div>
+											<div class="sub-plan-desc">{fmtDate(sOrder._createdDate)}</div>
 										</div>
 										<div class="sub-badges">
 											{sOrder.paymentStatus && (
@@ -125,11 +122,11 @@ const tabs = [
 									</div>
 
 									<div class="order-items">
-										{(sOrder.lineItems || []).map((li: any) => (
+										{(sOrder.lineItems || []).map((li) => (
 											<div class="order-item">
 												<div class="order-item-img">
-													{getImageUrl(li.image?.url || li.image, 80, 80) ? (
-														<img src={getImageUrl(li.image?.url || li.image, 80, 80)!} alt={li.productName?.translated || li.productName?.original} />
+													{getImageUrl(li.image, 80, 80) ? (
+														<img src={getImageUrl(li.image, 80, 80)!} alt={li.productName?.translated || li.productName?.original} />
 													) : (
 														<span class="order-item-emoji">&#128049;</span>
 													)}
