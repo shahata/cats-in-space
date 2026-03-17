@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { currentCart } from "@wix/ecom";
+import type { cart as cartTypes } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 
 export default function CartSidebar() {
   const [open, setOpen] = useState(false);
-  const [cart, setCart] = useState<any>(null);
-  const [totals, setTotals] = useState<any>(null);
+  const [cart, setCart] = useState<cartTypes.Cart | null>(null);
+  const [totals, setTotals] = useState<cartTypes.EstimateTotalsResponse | null>(null);
   const [itemCount, setItemCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
@@ -15,7 +16,7 @@ export default function CartSidebar() {
       const c = await currentCart.getCurrentCart();
       setCart(c);
       const count = (c?.lineItems || []).reduce(
-        (sum: number, li: any) => sum + (li.quantity || 0),
+        (sum, li) => sum + (li.quantity || 0),
         0
       );
       setItemCount(count);
@@ -80,18 +81,18 @@ export default function CartSidebar() {
       if (redirectSession?.fullUrl) {
         window.location.href = redirectSession.fullUrl;
       }
-    } catch (e: any) {
-      alert(e?.message || "Checkout failed");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Checkout failed");
       setCheckingOut(false);
     }
   };
 
   const lineItems = cart?.lineItems || [];
-  const subtotal = totals?.estimatedTotals?.priceSummary?.subtotal?.formattedAmount
-    || totals?.estimatedTotals?.priceSummary?.subtotal?.amount;
-  const total = totals?.estimatedTotals?.priceSummary?.total?.formattedAmount
-    || totals?.estimatedTotals?.priceSummary?.total?.amount;
-  const discount = totals?.estimatedTotals?.priceSummary?.discount?.formattedAmount;
+  const subtotal = totals?.priceSummary?.subtotal?.formattedAmount
+    || totals?.priceSummary?.subtotal?.amount;
+  const total = totals?.priceSummary?.total?.formattedAmount
+    || totals?.priceSummary?.total?.amount;
+  const discount = totals?.priceSummary?.discount?.formattedAmount;
 
   return (
     <>
@@ -124,10 +125,10 @@ export default function CartSidebar() {
         ) : (
           <>
             <div className="cs-items">
-              {lineItems.map((li: any) => {
-                const img = li.image?.url || li.media?.url;
+              {lineItems.map((li) => {
+                const img = typeof li.image === 'string' ? li.image : (li.image as { url?: string } | undefined)?.url;
                 const optionText = li.descriptionLines
-                  ?.map((dl: any) => {
+                  ?.map((dl) => {
                     const name = dl.name?.translated || dl.name?.original || '';
                     const val = dl.plainText?.translated || dl.plainText?.original
                       || dl.colorInfo?.translated || dl.colorInfo?.original || '';
@@ -154,22 +155,22 @@ export default function CartSidebar() {
                       <div className="cs-item-qty">
                         <button
                           className="cs-qty-btn"
-                          onClick={() => updateQuantity(li._id, li.quantity - 1)}
-                          disabled={loading || li.quantity <= 1}
+                          onClick={() => updateQuantity(li._id!, (li.quantity ?? 1) - 1)}
+                          disabled={loading || (li.quantity ?? 0) <= 1}
                         >
                           &minus;
                         </button>
                         <span className="cs-qty-val">{li.quantity}</span>
                         <button
                           className="cs-qty-btn"
-                          onClick={() => updateQuantity(li._id, li.quantity + 1)}
+                          onClick={() => updateQuantity(li._id!, (li.quantity ?? 0) + 1)}
                           disabled={loading}
                         >
                           +
                         </button>
                         <button
                           className="cs-remove"
-                          onClick={() => removeItem(li._id)}
+                          onClick={() => removeItem(li._id!)}
                           disabled={loading}
                           title="Remove"
                         >

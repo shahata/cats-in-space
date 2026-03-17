@@ -4,6 +4,7 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import ProductActions from '../../components/ProductActions';
 import { products, collections } from '@wix/stores';
+import type { products as productsTypes } from '@wix/stores';
 import { i18n } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
@@ -12,12 +13,12 @@ if (!slug) return Astro.redirect('/store');
 
 const locale = await i18n.getLocale();
 
-function formatPrice(p: any): string {
+function formatPrice(p: productsTypes.Product): string {
 	const { priceData, priceRange } = p;
 	const currency = priceData?.currency || 'USD';
 	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
 	if (priceRange && priceRange.minValue !== priceRange.maxValue) {
-		return `${fmt(priceRange.minValue)} – ${fmt(priceRange.maxValue)}`;
+		return `${fmt(priceRange.minValue ?? 0)} – ${fmt(priceRange.maxValue ?? 0)}`;
 	}
 	return fmt(priceData?.price || 0);
 }
@@ -28,13 +29,13 @@ const productStub = queryResult.items?.[0];
 if (!productStub) return Astro.redirect('/store');
 
 // Then use getProduct which returns full data including variants
-let product: any = productStub;
+let product: productsTypes.Product = productStub;
 try {
 	const full = await products.getProduct(productStub._id!);
 	if (full.product) product = full.product;
 } catch {}
 
-const variantData: any[] = product.variants || [];
+const variantData = product.variants || [];
 
 const collResult = await collections.queryCollections().limit(100).find();
 const collectionMap = new Map<string, string>();
@@ -42,27 +43,26 @@ for (const c of (collResult.items || [])) {
 	collectionMap.set(c._id!, c.name!);
 }
 
-const productCollections: string[] = (product.collectionIds || [])
-	.map((id: any) => collectionMap.get(id))
-	.filter((x: any): x is string => !!x);
+const productCollections = (product.collectionIds || [])
+	.map(id => collectionMap.get(id))
+	.filter((x): x is string => !!x);
 
-const images: string[] = (product.media?.items || [])
-	.filter((m: any) => m.mediaType === 'image' || m.image)
-	.map((m: any) => getImageUrl(m.image?.url, 600, 600))
-	.filter((x: any): x is string => !!x);
+const images = (product.media?.items || [])
+	.filter(m => m.mediaType === 'image' || m.image)
+	.map(m => getImageUrl(m.image?.url, 600, 600))
+	.filter((x): x is string => !!x);
 
-const productData: any = {
-	_id: product._id,
-	name: product.name,
-	slug: product.slug,
-	description: product.description,
-	priceData: product.priceData,
-	priceRange: product.priceRange,
+const productData: ProductActionsProps = {
+	_id: product._id!,
+	name: product.name!,
 	productOptions: product.productOptions || [],
 	variants: variantData.length > 0 ? variantData : (product.variants || []),
 	stock: product.stock,
 	manageVariants: product.manageVariants,
+	priceData: product.priceData,
 };
+
+type ProductActionsProps = import('../../components/ProductActions').ProductData;
 ---
 
 <Layout title={`${product.name} - Cats In Space Store`}>

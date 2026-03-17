@@ -5,22 +5,23 @@ import Footer from '../../components/Footer.astro';
 import MemberProfile from '../../components/MemberProfile';
 import CancelSubscription from '../../components/CancelSubscription';
 import { members, membersAbout } from '@wix/members';
+import type { members as membersTypes } from '@wix/members';
 import { orders } from '@wix/pricing-plans';
 import { orders as ecomOrders } from '@wix/ecom';
 
-let member: any = null;
+let member: membersTypes.Member | null = null;
 try {
 	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
-	member = res.member;
+	member = res.member ?? null;
 } catch {}
 
 if (!member) return Astro.redirect(`/api/auth/login?returnToUrl=${encodeURIComponent('/member')}`);
 
-let myOrders: any[] = [];
+let myOrders: Record<string, any>[] = [];
 try {
-	const result = await orders.memberListOrders();
+	const result = await orders.memberListOrders() as { orders?: Record<string, any>[] };
 	const today = new Date().toISOString().split('T')[0];
-	myOrders = (result.orders || []).filter((o: any) => o.status !== 'DRAFT' && !(o.endDate && new Date(o.endDate).toISOString().split('T')[0] < today));
+	myOrders = (result.orders || []).filter(o => o.status !== 'DRAFT' && !(o.endDate && new Date(o.endDate as string).toISOString().split('T')[0] < today));
 } catch {}
 
 // Fetch member about
@@ -43,11 +44,15 @@ try {
 	}
 } catch {}
 
-let storeOrders: any[] = [];
+let storeOrders: Record<string, any>[] = [];
 try {
-	const result = await ecomOrders.searchOrders({ cursorPaging: { limit: 50 } });
-	storeOrders = (result.orders || []).filter((o: any) => o.status !== 'INITIALIZED');
+	const result = await ecomOrders.searchOrders({ cursorPaging: { limit: 50 } }) as { orders?: Record<string, any>[] };
+	storeOrders = (result.orders || []).filter(o => o.status !== 'INITIALIZED');
 } catch {}
+
+const fmtDate = (d: string | Date | null | undefined) => d ? new Date(d as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+const statusColors = { APPROVED: '#4caf50', FULFILLED: '#4caf50', CANCELED: '#f44336', PARTIALLY_FULFILLED: '#ff9800', PENDING: '#2196f3' } as const;
+type StatusKey = keyof typeof statusColors;
 
 const tabs = [
 	{ id: 'profile', label: 'Profile', icon: '&#9734;' },
@@ -95,18 +100,16 @@ const tabs = [
 					</div>
 				) : (
 					<div class="subs-list">
-						{storeOrders.map((sOrder: any) => {
-							const fmtD = (d: any) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+						{storeOrders.map((sOrder) => {
 							const sCurr = sOrder.currency || '';
-							const sColorMap: any = { APPROVED: '#4caf50', FULFILLED: '#4caf50', CANCELED: '#f44336', PARTIALLY_FULFILLED: '#ff9800', PENDING: '#2196f3' };
-							const sColor = sColorMap[sOrder.fulfillmentStatus] || sColorMap[sOrder.status] || '#888';
+							const sColor = statusColors[sOrder.fulfillmentStatus as StatusKey] || statusColors[sOrder.status as StatusKey] || '#888';
 
 							return (
 								<div class="sub-card">
 									<div class="sub-header">
 										<div>
 											<div class="sub-plan-name">Order #{sOrder.number || sOrder._id?.slice(-8)}</div>
-											<div class="sub-plan-desc">{fmtD(sOrder._createdDate || sOrder.createdDate)}</div>
+											<div class="sub-plan-desc">{fmtDate(sOrder._createdDate || sOrder.createdDate)}</div>
 										</div>
 										<div class="sub-badges">
 											{sOrder.paymentStatus && (
@@ -168,8 +171,8 @@ const tabs = [
 						</div>
 					) : (
 						<div class="subs-list">
-							{myOrders.map((order: any) => {
-								const fmt = (d: any) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+							{(myOrders || []).map((order) => {
+								const fmt = fmtDate;
 								const isFree = parseFloat(order.priceDetails?.planPrice || "0") === 0;
 								const curr = order.priceDetails?.currency === 'USD' ? '$' : (order.priceDetails?.currency || '$');
 								const planPrice = order.priceDetails?.planPrice || "0";
@@ -277,7 +280,7 @@ const tabs = [
 												<span class="sub-detail-label">Pause History</span>
 												{order.pausePeriods.map((p: any) => (
 													<span class="sub-detail-value">
-														{fmt(p.pauseDate)} — {p.resumeDate ? fmt(p.resumeDate) : 'ongoing'}
+														{fmt(String(p.pauseDate))} — {p.resumeDate ? fmt(String(p.resumeDate)) : 'ongoing'}
 													</span>
 												))}
 											</div>
@@ -285,7 +288,7 @@ const tabs = [
 
 										{cancellable && (
 											<div class="sub-footer">
-												<CancelSubscription orderId={order._id} client:load />
+												<CancelSubscription orderId={order._id!} client:load />
 											</div>
 										)}
 									</div>

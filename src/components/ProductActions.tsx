@@ -1,17 +1,18 @@
 import { useState, useMemo } from "react";
 import { currentCart, backInStockNotifications } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
+import type { products } from "@wix/stores";
 
 const STORES_APP_ID = "1380b703-ce81-ff05-f115-39571d94dfcd";
 
-interface ProductData {
+export interface ProductData {
   _id: string;
   name: string;
-  productOptions: any[];
-  variants: any[];
-  stock: any;
-  manageVariants: boolean;
-  priceData: any;
+  productOptions: products.ProductOption[];
+  variants: products.Variant[];
+  stock: products.Stock | undefined;
+  manageVariants: boolean | null | undefined;
+  priceData: products.PriceData | undefined;
 }
 
 interface Props {
@@ -26,8 +27,8 @@ export default function ProductActions({ product }: Props) {
   const [selections, setSelections] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const opt of options) {
-      if (opt.choices?.length > 0) {
-        init[opt.name] = opt.choices[0].value;
+      if (opt.choices?.length && opt.name) {
+        init[opt.name] = opt.choices[0].value ?? '';
       }
     }
     return init;
@@ -45,15 +46,15 @@ export default function ProductActions({ product }: Props) {
     if (!hasOptions) {
       return variants[0];
     }
-    return variants.find((v: any) => {
-      const choices = v.choices || {};
+    return variants.find((v) => {
+      const choices = (v.choices || {}) as Record<string, string>;
       return Object.entries(selections).every(
         ([optName, choiceVal]) => choices[optName] === choiceVal,
       );
     });
   }, [selections, variants, hasOptions]);
 
-  const variantId = selectedVariant?.id || selectedVariant?._id;
+  const variantId = selectedVariant?._id;
   const isInStock = selectedVariant
     ? selectedVariant.stock?.inStock !== false
     : product.stock?.inStock !== false;
@@ -70,7 +71,7 @@ export default function ProductActions({ product }: Props) {
   };
 
   const buildCatalogRef = () => {
-    const ref: any = {
+    const ref: Record<string, unknown> = {
       catalogItemId: product._id,
       appId: STORES_APP_ID,
     };
@@ -89,10 +90,10 @@ export default function ProductActions({ product }: Props) {
       });
       setMessage({ type: "success", text: "Added to cart!" });
       window.dispatchEvent(new CustomEvent("cart-updated"));
-    } catch (e: any) {
+    } catch (e) {
       setMessage({
         type: "error",
-        text: e?.message || "Failed to add to cart",
+        text: e instanceof Error ? e.message : "Failed to add to cart",
       });
     } finally {
       setLoading(null);
@@ -118,10 +119,10 @@ export default function ProductActions({ product }: Props) {
       if (redirectSession?.fullUrl) {
         window.location.href = redirectSession.fullUrl;
       }
-    } catch (e: any) {
+    } catch (e) {
       setMessage({
         type: "error",
-        text: e?.message || "Failed to start checkout",
+        text: e instanceof Error ? e.message : "Failed to start checkout",
       });
       setLoading(null);
     }
@@ -131,16 +132,15 @@ export default function ProductActions({ product }: Props) {
     if (!bisEmail) return;
     setLoading("bis");
     try {
-      const catalogRef: any = {
+      const catalogRef: Record<string, unknown> = {
         catalogItemId: product._id,
-        appId: "1380b703-ce81-ff05-f115-39571d94dfcd",
+        appId: STORES_APP_ID,
       };
       if (hasOptions && variantId) {
         catalogRef.options = { variantId };
       }
-      await (
-        backInStockNotifications as any
-      ).createBackInStockNotificationRequest(
+      // SDK takes two separate args: (request, itemDetails)
+      await (backInStockNotifications.createBackInStockNotificationRequest as Function)(
         { catalogReference: catalogRef, email: bisEmail },
         {
           name: product.name || "Product",
@@ -152,10 +152,10 @@ export default function ProductActions({ product }: Props) {
         type: "success",
         text: "You'll be notified when this item is back in stock!",
       });
-    } catch (e: any) {
+    } catch (e) {
       setMessage({
         type: "error",
-        text: e?.message || "Failed to register notification",
+        text: e instanceof Error ? e.message : "Failed to register notification",
       });
     } finally {
       setLoading(null);
@@ -166,15 +166,15 @@ export default function ProductActions({ product }: Props) {
     <div className="pa-root">
       {hasOptions && (
         <div className="pa-options">
-          {options.map((opt: any) => (
+          {options.map((opt) => (
             <div key={opt.name} className="pa-option">
               <label className="pa-option-label">{opt.name}</label>
               <div className="pa-choices">
-                {opt.choices?.map((choice: any) => (
+                {opt.choices?.map((choice) => (
                   <button
                     key={choice.value}
-                    className={`pa-choice ${selections[opt.name] === choice.value ? "pa-choice-active" : ""}`}
-                    onClick={() => handleOptionChange(opt.name, choice.value)}
+                    className={`pa-choice ${selections[opt.name!] === choice.value ? "pa-choice-active" : ""}`}
+                    onClick={() => handleOptionChange(opt.name!, choice.value!)}
                   >
                     {choice.description || choice.value}
                   </button>

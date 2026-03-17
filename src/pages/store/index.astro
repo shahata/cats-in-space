@@ -3,6 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { products, collections } from '@wix/stores';
+import type { products as productsTypes } from '@wix/stores';
 import { i18n } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
@@ -10,12 +11,12 @@ const locale = await i18n.getLocale();
 const productResult = await products.queryProducts().limit(100).find();
 const allProducts = productResult.items || [];
 
-function formatPrice(product: any): string {
+function formatPrice(product: productsTypes.Product): string {
 	const { priceData, priceRange } = product;
 	const currency = priceData?.currency || 'USD';
 	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
 	if (priceRange && priceRange.minValue !== priceRange.maxValue) {
-		return `${fmt(priceRange.minValue)} – ${fmt(priceRange.maxValue)}`;
+		return `${fmt(priceRange.minValue ?? 0)} – ${fmt(priceRange.maxValue ?? 0)}`;
 	}
 	return fmt(priceData?.price || 0);
 }
@@ -28,7 +29,7 @@ for (const c of allCollections) {
 	collectionMap.set(c._id!, c.name!);
 }
 
-function getCollectionName(product: any): string {
+function getCollectionName(product: productsTypes.Product): string {
 	const ids = product.collectionIds || [];
 	for (const id of ids) {
 		const name = collectionMap.get(id);
@@ -58,13 +59,13 @@ const success = Astro.url.searchParams.get('success') === 'true';
 	<section class="store-content">
 		<div class="container">
 			<div class="filter-tabs" id="filter-tabs">
-				{allCollections.map((c: any, i: number) => (
+				{allCollections.map((c, i: number) => (
 					<button class:list={['filter-tab', { active: i === 0 }]} data-collection={c._id}>{c.name}</button>
 				))}
 			</div>
 
 			<div class="product-grid" id="product-grid">
-				{allProducts.map((product: any) => {
+				{allProducts.map((product) => {
 					const imgUrl = getImageUrl(product.media?.items?.[0]?.image?.url, 400, 400);
 					const collection = getCollectionName(product);
 					const collIds = (product.collectionIds || []).join(',');

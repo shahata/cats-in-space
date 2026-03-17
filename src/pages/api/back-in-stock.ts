@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { backInStockNotifications } from '@wix/ecom';
 
-const STORES_APP_ID = '215238eb-22a5-4c36-9e7b-e7c08025e04e';
+const STORES_APP_ID = '1380b703-ce81-ff05-f115-39571d94dfcd';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -14,7 +14,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const catalogReference: any = {
+    const catalogReference: Record<string, unknown> = {
       catalogItemId,
       appId: STORES_APP_ID,
     };
@@ -22,21 +22,18 @@ export const POST: APIRoute = async ({ request }) => {
       catalogReference.options = { variantId };
     }
 
-    await backInStockNotifications.createBackInStockNotificationRequest({
-      catalogReference,
-      email,
-      itemDetails: {
-        name: productName || 'Product',
-        price: String(productPrice || '0'),
-      },
-    } as any);
+    // SDK takes two separate args: (request, itemDetails)
+    await (backInStockNotifications.createBackInStockNotificationRequest as Function)(
+      { catalogReference, email },
+      { name: productName || 'Product', price: String(productPrice || '0') },
+    );
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'Failed to register' }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : 'Failed to register' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
