@@ -128,8 +128,8 @@ const tabs = [
 										{(sOrder.lineItems || []).map((li: any) => (
 											<div class="order-item">
 												<div class="order-item-img">
-													{getImageUrl(li.image?.url, 80, 80) ? (
-														<img src={getImageUrl(li.image?.url, 80, 80)!} alt={li.productName?.translated || li.productName?.original} />
+													{getImageUrl(li.image?.url || li.image, 80, 80) ? (
+														<img src={getImageUrl(li.image?.url || li.image, 80, 80)!} alt={li.productName?.translated || li.productName?.original} />
 													) : (
 														<span class="order-item-emoji">&#128049;</span>
 													)}
