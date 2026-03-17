@@ -84,7 +84,6 @@ import { collections } from '@wix/stores';
 const result = await collections.queryCollections().limit(100).find();
 const allCollections = result.items || [];
 ```
-Note: The system "All Products" collection (ID `00000000-000000-000000-000000000001`) is always present. All products belong to it. It can be useful as an "All" tab in collection filters — no need to filter it out.
 
 ### queryProducts does NOT return non-visible products
 The API automatically excludes non-visible products — no need to filter by `visible` client-side.
@@ -122,7 +121,7 @@ Key fields from `queryProducts().find().items`:
 - `priceRange` — `{ minValue, maxValue }` (differs when variants have different prices)
 - `productOptions[]` — Array of `{ name, optionType ("drop_down"), choices: [{ value, description, inStock, visible }] }`
 - `variants[]` — Array of `{ id, choices: { OptionName: "ChoiceValue" }, variant: { priceData, weight, sku, visible }, stock: { inStock, trackQuantity } }`
-- `collectionIds[]` — Array of collection GUIDs the product belongs to (includes `00000000-000000-000000-000000000001` for "All Products")
+- `collectionIds[]` — Array of collection GUIDs the product belongs to
 - `stock` — `{ inStock, inventoryStatus ("IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK"), trackInventory }`
 - `manageVariants` — Boolean. When `true`, variants have individual pricing/stock. When `false`, all variants share the product-level price.
 - `ribbon` — Promotional ribbon text
@@ -131,24 +130,19 @@ Key fields from `queryProducts().find().items`:
 ## Cart Operations (client-side React)
 
 ### catalogReference — buildCatalogRef pattern
-Handle all 3 product types in one function:
 ```typescript
 const STORES_APP_ID = '215238eb-22a5-4c36-9e7b-e7c08025e04e';
 
-function buildCatalogRef(product, variantId, hasOptions, selections) {
+function buildCatalogRef(product, variantId, hasOptions) {
   const ref = { catalogItemId: product._id, appId: STORES_APP_ID };
-  if (variantId && variantId !== '00000000-0000-0000-0000-000000000000') {
-    // Managed variant with real ID (from getProduct().variants[].id)
+  if (hasOptions && variantId) {
     ref.options = { variantId };
-  } else if (hasOptions && Object.keys(selections).length > 0) {
-    // Non-managed variant — pass option choices directly
-    ref.options = { options: selections };  // e.g. { Size: 'M', Color: 'Red' }
   }
-  // No-option products: omit options entirely. The null UUID
-  // (00000000-0000-0000-0000-000000000000) must NOT be sent as variantId.
   return ref;
 }
 ```
+- Products with options: include `variantId` from `getProduct().variants[].id`
+- Products without options: omit `options` entirely
 
 ### Add to cart
 ```typescript
@@ -220,22 +214,25 @@ const storeOrders = (result.orders || []).filter(o => o.status !== 'INITIALIZED'
 
 ## Back-in-Stock Notifications
 
+The SDK's `createBackInStockNotificationRequest` has type/serialization issues when called client-side. Use a server-side API endpoint instead:
+
+**Server endpoint** (`src/pages/api/back-in-stock.ts`):
 ```typescript
 import { backInStockNotifications } from '@wix/ecom';
 await backInStockNotifications.createBackInStockNotificationRequest({
-  request: {
-    catalogReference: {
-      catalogItemId: productId,
-      appId: '215238eb-22a5-4c36-9e7b-e7c08025e04e',
-      options: { variantId },
-    },
-    email: 'customer@email.com',
-  },
-  itemDetails: {          // REQUIRED — both name and price
-    name: 'Product Name',
-    price: '49.99',
-  },
-} as any);  // cast needed due to SDK overload mismatch
+  catalogReference: { catalogItemId, appId: '215238eb-22a5-4c36-9e7b-e7c08025e04e', options: { variantId } },
+  email: 'customer@email.com',
+  itemDetails: { name: 'Product Name', price: '49.99' },  // both required
+} as any);
+```
+
+**Client-side** — call the endpoint via fetch:
+```typescript
+await fetch('/api/back-in-stock', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, catalogItemId, variantId, productName, productPrice }),
+});
 ```
 
 ## Working with Product Media
@@ -377,14 +374,12 @@ This triggers CartSidebar to re-fetch the cart and update the badge count.
 
 4. **searchOrders takes OrderSearch directly**: Not `{ search: OrderSearch }` — pass `{ cursorPaging: { limit: 50 } }` at top level.
 
-5. **backInStockNotifications requires itemDetails**: Both `name` and `price` are required fields alongside the `request` object. Cast to `any` to work around SDK overload type issues.
+5. **backInStockNotifications SDK broken client-side**: The SDK's `createBackInStockNotificationRequest` doesn't serialize fields correctly when called from client-side React. All fields arrive empty at the server. Fix: call it server-side from an API endpoint (`/api/back-in-stock`), and have the client `fetch()` that endpoint. The SDK call needs `catalogReference`, `email`, and `itemDetails` (with `name` and `price`) at the top level (not nested under `request`).
 
 6. **queryProducts doesn't include variants**: The V1 `queryProducts()` builder does NOT return variant data. You MUST use `products.getProduct(id)` to get variants with their IDs. Without variant IDs, `addToCurrentCart` fails with `CATALOG_ITEMS_RETRIEVAL_FAILURE` for managed-variant products. Pattern: `queryProducts().eq('slug', slug)` to find the product, then `getProduct(id)` for full data.
 
-7. **System "All Products" collection**: ID `00000000-000000-000000-000000000001` always exists and all products belong to it. Useful as a default "All" tab in collection filters — no need to filter it out.
+7. **Product images via URL only**: The Add Product Media API accepts external URLs or existing Wix media IDs — NOT base64/data URIs. When generating images with AI, use `dall-e-3` (returns URLs) not `gpt-image-1` (returns base64 only). The MCP tool can only send JSON, so you can't do binary uploads to Wix Media through it.
 
-8. **Product images via URL only**: The Add Product Media API accepts external URLs or existing Wix media IDs — NOT base64/data URIs. When generating images with AI, use `dall-e-3` (returns URLs) not `gpt-image-1` (returns base64 only). The MCP tool can only send JSON, so you can't do binary uploads to Wix Media through it.
+8. **DALL-E model choice matters**: `dall-e-3` supports `response_format: "url"` and returns temporary hosted URLs (~2hr). `gpt-image-1` only returns `b64_json` — there's no URL option. For the MCP workflow (JSON-only), you MUST use `dall-e-3`.
 
-9. **DALL-E model choice matters**: `dall-e-3` supports `response_format: "url"` and returns temporary hosted URLs (~2hr). `gpt-image-1` only returns `b64_json` — there's no URL option. For the MCP workflow (JSON-only), you MUST use `dall-e-3`.
-
-10. **Wix permanently hosts uploaded media**: Once you call Add Product Media with an external URL, Wix downloads it and hosts it on `static.wixstatic.com` forever. The original URL can expire after that — Wix has its own copy.
+9. **Wix permanently hosts uploaded media**: Once you call Add Product Media with an external URL, Wix downloads it and hosts it on `static.wixstatic.com` forever. The original URL can expire after that — Wix has its own copy.

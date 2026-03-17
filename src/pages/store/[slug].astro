@@ -39,9 +39,7 @@ const variantData: any[] = product.variants || [];
 const collResult = await collections.queryCollections().limit(100).find();
 const collectionMap = new Map<string, string>();
 for (const c of (collResult.items || [])) {
-	if (c._id !== '00000000-000000-000000-000000000001') {
-		collectionMap.set(c._id!, c.name!);
-	}
+	collectionMap.set(c._id!, c.name!);
 }
 
 const productCollections: string[] = (product.collectionIds || [])

@@ -22,16 +22,14 @@ export const POST: APIRoute = async ({ request }) => {
       catalogReference.options = { variantId };
     }
 
-    await (backInStockNotifications.createBackInStockNotificationRequest as any)({
-      request: {
-        catalogReference,
-        email,
-      },
+    await backInStockNotifications.createBackInStockNotificationRequest({
+      catalogReference,
+      email,
       itemDetails: {
         name: productName || 'Product',
         price: String(productPrice || '0'),
       },
-    });
+    } as any);
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

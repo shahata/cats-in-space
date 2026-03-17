@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { currentCart } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
-import { backInStockNotifications } from "@wix/ecom";
 
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
 
@@ -35,7 +34,10 @@ export default function ProductActions({ product }: Props) {
   });
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   const [bisEmail, setBisEmail] = useState("");
   const [bisSubmitted, setBisSubmitted] = useState(false);
 
@@ -46,7 +48,7 @@ export default function ProductActions({ product }: Props) {
     return variants.find((v: any) => {
       const choices = v.choices || {};
       return Object.entries(selections).every(
-        ([optName, choiceVal]) => choices[optName] === choiceVal
+        ([optName, choiceVal]) => choices[optName] === choiceVal,
       );
     });
   }, [selections, variants, hasOptions]);
@@ -56,12 +58,13 @@ export default function ProductActions({ product }: Props) {
     ? selectedVariant.stock?.inStock !== false
     : product.stock?.inStock !== false;
 
-  const displayPrice = selectedVariant?.variant?.priceData?.formatted?.price
-    || selectedVariant?.variant?.priceData?.price
-    || product.priceData?.formatted?.price;
+  const displayPrice =
+    selectedVariant?.variant?.priceData?.formatted?.price ||
+    selectedVariant?.variant?.priceData?.price ||
+    product.priceData?.formatted?.price;
 
   const handleOptionChange = (optionName: string, value: string) => {
-    setSelections(prev => ({ ...prev, [optionName]: value }));
+    setSelections((prev) => ({ ...prev, [optionName]: value }));
     setMessage(null);
     setBisSubmitted(false);
   };
@@ -71,14 +74,9 @@ export default function ProductActions({ product }: Props) {
       catalogItemId: product._id,
       appId: STORES_APP_ID,
     };
-    if (variantId && variantId !== "00000000-0000-0000-0000-000000000000") {
-      // Managed variant with a real variant ID
+    if (hasOptions && variantId) {
       ref.options = { variantId };
-    } else if (hasOptions && Object.keys(selections).length > 0) {
-      // Fallback: pass option choices directly (for non-managed or when variant ID unavailable)
-      ref.options = { options: selections };
     }
-    // Products with no options: no options field needed
     return ref;
   };
 
@@ -92,7 +90,10 @@ export default function ProductActions({ product }: Props) {
       setMessage({ type: "success", text: "Added to cart!" });
       window.dispatchEvent(new CustomEvent("cart-updated"));
     } catch (e: any) {
-      setMessage({ type: "error", text: e?.message || "Failed to add to cart" });
+      setMessage({
+        type: "error",
+        text: e?.message || "Failed to add to cart",
+      });
     } finally {
       setLoading(null);
     }
@@ -118,7 +119,10 @@ export default function ProductActions({ product }: Props) {
         window.location.href = redirectSession.fullUrl;
       }
     } catch (e: any) {
-      setMessage({ type: "error", text: e?.message || "Failed to start checkout" });
+      setMessage({
+        type: "error",
+        text: e?.message || "Failed to start checkout",
+      });
       setLoading(null);
     }
   };
@@ -127,27 +131,29 @@ export default function ProductActions({ product }: Props) {
     if (!bisEmail) return;
     setLoading("bis");
     try {
-      const catalogRef: any = {
-        catalogItemId: product._id,
-        appId: STORES_APP_ID,
-      };
-      if (variantId) {
-        catalogRef.options = { variantId };
-      }
-      await backInStockNotifications.createBackInStockNotificationRequest({
-        request: {
-          catalogReference: catalogRef,
+      const res = await fetch("/api/back-in-stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           email: bisEmail,
-        },
-        itemDetails: {
-          name: product.name || "Product",
-          price: String(product.priceData?.price || "0"),
-        },
-      } as any);
+          catalogItemId: product._id,
+          variantId: hasOptions ? variantId : undefined,
+          productName: product.name,
+          productPrice: product.priceData?.price,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
       setBisSubmitted(true);
-      setMessage({ type: "success", text: "You'll be notified when this item is back in stock!" });
+      setMessage({
+        type: "success",
+        text: "You'll be notified when this item is back in stock!",
+      });
     } catch (e: any) {
-      setMessage({ type: "error", text: e?.message || "Failed to register notification" });
+      setMessage({
+        type: "error",
+        text: e?.message || "Failed to register notification",
+      });
     } finally {
       setLoading(null);
     }
@@ -176,9 +182,7 @@ export default function ProductActions({ product }: Props) {
         </div>
       )}
 
-      {displayPrice && (
-        <div className="pa-selected-price">{displayPrice}</div>
-      )}
+      {displayPrice && <div className="pa-selected-price">{displayPrice}</div>}
 
       <div className="pa-stock-status">
         {isInStock ? (
@@ -231,7 +235,9 @@ export default function ProductActions({ product }: Props) {
         <div className="pa-bis">
           {!bisSubmitted ? (
             <>
-              <p className="pa-bis-text">Want to know when this is back? Enter your email:</p>
+              <p className="pa-bis-text">
+                Want to know when this is back? Enter your email:
+              </p>
               <div className="pa-bis-form">
                 <input
                   type="email"
@@ -256,7 +262,9 @@ export default function ProductActions({ product }: Props) {
       )}
 
       {message && (
-        <div className={`pa-message pa-message-${message.type}`}>{message.text}</div>
+        <div className={`pa-message pa-message-${message.type}`}>
+          {message.text}
+        </div>
       )}
 
       <style>{`
