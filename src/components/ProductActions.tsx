@@ -66,19 +66,28 @@ export default function ProductActions({ product }: Props) {
     setBisSubmitted(false);
   };
 
+  const buildCatalogRef = () => {
+    const ref: any = {
+      catalogItemId: product._id,
+      appId: STORES_APP_ID,
+    };
+    if (variantId && variantId !== "00000000-0000-0000-0000-000000000000") {
+      // Managed variant with a real variant ID
+      ref.options = { variantId };
+    } else if (hasOptions && Object.keys(selections).length > 0) {
+      // Fallback: pass option choices directly (for non-managed or when variant ID unavailable)
+      ref.options = { options: selections };
+    }
+    // Products with no options: no options field needed
+    return ref;
+  };
+
   const addToCart = async () => {
     setLoading("cart");
     setMessage(null);
     try {
-      const catalogRef: any = {
-        catalogItemId: product._id,
-        appId: STORES_APP_ID,
-      };
-      if (variantId) {
-        catalogRef.options = { variantId };
-      }
       await currentCart.addToCurrentCart({
-        lineItems: [{ quantity, catalogReference: catalogRef }],
+        lineItems: [{ quantity, catalogReference: buildCatalogRef() }],
       });
       setMessage({ type: "success", text: "Added to cart!" });
       window.dispatchEvent(new CustomEvent("cart-updated"));
@@ -93,15 +102,8 @@ export default function ProductActions({ product }: Props) {
     setLoading("buy");
     setMessage(null);
     try {
-      const catalogRef: any = {
-        catalogItemId: product._id,
-        appId: STORES_APP_ID,
-      };
-      if (variantId) {
-        catalogRef.options = { variantId };
-      }
       await currentCart.addToCurrentCart({
-        lineItems: [{ quantity, catalogReference: catalogRef }],
+        lineItems: [{ quantity, catalogReference: buildCatalogRef() }],
       });
       const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
         channelType: "WEB",

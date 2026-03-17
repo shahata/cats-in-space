@@ -9,20 +9,19 @@ import { getImageUrl } from '../../utils/image';
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/store');
 
-const result = await products.queryProducts().eq('slug', slug).limit(1).find();
-const product = result.items?.[0];
-if (!product) return Astro.redirect('/store');
+// First find the product by slug to get its ID
+const queryResult = await products.queryProducts().eq('slug', slug).limit(1).find();
+const productStub = queryResult.items?.[0];
+if (!productStub) return Astro.redirect('/store');
 
-let variantData: any[] = [];
+// Then use getProduct which returns full data including variants
+let product: any = productStub;
 try {
-	const vr = await (products as any).queryStoreVariants({
-		filter: { productId: product._id },
-		paging: { limit: 100 }
-	});
-	variantData = vr.variants || [];
-} catch {
-	variantData = product.variants || [];
-}
+	const full = await products.getProduct(productStub._id!);
+	if (full.product) product = full.product;
+} catch {}
+
+const variantData: any[] = product.variants || [];
 
 const collResult = await collections.queryCollections().limit(100).find();
 const collectionMap = new Map<string, string>();
