@@ -13,14 +13,14 @@ if (!slug) return Astro.redirect('/store');
 
 const locale = await i18n.getLocale();
 
-function formatPrice(p: productsTypes.Product): string {
-	const { priceData, priceRange } = p;
+function formatPrice(p: productsTypes.Product) {
+	const { priceData } = p;
 	const currency = priceData?.currency || 'USD';
 	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
-	if (priceRange && priceRange.minValue !== priceRange.maxValue) {
-		return `${fmt(priceRange.minValue ?? 0)} – ${fmt(priceRange.maxValue ?? 0)}`;
-	}
-	return fmt(priceData?.price || 0);
+	const price = priceData?.price ?? 0;
+	const discounted = priceData?.discountedPrice ?? price;
+	const onSale = discounted < price;
+	return { formatted: fmt(discounted), original: onSale ? fmt(price) : null };
 }
 
 // First find the product by slug to get its ID
@@ -60,7 +60,11 @@ const productData: ProductActionsProps = {
 	stock: product.stock,
 	manageVariants: product.manageVariants,
 	priceData: product.priceData,
+	customTextFields: product.customTextFields || [],
 };
+
+const infoSections = product.additionalInfoSections || [];
+const ribbon = product.ribbon;
 
 type ProductActionsProps = import('../../components/ProductActions').ProductData;
 ---
@@ -96,23 +100,41 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 				</div>
 
 				<div class="product-details">
-					{productCollections.length > 0 && (
-						<div class="product-collections">
-							{productCollections.map((name: string) => (
-								<span class="collection-tag">{name}</span>
-							))}
-						</div>
-					)}
+					<div class="product-top-badges">
+						{productCollections.map((name: string) => (
+							<span class="collection-tag">{name}</span>
+						))}
+						{ribbon && <span class="ribbon-tag">{ribbon}</span>}
+					</div>
 
 					<h1 class="product-title">{product.name}</h1>
 
-					<div class="product-price-display">{formatPrice(product)}</div>
+					{(() => {
+						const { formatted, original } = formatPrice(product);
+						return (
+							<div class="product-price-display">
+								{original && <span class="price-original">{original}</span>}
+								<span class={original ? 'price-sale' : ''}>{formatted}</span>
+							</div>
+						);
+					})()}
 
 					{product.description && (
 						<div class="product-description" set:html={product.description} />
 					)}
 
 					<ProductActions product={productData} client:load />
+
+					{infoSections.length > 0 && (
+						<div class="info-sections">
+							{infoSections.map((section) => (
+								<details class="info-section">
+									<summary class="info-section-title">{section.title}</summary>
+									<div class="info-section-content" set:html={section.description} />
+								</details>
+							))}
+						</div>
+					)}
 				</div>
 			</div>
 		</div>
@@ -208,10 +230,11 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 		object-fit: cover;
 	}
 
-	.product-collections {
+	.product-top-badges {
 		display: flex;
 		gap: 6px;
 		margin-bottom: 12px;
+		flex-wrap: wrap;
 	}
 
 	.collection-tag {
@@ -222,6 +245,28 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 		font-family: var(--font-heading);
 		font-size: 0.7rem;
 		letter-spacing: 1px;
+	}
+
+	.ribbon-tag {
+		background: #cc0000;
+		color: #fff;
+		padding: 4px 10px;
+		border-radius: 6px;
+		font-family: var(--font-heading);
+		font-size: 0.7rem;
+		letter-spacing: 1px;
+	}
+
+	.price-original {
+		text-decoration: line-through;
+		color: var(--text-muted);
+		font-size: 1rem;
+		font-weight: 400;
+		margin-right: 8px;
+	}
+
+	.price-sale {
+		color: #f44336;
 	}
 
 	.product-title {
@@ -246,6 +291,47 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 		margin-bottom: 24px;
 		padding-bottom: 24px;
 		border-bottom: 1px solid #222;
+	}
+
+	.info-sections {
+		margin-top: 24px;
+		border-top: 1px solid #222;
+		padding-top: 16px;
+	}
+
+	.info-section {
+		border-bottom: 1px solid #222;
+	}
+
+	.info-section-title {
+		padding: 14px 0;
+		font-family: var(--font-heading);
+		font-size: 0.9rem;
+		letter-spacing: 1px;
+		color: var(--text-secondary);
+		cursor: pointer;
+		list-style: none;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.info-section-title::after {
+		content: '+';
+		font-size: 1.2rem;
+		color: var(--text-muted);
+		transition: transform 0.2s;
+	}
+
+	.info-section[open] .info-section-title::after {
+		content: '-';
+	}
+
+	.info-section-content {
+		padding: 0 0 14px;
+		color: var(--text-muted);
+		font-size: 0.85rem;
+		line-height: 1.6;
 	}
 
 	@media (max-width: 768px) {
@@ -290,4 +376,9 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 	:global(.pa-message) { margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; }
 	:global(.pa-message-success) { background: rgba(76, 175, 80, 0.15); border: 1px solid #4caf50; color: #4caf50; }
 	:global(.pa-message-error) { background: rgba(244, 67, 54, 0.15); border: 1px solid #f44336; color: #f44336; }
+	:global(.pa-original-price) { text-decoration: line-through; color: var(--text-muted); font-size: 0.95rem; font-weight: 400; margin-right: 8px; }
+	:global(.pa-sale-price) { color: #f44336; }
+	:global(.pa-text-input) { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #333; background: #1a1a1a; color: var(--text-primary); font-size: 0.9rem; outline: none; font-family: var(--font-body); }
+	:global(.pa-text-input:focus) { border-color: var(--accent); }
+	:global(.pa-required) { color: #f44336; margin-left: 2px; }
 </style>

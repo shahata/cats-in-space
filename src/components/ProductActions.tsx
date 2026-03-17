@@ -13,6 +13,7 @@ export interface ProductData {
   stock: products.Stock | undefined;
   manageVariants: boolean | null | undefined;
   priceData: products.PriceData | undefined;
+  customTextFields: products.CustomTextField[];
 }
 
 interface Props {
@@ -22,6 +23,7 @@ interface Props {
 export default function ProductActions({ product }: Props) {
   const options = product.productOptions || [];
   const variants = product.variants || [];
+  const customTextFields = product.customTextFields || [];
   const hasOptions = options.length > 0;
 
   const [selections, setSelections] = useState<Record<string, string>>(() => {
@@ -33,6 +35,7 @@ export default function ProductActions({ product }: Props) {
     }
     return init;
   });
+  const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{
@@ -59,10 +62,11 @@ export default function ProductActions({ product }: Props) {
     ? selectedVariant.stock?.inStock !== false
     : product.stock?.inStock !== false;
 
-  const displayPrice =
-    selectedVariant?.variant?.priceData?.formatted?.price ||
-    selectedVariant?.variant?.priceData?.price ||
-    product.priceData?.formatted?.price;
+  const variantPrice = selectedVariant?.variant?.priceData;
+  const activePrice = variantPrice || product.priceData;
+  const displayPrice = activePrice?.formatted?.discountedPrice || activePrice?.formatted?.price;
+  const originalPrice = activePrice?.formatted?.price;
+  const onSale = activePrice?.discountedPrice != null && activePrice.discountedPrice < (activePrice.price ?? 0);
 
   const handleOptionChange = (optionName: string, value: string) => {
     setSelections((prev) => ({ ...prev, [optionName]: value }));
@@ -75,13 +79,31 @@ export default function ProductActions({ product }: Props) {
       catalogItemId: product._id,
       appId: STORES_APP_ID,
     };
+    const opts: Record<string, unknown> = {};
     if (hasOptions && variantId) {
-      ref.options = { variantId };
+      opts.variantId = variantId;
+    }
+    const filledTexts = Object.fromEntries(
+      Object.entries(customTexts).filter(([, v]) => v.trim())
+    );
+    if (Object.keys(filledTexts).length > 0) {
+      opts.customTextFields = filledTexts;
+    }
+    if (Object.keys(opts).length > 0) {
+      ref.options = opts;
     }
     return ref;
   };
 
+  const missingRequired = customTextFields
+    .filter((f) => f.mandatory)
+    .some((f) => !customTexts[f.title!]?.trim());
+
   const addToCart = async () => {
+    if (missingRequired) {
+      setMessage({ type: "error", text: "Please fill in all required fields" });
+      return;
+    }
     setLoading("cart");
     setMessage(null);
     try {
@@ -185,7 +207,32 @@ export default function ProductActions({ product }: Props) {
         </div>
       )}
 
-      {displayPrice && <div className="pa-selected-price">{displayPrice}</div>}
+      {customTextFields.length > 0 && (
+        <div className="pa-options">
+          {customTextFields.map((field) => (
+            <div key={field.title} className="pa-option">
+              <label className="pa-option-label">
+                {field.title}{field.mandatory && <span className="pa-required">*</span>}
+              </label>
+              <input
+                type="text"
+                className="pa-text-input"
+                maxLength={field.maxLength ?? undefined}
+                value={customTexts[field.title!] || ""}
+                onChange={(e) => setCustomTexts((prev) => ({ ...prev, [field.title!]: e.target.value }))}
+                placeholder={field.title ?? ""}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {displayPrice && (
+        <div className="pa-selected-price">
+          {onSale && originalPrice && <span className="pa-original-price">{originalPrice}</span>}
+          <span className={onSale ? "pa-sale-price" : ""}>{displayPrice}</span>
+        </div>
+      )}
 
       <div className="pa-stock-status">
         {isInStock ? (

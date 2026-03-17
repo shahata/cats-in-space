@@ -11,14 +11,14 @@ const locale = await i18n.getLocale();
 const productResult = await products.queryProducts().limit(100).find();
 const allProducts = productResult.items || [];
 
-function formatPrice(product: productsTypes.Product): string {
-	const { priceData, priceRange } = product;
+function formatPrice(product: productsTypes.Product) {
+	const { priceData } = product;
 	const currency = priceData?.currency || 'USD';
 	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
-	if (priceRange && priceRange.minValue !== priceRange.maxValue) {
-		return `${fmt(priceRange.minValue ?? 0)} – ${fmt(priceRange.maxValue ?? 0)}`;
-	}
-	return fmt(priceData?.price || 0);
+	const price = priceData?.price ?? 0;
+	const discounted = priceData?.discountedPrice ?? price;
+	const onSale = discounted < price;
+	return { formatted: fmt(discounted), original: onSale ? fmt(price) : null };
 }
 
 const collResult = await collections.queryCollections().limit(100).find();
@@ -69,7 +69,8 @@ const success = Astro.url.searchParams.get('success') === 'true';
 					const imgUrl = getImageUrl(product.media?.items?.[0]?.image?.url, 400, 400);
 					const collection = getCollectionName(product);
 					const collIds = (product.collectionIds || []).join(',');
-					const priceDisplay = formatPrice(product);
+					const { formatted, original } = formatPrice(product);
+					const ribbon = product.ribbon;
 
 					return (
 						<a href={`/store/${product.slug}`} class="product-card" data-collections={collIds}>
@@ -81,11 +82,15 @@ const success = Astro.url.searchParams.get('success') === 'true';
 										<span>&#128049;</span>
 									</div>
 								)}
+								{ribbon && <span class="product-ribbon">{ribbon}</span>}
 								{collection && <span class="product-badge">{collection}</span>}
 							</div>
 							<div class="product-info">
 								<h3 class="product-name">{product.name}</h3>
-								<div class="product-price">{priceDisplay}</div>
+								<div class="product-price">
+									{original && <span class="price-original">{original}</span>}
+									<span class={original ? 'price-sale' : ''}>{formatted}</span>
+								</div>
 								{product.stock?.inventoryStatus === 'OUT_OF_STOCK' && (
 									<span class="oos-badge">Out of Stock</span>
 								)}
@@ -230,6 +235,20 @@ const success = Astro.url.searchParams.get('success') === 'true';
 		opacity: 0.7;
 	}
 
+	.product-ribbon {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		background: #cc0000;
+		color: #fff;
+		padding: 4px 10px;
+		border-radius: 6px;
+		font-family: var(--font-heading);
+		font-size: 0.7rem;
+		letter-spacing: 1px;
+		z-index: 1;
+	}
+
 	.product-badge {
 		position: absolute;
 		top: 10px;
@@ -253,6 +272,18 @@ const success = Astro.url.searchParams.get('success') === 'true';
 		color: var(--text-primary);
 		letter-spacing: 0.5px;
 		margin-bottom: 6px;
+	}
+
+	.price-original {
+		text-decoration: line-through;
+		color: var(--text-muted);
+		font-size: 0.85rem;
+		font-weight: 400;
+		margin-right: 6px;
+	}
+
+	.price-sale {
+		color: #f44336;
 	}
 
 	.product-price {
