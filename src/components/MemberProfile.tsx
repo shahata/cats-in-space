@@ -273,7 +273,7 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
   }
 
   return (
-    <div style={{ maxWidth: "600px" }}>
+    <div>
       {tab === "profile" && (
         <>
           {/* Cover photo */}

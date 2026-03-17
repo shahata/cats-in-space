@@ -27,6 +27,11 @@ const links = [
 <nav class="nav">
 	<div class="nav-inner container">
 		<a href="/" class="nav-logo">CATS IN SPACE</a>
+		<button class="nav-toggle" aria-label="Toggle menu">
+			<span class="nav-toggle-bar"></span>
+			<span class="nav-toggle-bar"></span>
+			<span class="nav-toggle-bar"></span>
+		</button>
 		<div class="nav-links">
 			{links.map(link => (
 				<a
@@ -55,6 +60,15 @@ const links = [
 	</div>
 </nav>
 
+<script>
+	const toggle = document.querySelector('.nav-toggle');
+	const links = document.querySelector('.nav-links');
+	toggle?.addEventListener('click', () => {
+		links?.classList.toggle('nav-links-open');
+		toggle.classList.toggle('nav-toggle-active');
+	});
+</script>
+
 <style>
 	.nav {
 		position: sticky;
@@ -78,14 +92,45 @@ const links = [
 		color: var(--accent);
 		letter-spacing: 2px;
 		text-shadow: 0 0 15px var(--accent-glow);
+		flex-shrink: 0;
 	}
 
 	.nav-logo:hover {
 		color: var(--accent-yellow);
 	}
 
+	.nav-toggle {
+		display: none;
+		flex-direction: column;
+		gap: 5px;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 4px;
+	}
+
+	.nav-toggle-bar {
+		display: block;
+		width: 24px;
+		height: 2px;
+		background: var(--text-secondary);
+		border-radius: 2px;
+		transition: all 0.3s;
+	}
+
+	.nav-toggle-active .nav-toggle-bar:nth-child(1) {
+		transform: rotate(45deg) translate(5px, 5px);
+	}
+	.nav-toggle-active .nav-toggle-bar:nth-child(2) {
+		opacity: 0;
+	}
+	.nav-toggle-active .nav-toggle-bar:nth-child(3) {
+		transform: rotate(-45deg) translate(5px, -5px);
+	}
+
 	.nav-links {
 		display: flex;
+		align-items: center;
 		gap: 4px;
 	}
 
@@ -166,13 +211,42 @@ const links = [
 		background: rgba(255, 102, 0, 0.1);
 	}
 
-	@media (max-width: 640px) {
-		.nav-link {
-			padding: 8px 10px;
-			font-size: 0.8rem;
+	@media (max-width: 768px) {
+		.nav-toggle {
+			display: flex;
 		}
-		.nav-logo {
-			font-size: 0.9rem;
+
+		.nav-links {
+			display: none;
+			position: absolute;
+			top: 60px;
+			left: 0;
+			right: 0;
+			background: rgba(10, 10, 10, 0.98);
+			flex-direction: column;
+			padding: 12px 20px 20px;
+			gap: 2px;
+			border-bottom: 1px solid #222;
+		}
+
+		.nav-links-open {
+			display: flex;
+		}
+
+		.nav-link {
+			width: 100%;
+			padding: 12px 16px;
+		}
+
+		.auth-section {
+			margin-left: 0;
+			padding-left: 0;
+			border-left: none;
+			padding-top: 12px;
+			margin-top: 8px;
+			border-top: 1px solid #333;
+			width: 100%;
+			justify-content: center;
 		}
 	}
 </style>
