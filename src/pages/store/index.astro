@@ -3,13 +3,25 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { products, collections } from '@wix/stores';
+import { i18n } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
+const locale = await i18n.getLocale();
 const productResult = await products.queryProducts().limit(100).find();
-const allProducts = (productResult.items || []).filter((p: any) => p.visible);
+const allProducts = productResult.items || [];
+
+function formatPrice(product: any): string {
+	const { priceData, priceRange } = product;
+	const currency = priceData?.currency || 'USD';
+	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
+	if (priceRange && priceRange.minValue !== priceRange.maxValue) {
+		return `${fmt(priceRange.minValue)} – ${fmt(priceRange.maxValue)}`;
+	}
+	return fmt(priceData?.price || 0);
+}
 
 const collResult = await collections.queryCollections().limit(100).find();
-const allCollections = (collResult.items || []).filter((c: any) => c.id !== '00000000-000000-000000-000000000001');
+const allCollections = collResult.items || [];
 
 const collectionMap = new Map<string, string>();
 for (const c of allCollections) {
@@ -56,11 +68,7 @@ const success = Astro.url.searchParams.get('success') === 'true';
 					const imgUrl = getImageUrl(product.media?.items?.[0]?.image?.url, 400, 400);
 					const collection = getCollectionName(product);
 					const collIds = (product.collectionIds || []).join(',');
-					const price = product.priceData?.formatted?.price || `${product.priceData?.currency || ''}${product.priceData?.price || ''}`;
-					const hasRange = product.priceRange && product.priceRange.minValue !== product.priceRange.maxValue;
-					const priceDisplay = hasRange
-						? `${product.priceData?.currency === 'ILS' ? '₪' : '$'}${product.priceRange.minValue} – ${product.priceData?.currency === 'ILS' ? '₪' : '$'}${product.priceRange.maxValue}`
-						: price;
+					const priceDisplay = formatPrice(product);
 
 					return (
 						<a href={`/store/${product.slug}`} class="product-card" data-collections={collIds}>

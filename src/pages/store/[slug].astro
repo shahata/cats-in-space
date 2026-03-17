@@ -4,10 +4,23 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import ProductActions from '../../components/ProductActions';
 import { products, collections } from '@wix/stores';
+import { i18n } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/store');
+
+const locale = await i18n.getLocale();
+
+function formatPrice(p: any): string {
+	const { priceData, priceRange } = p;
+	const currency = priceData?.currency || 'USD';
+	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
+	if (priceRange && priceRange.minValue !== priceRange.maxValue) {
+		return `${fmt(priceRange.minValue)} – ${fmt(priceRange.maxValue)}`;
+	}
+	return fmt(priceData?.price || 0);
+}
 
 // First find the product by slug to get its ID
 const queryResult = await products.queryProducts().eq('slug', slug).limit(1).find();
@@ -95,13 +108,7 @@ const productData: any = {
 
 					<h1 class="product-title">{product.name}</h1>
 
-					<div class="product-price-display">
-						{product.priceRange && product.priceRange.minValue !== product.priceRange.maxValue ? (
-							<span>{product.priceData?.formatted?.price?.charAt(0)}{product.priceRange.minValue} – {product.priceData?.formatted?.price?.charAt(0)}{product.priceRange.maxValue}</span>
-						) : (
-							<span>{product.priceData?.formatted?.price}</span>
-						)}
-					</div>
+					<div class="product-price-display">{formatPrice(product)}</div>
 
 					{product.description && (
 						<div class="product-description" set:html={product.description} />

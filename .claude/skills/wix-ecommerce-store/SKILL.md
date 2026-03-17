@@ -84,6 +84,25 @@ const result = await collections.queryCollections().limit(100).find();
 const userCollections = (result.items || []).filter(c => c.id !== '00000000-000000-000000-000000000001');
 ```
 
+## Price Formatting
+
+Use `i18n.getLocale()` from `@wix/essentials` with `Intl.NumberFormat` for locale-aware currency formatting:
+```typescript
+import { i18n } from '@wix/essentials';
+const locale = await i18n.getLocale();
+
+function formatPrice(product: any): string {
+  const { priceData, priceRange } = product;
+  const currency = priceData?.currency || 'USD';
+  const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
+  if (priceRange && priceRange.minValue !== priceRange.maxValue) {
+    return `${fmt(priceRange.minValue)} – ${fmt(priceRange.maxValue)}`;
+  }
+  return fmt(priceData?.price || 0);
+}
+```
+Don't use `priceData.formatted.price` or manual currency symbol logic — `Intl.NumberFormat` handles symbols, decimal separators, and grouping correctly for any locale/currency.
+
 ## V1 Product Data Shape
 
 Key fields from `queryProducts().find().items`:
