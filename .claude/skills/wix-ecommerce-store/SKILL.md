@@ -214,26 +214,15 @@ const storeOrders = (result.orders || []).filter(o => o.status !== 'INITIALIZED'
 
 ## Back-in-Stock Notifications
 
-The SDK's `createBackInStockNotificationRequest` has type/serialization issues when called client-side. Use a server-side API endpoint instead:
-
-**Server endpoint** (`src/pages/api/back-in-stock.ts`):
+The SDK method takes **two separate arguments** (request, itemDetails) — not a single options object:
 ```typescript
 import { backInStockNotifications } from '@wix/ecom';
-await backInStockNotifications.createBackInStockNotificationRequest({
-  catalogReference: { catalogItemId, appId: '215238eb-22a5-4c36-9e7b-e7c08025e04e', options: { variantId } },
-  email: 'customer@email.com',
-  itemDetails: { name: 'Product Name', price: '49.99' },  // both required
-} as any);
+await (backInStockNotifications as any).createBackInStockNotificationRequest(
+  { catalogReference: { catalogItemId, appId: '215238eb-22a5-4c36-9e7b-e7c08025e04e' }, email: 'customer@email.com' },
+  { name: 'Product Name', price: '49.99' },  // itemDetails — both fields required
+);
 ```
-
-**Client-side** — call the endpoint via fetch:
-```typescript
-await fetch('/api/back-in-stock', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email, catalogItemId, variantId, productName, productPrice }),
-});
-```
+Works client-side, no server API endpoint needed.
 
 ## Working with Product Media
 
@@ -374,7 +363,7 @@ This triggers CartSidebar to re-fetch the cart and update the badge count.
 
 4. **searchOrders takes OrderSearch directly**: Not `{ search: OrderSearch }` — pass `{ cursorPaging: { limit: 50 } }` at top level.
 
-5. **backInStockNotifications SDK broken client-side**: The SDK's `createBackInStockNotificationRequest` doesn't serialize fields correctly when called from client-side React. All fields arrive empty at the server. Fix: call it server-side from an API endpoint (`/api/back-in-stock`), and have the client `fetch()` that endpoint. The SDK call needs `catalogReference`, `email`, and `itemDetails` (with `name` and `price`) at the top level (not nested under `request`).
+5. **backInStockNotifications takes two arguments**: `createBackInStockNotificationRequest(request, itemDetails)` — NOT a single options object. First arg: `{ catalogReference, email }`. Second arg: `{ name, price }`. Passing them as one object causes empty field errors.
 
 6. **queryProducts doesn't include variants**: The V1 `queryProducts()` builder does NOT return variant data. You MUST use `products.getProduct(id)` to get variants with their IDs. Without variant IDs, `addToCurrentCart` fails with `CATALOG_ITEMS_RETRIEVAL_FAILURE` for managed-variant products. Pattern: `queryProducts().eq('slug', slug)` to find the product, then `getProduct(id)` for full data.
 

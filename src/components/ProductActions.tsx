@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { currentCart } from "@wix/ecom";
+import { currentCart, backInStockNotifications } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
@@ -131,19 +131,17 @@ export default function ProductActions({ product }: Props) {
     if (!bisEmail) return;
     setLoading("bis");
     try {
-      const res = await fetch("/api/back-in-stock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: bisEmail,
-          catalogItemId: product._id,
-          variantId: hasOptions ? variantId : undefined,
-          productName: product.name,
-          productPrice: product.priceData?.price,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
+      const catalogRef: any = {
+        catalogItemId: product._id,
+        appId: STORES_APP_ID,
+      };
+      if (hasOptions && variantId) {
+        catalogRef.options = { variantId };
+      }
+      await (backInStockNotifications as any).createBackInStockNotificationRequest(
+        { catalogReference: catalogRef, email: bisEmail },
+        { name: product.name || "Product", price: String(product.priceData?.price || "0") },
+      );
       setBisSubmitted(true);
       setMessage({
         type: "success",
