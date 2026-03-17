@@ -42,13 +42,15 @@ This is the same for both V1 and V3. Do NOT use `1380b703-ce81-ff05-f115-39571d9
 ## SDK Packages
 
 - `@wix/stores` — Product and collection queries
-  - `products` namespace (V1): `queryProducts`, `queryStoreVariants`
-  - `collections` namespace (V1): `queryCollections`
+  - `products` namespace (V1): `getProduct`, `queryProducts`, `queryStoreVariants`, `createProduct`, `updateProduct`, `deleteProduct`, `addProductMedia`, `removeProductMedia`
+  - `collections` namespace (V1): `queryCollections`, `getCollectionBySlug`, `createCollection`, `deleteCollection`
   - `catalogVersioning` namespace: `getCatalogVersion`
 - `@wix/ecom` — Cart, checkout, orders, back-in-stock
   - `currentCart`: `getCurrentCart`, `addToCurrentCart`, `removeLineItemsFromCurrentCart`, `updateCurrentCartLineItemQuantity`, `estimateCurrentCartTotals`, `createCheckoutFromCurrentCart`
   - `orders`: `searchOrders`
   - `backInStockNotifications`: `createBackInStockNotificationRequest`
+- `@wix/essentials` — Site context
+  - `i18n`: `getLocale`, `getLanguage` (use for locale-aware formatting)
 - `@wix/redirects` — Checkout redirect sessions
 
 ## V1 Product Query Patterns
@@ -80,9 +82,12 @@ This is critical because `addToCurrentCart` requires `variantId` for managed-var
 ```typescript
 import { collections } from '@wix/stores';
 const result = await collections.queryCollections().limit(100).find();
-// Filter out the system "All Products" collection:
-const userCollections = (result.items || []).filter(c => c.id !== '00000000-000000-000000-000000000001');
+const allCollections = result.items || [];
 ```
+Note: The system "All Products" collection (ID `00000000-000000-000000-000000000001`) is always present. All products belong to it. It can be useful as an "All" tab in collection filters — no need to filter it out.
+
+### queryProducts does NOT return non-visible products
+The API automatically excludes non-visible products — no need to filter by `visible` client-side.
 
 ## Price Formatting
 
@@ -125,21 +130,24 @@ Key fields from `queryProducts().find().items`:
 
 ## Cart Operations (client-side React)
 
-### catalogReference structure
+### catalogReference — buildCatalogRef pattern
+Handle all 3 product types in one function:
 ```typescript
-// For products WITH managed variants:
-const catalogRef = {
-  catalogItemId: product._id,
-  appId: '215238eb-22a5-4c36-9e7b-e7c08025e04e',
-  options: { variantId }
-};
+const STORES_APP_ID = '215238eb-22a5-4c36-9e7b-e7c08025e04e';
 
-// For products WITHOUT managed variants (manageVariants: false):
-const catalogRef = {
-  catalogItemId: product._id,
-  appId: '215238eb-22a5-4c36-9e7b-e7c08025e04e',
-  options: { options: { Size: 'M', Color: 'Red' } }  // choice names and values
-};
+function buildCatalogRef(product, variantId, hasOptions, selections) {
+  const ref = { catalogItemId: product._id, appId: STORES_APP_ID };
+  if (variantId && variantId !== '00000000-0000-0000-0000-000000000000') {
+    // Managed variant with real ID (from getProduct().variants[].id)
+    ref.options = { variantId };
+  } else if (hasOptions && Object.keys(selections).length > 0) {
+    // Non-managed variant — pass option choices directly
+    ref.options = { options: selections };  // e.g. { Size: 'M', Color: 'Red' }
+  }
+  // No-option products: omit options entirely. The null UUID
+  // (00000000-0000-0000-0000-000000000000) must NOT be sent as variantId.
+  return ref;
+}
 ```
 
 ### Add to cart
@@ -373,7 +381,7 @@ This triggers CartSidebar to re-fetch the cart and update the badge count.
 
 6. **queryProducts doesn't include variants**: The V1 `queryProducts()` builder does NOT return variant data. You MUST use `products.getProduct(id)` to get variants with their IDs. Without variant IDs, `addToCurrentCart` fails with `CATALOG_ITEMS_RETRIEVAL_FAILURE` for managed-variant products. Pattern: `queryProducts().eq('slug', slug)` to find the product, then `getProduct(id)` for full data.
 
-7. **System "All Products" collection**: ID `00000000-000000-000000-000000000001` always exists and all products belong to it. Filter it out when displaying user-facing collection lists.
+7. **System "All Products" collection**: ID `00000000-000000-000000-000000000001` always exists and all products belong to it. Useful as a default "All" tab in collection filters — no need to filter it out.
 
 8. **Product images via URL only**: The Add Product Media API accepts external URLs or existing Wix media IDs — NOT base64/data URIs. When generating images with AI, use `dall-e-3` (returns URLs) not `gpt-image-1` (returns base64 only). The MCP tool can only send JSON, so you can't do binary uploads to Wix Media through it.
 
