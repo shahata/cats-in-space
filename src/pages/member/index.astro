@@ -8,6 +8,7 @@ import { members, membersAbout } from '@wix/members';
 import type { members as membersTypes } from '@wix/members';
 import { orders } from '@wix/pricing-plans';
 import { orders as ecomOrders } from '@wix/ecom';
+import { getImageUrl } from '../../utils/image';
 
 let member: membersTypes.Member | null = null;
 try {
@@ -127,8 +128,8 @@ const tabs = [
 										{(sOrder.lineItems || []).map((li: any) => (
 											<div class="order-item">
 												<div class="order-item-img">
-													{li.image?.url ? (
-														<img src={li.image.url} alt={li.productName?.translated || li.productName?.original} />
+													{getImageUrl(li.image?.url, 80, 80) ? (
+														<img src={getImageUrl(li.image?.url, 80, 80)!} alt={li.productName?.translated || li.productName?.original} />
 													) : (
 														<span class="order-item-emoji">&#128049;</span>
 													)}

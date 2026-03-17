@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { currentCart } from "@wix/ecom";
 import type { cart as cartTypes } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
+import { getImageUrl } from "../utils/image";
 
 export default function CartSidebar() {
   const [open, setOpen] = useState(false);
@@ -126,7 +127,8 @@ export default function CartSidebar() {
           <>
             <div className="cs-items">
               {lineItems.map((li) => {
-                const img = typeof li.image === 'string' ? li.image : (li.image as { url?: string } | undefined)?.url;
+                const rawImg = typeof li.image === 'string' ? li.image : (li.image as { url?: string } | undefined)?.url;
+                const img = getImageUrl(rawImg, 128, 128);
                 const optionText = li.descriptionLines
                   ?.map((dl) => {
                     const name = dl.name?.translated || dl.name?.original || '';
