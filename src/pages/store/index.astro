@@ -78,7 +78,7 @@ function getCollectionName(product: productsV3Types.V3Product): string {
 						<a href={`/store/${product.slug}`} class="product-card" data-collections={collIds}>
 							<div class="product-image">
 								{videoUrl ? (
-									<video src={videoUrl} autoplay muted loop playsinline />
+									<video src={videoUrl} poster={coverUrl || ''} autoplay muted loop playsinline />
 								) : coverUrl ? (
 									<img src={coverUrl} alt={product.name} loading="lazy" />
 								) : (
