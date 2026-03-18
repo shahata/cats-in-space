@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { currentCart, backInStockNotifications } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 import type { productsV3 } from "@wix/stores";
@@ -238,16 +238,26 @@ export default function ProductActions({ product }: Props) {
     }
   };
 
+  const priceRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const slot = document.getElementById("product-price-slot");
+    if (slot && priceRef.current) {
+      slot.innerHTML = priceRef.current.innerHTML;
+    }
+  }, [displayPrice, comparePrice, onSale]);
+
   return (
     <div className="pa-root">
-      {displayPrice && (
-        <div className="pa-selected-price">
-          {onSale && comparePrice && (
-            <span className="pa-original-price">{comparePrice}</span>
-          )}
-          <span className={onSale ? "pa-sale-price" : ""}>{displayPrice}</span>
-        </div>
-      )}
+      <div ref={priceRef} style={{ display: "none" }}>
+        {displayPrice && (
+          <div className="pa-selected-price">
+            {onSale && comparePrice && (
+              <span className="pa-original-price">{comparePrice}</span>
+            )}
+            <span className={onSale ? "pa-sale-price" : ""}>{displayPrice}</span>
+          </div>
+        )}
+      </div>
 
       {hasOptions && (
         <div className="pa-options">

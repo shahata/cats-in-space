@@ -138,13 +138,15 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 
 					<h1 class="product-title">{product.name}</h1>
 
-					<ProductActions product={productData} client:load />
+					<div class="product-price-display" id="product-price-slot"></div>
 
 					{product.description && (
 						<div class="product-description">
 							<RichContentViewer content={product.description} client:load />
 						</div>
 					)}
+
+					<ProductActions product={productData} client:load />
 
 					{infoSections.length > 0 && (
 						<div class="info-sections">
