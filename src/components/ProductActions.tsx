@@ -37,7 +37,7 @@ export default function ProductActions({ product }: Props) {
     (m) => m.modifierRenderType === "FREE_TEXT",
   );
   const choiceModifiers = modifiers.filter(
-    (m) => m.modifierRenderType === "TEXT_CHOICES",
+    (m) => m.modifierRenderType === "TEXT_CHOICES" || m.modifierRenderType === "SWATCH_CHOICES",
   );
   const hasOptions = options.length > 0;
   const isPreOrder = product.inventory?.preorderStatus === "ENABLED";
@@ -239,45 +239,75 @@ export default function ProductActions({ product }: Props) {
     <div className="pa-root">
       {hasOptions && (
         <div className="pa-options">
-          {options.map((opt) => (
-            <div key={opt.name} className="pa-option">
-              <label className="pa-option-label">{opt.name}</label>
-              <div className="pa-choices">
-                {opt.choicesSettings?.choices?.map((choice) => (
-                  <button
-                    key={choice.name}
-                    className={`pa-choice ${selections[opt.name!] === choice.name ? "pa-choice-active" : ""}`}
-                    onClick={() => handleOptionChange(opt.name!, choice.name!)}
-                  >
-                    {choice.name}
-                  </button>
-                ))}
+          {options.map((opt) => {
+            const isSwatch = opt.optionRenderType === "SWATCH_CHOICES";
+            return (
+              <div key={opt.name} className="pa-option">
+                <label className="pa-option-label">{opt.name}</label>
+                <div className="pa-choices">
+                  {opt.choicesSettings?.choices?.map((choice) => {
+                    const isActive = selections[opt.name!] === choice.name;
+                    const colorCode = choice.colorCode;
+                    return isSwatch && colorCode ? (
+                      <button
+                        key={choice.name}
+                        className={`pa-swatch ${isActive ? "pa-swatch-active" : ""}`}
+                        style={{ backgroundColor: colorCode }}
+                        onClick={() => handleOptionChange(opt.name!, choice.name!)}
+                        title={choice.name ?? ""}
+                      />
+                    ) : (
+                      <button
+                        key={choice.name}
+                        className={`pa-choice ${isActive ? "pa-choice-active" : ""}`}
+                        onClick={() => handleOptionChange(opt.name!, choice.name!)}
+                      >
+                        {choice.name}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {choiceModifiers.length > 0 && (
         <div className="pa-options">
-          {choiceModifiers.map((mod) => (
-            <div key={mod.key} className="pa-option">
-              <label className="pa-option-label">
-                {mod.name}{mod.mandatory && <span className="pa-required">*</span>}
-              </label>
-              <div className="pa-choices">
-                {mod.choicesSettings?.choices?.map((choice) => (
-                  <button
-                    key={choice.key}
-                    className={`pa-choice ${modifierSelections[mod.key!] === (choice.key ?? choice.name) ? "pa-choice-active" : ""}`}
-                    onClick={() => setModifierSelections((prev) => ({ ...prev, [mod.key!]: choice.key ?? choice.name ?? "" }))}
-                  >
-                    {choice.name}
-                  </button>
-                ))}
+          {choiceModifiers.map((mod) => {
+            const isSwatch = mod.modifierRenderType === "SWATCH_CHOICES";
+            return (
+              <div key={mod.key} className="pa-option">
+                <label className="pa-option-label">
+                  {mod.name}{mod.mandatory && <span className="pa-required">*</span>}
+                </label>
+                <div className="pa-choices">
+                  {mod.choicesSettings?.choices?.map((choice) => {
+                    const isActive = modifierSelections[mod.key!] === (choice.key ?? choice.name);
+                    const colorCode = choice.colorCode;
+                    return isSwatch && colorCode ? (
+                      <button
+                        key={choice.key}
+                        className={`pa-swatch ${isActive ? "pa-swatch-active" : ""}`}
+                        style={{ backgroundColor: colorCode }}
+                        onClick={() => setModifierSelections((prev) => ({ ...prev, [mod.key!]: choice.key ?? choice.name ?? "" }))}
+                        title={choice.name ?? ""}
+                      />
+                    ) : (
+                      <button
+                        key={choice.key}
+                        className={`pa-choice ${isActive ? "pa-choice-active" : ""}`}
+                        onClick={() => setModifierSelections((prev) => ({ ...prev, [mod.key!]: choice.key ?? choice.name ?? "" }))}
+                      >
+                        {choice.name}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

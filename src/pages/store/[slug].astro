@@ -412,6 +412,9 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 	:global(.pa-choice) { padding: 8px 16px; border-radius: 8px; border: 1px solid #333; background: #1a1a1a; color: #aaa; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 	:global(.pa-choice:hover) { border-color: #ff6600; color: #e0e0e0; }
 	:global(.pa-choice-active) { border-color: #ff6600; background: rgba(255, 102, 0, 0.15); color: #ff6600; }
+	:global(.pa-swatch) { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #333; cursor: pointer; transition: all 0.2s; padding: 0; }
+	:global(.pa-swatch:hover) { border-color: var(--text-secondary); transform: scale(1.1); }
+	:global(.pa-swatch-active) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 	:global(.pa-selected-price) { font-size: 1.3rem; font-weight: 700; color: #ffcc00; margin-bottom: 8px; }
 	:global(.pa-stock-status) { margin-bottom: 16px; }
 	:global(.pa-in-stock) { color: #4caf50; font-size: 0.85rem; font-weight: 600; }
