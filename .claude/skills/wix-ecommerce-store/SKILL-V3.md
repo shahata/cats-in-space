@@ -22,8 +22,9 @@ const allProducts = result.items || [];
 ### Get product by slug (single call — includes variants)
 ```typescript
 const result = await productsV3.getProductBySlug(slug, {
-  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'PLAIN_DESCRIPTION',
-    'INFO_SECTION', 'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES']
+  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DESCRIPTION',
+    'INFO_SECTION', 'INFO_SECTION_DESCRIPTION',
+    'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES']
 });
 const product = result.product;
 ```
@@ -43,8 +44,10 @@ Two-arg overload: first is `CategoryQuery` (paging/filter), second is `QueryCate
 ### Common fields parameter values
 - `MEDIA_ITEMS_INFO` — images/video
 - `CURRENCY` — currency code + formatted amounts
-- `PLAIN_DESCRIPTION` — HTML description
-- `INFO_SECTION` — info sections with `plainDescription`
+- `DESCRIPTION` — RichContent description (render with `RichContentViewer`)
+- `PLAIN_DESCRIPTION` — HTML description (plain text fallback)
+- `INFO_SECTION` — info section titles
+- `INFO_SECTION_DESCRIPTION` — info section RichContent body (combine with `INFO_SECTION`)
 - `DIRECT_CATEGORIES_INFO` — category IDs
 - `VARIANT_OPTION_CHOICE_NAMES` — variant choice names (needed for cart)
 
@@ -52,7 +55,8 @@ Two-arg overload: first is `CategoryQuery` (paging/filter), second is `QueryCate
 
 - `_id`, `name`, `slug`, `visible` — same as V1
 - `productType` — `"PHYSICAL"` or `"DIGITAL"` (UPPERCASE)
-- `plainDescription` — HTML string (opt-in via `PLAIN_DESCRIPTION`)
+- `description` — RichContent object (opt-in via `DESCRIPTION`). Render with `RichContentViewer` component.
+- `plainDescription` — HTML string (opt-in via `PLAIN_DESCRIPTION`, fallback)
 - `media.itemsInfo.items[]` — `{ mediaType: "IMAGE"|"VIDEO", image: string, video: string, thumbnail: { url } }`
   - **`image` and `video` are direct string URLs**, not nested objects
 - `actualPriceRange` — `{ minValue: { amount, formattedAmount }, maxValue: ... }`
@@ -63,7 +67,7 @@ Two-arg overload: first is `CategoryQuery` (paging/filter), second is `QueryCate
 - `inventory` — `{ availabilityStatus: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK" }`
 - `directCategoriesInfo.categories[]` — `{ _id }` (opt-in)
 - `ribbon` — `{ _id, name }` (object, not string)
-- `infoSections[]` — `{ _id, title, plainDescription }`
+- `infoSections[]` — `{ _id, title, description (RichContent), plainDescription }`. Use `INFO_SECTION` + `INFO_SECTION_DESCRIPTION` fields.
 - `modifiers[]` — `{ name, modifierRenderType: "FREE_TEXT"|"TEXT_CHOICES", mandatory, freeTextSettings: { key, title, maxCharCount } }`
 
 ## catalogReference (for cart/checkout)
@@ -129,3 +133,5 @@ if (Object.keys(opts).length > 0) ref.options = opts;
 5. **Categories not collections**: Use `@wix/categories` with `queryCategories(query, { treeReference })`. `collections` namespace is V1-only and fails on V3 with 428.
 6. **Inventory must be created separately**: V3 `createProduct` does NOT create inventory. Use `POST /stores/v3/bulk/inventory-items/create` with `inStock: true` for each variant.
 7. **Ribbon is an object**: `product.ribbon.name`, not `product.ribbon` (string).
+8. **Back-in-stock uses V1 appId**: The back-in-stock settings/notifications API only accepts `1380b703-...` even on V3 sites. Use `ECOM_PLATFORM_APP_ID` for back-in-stock, `STORES_APP_ID` for cart/checkout.
+9. **RichContent rendering**: Use `RichContentViewer` component (naive implementation) for `description` and `infoSections[].description`. Request `DESCRIPTION` and `INFO_SECTION_DESCRIPTION` fields.
