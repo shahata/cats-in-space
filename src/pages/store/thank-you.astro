@@ -50,7 +50,7 @@ const fmt = (amount: number, currency: string) =>
 
 					{order.lineItems?.length > 0 && (
 						<div class="ty-items">
-							{order.lineItems.map((li: Record<string, any>) => {
+							{order.lineItems.map((li: any) => {
 								const img = getImageUrl(li.image, 80, 80);
 								return (
 									<div class="ty-item">
