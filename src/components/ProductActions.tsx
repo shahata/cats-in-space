@@ -110,7 +110,7 @@ export default function ProductActions({ product }: Props) {
       appId: STORES_APP_ID,
     };
     const opts: Record<string, unknown> = {};
-    if (hasOptions && variantId) {
+    if (variantId) {
       opts.variantId = variantId;
     }
     const filledTexts: Record<string, string> = {};

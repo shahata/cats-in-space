@@ -61,12 +61,13 @@ function getCollectionName(product: productsV3Types.V3Product): string {
 
 			<div class="product-grid" id="product-grid">
 				{allProducts.map((product) => {
-					const firstMedia = product.media?.itemsInfo?.items?.[0];
+					const firstMedia = (product.media?.itemsInfo?.items?.[0]) as Record<string, any> | undefined;
 					const isVideo = firstMedia?.mediaType === 'VIDEO';
 					const coverUrl = isVideo
-						? getImageUrl(firstMedia?.video, 400, 400)
-						: getImageUrl(firstMedia?.image, 400, 400);
-					const videoUrl = isVideo && firstMedia?.video;
+						? firstMedia?.video?.posters?.[0]?.url
+						: (typeof firstMedia?.image === 'string' ? getImageUrl(firstMedia.image, 400, 400) : firstMedia?.image?.url);
+					const videoResolutions = isVideo ? (firstMedia?.video?.resolutions || []) : [];
+					const videoUrl = isVideo && (videoResolutions.find((r: Record<string, any>) => r.format === 'mp4')?.url || videoResolutions[0]?.url);
 					const collection = getCollectionName(product);
 					const collIds = product.directCategoriesInfo?.categories?.map(c => c._id).filter(Boolean).join(',') || '';
 					const { formatted, original } = formatPrice(product);

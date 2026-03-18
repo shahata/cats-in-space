@@ -46,12 +46,16 @@ const productCollections = (product.directCategoriesInfo?.categories || [])
 
 type MediaEntry = { type: 'image'; url: string } | { type: 'video'; url: string; thumbnail?: string };
 const mediaItems: MediaEntry[] = (product.media?.itemsInfo?.items || [])
-	.map(m => {
+	.map((m: Record<string, any>) => {
 		if (m.mediaType === 'VIDEO' && m.video) {
-			return { type: 'video' as const, url: m.video, thumbnail: getImageUrl(m.video, 600, 600) ?? undefined };
+			const resolutions = m.video.resolutions || [];
+			const best = resolutions.find((r: Record<string, any>) => r.format === 'mp4') || resolutions[0];
+			const videoUrl = best?.url;
+			const poster = m.video.posters?.[0]?.url;
+			return videoUrl ? { type: 'video' as const, url: videoUrl, thumbnail: poster } : null;
 		}
-		const url = getImageUrl(m.image, 600, 600);
-		return url ? { type: 'image' as const, url } : null;
+		const imageUrl = typeof m.image === 'string' ? getImageUrl(m.image, 600, 600) : m.image?.url;
+		return imageUrl ? { type: 'image' as const, url: imageUrl } : null;
 	})
 	.filter((x): x is MediaEntry => !!x);
 const images = mediaItems.filter(m => m.type === 'image').map(m => m.url);
@@ -133,16 +137,6 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 					</div>
 
 					<h1 class="product-title">{product.name}</h1>
-
-					{(() => {
-						const { formatted, original } = formatPrice(product);
-						return (
-							<div class="product-price-display">
-								{original && <span class="price-original">{original}</span>}
-								<span class={original ? 'price-sale' : ''}>{formatted}</span>
-							</div>
-						);
-					})()}
 
 					{product.description && (
 						<div class="product-description">
