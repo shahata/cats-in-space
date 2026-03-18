@@ -62,13 +62,22 @@ Two-arg overload: first is `CategoryQuery` (paging/filter), second is `QueryCate
 - `actualPriceRange` — `{ minValue: { amount, formattedAmount }, maxValue: ... }`
 - `compareAtPriceRange` — same shape (for sale pricing)
 - `currency` — string (opt-in via `CURRENCY`)
-- `options[]` — `{ _id, name, key, choicesSettings: { choices: [{ choiceId, name, inStock }] } }`
+- `options[]` — `ConnectedOption { _id, name, key, optionRenderType: "TEXT_CHOICES"|"SWATCH_CHOICES", choicesSettings: { choices: [{ choiceId, name, key, colorCode?, inStock }] } }`
+  - `SWATCH_CHOICES` options have `colorCode` on choices — render as color circles
 - `variantsInfo.variants[]` — `{ _id, choices: [{ optionChoiceNames: { optionName, choiceName } }], price: { actualPrice, compareAtPrice }, inventoryStatus: { inStock } }`
-- `inventory` — `{ availabilityStatus: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK" }`
+- `inventory` — `{ availabilityStatus: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK", preorderStatus: "ENABLED"|"DISABLED", preorderAvailability }`
+  - Pre-order detection: `product.inventory?.preorderStatus === "ENABLED"`
+  - Variant-level: `variant.inventoryStatus?.preorderEnabled`
+  - When preorder is enabled, item is purchasable even if out of stock
 - `directCategoriesInfo.categories[]` — `{ _id }` (opt-in)
 - `ribbon` — `{ _id, name }` (object, not string)
 - `infoSections[]` — `{ _id, title, description (RichContent), plainDescription }`. Use `INFO_SECTION` + `INFO_SECTION_DESCRIPTION` fields.
-- `modifiers[]` — `{ name, modifierRenderType: "FREE_TEXT"|"TEXT_CHOICES", mandatory, freeTextSettings: { key, title, maxCharCount } }`
+- `modifiers[]` — `ConnectedModifier`:
+  - `modifierRenderType`: `"FREE_TEXT"` | `"TEXT_CHOICES"` | `"SWATCH_CHOICES"`
+  - `FREE_TEXT`: `freeTextSettings: { key, title, maxCharCount }` — renders as text input with char counter
+  - `TEXT_CHOICES`: `choicesSettings: { choices: [{ key, name }] }` — renders as button group
+  - `SWATCH_CHOICES`: `choicesSettings: { choices: [{ key, name, colorCode }] }` — renders as color circles
+  - `mandatory`, `name`, `key` on all types
 
 ## catalogReference (for cart/checkout)
 
@@ -129,7 +138,7 @@ if (Object.keys(opts).length > 0) ref.options = opts;
 1. **Fields are opt-in**: Without `fields` param, queries return minimal data (no media, no prices, no categories).
 2. **Media is direct URLs**: `m.image` and `m.video` are strings, not `{ url }` objects. `mediaType` is uppercase: `'IMAGE'`, `'VIDEO'`.
 3. **Variant matching via optionChoiceNames**: `variant.choices[].optionChoiceNames.optionName/choiceName` — match with `.some()`.
-4. **Modifiers replace customTextFields**: V3 uses `modifiers` with `modifierRenderType: "FREE_TEXT"`. In catalogReference, key by `mod.freeTextSettings.key`.
+4. **Modifiers replace customTextFields**: V3 uses `modifiers` with three render types: `FREE_TEXT` (text input, keyed by `freeTextSettings.key` in `catalogReference.options.customTextFields`), `TEXT_CHOICES` (button selection, keyed by `mod.key` in `catalogReference.options.options`), `SWATCH_CHOICES` (color circles with `colorCode`, same as TEXT_CHOICES in catalogReference).
 5. **Categories not collections**: Use `@wix/categories` with `queryCategories(query, { treeReference })`. `collections` namespace is V1-only and fails on V3 with 428.
 6. **Inventory must be created separately**: V3 `createProduct` does NOT create inventory. Use `POST /stores/v3/bulk/inventory-items/create` with `inStock: true` for each variant.
 7. **Ribbon is an object**: `product.ribbon.name`, not `product.ribbon` (string).
