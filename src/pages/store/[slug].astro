@@ -4,6 +4,7 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import ProductActions from '../../components/ProductActions';
 import { productsV3 } from '@wix/stores';
+import { categories } from '@wix/categories';
 import type { productsV3 as productsV3Types } from '@wix/stores';
 import { i18n } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
@@ -24,14 +25,18 @@ function formatPrice(p: productsV3Types.V3Product) {
 	return { formatted: fmt(price), original: onSale ? fmt(compare) : null };
 }
 
-const result = await productsV3.getProductBySlug(slug, { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'PLAIN_DESCRIPTION', 'INFO_SECTION', 'ALL_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES'] });
+const result = await productsV3.getProductBySlug(slug, { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'PLAIN_DESCRIPTION', 'INFO_SECTION', 'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES'] });
 const product = result.product;
 if (!product) return Astro.redirect('/store');
 
 const variantData = product.variantsInfo?.variants || [];
 
-const productCollections = (product.allCategoriesInfo?.categories || [])
-	.map(cat => cat.name)
+const catResult = await categories.queryCategories({ treeReference: { appNamespace: '@wix/stores' } }).limit(100).find();
+const categoryMap = new Map<string, string>();
+for (const c of (catResult.items || [])) categoryMap.set(c._id!, c.name!);
+
+const productCollections = (product.directCategoriesInfo?.categories || [])
+	.map(cat => cat._id ? categoryMap.get(cat._id) : undefined)
 	.filter((x): x is string => !!x);
 
 type MediaEntry = { type: 'image'; url: string } | { type: 'video'; url: string; thumbnail?: string };
