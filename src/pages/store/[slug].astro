@@ -3,6 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import ProductActions from '../../components/ProductActions';
+import RichContentViewer from '../../components/RichContentViewer';
 import { productsV3 } from '@wix/stores';
 import { categories } from '@wix/categories';
 import type { productsV3 as productsV3Types } from '@wix/stores';
@@ -28,7 +29,7 @@ function formatPrice(p: productsV3Types.V3Product) {
 
 let product;
 try {
-	const result = await productsV3.getProductBySlug(slug, { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'PLAIN_DESCRIPTION', 'INFO_SECTION', 'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES'] });
+	const result = await productsV3.getProductBySlug(slug, { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DESCRIPTION', 'INFO_SECTION', 'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES'] });
 	product = result.product;
 } catch {}
 if (!product) return Astro.redirect('/store');
@@ -143,8 +144,10 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 						);
 					})()}
 
-					{product.plainDescription && (
-						<div class="product-description">{product.plainDescription}</div>
+					{product.description && (
+						<div class="product-description">
+							<RichContentViewer content={product.description} client:load />
+						</div>
 					)}
 
 					<ProductActions product={productData} client:load />
@@ -154,7 +157,13 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 							{infoSections.map((section) => (
 								<details class="info-section">
 									<summary class="info-section-title">{section.title}</summary>
-									<div class="info-section-content">{section.plainDescription}</div>
+									<div class="info-section-content">
+										{section.description ? (
+											<RichContentViewer content={section.description} client:load />
+										) : (
+											<span>{section.plainDescription}</span>
+										)}
+									</div>
 								</details>
 							))}
 						</div>
