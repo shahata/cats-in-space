@@ -15,12 +15,13 @@ const allProducts = productResult.items || [];
 function formatPrice(product: productsV3Types.V3Product) {
 	const currency = product.currency || 'USD';
 	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
-	const priceStr = product.actualPriceRange?.minValue?.amount;
-	const compareStr = product.compareAtPriceRange?.minValue?.amount;
-	const price = priceStr ? parseFloat(priceStr) : 0;
-	const compare = compareStr ? parseFloat(compareStr) : price;
-	const onSale = price < compare;
-	return { formatted: fmt(price), original: onSale ? fmt(compare) : null };
+	const min = parseFloat(product.actualPriceRange?.minValue?.amount ?? '0');
+	const max = parseFloat(product.actualPriceRange?.maxValue?.amount ?? '0');
+	const compareMin = parseFloat(product.compareAtPriceRange?.minValue?.amount ?? '0');
+	const onSale = compareMin > min && compareMin > 0;
+	const hasRange = max > min;
+	const formatted = hasRange ? `${fmt(min)} – ${fmt(max)}` : fmt(min);
+	return { formatted, original: onSale ? fmt(compareMin) : null };
 }
 
 const catResult = await categories.queryCategories({ cursorPaging: { limit: 100 } }, { treeReference: { appNamespace: '@wix/stores' } });
