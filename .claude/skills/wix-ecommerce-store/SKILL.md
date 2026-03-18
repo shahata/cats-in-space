@@ -397,6 +397,19 @@ window.dispatchEvent(new CustomEvent('cart-updated'));
 ```
 This triggers CartSidebar to re-fetch the cart and update the badge count.
 
+## Product Gallery (images + video)
+
+The gallery uses a padding-bottom square trick for a fixed container that can't be broken by child content:
+```css
+.product-gallery { min-width: 0; overflow: hidden; }  /* prevent grid blowout */
+.gallery-main { height: 0; padding-bottom: 100%; position: relative; overflow: hidden; }
+.gallery-main img, .gallery-main video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+```
+Key lessons:
+- `aspect-ratio` is a suggestion — children with intrinsic size (video) can override it. Use the `height:0 + padding-bottom:100%` trick instead.
+- Grid items need `min-width: 0` to prevent video from blowing out `1fr` columns.
+- Gallery switching (image↔video) is done by replacing `.gallery-main` innerHTML via script.
+
 ## React Island Styling
 
 Don't use inline `<style>{...}` in React components rendered via Astro's `client:load`. The server HTML-encodes quotes (`'` → `&#x27;`) causing hydration mismatches. Instead, put styles in the host Astro page/layout:
