@@ -410,6 +410,30 @@ Key lessons:
 - Grid items need `min-width: 0` to prevent video from blowing out `1fr` columns.
 - Gallery switching (image↔video) is done by replacing `.gallery-main` innerHTML via script.
 
+## Thank You Page
+
+Custom thank you page at `/store/thank-you`. After checkout, Wix redirects here with `?orderId=...` query param.
+
+```typescript
+// In createRedirectSession callbacks:
+callbacks: {
+  thankYouPageUrl: window.location.origin + '/store/thank-you',  // replaces Wix thank you page
+  postFlowUrl: window.location.origin + '/store',                // fallback if checkout is canceled
+}
+```
+
+The page fetches order details server-side via `ecomOrders.getOrder(orderId)` and displays line items, totals, and navigation buttons.
+
+## Astro JSX Template Gotcha
+
+Never use generic type annotations with angle brackets inside Astro JSX templates (the `{...}` expressions in `.astro` files). The Astro parser treats `<` as JSX tag openings.
+
+- `(li: Record<string, any>)` — BREAKS (parsed as JSX)
+- `(li: any)` — works
+- `Record<string, any>` in frontmatter `---` block — works fine
+
+If you need typed map callbacks in templates, either use `: any` or define the type in the frontmatter block and reference it by name (without angle brackets).
+
 ## React Island Styling
 
 Don't use inline `<style>{...}` in React components rendered via Astro's `client:load`. The server HTML-encodes quotes (`'` → `&#x27;`) causing hydration mismatches. Instead, put styles in the host Astro page/layout:
