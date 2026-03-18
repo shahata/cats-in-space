@@ -410,6 +410,18 @@ Key lessons:
 - Grid items need `min-width: 0` to prevent video from blowing out `1fr` columns.
 - Gallery switching (image↔video) is done by replacing `.gallery-main` innerHTML via script.
 
+Both the **store listing** and **product detail** pages support video. On the listing page, products with video as their first media item show an autoplay muted loop video in the card:
+```astro
+{videoUrl ? (
+  <video src={videoUrl} autoplay muted loop playsinline />
+) : coverUrl ? (
+  <img src={coverUrl} alt={product.name} loading="lazy" />
+) : (
+  <div class="product-placeholder">...</div>
+)}
+```
+To get the video URL from a media item: `firstMedia?.video?.files?.[0]?.url`. For the thumbnail fallback: `firstMedia?.thumbnail?.url`.
+
 ## Thank You Page
 
 Custom thank you page at `/store/thank-you`. After checkout, Wix redirects here with `?orderId=...` query param.
