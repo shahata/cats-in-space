@@ -213,13 +213,21 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 		overflow: hidden;
 		background: #111;
 		aspect-ratio: 1;
+		position: relative;
 	}
 
-	.gallery-main img,
-	.gallery-main video {
+	.gallery-main img {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+
+	.gallery-main video {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
 	}
 
 	.gallery-placeholder {
