@@ -47,10 +47,18 @@ const productCollections = (product.collectionIds || [])
 	.map(id => collectionMap.get(id))
 	.filter((x): x is string => !!x);
 
-const images = (product.media?.items || [])
-	.filter(m => m.mediaType === 'image' || m.image)
-	.map(m => getImageUrl(m.image?.url, 600, 600))
-	.filter((x): x is string => !!x);
+type MediaEntry = { type: 'image'; url: string } | { type: 'video'; url: string; thumbnail?: string };
+const mediaItems: MediaEntry[] = (product.media?.items || [])
+	.map(m => {
+		if (m.mediaType === 'video' && m.video?.files?.length) {
+			const best = m.video.files.reduce((a, b) => ((b.height ?? 0) > (a.height ?? 0) ? b : a));
+			return { type: 'video' as const, url: best.url!, thumbnail: getImageUrl(m.thumbnail?.url, 600, 600) ?? undefined };
+		}
+		const url = getImageUrl(m.image?.url, 600, 600);
+		return url ? { type: 'image' as const, url } : null;
+	})
+	.filter((x): x is MediaEntry => !!x);
+const images = mediaItems.filter(m => m.type === 'image').map(m => m.url);
 
 const productData: ProductActionsProps = {
 	_id: product._id!,
@@ -61,6 +69,7 @@ const productData: ProductActionsProps = {
 	manageVariants: product.manageVariants,
 	priceData: product.priceData,
 	customTextFields: product.customTextFields || [],
+	ribbon: product.ribbon,
 };
 
 const infoSections = product.additionalInfoSections || [];
@@ -77,16 +86,29 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 
 			<div class="product-layout">
 				<div class="product-gallery">
-					{images.length > 0 ? (
+					{mediaItems.length > 0 ? (
 						<>
 							<div class="gallery-main">
-								<img id="main-image" src={images[0]} alt={product.name} />
+								{mediaItems[0].type === 'video' ? (
+									<video id="main-video" src={mediaItems[0].url} controls autoplay muted loop playsinline />
+								) : (
+									<img id="main-image" src={mediaItems[0].url} alt={product.name} />
+								)}
 							</div>
-							{images.length > 1 && (
+							{mediaItems.length > 1 && (
 								<div class="gallery-thumbs">
-									{images.map((img: string, i: number) => (
-										<button class:list={['thumb', { active: i === 0 }]} data-src={img} data-index={i}>
-											<img src={img} alt={`${product.name} ${i + 1}`} />
+									{mediaItems.map((m, i: number) => (
+										<button
+											class:list={['thumb', { active: i === 0 }]}
+											data-src={m.url}
+											data-type={m.type}
+											data-index={i}
+										>
+											{m.type === 'video' ? (
+												<div class="thumb-video">&#9654;</div>
+											) : (
+												<img src={m.url} alt={`${product.name} ${i + 1}`} />
+											)}
 										</button>
 									))}
 								</div>
@@ -146,8 +168,15 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 	document.querySelectorAll('.thumb').forEach(thumb => {
 		thumb.addEventListener('click', () => {
 			const src = (thumb as HTMLElement).dataset.src;
-			const mainImg = document.getElementById('main-image') as HTMLImageElement;
-			if (mainImg && src) mainImg.src = src;
+			const type = (thumb as HTMLElement).dataset.type;
+			const main = document.querySelector('.gallery-main')!;
+
+			if (type === 'video') {
+				main.innerHTML = `<video id="main-video" src="${src}" controls autoplay muted loop playsinline></video>`;
+			} else {
+				main.innerHTML = `<img id="main-image" src="${src}" alt="Product" />`;
+			}
+
 			document.querySelectorAll('.thumb').forEach(t => t.classList.remove('active'));
 			thumb.classList.add('active');
 		});
@@ -186,7 +215,8 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 		aspect-ratio: 1;
 	}
 
-	.gallery-main img {
+	.gallery-main img,
+	.gallery-main video {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
@@ -228,6 +258,17 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+
+	.thumb-video {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #1a1a2e;
+		color: var(--accent);
+		font-size: 1.5rem;
 	}
 
 	.product-top-badges {

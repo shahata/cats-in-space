@@ -14,6 +14,7 @@ export interface ProductData {
   manageVariants: boolean | null | undefined;
   priceData: products.PriceData | undefined;
   customTextFields: products.CustomTextField[];
+  ribbon?: string | null;
 }
 
 interface Props {
@@ -25,6 +26,7 @@ export default function ProductActions({ product }: Props) {
   const variants = product.variants || [];
   const customTextFields = product.customTextFields || [];
   const hasOptions = options.length > 0;
+  const isPreOrder = product.ribbon?.toUpperCase().includes('PRE-ORDER') ?? false;
 
   const [selections, setSelections] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -270,7 +272,7 @@ export default function ProductActions({ product }: Props) {
               onClick={addToCart}
               disabled={loading !== null}
             >
-              {loading === "cart" ? "Adding..." : "Add to Cart"}
+              {loading === "cart" ? "Adding..." : isPreOrder ? "Pre-Order" : "Add to Cart"}
             </button>
             <button
               className="pa-btn pa-btn-buy"
