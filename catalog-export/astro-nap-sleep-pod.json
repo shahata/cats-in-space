@@ -1,0 +1,77 @@
+{
+  "id": "69028430-a4df-4b91-94d9-70610954c9b2",
+  "name": "Astro-Nap Sleep Pod",
+  "slug": "astro-nap-sleep-pod",
+  "description": "The ultimate zero-gravity sleep pod for cats who take their naps seriously. Memory foam interior conforms to any sleeping position. Built-in white noise generator plays distant engine hums.",
+  "productType": "physical",
+  "visible": true,
+  "price": 129.99,
+  "currency": "ILS",
+  "priceRange": {
+    "minValue": 129.99,
+    "maxValue": 129.99
+  },
+  "manageVariants": true,
+  "collections": [
+    {
+      "id": "c090ff60-9a6b-4b21-9cf7-7ec4d63bab41",
+      "name": "Mission Gear"
+    }
+  ],
+  "images": [
+    {
+      "index": 0,
+      "mediaId": "4975b6_51a35172568c4be2a9e64a39e57d9f64~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_51a35172568c4be2a9e64a39e57d9f64~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/astro-nap-sleep-pod-1.png"
+    },
+    {
+      "index": 1,
+      "mediaId": "4975b6_fe35b95422d24423acbbac7d353ab7ab~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_fe35b95422d24423acbbac7d353ab7ab~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/astro-nap-sleep-pod-2.png"
+    },
+    {
+      "index": 2,
+      "mediaId": "4975b6_2007435c8fa04b4ca90ca60da8b83472~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_2007435c8fa04b4ca90ca60da8b83472~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/astro-nap-sleep-pod-3.png"
+    }
+  ],
+  "options": [
+    {
+      "optionType": "drop_down",
+      "name": "Size",
+      "choices": [
+        {
+          "value": "Regular",
+          "description": "Regular",
+          "inStock": true,
+          "visible": true
+        },
+        {
+          "value": "XL",
+          "description": "XL",
+          "inStock": true,
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "variants": [],
+  "stock": {
+    "trackInventory": false,
+    "inStock": true,
+    "inventoryStatus": "IN_STOCK"
+  },
+  "sku": "",
+  "weight": 0,
+  "createdDate": "2026-03-16T15:50:09.420Z",
+  "lastUpdated": "2026-03-16T15:52:12.903Z"
+}

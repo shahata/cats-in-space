@@ -2,23 +2,24 @@
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
-import { products, collections } from '@wix/stores';
-import type { products as productsTypes } from '@wix/stores';
+import { productsV3, collections } from '@wix/stores';
+import type { productsV3 as productsV3Types } from '@wix/stores';
 import { i18n } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
 const locale = await i18n.getLocale();
-const productResult = await products.queryProducts().limit(100).find();
+const productResult = await productsV3.queryProducts({ fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO'] }).limit(100).find();
 const allProducts = productResult.items || [];
 
-function formatPrice(product: productsTypes.Product) {
-	const { priceData } = product;
-	const currency = priceData?.currency || 'USD';
+function formatPrice(product: productsV3Types.V3Product) {
+	const currency = product.currency || 'USD';
 	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
-	const price = priceData?.price ?? 0;
-	const discounted = priceData?.discountedPrice ?? price;
-	const onSale = discounted < price;
-	return { formatted: fmt(discounted), original: onSale ? fmt(price) : null };
+	const priceStr = product.actualPriceRange?.minValue?.amount;
+	const compareStr = product.compareAtPriceRange?.minValue?.amount;
+	const price = priceStr ? parseFloat(priceStr) : 0;
+	const compare = compareStr ? parseFloat(compareStr) : price;
+	const onSale = price < compare;
+	return { formatted: fmt(price), original: onSale ? fmt(compare) : null };
 }
 
 const collResult = await collections.queryCollections().limit(100).find();
@@ -29,11 +30,13 @@ for (const c of allCollections) {
 	collectionMap.set(c._id!, c.name!);
 }
 
-function getCollectionName(product: productsTypes.Product): string {
-	const ids = product.collectionIds || [];
-	for (const id of ids) {
-		const name = collectionMap.get(id);
-		if (name) return name;
+function getCollectionName(product: productsV3Types.V3Product): string {
+	const categories = product.directCategoriesInfo?.categories || [];
+	for (const cat of categories) {
+		if (cat._id) {
+			const name = collectionMap.get(cat._id);
+			if (name) return name;
+		}
 	}
 	return '';
 }
@@ -59,16 +62,16 @@ function getCollectionName(product: productsTypes.Product): string {
 
 			<div class="product-grid" id="product-grid">
 				{allProducts.map((product) => {
-					const firstMedia = product.media?.items?.[0];
-					const isVideo = firstMedia?.mediaType === 'video';
+					const firstMedia = product.media?.itemsInfo?.items?.[0];
+					const isVideo = firstMedia?.mediaType === 'VIDEO';
 					const coverUrl = isVideo
-						? getImageUrl(firstMedia?.thumbnail?.url, 400, 400)
-						: getImageUrl(firstMedia?.image?.url, 400, 400);
-					const videoUrl = isVideo && firstMedia?.video?.files?.[0]?.url;
+						? getImageUrl(firstMedia?.video, 400, 400)
+						: getImageUrl(firstMedia?.image, 400, 400);
+					const videoUrl = isVideo && firstMedia?.video;
 					const collection = getCollectionName(product);
-					const collIds = (product.collectionIds || []).join(',');
+					const collIds = product.directCategoriesInfo?.categories?.map(c => c._id).filter(Boolean).join(',') || '';
 					const { formatted, original } = formatPrice(product);
-					const ribbon = product.ribbon;
+					const ribbon = product.ribbon?.name;
 
 					return (
 						<a href={`/store/${product.slug}`} class="product-card" data-collections={collIds}>
@@ -91,7 +94,7 @@ function getCollectionName(product: productsTypes.Product): string {
 									{original && <span class="price-original">{original}</span>}
 									<span class={original ? 'price-sale' : ''}>{formatted}</span>
 								</div>
-								{product.stock?.inventoryStatus === 'OUT_OF_STOCK' && (
+								{product.inventory?.availabilityStatus === 'OUT_OF_STOCK' && (
 									<span class="oos-badge">Out of Stock</span>
 								)}
 							</div>

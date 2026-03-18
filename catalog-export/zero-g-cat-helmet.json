@@ -1,0 +1,83 @@
+{
+  "id": "31ee84aa-ac70-4765-8b2a-605c333ff398",
+  "name": "Zero-G Cat Helmet",
+  "slug": "zero-g-cat-helmet",
+  "description": "Crystal-clear polycarbonate helmet with anti-fog whisker guards. Features built-in heads-up display showing treat proximity and nap schedule. Meets Feline Space Agency safety standards.",
+  "productType": "physical",
+  "visible": true,
+  "price": 79.99,
+  "currency": "ILS",
+  "priceRange": {
+    "minValue": 79.99,
+    "maxValue": 79.99
+  },
+  "manageVariants": true,
+  "collections": [
+    {
+      "id": "c090ff60-9a6b-4b21-9cf7-7ec4d63bab41",
+      "name": "Mission Gear"
+    }
+  ],
+  "images": [
+    {
+      "index": 0,
+      "mediaId": "4975b6_6b7ecd413fa940fd936b0711ff4866a1~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_6b7ecd413fa940fd936b0711ff4866a1~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/zero-g-cat-helmet-1.png"
+    },
+    {
+      "index": 1,
+      "mediaId": "4975b6_a7c6539bdcab4343aac655e7d1200117~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_a7c6539bdcab4343aac655e7d1200117~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/zero-g-cat-helmet-2.png"
+    },
+    {
+      "index": 2,
+      "mediaId": "4975b6_e8d57ffba3d84f1b8e0a21598213a832~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_e8d57ffba3d84f1b8e0a21598213a832~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/zero-g-cat-helmet-3.png"
+    }
+  ],
+  "options": [
+    {
+      "optionType": "drop_down",
+      "name": "Size",
+      "choices": [
+        {
+          "value": "S",
+          "description": "S",
+          "inStock": true,
+          "visible": true
+        },
+        {
+          "value": "M",
+          "description": "M",
+          "inStock": true,
+          "visible": true
+        },
+        {
+          "value": "L",
+          "description": "L",
+          "inStock": true,
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "variants": [],
+  "stock": {
+    "trackInventory": false,
+    "inStock": true,
+    "inventoryStatus": "IN_STOCK"
+  },
+  "sku": "",
+  "weight": 0,
+  "createdDate": "2026-03-16T15:50:02.779Z",
+  "lastUpdated": "2026-03-16T15:52:12.903Z"
+}

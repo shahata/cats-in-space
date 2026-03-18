@@ -1,0 +1,58 @@
+{
+  "id": "b4df162c-e0a8-48b1-b059-d3da1592e7e2",
+  "name": "Feline Space Council Pin",
+  "slug": "feline-space-council-pin",
+  "description": "Show your allegiance to the Feline Space Council with this precision-cast enamel pin. Features the official FSC crest with crossed laser pointers over a crescent moon.",
+  "productType": "physical",
+  "visible": true,
+  "price": 8.99,
+  "currency": "ILS",
+  "priceRange": {
+    "minValue": 8.99,
+    "maxValue": 8.99
+  },
+  "manageVariants": false,
+  "collections": [
+    {
+      "id": "2738ed78-e409-46db-86c6-4c9b598062db",
+      "name": "Accessories"
+    }
+  ],
+  "images": [
+    {
+      "index": 0,
+      "mediaId": "4975b6_2b7ed45c221541808c04d2f98800020d~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_2b7ed45c221541808c04d2f98800020d~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/feline-space-council-pin-1.png"
+    },
+    {
+      "index": 1,
+      "mediaId": "4975b6_9336f70ce6c54ad7945761e3ba14d7eb~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_9336f70ce6c54ad7945761e3ba14d7eb~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/feline-space-council-pin-2.png"
+    },
+    {
+      "index": 2,
+      "mediaId": "4975b6_ecbed40fc60f45869ccfdc81697f8d86~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_ecbed40fc60f45869ccfdc81697f8d86~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/feline-space-council-pin-3.png"
+    }
+  ],
+  "options": [],
+  "variants": [],
+  "stock": {
+    "trackInventory": false,
+    "inStock": true,
+    "inventoryStatus": "IN_STOCK"
+  },
+  "sku": "",
+  "weight": 0,
+  "createdDate": "2026-03-16T15:50:05.867Z",
+  "lastUpdated": "2026-03-16T15:52:09.740Z"
+}

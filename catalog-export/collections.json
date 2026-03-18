@@ -1,0 +1,17 @@
+[
+  {
+    "id": "2738ed78-e409-46db-86c6-4c9b598062db",
+    "name": "Accessories",
+    "slug": "accessories"
+  },
+  {
+    "id": "39290b93-8ebc-4fe0-ba4f-332e3db0d7be",
+    "name": "Apparel",
+    "slug": "apparel"
+  },
+  {
+    "id": "c090ff60-9a6b-4b21-9cf7-7ec4d63bab41",
+    "name": "Mission Gear",
+    "slug": "mission-gear"
+  }
+]

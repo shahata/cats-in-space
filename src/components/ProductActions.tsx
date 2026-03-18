@@ -1,19 +1,20 @@
 import { useState, useMemo } from "react";
 import { currentCart, backInStockNotifications } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
-import type { products } from "@wix/stores";
+import type { productsV3 } from "@wix/stores";
 
-const STORES_APP_ID = "1380b703-ce81-ff05-f115-39571d94dfcd";
+const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
 
 export interface ProductData {
   _id: string;
   name: string;
-  productOptions: products.ProductOption[];
-  variants: products.Variant[];
-  stock: products.Stock | undefined;
-  manageVariants: boolean | null | undefined;
-  priceData: products.PriceData | undefined;
-  customTextFields: products.CustomTextField[];
+  options: productsV3.ConnectedOption[];
+  variants: productsV3.Variant[];
+  inventory: productsV3.Inventory | undefined;
+  priceRange?: { minValue?: { amount?: string; formattedAmount?: string | null }; maxValue?: { amount?: string; formattedAmount?: string | null } };
+  compareAtPriceRange?: { minValue?: { amount?: string; formattedAmount?: string | null }; maxValue?: { amount?: string; formattedAmount?: string | null } };
+  currency?: string | null;
+  modifiers: productsV3.ConnectedModifier[];
   ribbon?: string | null;
 }
 
@@ -22,17 +23,19 @@ interface Props {
 }
 
 export default function ProductActions({ product }: Props) {
-  const options = product.productOptions || [];
+  const options = product.options || [];
   const variants = product.variants || [];
-  const customTextFields = product.customTextFields || [];
+  const modifiers = product.modifiers || [];
+  const freeTextModifiers = modifiers.filter((m) => m.modifierRenderType === 'FREE_TEXT');
   const hasOptions = options.length > 0;
   const isPreOrder = product.ribbon?.toUpperCase().includes('PRE-ORDER') ?? false;
 
   const [selections, setSelections] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const opt of options) {
-      if (opt.choices?.length && opt.name) {
-        init[opt.name] = opt.choices[0].value ?? '';
+      const choices = opt.choicesSettings?.choices;
+      if (choices?.length && opt.name) {
+        init[opt.name] = choices[0].name ?? '';
       }
     }
     return init;
@@ -52,23 +55,26 @@ export default function ProductActions({ product }: Props) {
       return variants[0];
     }
     return variants.find((v) => {
-      const choices = (v.choices || {}) as Record<string, string>;
+      const choices = v.choices || [];
       return Object.entries(selections).every(
-        ([optName, choiceVal]) => choices[optName] === choiceVal,
+        ([optName, choiceVal]) =>
+          choices.some(
+            (c) =>
+              c.optionChoiceNames?.optionName === optName &&
+              c.optionChoiceNames?.choiceName === choiceVal,
+          ),
       );
     });
   }, [selections, variants, hasOptions]);
 
   const variantId = selectedVariant?._id;
   const isInStock = selectedVariant
-    ? selectedVariant.stock?.inStock !== false
-    : product.stock?.inStock !== false;
+    ? selectedVariant.inventoryStatus?.inStock !== false
+    : product.inventory?.availabilityStatus !== 'OUT_OF_STOCK';
 
-  const variantPrice = selectedVariant?.variant?.priceData;
-  const activePrice = variantPrice || product.priceData;
-  const displayPrice = activePrice?.formatted?.discountedPrice || activePrice?.formatted?.price;
-  const originalPrice = activePrice?.formatted?.price;
-  const onSale = activePrice?.discountedPrice != null && activePrice.discountedPrice < (activePrice.price ?? 0);
+  const displayPrice = selectedVariant?.price?.actualPrice?.formattedAmount;
+  const comparePrice = selectedVariant?.price?.compareAtPrice?.formattedAmount;
+  const onSale = !!comparePrice && comparePrice !== displayPrice;
 
   const handleOptionChange = (optionName: string, value: string) => {
     setSelections((prev) => ({ ...prev, [optionName]: value }));
@@ -85,9 +91,14 @@ export default function ProductActions({ product }: Props) {
     if (hasOptions && variantId) {
       opts.variantId = variantId;
     }
-    const filledTexts = Object.fromEntries(
-      Object.entries(customTexts).filter(([, v]) => v.trim())
-    );
+    const filledTexts: Record<string, string> = {};
+    for (const mod of freeTextModifiers) {
+      const key = mod.freeTextSettings?.key;
+      const val = customTexts[mod.name!];
+      if (key && val?.trim()) {
+        filledTexts[key] = val;
+      }
+    }
     if (Object.keys(filledTexts).length > 0) {
       opts.customTextFields = filledTexts;
     }
@@ -97,9 +108,9 @@ export default function ProductActions({ product }: Props) {
     return ref;
   };
 
-  const missingRequired = customTextFields
-    .filter((f) => f.mandatory)
-    .some((f) => !customTexts[f.title!]?.trim());
+  const missingRequired = freeTextModifiers
+    .filter((m) => m.mandatory)
+    .some((m) => !customTexts[m.name!]?.trim());
 
   const addToCart = async () => {
     if (missingRequired) {
@@ -169,7 +180,7 @@ export default function ProductActions({ product }: Props) {
         { catalogReference: catalogRef, email: bisEmail },
         {
           name: product.name || "Product",
-          price: String(product.priceData?.price || "0"),
+          price: String(product.priceRange?.minValue?.amount || "0"),
         },
       );
       setBisSubmitted(true);
@@ -195,13 +206,13 @@ export default function ProductActions({ product }: Props) {
             <div key={opt.name} className="pa-option">
               <label className="pa-option-label">{opt.name}</label>
               <div className="pa-choices">
-                {opt.choices?.map((choice) => (
+                {opt.choicesSettings?.choices?.map((choice) => (
                   <button
-                    key={choice.value}
-                    className={`pa-choice ${selections[opt.name!] === choice.value ? "pa-choice-active" : ""}`}
-                    onClick={() => handleOptionChange(opt.name!, choice.value!)}
+                    key={choice.name}
+                    className={`pa-choice ${selections[opt.name!] === choice.name ? "pa-choice-active" : ""}`}
+                    onClick={() => handleOptionChange(opt.name!, choice.name!)}
                   >
-                    {choice.description || choice.value}
+                    {choice.name}
                   </button>
                 ))}
               </div>
@@ -210,20 +221,20 @@ export default function ProductActions({ product }: Props) {
         </div>
       )}
 
-      {customTextFields.length > 0 && (
+      {freeTextModifiers.length > 0 && (
         <div className="pa-options">
-          {customTextFields.map((field) => (
-            <div key={field.title} className="pa-option">
+          {freeTextModifiers.map((mod) => (
+            <div key={mod.name} className="pa-option">
               <label className="pa-option-label">
-                {field.title}{field.mandatory && <span className="pa-required">*</span>}
+                {mod.name}{mod.mandatory && <span className="pa-required">*</span>}
               </label>
               <input
                 type="text"
                 className="pa-text-input"
-                maxLength={field.maxLength ?? undefined}
-                value={customTexts[field.title!] || ""}
-                onChange={(e) => setCustomTexts((prev) => ({ ...prev, [field.title!]: e.target.value }))}
-                placeholder={field.title ?? ""}
+                maxLength={mod.freeTextSettings?.maxCharCount ?? undefined}
+                value={customTexts[mod.name!] || ""}
+                onChange={(e) => setCustomTexts((prev) => ({ ...prev, [mod.name!]: e.target.value }))}
+                placeholder={mod.name ?? ""}
               />
             </div>
           ))}
@@ -232,7 +243,7 @@ export default function ProductActions({ product }: Props) {
 
       {displayPrice && (
         <div className="pa-selected-price">
-          {onSale && originalPrice && <span className="pa-original-price">{originalPrice}</span>}
+          {onSale && comparePrice && <span className="pa-original-price">{comparePrice}</span>}
           <span className={onSale ? "pa-sale-price" : ""}>{displayPrice}</span>
         </div>
       )}

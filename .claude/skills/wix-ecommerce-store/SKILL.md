@@ -2,7 +2,7 @@
 
 ## Catalog V1 vs V3
 
-Wix Stores has two catalog versions. **This site uses Catalog V1.** This skill documents V1 patterns.
+Wix Stores has two catalog versions. **This site uses Catalog V3.** This skill documents both, with V3 as the primary reference.
 
 ### How to distinguish
 
@@ -33,17 +33,21 @@ const { catalogVersion } = await catalogVersioning.getCatalogVersion();
 
 ### catalogReference.appId
 
-The `appId` for Wix Stores in `catalogReference` is:
-```
-1380b703-ce81-ff05-f115-39571d94dfcd
-```
-Use this everywhere: cart, checkout, orders, back-in-stock.
+### catalogReference.appId
+
+| Catalog Version | appId |
+|-----------------|-------|
+| V1 | `1380b703-ce81-ff05-f115-39571d94dfcd` |
+| V3 (this site) | `215238eb-22a5-4c36-9e7b-e7c08025e04e` |
+
+Use the appId matching your catalog version everywhere: cart, checkout, orders, back-in-stock.
 
 ## SDK Packages
 
 - `@wix/stores` — Product and collection queries
-  - `products` namespace (V1): `getProduct`, `queryProducts`, `queryStoreVariants`, `createProduct`, `updateProduct`, `deleteProduct`, `addProductMedia`, `removeProductMedia`
-  - `collections` namespace (V1): `queryCollections`, `getCollectionBySlug`, `createCollection`, `deleteCollection`
+  - `productsV3` namespace (V3, this site): `queryProducts`, `getProduct`, `getProductBySlug`, `createProduct`, `updateProduct`, `deleteProduct`, `searchProducts`
+  - `products` namespace (V1): `getProduct`, `queryProducts`, `queryStoreVariants`, `createProduct`, `updateProduct`, `deleteProduct`, `addProductMedia`
+  - `collections` namespace (works on both V1 and V3): `queryCollections`, `getCollectionBySlug`
   - `catalogVersioning` namespace: `getCatalogVersion`
 - `@wix/ecom` — Cart, checkout, orders, back-in-stock
   - `currentCart`: `getCurrentCart`, `addToCurrentCart`, `removeLineItemsFromCurrentCart`, `updateCurrentCartLineItemQuantity`, `estimateCurrentCartTotals`, `createCheckoutFromCurrentCart`
@@ -53,40 +57,52 @@ Use this everywhere: cart, checkout, orders, back-in-stock.
   - `i18n`: `getLocale`, `getLanguage` (use for locale-aware formatting)
 - `@wix/redirects` — Checkout redirect sessions
 
-## V1 Product Query Patterns
+## V3 Product Query Patterns (current site)
 
 ### Query all products (server-side Astro)
+V3 requires a `fields` parameter to opt-in to data you need:
 ```typescript
-import { products } from '@wix/stores';
-const result = await products.queryProducts().limit(100).find();
+import { productsV3 } from '@wix/stores';
+const result = await productsV3.queryProducts({
+  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO']
+}).limit(100).find();
 const allProducts = result.items || [];
 ```
 
-### Query product by slug
+### Get product by slug (single call — includes variants)
+V3's `getProductBySlug` returns full data including variants in ONE call (no two-step like V1):
 ```typescript
-const result = await products.queryProducts().eq('slug', slug).limit(1).find();
-const product = result.items?.[0];
+const result = await productsV3.getProductBySlug(slug, {
+  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'PLAIN_DESCRIPTION',
+    'INFO_SECTION', 'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES']
+});
+const product = result.product;
 ```
 
-### Get full product with variants (IMPORTANT)
-`queryProducts` does NOT include variant data. For product detail pages where you need variant IDs (required for add-to-cart), use `getProduct`:
-```typescript
-const queryResult = await products.queryProducts().eq('slug', slug).limit(1).find();
-const stub = queryResult.items?.[0];
-const full = await products.getProduct(stub._id!);
-const product = full.product;  // Includes product.variants[] with IDs
-```
-This is critical because `addToCurrentCart` requires `variantId` for managed-variant products.
-
-### Query collections
+### Query collections (works on both V1 and V3)
 ```typescript
 import { collections } from '@wix/stores';
 const result = await collections.queryCollections().limit(100).find();
-const allCollections = result.items || [];
 ```
 
-### queryProducts does NOT return non-visible products
-The API automatically excludes non-visible products — no need to filter by `visible` client-side.
+### V3 fields parameter (opt-in data)
+Without specifying fields, V3 returns minimal data. Common fields:
+- `MEDIA_ITEMS_INFO` — product images/video
+- `CURRENCY` — currency code and formatted amounts
+- `PLAIN_DESCRIPTION` — HTML description
+- `DESCRIPTION` — RichContent description
+- `INFO_SECTION` — info sections
+- `DIRECT_CATEGORIES_INFO` — category assignments
+- `VARIANT_OPTION_CHOICE_NAMES` — variant choice names (needed for cart)
+
+## V1 Product Query Patterns (legacy reference)
+
+```typescript
+import { products } from '@wix/stores';
+// Query all: products.queryProducts().limit(100).find()
+// Get by slug: products.queryProducts().eq('slug', slug) then products.getProduct(id) (two calls)
+// V1 queryProducts does NOT include variants — must use getProduct separately
+```
 
 ## Price Formatting
 
@@ -107,42 +123,58 @@ function formatPrice(product: any): string {
 ```
 Don't use `priceData.formatted.price` or manual currency symbol logic — `Intl.NumberFormat` handles symbols, decimal separators, and grouping correctly for any locale/currency.
 
-## V1 Product Data Shape
+## V3 Product Data Shape (current site)
 
-Key fields from `queryProducts().find().items`:
+Key fields from V3 `productsV3.queryProducts()` / `getProductBySlug()`:
 - `_id` — Product GUID
-- `name` — Product name
-- `slug` — URL-friendly name (auto-generated from name)
-- `description` — HTML description
-- `visible` — Whether product is published
-- `productType` — `"physical"` or `"digital"` (lowercase in V1)
-- `media.items[]` — Array of media items, each has: `{ id, image: { url, width, height }, thumbnail: { url } }`
-- `priceData` — `{ price, discountedPrice, currency, formatted: { price, discountedPrice } }`
-- `priceRange` — `{ minValue, maxValue }` (differs when variants have different prices)
-- `productOptions[]` — Array of `{ name, optionType ("drop_down"), choices: [{ value, description, inStock, visible }] }`
-- `variants[]` — Array of `{ id, choices: { OptionName: "ChoiceValue" }, variant: { priceData, weight, sku, visible }, stock: { inStock, trackQuantity } }`
-- `collectionIds[]` — Array of collection GUIDs the product belongs to
-- `stock` — `{ inStock, inventoryStatus ("IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK"), trackInventory }`
-- `manageVariants` — Boolean. When `true`, variants have individual pricing/stock. When `false`, all variants share the product-level price.
-- `ribbon` — Promotional ribbon text
-- `discount` — `{ type: "NONE"|"AMOUNT"|"PERCENT", value }`
+- `name`, `slug`, `visible` — same as V1
+- `plainDescription` — HTML description (requires `PLAIN_DESCRIPTION` field)
+- `description` — RichContent object (requires `DESCRIPTION` field)
+- `productType` — `"PHYSICAL"` or `"DIGITAL"` (UPPERCASE in V3)
+- `media.itemsInfo.items[]` — `{ mediaType: "IMAGE"|"VIDEO", image: string (URL), video: string (URL), thumbnail: { url } }`
+  - **image and video are direct string URLs in V3**, not nested objects like V1
+- `actualPriceRange` — `{ minValue: { amount, formattedAmount }, maxValue: ... }`
+- `compareAtPriceRange` — same shape (for sale/compare-at pricing)
+- `currency` — string (requires `CURRENCY` field)
+- `options[]` — `ConnectedOption { _id, name, key, choicesSettings: { choices: [{ choiceId, name, key, inStock }] } }`
+- `variantsInfo.variants[]` — `{ _id, choices: [{ optionChoiceNames: { optionName, choiceName } }], price: { actualPrice: { amount, formattedAmount }, compareAtPrice }, inventoryStatus: { inStock } }`
+- `inventory` — `{ availabilityStatus: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK" }`
+- `directCategoriesInfo.categories[]` — `{ _id }` (requires `DIRECT_CATEGORIES_INFO` field)
+- `ribbon` — `{ _id, name }` (object, not plain string)
+- `infoSections[]` — `{ _id, title, plainDescription }` (requires `INFO_SECTION` field)
+- `modifiers[]` — `ConnectedModifier { name, modifierRenderType: "FREE_TEXT"|"TEXT_CHOICES", mandatory, freeTextSettings: { key, title, maxCharCount } }`
+
+## V1 Product Data Shape (legacy reference)
+
+- `media.items[]` with `{ image: { url }, video: { files: [{ url }] } }` (nested objects)
+- `priceData` with `{ price, discountedPrice, currency, formatted }`
+- `productOptions[]` with `{ name, choices: [{ value, description }] }`
+- `variants[]` with `{ choices: { OptionName: "Value" }, variant: { priceData }, stock: { inStock } }`
+- `collectionIds[]`, `stock`, `manageVariants`, `ribbon` (plain string), `customTextFields[]`
 
 ## Cart Operations (client-side React)
 
-### catalogReference — buildCatalogRef pattern
+### catalogReference — buildCatalogRef pattern (V3)
 ```typescript
-const STORES_APP_ID = '1380b703-ce81-ff05-f115-39571d94dfcd';
+const STORES_APP_ID = '215238eb-22a5-4c36-9e7b-e7c08025e04e'; // V3 appId
 
-function buildCatalogRef(product, variantId, hasOptions) {
+function buildCatalogRef(product, variantId, hasOptions, freeTextModifiers, customTexts) {
   const ref = { catalogItemId: product._id, appId: STORES_APP_ID };
-  if (hasOptions && variantId) {
-    ref.options = { variantId };
+  const opts = {};
+  if (hasOptions && variantId) opts.variantId = variantId;
+  // V3 modifiers: keyed by freeTextSettings.key
+  for (const mod of freeTextModifiers) {
+    const key = mod.freeTextSettings?.key;
+    const val = customTexts[mod.name];
+    if (key && val?.trim()) {
+      if (!opts.customTextFields) opts.customTextFields = {};
+      opts.customTextFields[key] = val;
+    }
   }
+  if (Object.keys(opts).length > 0) ref.options = opts;
   return ref;
 }
 ```
-- Products with options: include `variantId` from `getProduct().variants[].id`
-- Products without options: omit `options` entirely
 
 ### Add to cart
 ```typescript
@@ -346,7 +378,35 @@ The Add Product Media URL approach only works for images. For **video**, use thi
 
 Wix-hosted images on `static.wixstatic.com` are publicly accessible — just `fetch(url)` and save the buffer. No auth needed.
 
-## V1 REST API Endpoints (for MCP data seeding)
+## V3 REST API Endpoints (for MCP data seeding)
+
+### Products
+- Create: `POST https://www.wixapis.com/stores/v3/products` (see catalog setup flow docs for full body)
+- Get: `GET https://www.wixapis.com/stores/v3/products/{id}`
+- Get by slug: SDK only (`productsV3.getProductBySlug`)
+
+### Categories (V3 replaces V1 collections)
+- Create: `POST https://www.wixapis.com/categories/v1/categories` with `treeReference: { appNamespace: "@wix/stores" }`
+- Add items: `POST https://www.wixapis.com/categories/v1/bulk/categories/{categoryId}/add-items` with `appId: "215238eb-22a5-4c36-9e7b-e7c08025e04e"`
+
+### V3 Create Product body structure
+```json
+{ "product": {
+    "name": "...", "productType": "PHYSICAL", "visible": true,
+    "plainDescription": "<p>...</p>",
+    "physicalProperties": {},
+    "media": { "itemsInfo": { "items": [{ "url": "https://..." }, { "id": "wix-media-id" }] } },
+    "options": [{ "name": "Size", "optionRenderType": "TEXT_CHOICES",
+      "choicesSettings": { "choices": [{ "choiceType": "CHOICE_TEXT", "name": "S" }] } }],
+    "modifiers": [{ "name": "Engraving", "modifierRenderType": "FREE_TEXT", "mandatory": false,
+      "freeTextSettings": { "title": "...", "maxCharCount": 20 } }],
+    "ribbon": { "name": "SALE" },
+    "infoSections": [{ "uniqueName": "...", "title": "...", "description": { "nodes": [...], "metadata": { "version": 1 } } }],
+    "variantsInfo": { "variants": [{ "visible": true, "choices": [{ "optionChoiceNames": { "optionName": "Size", "choiceName": "S", "renderType": "TEXT_CHOICES" } }], "price": { "actualPrice": { "amount": "49.99" } }, "physicalProperties": {} }] }
+} }
+```
+
+## V1 REST API Endpoints (legacy reference)
 
 ### Products
 - Create: `POST https://www.wixapis.com/stores/v1/products`
@@ -456,7 +516,7 @@ Use CSS variables (`var(--font-heading)`, `var(--accent)`) instead of hardcoded 
 
 ## Gotchas & Lessons Learned
 
-1. **Stores appId**: Use `1380b703-ce81-ff05-f115-39571d94dfcd` everywhere (cart, checkout, back-in-stock).
+1. **Stores appId depends on catalog version**: V3 uses `215238eb-22a5-4c36-9e7b-e7c08025e04e`, V1 uses `1380b703-ce81-ff05-f115-39571d94dfcd`. Using the wrong one causes `CATALOG_ITEMS_RETRIEVAL_FAILURE`.
 
 2. **V1 site + V3 API = 428 error**: Always check catalog version before choosing endpoints. V3 calls on a V1 site fail with `428 Precondition Required`.
 
@@ -466,7 +526,15 @@ Use CSS variables (`var(--font-heading)`, `var(--accent)`) instead of hardcoded 
 
 5. **backInStockNotifications takes two arguments**: `createBackInStockNotificationRequest(request, itemDetails)` — NOT a single options object. First arg: `{ catalogReference, email }`. Second arg: `{ name, price }`. Passing them as one object causes empty field errors.
 
-6. **queryProducts doesn't include variants**: The V1 `queryProducts()` builder does NOT return variant data. You MUST use `products.getProduct(id)` to get variants with their IDs. Without variant IDs, `addToCurrentCart` fails with `CATALOG_ITEMS_RETRIEVAL_FAILURE` for managed-variant products. Pattern: `queryProducts().eq('slug', slug)` to find the product, then `getProduct(id)` for full data.
+6. **V1 queryProducts doesn't include variants** (V1 only): Use `products.getProduct(id)` for variants. V3 `getProductBySlug` returns variants in one call — no two-step needed.
+
+12. **V3 requires `fields` parameter**: Without it, `queryProducts` and `getProductBySlug` return minimal data. Always pass the fields you need (`MEDIA_ITEMS_INFO`, `CURRENCY`, `VARIANT_OPTION_CHOICE_NAMES`, etc.).
+
+13. **V3 media is direct URLs**: `m.image` and `m.video` are string URLs directly, not nested `{ url }` objects. `m.mediaType` is uppercase: `'IMAGE'`, `'VIDEO'`.
+
+14. **V3 variant matching uses optionChoiceNames**: V1 had `variant.choices: { Size: "M" }`. V3 has `variant.choices[].optionChoiceNames: { optionName: "Size", choiceName: "M" }`. Match with `.some()` not property access.
+
+15. **V3 modifiers replace customTextFields**: V1 `customTextFields` → V3 `modifiers` with `modifierRenderType: "FREE_TEXT"`. In catalogReference, key by `mod.freeTextSettings.key`.
 
 7. **Product images via URL only**: The Add Product Media API accepts external URLs or existing Wix media IDs — NOT base64/data URIs. When generating images with AI, use `dall-e-3` (returns URLs) not `gpt-image-1` (returns base64 only). The MCP tool can only send JSON, so you can't do binary uploads to Wix Media through it.
 

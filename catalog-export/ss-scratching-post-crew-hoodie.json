@@ -1,0 +1,89 @@
+{
+  "id": "7c06546f-f893-49cd-ab95-385aae3715f4",
+  "name": "SS Scratching Post Crew Hoodie",
+  "slug": "ss-scratching-post-crew-hoodie",
+  "description": "Official crew hoodie of the SS Scratching Post. Warm enough for deep space, soft enough for napping. Features embroidered mission patches and a kangaroo pouch perfect for storing treats.",
+  "productType": "physical",
+  "visible": true,
+  "price": 39.99,
+  "currency": "ILS",
+  "priceRange": {
+    "minValue": 39.99,
+    "maxValue": 39.99
+  },
+  "manageVariants": true,
+  "collections": [
+    {
+      "id": "39290b93-8ebc-4fe0-ba4f-332e3db0d7be",
+      "name": "Apparel"
+    }
+  ],
+  "images": [
+    {
+      "index": 0,
+      "mediaId": "4975b6_7e00ae1abfe6446b9f595ac365583131~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_7e00ae1abfe6446b9f595ac365583131~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/ss-scratching-post-crew-hoodie-1.png"
+    },
+    {
+      "index": 1,
+      "mediaId": "4975b6_57e720e6805840fa9afc3de7d2ba6fc5~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_57e720e6805840fa9afc3de7d2ba6fc5~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/ss-scratching-post-crew-hoodie-2.png"
+    },
+    {
+      "index": 2,
+      "mediaId": "4975b6_97046b4a61a74a5e9dce846cf593d30f~mv2.png",
+      "url": "https://static.wixstatic.com/media/4975b6_97046b4a61a74a5e9dce846cf593d30f~mv2.png/v1/fit/w_1024,h_1024,q_90/file.png",
+      "width": 1024,
+      "height": 1024,
+      "localFile": "images/ss-scratching-post-crew-hoodie-3.png"
+    }
+  ],
+  "options": [
+    {
+      "optionType": "drop_down",
+      "name": "Size",
+      "choices": [
+        {
+          "value": "S",
+          "description": "S",
+          "inStock": true,
+          "visible": true
+        },
+        {
+          "value": "M",
+          "description": "M",
+          "inStock": true,
+          "visible": true
+        },
+        {
+          "value": "L",
+          "description": "L",
+          "inStock": true,
+          "visible": true
+        },
+        {
+          "value": "XL",
+          "description": "XL",
+          "inStock": true,
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "variants": [],
+  "stock": {
+    "trackInventory": false,
+    "inStock": true,
+    "inventoryStatus": "IN_STOCK"
+  },
+  "sku": "",
+  "weight": 0,
+  "createdDate": "2026-03-16T15:49:55.535Z",
+  "lastUpdated": "2026-03-16T15:52:06.675Z"
+}
