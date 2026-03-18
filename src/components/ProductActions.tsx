@@ -94,7 +94,10 @@ export default function ProductActions({ product }: Props) {
     ? (selectedVariant.inventoryStatus?.inStock !== false) || variantPreorder === true
     : product.inventory?.availabilityStatus !== "OUT_OF_STOCK" || isPreOrder;
 
-  const displayPrice = selectedVariant?.price?.actualPrice?.formattedAmount;
+  const displayPrice = selectedVariant?.price?.actualPrice?.formattedAmount
+    || (selectedVariant?.price?.actualPrice?.amount ? `${product.currency || ''}${selectedVariant.price.actualPrice.amount}` : null)
+    || product.priceRange?.minValue?.formattedAmount
+    || (product.priceRange?.minValue?.amount ? `${product.currency || ''}${product.priceRange.minValue.amount}` : null);
   const comparePrice = selectedVariant?.price?.compareAtPrice?.formattedAmount;
   const onSale = !!comparePrice && comparePrice !== displayPrice;
 
@@ -154,9 +157,9 @@ export default function ProductActions({ product }: Props) {
     setMessage(null);
     try {
       await currentCart.addToCurrentCart({
-        lineItems: [{ quantity, catalogReference: buildCatalogRef() }],
+        lineItems: [{ quantity: Math.max(1, quantity), catalogReference: buildCatalogRef() }],
       });
-      setMessage({ type: "success", text: "Added to cart!" });
+      setMessage({ type: "success", text: isPreOrder ? "Pre-order added to cart!" : "Added to cart!" });
       window.dispatchEvent(new CustomEvent("cart-updated"));
     } catch (e) {
       setMessage({
@@ -237,6 +240,15 @@ export default function ProductActions({ product }: Props) {
 
   return (
     <div className="pa-root">
+      {displayPrice && (
+        <div className="pa-selected-price">
+          {onSale && comparePrice && (
+            <span className="pa-original-price">{comparePrice}</span>
+          )}
+          <span className={onSale ? "pa-sale-price" : ""}>{displayPrice}</span>
+        </div>
+      )}
+
       {hasOptions && (
         <div className="pa-options">
           {options.map((opt) => {
@@ -341,15 +353,6 @@ export default function ProductActions({ product }: Props) {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {displayPrice && (
-        <div className="pa-selected-price">
-          {onSale && comparePrice && (
-            <span className="pa-original-price">{comparePrice}</span>
-          )}
-          <span className={onSale ? "pa-sale-price" : ""}>{displayPrice}</span>
         </div>
       )}
 
