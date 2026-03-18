@@ -23,7 +23,7 @@ function formatPrice(product: productsV3Types.V3Product) {
 	return { formatted: fmt(price), original: onSale ? fmt(compare) : null };
 }
 
-const catResult = await categories.searchCategories({ search: { cursorPaging: { limit: 100 } }, treeReference: { appNamespace: '@wix/stores' } });
+const catResult = await categories.queryCategories({ cursorPaging: { limit: 100 } }, { treeReference: { appNamespace: '@wix/stores' } });
 const allCollections = (catResult.categories || []).map(c => ({ _id: c._id!, name: c.name! }));
 
 const categoryMap = new Map<string, string>();
