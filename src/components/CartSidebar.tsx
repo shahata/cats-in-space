@@ -76,7 +76,8 @@ export default function CartSidebar() {
       const { redirectSession } = await redirects.createRedirectSession({
         ecomCheckout: { checkoutId },
         callbacks: {
-          postFlowUrl: window.location.origin + "/store?success=true",
+          thankYouPageUrl: window.location.origin + "/store/thank-you",
+          postFlowUrl: window.location.origin + "/store",
         },
       });
       if (redirectSession?.fullUrl) {

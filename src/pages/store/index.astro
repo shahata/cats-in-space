@@ -38,7 +38,6 @@ function getCollectionName(product: productsTypes.Product): string {
 	return '';
 }
 
-const success = Astro.url.searchParams.get('success') === 'true';
 ---
 
 <Layout title="Store - Cats In Space">
@@ -49,12 +48,6 @@ const success = Astro.url.searchParams.get('success') === 'true';
 			<p class="section-subtitle">Gear up for the mission. Every purchase supports the Feline Space Program.</p>
 		</div>
 	</section>
-
-	{success && (
-		<div class="container">
-			<div class="success-banner">Order completed successfully! Check your email for confirmation.</div>
-		</div>
-	)}
 
 	<section class="store-content">
 		<div class="container">
@@ -138,16 +131,6 @@ const success = Astro.url.searchParams.get('success') === 'true';
 <style>
 	.page-header {
 		padding: 60px 0 30px;
-	}
-
-	.success-banner {
-		background: rgba(76, 175, 80, 0.15);
-		border: 1px solid #4caf50;
-		color: #4caf50;
-		padding: 12px 20px;
-		border-radius: 8px;
-		margin-bottom: 24px;
-		font-size: 0.9rem;
 	}
 
 	.store-content {
