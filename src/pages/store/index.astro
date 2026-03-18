@@ -59,7 +59,12 @@ function getCollectionName(product: productsTypes.Product): string {
 
 			<div class="product-grid" id="product-grid">
 				{allProducts.map((product) => {
-					const imgUrl = getImageUrl(product.media?.items?.[0]?.image?.url, 400, 400);
+					const firstMedia = product.media?.items?.[0];
+					const isVideo = firstMedia?.mediaType === 'video';
+					const coverUrl = isVideo
+						? getImageUrl(firstMedia?.thumbnail?.url, 400, 400)
+						: getImageUrl(firstMedia?.image?.url, 400, 400);
+					const videoUrl = isVideo && firstMedia?.video?.files?.[0]?.url;
 					const collection = getCollectionName(product);
 					const collIds = (product.collectionIds || []).join(',');
 					const { formatted, original } = formatPrice(product);
@@ -68,8 +73,10 @@ function getCollectionName(product: productsTypes.Product): string {
 					return (
 						<a href={`/store/${product.slug}`} class="product-card" data-collections={collIds}>
 							<div class="product-image">
-								{imgUrl ? (
-									<img src={imgUrl} alt={product.name} loading="lazy" />
+								{videoUrl ? (
+									<video src={videoUrl} autoplay muted loop playsinline />
+								) : coverUrl ? (
+									<img src={coverUrl} alt={product.name} loading="lazy" />
 								) : (
 									<div class="product-placeholder">
 										<span>&#128049;</span>
@@ -201,7 +208,8 @@ function getCollectionName(product: productsTypes.Product): string {
 		overflow: hidden;
 	}
 
-	.product-image img {
+	.product-image img,
+	.product-image video {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
