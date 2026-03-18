@@ -66,9 +66,10 @@ function getCollectionName(product: productsV3Types.V3Product): string {
 					const isVideo = firstMedia?.mediaType === 'VIDEO';
 					const videoResolutions = isVideo ? (firstMedia?.video?.resolutions || []) : [];
 					const videoUrl = isVideo && (videoResolutions.find((r: any) => r.format === 'mp4')?.url || videoResolutions[0]?.url);
+					const rawImageUrl = firstMedia?.image?.url || firstMedia?.image?.id || firstMedia?.image || mainMedia?.image?.url || mainMedia?.image?.id;
 					const coverUrl = isVideo
 						? (firstMedia?.video?.posters?.[0]?.url || mainMedia?.image?.url)
-						: (firstMedia?.image?.url || mainMedia?.image?.url);
+						: getImageUrl(rawImageUrl, 400, 400);
 					const collection = getCollectionName(product);
 					const collIds = product.directCategoriesInfo?.categories?.map(c => c._id).filter(Boolean).join(',') || '';
 					const { formatted, original } = formatPrice(product);
