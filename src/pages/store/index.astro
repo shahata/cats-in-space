@@ -2,13 +2,13 @@
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
-import { productsV3, collections } from '@wix/stores';
+import { productsV3 } from '@wix/stores';
 import type { productsV3 as productsV3Types } from '@wix/stores';
 import { i18n } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
 const locale = await i18n.getLocale();
-const productResult = await productsV3.queryProducts({ fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO'] }).limit(100).find();
+const productResult = await productsV3.queryProducts({ fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'ALL_CATEGORIES_INFO'] }).limit(100).find();
 const allProducts = productResult.items || [];
 
 function formatPrice(product: productsV3Types.V3Product) {
@@ -22,23 +22,18 @@ function formatPrice(product: productsV3Types.V3Product) {
 	return { formatted: fmt(price), original: onSale ? fmt(compare) : null };
 }
 
-const collResult = await collections.queryCollections().limit(100).find();
-const allCollections = collResult.items || [];
-
-const collectionMap = new Map<string, string>();
-for (const c of allCollections) {
-	collectionMap.set(c._id!, c.name!);
+// Build categories from product data (V3 has no separate collections query)
+const categoryMap = new Map<string, string>();
+for (const p of allProducts) {
+	for (const cat of (p.allCategoriesInfo?.categories || [])) {
+		if (cat._id && cat.name) categoryMap.set(cat._id, cat.name);
+	}
 }
+const allCollections = Array.from(categoryMap.entries()).map(([id, name]) => ({ _id: id, name }));
 
 function getCollectionName(product: productsV3Types.V3Product): string {
-	const categories = product.directCategoriesInfo?.categories || [];
-	for (const cat of categories) {
-		if (cat._id) {
-			const name = collectionMap.get(cat._id);
-			if (name) return name;
-		}
-	}
-	return '';
+	const cat = product.allCategoriesInfo?.categories?.[0];
+	return cat?.name || '';
 }
 
 ---
@@ -69,7 +64,7 @@ function getCollectionName(product: productsV3Types.V3Product): string {
 						: getImageUrl(firstMedia?.image, 400, 400);
 					const videoUrl = isVideo && firstMedia?.video;
 					const collection = getCollectionName(product);
-					const collIds = product.directCategoriesInfo?.categories?.map(c => c._id).filter(Boolean).join(',') || '';
+					const collIds = product.allCategoriesInfo?.categories?.map(c => c._id).filter(Boolean).join(',') || '';
 					const { formatted, original } = formatPrice(product);
 					const ribbon = product.ribbon?.name;
 
