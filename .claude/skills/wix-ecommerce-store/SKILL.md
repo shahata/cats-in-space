@@ -303,6 +303,45 @@ Image URLs from Wix are permanent and follow this pattern:
 https://static.wixstatic.com/media/{mediaId}/v1/fit/w_{width},h_{height},q_90/file.png
 ```
 
+### Adding video to products
+
+The Add Product Media URL approach only works for images. For **video**, use this flow:
+
+1. **Generate video** with Sora API:
+   ```bash
+   # Create (returns job ID)
+   curl -X POST https://api.openai.com/v1/videos \
+     -H "Authorization: Bearer $OPENAI_API_KEY" \
+     -F model=sora-2 -F 'prompt=...' -F size=1280x720 -F seconds=4
+   # Poll until status=completed
+   curl https://api.openai.com/v1/videos/{id} -H "Authorization: Bearer $OPENAI_API_KEY"
+   # Download MP4
+   curl https://api.openai.com/v1/videos/{id}/content -H "Authorization: Bearer $OPENAI_API_KEY" -o video.mp4
+   ```
+
+2. **Upload to public temp host** (Sora doesn't return public URLs):
+   ```bash
+   curl -F "files[]=@video.mp4" https://uguu.se/upload
+   # Returns: {"files": [{"url": "https://d.uguu.se/xxx.mp4"}]}
+   ```
+
+3. **Import to Wix Media** via MCP:
+   ```
+   POST https://www.wixapis.com/site-media/v1/files/import
+   { "url": "https://d.uguu.se/xxx.mp4", "displayName": "video.mp4", "mimeType": "video/mp4" }
+   ```
+   Returns a `file.id` (e.g., `4975b6_abc123`). Status starts as `PENDING` — Wix auto-transcodes to multiple resolutions.
+
+4. **Add to product** by `mediaId`:
+   ```
+   POST https://www.wixapis.com/stores/v1/products/{productId}/media
+   { "media": [{ "mediaId": "4975b6_abc123" }] }
+   ```
+
+**Why not just use a URL?** The Add Product Media API with `"url"` only works for images. Videos require importing to Wix Media first, then referencing by `mediaId`.
+
+**Why not use the Generate Upload URL?** The upload URL from MCP contains `\u0026` escaped characters in the callback URL that break when passed through bash/curl. The Import File approach avoids this entirely.
+
 ### Downloading images for export
 
 Wix-hosted images on `static.wixstatic.com` are publicly accessible — just `fetch(url)` and save the buffer. No auth needed.
