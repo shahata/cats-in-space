@@ -36,7 +36,7 @@ try {
 		const texts: string[] = [];
 		for (const node of (ma.content?.nodes || [])) {
 			if (node.type === "PARAGRAPH") {
-				for (const child of ((node as any).nodes || [])) {
+				for (const child of (node.nodes || [])) {
 					if (child.type === "TEXT" && child.textData?.text) texts.push(child.textData.text);
 				}
 			}
@@ -276,7 +276,7 @@ const tabs = [
 										{order.pausePeriods?.length > 0 && (
 											<div class="sub-pauses">
 												<span class="sub-detail-label">Pause History</span>
-												{order.pausePeriods.map((p: any) => (
+												{order.pausePeriods.map((p: { pauseDate?: string; resumeDate?: string }) => (
 													<span class="sub-detail-value">
 														{fmt(String(p.pauseDate))} — {p.resumeDate ? fmt(String(p.resumeDate)) : 'ongoing'}
 													</span>

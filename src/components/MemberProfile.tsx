@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { members, authentication, membersAbout } from "@wix/members";
+import type { members as membersTypes } from "@wix/members";
 import { getData as getCountries } from "country-list";
 
 function toE164(phone: string): string {
@@ -14,7 +15,7 @@ function toE164(phone: string): string {
 }
 
 interface Props {
-  member: any;
+  member: membersTypes.Member;
   aboutData: { id: string | null; revision: string | null; text: string };
   tab?: "profile" | "personal" | "account";
 }
@@ -24,7 +25,7 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
   const [nickname, setNickname] = useState(member.profile?.nickname || "");
   const [title, setTitle] = useState(member.profile?.title || "");
   const [slug, setSlug] = useState(member.profile?.slug || "");
-  const [privacyStatus, setPrivacyStatus] = useState(member.privacyStatus || "PUBLIC");
+  const [privacyStatus, setPrivacyStatus] = useState<string>(member.privacyStatus || "PUBLIC");
 
   // Contact info
   const [firstName, setFirstName] = useState(member.contact?.firstName || "");
@@ -73,7 +74,7 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("memberId", member._id);
+      formData.append("memberId", member._id!);
 
       const res = await fetch("/api/profile-photo", {
         method: "POST",
@@ -88,8 +89,8 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       } else {
         alert(data.error || "Failed to upload image");
       }
-    } catch (err: any) {
-      alert(err?.message || "Upload failed");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Upload failed");
     }
     setPhotoUploading(false);
   }
@@ -102,14 +103,14 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       const res = await fetch("/api/profile-photo", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberId: member._id }),
+        body: JSON.stringify({ memberId: member._id! }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "Failed to remove photo");
       }
-    } catch (err: any) {
-      alert(err?.message || "Failed to remove photo");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to remove photo");
     }
   }
 
@@ -120,7 +121,7 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("memberId", member._id);
+      formData.append("memberId", member._id!);
       formData.append("field", "cover");
       const res = await fetch("/api/profile-photo", { method: "POST", body: formData });
       const data = await res.json();
@@ -129,8 +130,8 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       } else {
         alert(data.error || "Failed to upload cover");
       }
-    } catch (err: any) {
-      alert(err?.message || "Upload failed");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Upload failed");
     }
     setCoverUploading(false);
   }
@@ -141,14 +142,14 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       const res = await fetch("/api/profile-photo", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memberId: member._id, field: "cover" }),
+        body: JSON.stringify({ memberId: member._id!, field: "cover" }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "Failed to remove cover");
       }
-    } catch (err: any) {
-      alert(err?.message || "Failed to remove cover");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to remove cover");
     }
   }
 
@@ -172,14 +173,15 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
         setAboutRevision(res.revision || aboutRevision);
         setAboutSaved(true);
       } else {
-        const res = await membersAbout.createMemberAbout({ memberId: member._id, content } as any);
+        // memberId is required at runtime but missing from the SDK type definition
+        const res = await (membersAbout.createMemberAbout as Function)({ memberId: member._id!, content });
         setAboutId(res._id || null);
         setAboutRevision(res.revision || null);
         setAboutSaved(true);
       }
       setTimeout(() => setAboutSaved(false), 3000);
-    } catch (e: any) {
-      alert(e?.message || "Failed to save about");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to save about");
     }
     setAboutSaving(false);
   }
@@ -190,11 +192,11 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
     setEmailMsg("");
     try {
       // Must be called as the member (not elevated) — requires Member identity
-      await authentication.changeLoginEmail(member._id, newEmail.trim());
+      await authentication.changeLoginEmail(member._id!, newEmail.trim());
       setEmailMsg("Login email updated! You may need to log in again.");
       setNewEmail("");
-    } catch (e: any) {
-      setEmailMsg(e?.message || "Failed to change email");
+    } catch (e) {
+      setEmailMsg(e instanceof Error ? e.message : "Failed to change email");
     }
     setEmailChanging(false);
   }
@@ -203,10 +205,10 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
     setPasswordSending(true);
     setPasswordMsg("");
     try {
-      await authentication.sendSetPasswordEmail(member.loginEmail);
+      await authentication.sendSetPasswordEmail(member.loginEmail!);
       setPasswordMsg("Password reset email sent! Check your inbox.");
-    } catch (e: any) {
-      setPasswordMsg(e?.message || "Failed to send reset email");
+    } catch (e) {
+      setPasswordMsg(e instanceof Error ? e.message : "Failed to send reset email");
     }
     setPasswordSending(false);
   }
@@ -216,12 +218,12 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
     setSaving(true);
     setSaved(false);
     try {
-      const profileUpdate: any = {
+      const profileUpdate: membersTypes.Profile = {
         nickname: nickname || undefined,
         title: title || undefined,
       };
 
-      await members.updateMember(member._id, {
+      await members.updateMember(member._id!, {
         profile: profileUpdate,
         contact: {
           firstName: firstName || undefined,
@@ -253,8 +255,8 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (e: any) {
-      alert(e?.message || "Failed to update profile");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to update profile");
     }
     setSaving(false);
   }
@@ -266,8 +268,8 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       await members.updateCurrentMemberSlug(slug.trim());
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (e: any) {
-      alert(e?.message || "Failed to update slug");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to update slug");
     }
     setSlugSaving(false);
   }

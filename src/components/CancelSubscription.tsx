@@ -14,8 +14,8 @@ export default function CancelSubscription({ orderId }: { orderId: string }) {
     } catch {
       try {
         await orders.requestCancellation(orderId, "IMMEDIATELY");
-      } catch (e: any) {
-        alert(e?.message || "Failed to cancel subscription");
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "Failed to cancel subscription");
         setCancelling(false);
         return;
       }

@@ -196,8 +196,12 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
     if (vid) setMyVisitorId(vid);
   }
 
-  function isPermissionDenied(e: any): boolean {
-    return e?.details?.applicationError?.code === 'PERMISSION_DENIED' || e?.details?.httpStatusCode === 403 || e?.message?.includes('Permission denied');
+  function isPermissionDenied(e: unknown): boolean {
+    if (typeof e !== 'object' || e === null) return false;
+    const err = e as Record<string, unknown>;
+    const details = err.details as Record<string, unknown> | undefined;
+    const appError = details?.applicationError as Record<string, unknown> | undefined;
+    return appError?.code === 'PERMISSION_DENIED' || details?.httpStatusCode === 403 || (typeof err.message === 'string' && err.message.includes('Permission denied'));
   }
 
   async function submitComment(e: React.FormEvent) {
@@ -214,7 +218,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
       setNewComment("");
       setCommentName("");
       await loadComments(totalComments + 1);
-    } catch (e: any) {
+    } catch (e) {
       if (isPermissionDenied(e)) { setLoginRequired(true); } else { console.error("Comment error:", e); }
     }
     setSubmitting(false);
@@ -235,7 +239,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
       setReplyName("");
       setReplyingTo(null);
       await loadComments(totalComments + 1);
-    } catch (e: any) {
+    } catch (e) {
       if (isPermissionDenied(e)) { setLoginRequired(true); } else { console.error("Reply error:", e); }
     }
     setSubmitting(false);

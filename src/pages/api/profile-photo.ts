@@ -73,8 +73,9 @@ export const POST: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ id: photoId, url: photoUrl }), {
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'Failed to update profile photo' }), { status: 500 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Failed to update profile photo';
+    return new Response(JSON.stringify({ error: msg }), { status: 500 });
   }
 };
 
@@ -93,7 +94,8 @@ export const DELETE: APIRoute = async ({ request }) => {
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: e?.message || 'Failed to remove photo' }), { status: 500 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Failed to remove photo';
+    return new Response(JSON.stringify({ error: msg }), { status: 500 });
   }
 };

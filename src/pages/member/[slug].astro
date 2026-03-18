@@ -4,17 +4,19 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import RichContentViewer from '../../components/RichContentViewer';
 import { members, membersAbout } from '@wix/members';
+import type { members as membersTypes } from '@wix/members';
+import type { membersAbout as membersAboutTypes } from '@wix/members';
 
 const { slug } = Astro.params;
 
-let member: any = null;
+let member: membersTypes.Member | null = null;
 try {
 	member = await members.getMember(slug!, { fieldsets: ['FULL'] });
 } catch {}
 if (!member) {
 	try {
 		const result = await members.listMembers({ fieldsets: ['FULL'], paging: { limit: 100 } });
-		member = result.members?.find(m => m.profile?.slug === slug);
+		member = result.members?.find(m => m.profile?.slug === slug) ?? null;
 	} catch {}
 }
 
@@ -24,11 +26,11 @@ if (!member) return Astro.redirect('/');
 if (member.privacyStatus === 'PRIVATE') return Astro.redirect('/');
 
 // Fetch member about
-let aboutContent: any = null;
+let aboutContent: membersAboutTypes.RichContent | null = null;
 try {
 	const result = await membersAbout.queryMemberAbouts().eq('memberId', member._id).limit(1).find();
 	if (result.items.length > 0) {
-		aboutContent = result.items[0].content;
+		aboutContent = result.items[0].content ?? null;
 	}
 } catch {}
 

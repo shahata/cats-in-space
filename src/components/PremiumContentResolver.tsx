@@ -1,15 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 import { posts } from "@wix/blog";
+import type { posts as blogTypes } from "@wix/blog";
 import RichContentViewer from "./RichContentViewer";
 
 interface Props {
   slug: string;
-  previewContent: any;
+  previewContent?: blogTypes.RichContent;
 }
 
 export default function PremiumContentResolver({ slug, previewContent }: Props) {
-  const [content, setContent] = useState<any>(previewContent);
+  const [content, setContent] = useState<blogTypes.RichContent | undefined>(previewContent);
   const [isPreview, setIsPreview] = useState(true);
   const [loading, setLoading] = useState(true);
 

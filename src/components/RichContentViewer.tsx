@@ -5,8 +5,16 @@ import "@wix/ricos/css/all-plugins-viewer.css";
 
 const plugins = quickStartViewerPlugins();
 
-const RichContentViewer = ({ content }: { content: any }) => {
-  return <RicosViewer content={content} plugins={plugins} />;
+type RicosContent = React.ComponentProps<typeof RicosViewer>["content"];
+
+/**
+ * Accepts RichContent from any Wix SDK module. Different SDK packages
+ * (@wix/blog, @wix/members, @wix/ricos/schema) define structurally identical
+ * RichContent types with minor optionality differences (nodes? vs nodes).
+ * This component bridges that gap.
+ */
+const RichContentViewer = ({ content }: { content?: RicosContent | { nodes?: unknown[]; metadata?: unknown } }) => {
+  return <RicosViewer content={content as RicosContent} plugins={plugins} />;
 };
 
 export default RichContentViewer;
