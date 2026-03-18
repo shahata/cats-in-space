@@ -25,8 +25,11 @@ function formatPrice(p: productsV3Types.V3Product) {
 	return { formatted: fmt(price), original: onSale ? fmt(compare) : null };
 }
 
-const result = await productsV3.getProductBySlug(slug, { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'PLAIN_DESCRIPTION', 'INFO_SECTION', 'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES'] });
-const product = result.product;
+let product;
+try {
+	const result = await productsV3.getProductBySlug(slug, { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'PLAIN_DESCRIPTION', 'INFO_SECTION', 'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES'] });
+	product = result.product;
+} catch {}
 if (!product) return Astro.redirect('/store');
 
 const variantData = product.variantsInfo?.variants || [];
