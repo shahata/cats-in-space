@@ -4,6 +4,7 @@ import { redirects } from "@wix/redirects";
 import type { productsV3 } from "@wix/stores";
 
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
+const ECOM_PLATFORM_APP_ID = "1380b703-ce81-ff05-f115-39571d94dfcd";
 
 export interface ProductData {
   _id: string;
@@ -11,8 +12,14 @@ export interface ProductData {
   options: productsV3.ConnectedOption[];
   variants: productsV3.Variant[];
   inventory: productsV3.Inventory | undefined;
-  priceRange?: { minValue?: { amount?: string; formattedAmount?: string | null }; maxValue?: { amount?: string; formattedAmount?: string | null } };
-  compareAtPriceRange?: { minValue?: { amount?: string; formattedAmount?: string | null }; maxValue?: { amount?: string; formattedAmount?: string | null } };
+  priceRange?: {
+    minValue?: { amount?: string; formattedAmount?: string | null };
+    maxValue?: { amount?: string; formattedAmount?: string | null };
+  };
+  compareAtPriceRange?: {
+    minValue?: { amount?: string; formattedAmount?: string | null };
+    maxValue?: { amount?: string; formattedAmount?: string | null };
+  };
   currency?: string | null;
   modifiers: productsV3.ConnectedModifier[];
   ribbon?: string | null;
@@ -26,16 +33,19 @@ export default function ProductActions({ product }: Props) {
   const options = product.options || [];
   const variants = product.variants || [];
   const modifiers = product.modifiers || [];
-  const freeTextModifiers = modifiers.filter((m) => m.modifierRenderType === 'FREE_TEXT');
+  const freeTextModifiers = modifiers.filter(
+    (m) => m.modifierRenderType === "FREE_TEXT",
+  );
   const hasOptions = options.length > 0;
-  const isPreOrder = product.ribbon?.toUpperCase().includes('PRE-ORDER') ?? false;
+  const isPreOrder =
+    product.ribbon?.toUpperCase().includes("PRE-ORDER") ?? false;
 
   const [selections, setSelections] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const opt of options) {
       const choices = opt.choicesSettings?.choices;
       if (choices?.length && opt.name) {
-        init[opt.name] = choices[0].name ?? '';
+        init[opt.name] = choices[0].name ?? "";
       }
     }
     return init;
@@ -56,13 +66,12 @@ export default function ProductActions({ product }: Props) {
     }
     return variants.find((v) => {
       const choices = v.choices || [];
-      return Object.entries(selections).every(
-        ([optName, choiceVal]) =>
-          choices.some(
-            (c) =>
-              c.optionChoiceNames?.optionName === optName &&
-              c.optionChoiceNames?.choiceName === choiceVal,
-          ),
+      return Object.entries(selections).every(([optName, choiceVal]) =>
+        choices.some(
+          (c) =>
+            c.optionChoiceNames?.optionName === optName &&
+            c.optionChoiceNames?.choiceName === choiceVal,
+        ),
       );
     });
   }, [selections, variants, hasOptions]);
@@ -70,7 +79,7 @@ export default function ProductActions({ product }: Props) {
   const variantId = selectedVariant?._id;
   const isInStock = selectedVariant
     ? selectedVariant.inventoryStatus?.inStock !== false
-    : product.inventory?.availabilityStatus !== 'OUT_OF_STOCK';
+    : product.inventory?.availabilityStatus !== "OUT_OF_STOCK";
 
   const displayPrice = selectedVariant?.price?.actualPrice?.formattedAmount;
   const comparePrice = selectedVariant?.price?.compareAtPrice?.formattedAmount;
@@ -171,13 +180,15 @@ export default function ProductActions({ product }: Props) {
       // Back-in-stock settings only supports the V1 Stores appId
       const catalogRef: Record<string, unknown> = {
         catalogItemId: product._id,
-        appId: "1380b703-ce81-ff05-f115-39571d94dfcd",
+        appId: ECOM_PLATFORM_APP_ID,
       };
       if (hasOptions && variantId) {
         catalogRef.options = { variantId };
       }
       // SDK takes two separate args: (request, itemDetails)
-      await (backInStockNotifications.createBackInStockNotificationRequest as Function)(
+      await (
+        backInStockNotifications.createBackInStockNotificationRequest as Function
+      )(
         { catalogReference: catalogRef, email: bisEmail },
         {
           name: product.name || "Product",
@@ -192,7 +203,8 @@ export default function ProductActions({ product }: Props) {
     } catch (e) {
       setMessage({
         type: "error",
-        text: e instanceof Error ? e.message : "Failed to register notification",
+        text:
+          e instanceof Error ? e.message : "Failed to register notification",
       });
     } finally {
       setLoading(null);
@@ -227,14 +239,20 @@ export default function ProductActions({ product }: Props) {
           {freeTextModifiers.map((mod) => (
             <div key={mod.name} className="pa-option">
               <label className="pa-option-label">
-                {mod.name}{mod.mandatory && <span className="pa-required">*</span>}
+                {mod.name}
+                {mod.mandatory && <span className="pa-required">*</span>}
               </label>
               <input
                 type="text"
                 className="pa-text-input"
                 maxLength={mod.freeTextSettings?.maxCharCount ?? undefined}
                 value={customTexts[mod.name!] || ""}
-                onChange={(e) => setCustomTexts((prev) => ({ ...prev, [mod.name!]: e.target.value }))}
+                onChange={(e) =>
+                  setCustomTexts((prev) => ({
+                    ...prev,
+                    [mod.name!]: e.target.value,
+                  }))
+                }
                 placeholder={mod.name ?? ""}
               />
             </div>
@@ -244,7 +262,9 @@ export default function ProductActions({ product }: Props) {
 
       {displayPrice && (
         <div className="pa-selected-price">
-          {onSale && comparePrice && <span className="pa-original-price">{comparePrice}</span>}
+          {onSale && comparePrice && (
+            <span className="pa-original-price">{comparePrice}</span>
+          )}
           <span className={onSale ? "pa-sale-price" : ""}>{displayPrice}</span>
         </div>
       )}
@@ -285,7 +305,11 @@ export default function ProductActions({ product }: Props) {
               onClick={addToCart}
               disabled={loading !== null}
             >
-              {loading === "cart" ? "Adding..." : isPreOrder ? "Pre-Order" : "Add to Cart"}
+              {loading === "cart"
+                ? "Adding..."
+                : isPreOrder
+                  ? "Pre-Order"
+                  : "Add to Cart"}
             </button>
             <button
               className="pa-btn pa-btn-buy"
