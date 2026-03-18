@@ -47,7 +47,12 @@ Use the appId matching your catalog version everywhere: cart, checkout, orders, 
 - `@wix/stores` — Product and collection queries
   - `productsV3` namespace (V3, this site): `queryProducts`, `getProduct`, `getProductBySlug`, `createProduct`, `updateProduct`, `deleteProduct`, `searchProducts`
   - `products` namespace (V1): `getProduct`, `queryProducts`, `queryStoreVariants`, `createProduct`, `updateProduct`, `deleteProduct`, `addProductMedia`
-  - `collections` namespace (works on both V1 and V3): `queryCollections`, `getCollectionBySlug`
+  - `collections` namespace (V1 only): `queryCollections`, `getCollectionBySlug`
+- `@wix/categories` — V3 category queries
+  - `categories`: `queryCategories`, `searchCategories`, `getCategory`, `createCategory`, `listTrees`
+  - Query: `categories.queryCategories({ cursorPaging: { limit: 100 } }, { treeReference: { appNamespace: '@wix/stores' } })`
+  - Two-arg overload: first arg is `CategoryQuery` (filter/paging), second is `QueryCategoriesOptions` (treeReference)
+  - Returns `{ categories: Category[] }` directly (not `.items`)
   - `catalogVersioning` namespace: `getCatalogVersion`
 - `@wix/ecom` — Cart, checkout, orders, back-in-stock
   - `currentCart`: `getCurrentCart`, `addToCurrentCart`, `removeLineItemsFromCurrentCart`, `updateCurrentCartLineItemQuantity`, `estimateCurrentCartTotals`, `createCheckoutFromCurrentCart`
