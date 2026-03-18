@@ -14,14 +14,15 @@ export default function PlanCheckout({ planId }: Props) {
       const { redirectSession } = await redirects.createRedirectSession({
         paidPlansCheckout: { planId },
         callbacks: {
-          postFlowUrl: window.location.origin + "/plans?success=true",
+          thankYouPageUrl: window.location.origin + "/plans/thank-you",
+          postFlowUrl: window.location.origin + "/plans",
         },
       });
       if (redirectSession?.fullUrl) {
         window.location.href = redirectSession.fullUrl;
       }
-    } catch (e: any) {
-      alert(e?.message || "Something went wrong");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Something went wrong");
     } finally {
       setLoading(false);
     }

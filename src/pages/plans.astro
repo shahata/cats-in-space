@@ -18,12 +18,6 @@ const allPlans = result.items || [];
 		</div>
 	</section>
 
-	{Astro.url.searchParams.get('success') === 'true' && (
-		<div class="success-banner">
-			<div class="container">Welcome aboard, crew member! Your subscription is active.</div>
-		</div>
-	)}
-
 	<section class="content">
 		<div class="container">
 			<div class="plans-grid">
