@@ -36,9 +36,11 @@ export default function ProductActions({ product }: Props) {
   const freeTextModifiers = modifiers.filter(
     (m) => m.modifierRenderType === "FREE_TEXT",
   );
+  const choiceModifiers = modifiers.filter(
+    (m) => m.modifierRenderType === "TEXT_CHOICES",
+  );
   const hasOptions = options.length > 0;
-  const isPreOrder =
-    product.ribbon?.toUpperCase().includes("PRE-ORDER") ?? false;
+  const isPreOrder = product.inventory?.preorderStatus === "ENABLED";
 
   const [selections, setSelections] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -51,6 +53,16 @@ export default function ProductActions({ product }: Props) {
     return init;
   });
   const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
+  const [modifierSelections, setModifierSelections] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const mod of choiceModifiers) {
+      const choices = mod.choicesSettings?.choices;
+      if (choices?.length && mod.key) {
+        init[mod.key] = choices[0].key ?? choices[0].name ?? "";
+      }
+    }
+    return init;
+  });
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{
@@ -77,9 +89,10 @@ export default function ProductActions({ product }: Props) {
   }, [selections, variants, hasOptions]);
 
   const variantId = selectedVariant?._id;
+  const variantPreorder = selectedVariant?.inventoryStatus?.preorderEnabled;
   const isInStock = selectedVariant
-    ? selectedVariant.inventoryStatus?.inStock !== false
-    : product.inventory?.availabilityStatus !== "OUT_OF_STOCK";
+    ? (selectedVariant.inventoryStatus?.inStock !== false) || variantPreorder === true
+    : product.inventory?.availabilityStatus !== "OUT_OF_STOCK" || isPreOrder;
 
   const displayPrice = selectedVariant?.price?.actualPrice?.formattedAmount;
   const comparePrice = selectedVariant?.price?.compareAtPrice?.formattedAmount;
@@ -110,6 +123,17 @@ export default function ProductActions({ product }: Props) {
     }
     if (Object.keys(filledTexts).length > 0) {
       opts.customTextFields = filledTexts;
+    }
+    // TEXT_CHOICES modifiers go in options keyed by modifier key
+    const modChoices: Record<string, string> = {};
+    for (const mod of choiceModifiers) {
+      if (mod.key && modifierSelections[mod.key]) {
+        modChoices[mod.key] = modifierSelections[mod.key];
+      }
+    }
+    if (Object.keys(modChoices).length > 0) {
+      if (!opts.options) opts.options = {};
+      Object.assign(opts.options as Record<string, string>, modChoices);
     }
     if (Object.keys(opts).length > 0) {
       ref.options = opts;
@@ -234,29 +258,59 @@ export default function ProductActions({ product }: Props) {
         </div>
       )}
 
-      {freeTextModifiers.length > 0 && (
+      {choiceModifiers.length > 0 && (
         <div className="pa-options">
-          {freeTextModifiers.map((mod) => (
-            <div key={mod.name} className="pa-option">
+          {choiceModifiers.map((mod) => (
+            <div key={mod.key} className="pa-option">
               <label className="pa-option-label">
-                {mod.name}
-                {mod.mandatory && <span className="pa-required">*</span>}
+                {mod.name}{mod.mandatory && <span className="pa-required">*</span>}
               </label>
-              <input
-                type="text"
-                className="pa-text-input"
-                maxLength={mod.freeTextSettings?.maxCharCount ?? undefined}
-                value={customTexts[mod.name!] || ""}
-                onChange={(e) =>
-                  setCustomTexts((prev) => ({
-                    ...prev,
-                    [mod.name!]: e.target.value,
-                  }))
-                }
-                placeholder={mod.name ?? ""}
-              />
+              <div className="pa-choices">
+                {mod.choicesSettings?.choices?.map((choice) => (
+                  <button
+                    key={choice.key}
+                    className={`pa-choice ${modifierSelections[mod.key!] === (choice.key ?? choice.name) ? "pa-choice-active" : ""}`}
+                    onClick={() => setModifierSelections((prev) => ({ ...prev, [mod.key!]: choice.key ?? choice.name ?? "" }))}
+                  >
+                    {choice.name}
+                  </button>
+                ))}
+              </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {freeTextModifiers.length > 0 && (
+        <div className="pa-options">
+          {freeTextModifiers.map((mod) => {
+            const title = mod.freeTextSettings?.title || mod.name;
+            const maxChars = mod.freeTextSettings?.maxCharCount;
+            const currentLen = (customTexts[mod.name!] || "").length;
+            return (
+              <div key={mod.name} className="pa-option">
+                <label className="pa-option-label">
+                  {title}{mod.mandatory && <span className="pa-required">*</span>}
+                </label>
+                <input
+                  type="text"
+                  className="pa-text-input"
+                  maxLength={maxChars ?? undefined}
+                  value={customTexts[mod.name!] || ""}
+                  onChange={(e) =>
+                    setCustomTexts((prev) => ({
+                      ...prev,
+                      [mod.name!]: e.target.value,
+                    }))
+                  }
+                  placeholder={title ?? ""}
+                />
+                {maxChars && (
+                  <span className="pa-char-count">{currentLen}/{maxChars}</span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
