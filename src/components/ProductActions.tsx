@@ -168,9 +168,10 @@ export default function ProductActions({ product }: Props) {
     if (!bisEmail) return;
     setLoading("bis");
     try {
+      // Back-in-stock settings only supports the V1 Stores appId
       const catalogRef: Record<string, unknown> = {
         catalogItemId: product._id,
-        appId: STORES_APP_ID,
+        appId: "1380b703-ce81-ff05-f115-39571d94dfcd",
       };
       if (hasOptions && variantId) {
         catalogRef.options = { variantId };
