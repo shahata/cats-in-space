@@ -20,8 +20,8 @@ function formatPrice(p: productsV3Types.V3Product) {
 	const min = parseFloat(p.actualPriceRange?.minValue?.amount ?? '0');
 	const max = parseFloat(p.actualPriceRange?.maxValue?.amount ?? '0');
 	const compareMin = parseFloat(p.compareAtPriceRange?.minValue?.amount ?? '0');
-	const onSale = compareMin > min && compareMin > 0;
 	const hasRange = max > min;
+	const onSale = !hasRange && compareMin > min && compareMin > 0;
 	const formatted = hasRange ? `${fmt(min)} – ${fmt(max)}` : fmt(min);
 	return { formatted, original: onSale ? fmt(compareMin) : null };
 }
