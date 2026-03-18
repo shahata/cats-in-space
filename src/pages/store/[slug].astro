@@ -31,7 +31,7 @@ if (!product) return Astro.redirect('/store');
 
 const variantData = product.variantsInfo?.variants || [];
 
-const catResult = await categories.queryCategories().limit(100).find();
+const catResult = await categories.queryCategories({ treeReference: { appNamespace: '@wix/stores' } }).limit(100).find();
 const categoryMap = new Map<string, string>();
 for (const c of (catResult.items || [])) categoryMap.set(c._id!, c.name!);
 
