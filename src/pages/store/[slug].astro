@@ -29,7 +29,7 @@ function formatPrice(p: productsV3Types.V3Product) {
 
 let product;
 try {
-	const result = await productsV3.getProductBySlug(slug, { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DESCRIPTION', 'INFO_SECTION', 'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES'] });
+	const result = await productsV3.getProductBySlug(slug, { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DESCRIPTION', 'INFO_SECTION', 'INFO_SECTION_DESCRIPTION', 'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES'] });
 	product = result.product;
 } catch {}
 if (!product) return Astro.redirect('/store');
