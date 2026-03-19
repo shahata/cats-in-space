@@ -12,7 +12,7 @@ if (result.items.length === 0) {
 	return Astro.redirect('/crew');
 }
 
-const cat = result.items[0];
+const cat = result.items[0]!;
 
 function getEmoji(role: string) {
 	const map: Record<string, string> = {

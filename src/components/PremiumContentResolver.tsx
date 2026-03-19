@@ -30,7 +30,7 @@ export default function PremiumContentResolver({ slug, previewContent }: Props) 
   return (
     <>
       <div className={isPreview ? "post-preview" : undefined}>
-        <RichContentViewer content={content} />
+        {content && <RichContentViewer content={content} />}
       </div>
       {isPreview && !loading && (
         <div className="paywall">

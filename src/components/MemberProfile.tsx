@@ -57,8 +57,8 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
   const [photoUploading, setPhotoUploading] = useState(false);
 
   const [photo, setPhoto] = useState<string | undefined>(member.profile?.photo?.url);
-  const [photoId, setPhotoId] = useState<string | undefined>(member.profile?.photo?._id);
-  const [removePhoto, setRemovePhoto] = useState(false);
+  const [, setPhotoId] = useState<string | undefined>(member.profile?.photo?._id);
+  const [, setRemovePhoto] = useState(false);
   const [cover, setCover] = useState<string | undefined>(member.profile?.cover?.url);
   const [coverUploading, setCoverUploading] = useState(false);
   const [about, setAbout] = useState(aboutData.text);
@@ -218,28 +218,27 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
     setSaving(true);
     setSaved(false);
     try {
-      const profileUpdate: membersTypes.Profile = {
-        nickname: nickname || undefined,
-        title: title || undefined,
-      };
+      const profileUpdate: membersTypes.Profile = {};
+      if (nickname) profileUpdate.nickname = nickname;
+      if (title) profileUpdate.title = title;
 
       await members.updateMember(member._id!, {
         profile: profileUpdate,
         contact: {
-          firstName: firstName || undefined,
-          lastName: lastName || undefined,
-          company: company || undefined,
-          jobTitle: jobTitle || undefined,
-          birthdate: birthdate || undefined,
+          firstName: firstName || null,
+          lastName: lastName || null,
+          company: company || null,
+          jobTitle: jobTitle || null,
+          birthdate: birthdate || null,
           phones: phone ? [toE164(phone)] : [],
           addresses: [{
             ...(addr._id ? { _id: addr._id } : {}),
-            addressLine: addressLine || undefined,
-            addressLine2: addressLine2 || undefined,
-            city: city || undefined,
-            subdivision: subdivision || undefined,
-            country: country || undefined,
-            postalCode: postalCode || undefined,
+            addressLine: addressLine || null,
+            addressLine2: addressLine2 || null,
+            city: city || null,
+            subdivision: subdivision || null,
+            country: country || null,
+            postalCode: postalCode || null,
           }],
         },
       });

@@ -12,7 +12,7 @@ if (result.items.length === 0) {
 	return Astro.redirect('/planets');
 }
 
-const planet = result.items[0];
+const planet = result.items[0]!;
 
 // Find related missions
 const missionsResult = await items.query('Missions').eq('planet', planet.title).find();

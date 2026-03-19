@@ -74,7 +74,7 @@ export default function CartSidebar() {
         channelType: "WEB",
       });
       const { redirectSession } = await redirects.createRedirectSession({
-        ecomCheckout: { checkoutId },
+        ecomCheckout: { checkoutId: checkoutId! },
         callbacks: {
           thankYouPageUrl: window.location.origin + "/store/thank-you",
           postFlowUrl: window.location.origin + "/store",

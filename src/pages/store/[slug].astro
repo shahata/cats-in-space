@@ -6,26 +6,10 @@ import ProductActions from '../../components/ProductActions';
 import RichContentViewer from '../../components/RichContentViewer';
 import { productsV3 } from '@wix/stores';
 import { categories } from '@wix/categories';
-import type { productsV3 as productsV3Types } from '@wix/stores';
-import { i18n } from '@wix/essentials';
-import { getImageUrl } from '../../utils/image';
+import { extractMediaUrl } from '../../utils/image';
 
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/store');
-
-const locale = await i18n.getLocale();
-
-function formatPrice(p: productsV3Types.V3Product) {
-	const currency = p.currency || 'USD';
-	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
-	const min = parseFloat(p.actualPriceRange?.minValue?.amount ?? '0');
-	const max = parseFloat(p.actualPriceRange?.maxValue?.amount ?? '0');
-	const compareMin = parseFloat(p.compareAtPriceRange?.minValue?.amount ?? '0');
-	const hasRange = max > min;
-	const onSale = !hasRange && compareMin > min && compareMin > 0;
-	const formatted = hasRange ? `${fmt(min)} – ${fmt(max)}` : fmt(min);
-	return { formatted, original: onSale ? fmt(compareMin) : null };
-}
 
 let product;
 try {
@@ -44,39 +28,36 @@ const productCollections = (product.directCategoriesInfo?.categories || [])
 	.map(cat => cat._id ? categoryMap.get(cat._id) : undefined)
 	.filter((x): x is string => !!x);
 
-type MediaEntry = { type: 'image'; url: string } | { type: 'video'; url: string; thumbnail?: string };
-const mediaItems: MediaEntry[] = (product.media?.itemsInfo?.items || [])
-	.map((m: Record<string, any>) => {
-		if (m.mediaType === 'VIDEO' && m.video) {
-			const resolutions = m.video.resolutions || [];
-			const best = resolutions.find((r: Record<string, any>) => r.format === 'mp4') || resolutions[0];
-			const videoUrl = best?.url;
-			const poster = m.video.posters?.[0]?.url;
-			return videoUrl ? { type: 'video' as const, url: videoUrl, thumbnail: poster } : null;
-		}
-		const imageUrl = typeof m.image === 'string' ? getImageUrl(m.image, 600, 600) : m.image?.url;
-		return imageUrl ? { type: 'image' as const, url: imageUrl } : null;
-	})
-	.filter((x): x is MediaEntry => !!x);
-const images = mediaItems.filter(m => m.type === 'image').map(m => m.url);
-
+const mediaItems = (product.media?.itemsInfo?.items || [])
+	.map(m => extractMediaUrl(m, 600, 600))
+	.filter((x): x is NonNullable<typeof x> => !!x);
+function buildPriceValue(v: { amount?: string; formattedAmount?: string | null } | undefined) {
+	if (!v) return undefined;
+	const result: { amount?: string; formattedAmount?: string | null } = {};
+	if (v.amount) result.amount = v.amount;
+	if (v.formattedAmount !== undefined) result.formattedAmount = v.formattedAmount;
+	return result;
+}
+function buildPriceRange(r: { minValue?: { amount?: string; formattedAmount?: string | null }; maxValue?: { amount?: string; formattedAmount?: string | null } } | undefined) {
+	if (!r) return undefined;
+	const result: { minValue?: { amount?: string; formattedAmount?: string | null }; maxValue?: { amount?: string; formattedAmount?: string | null } } = {};
+	const min = buildPriceValue(r.minValue);
+	const max = buildPriceValue(r.maxValue);
+	if (min) result.minValue = min;
+	if (max) result.maxValue = max;
+	return result;
+}
 const productData: ProductActionsProps = {
 	_id: product._id!,
 	name: product.name!,
 	options: product.options || [],
 	variants: variantData.length > 0 ? variantData : [],
 	inventory: product.inventory,
-	priceRange: product.actualPriceRange ? {
-		minValue: product.actualPriceRange.minValue ? { amount: product.actualPriceRange.minValue.amount, formattedAmount: product.actualPriceRange.minValue.formattedAmount } : undefined,
-		maxValue: product.actualPriceRange.maxValue ? { amount: product.actualPriceRange.maxValue.amount, formattedAmount: product.actualPriceRange.maxValue.formattedAmount } : undefined,
-	} : undefined,
-	compareAtPriceRange: product.compareAtPriceRange ? {
-		minValue: product.compareAtPriceRange.minValue ? { amount: product.compareAtPriceRange.minValue.amount, formattedAmount: product.compareAtPriceRange.minValue.formattedAmount } : undefined,
-		maxValue: product.compareAtPriceRange.maxValue ? { amount: product.compareAtPriceRange.maxValue.amount, formattedAmount: product.compareAtPriceRange.maxValue.formattedAmount } : undefined,
-	} : undefined,
-	currency: product.currency,
+	...(product.actualPriceRange ? { priceRange: buildPriceRange(product.actualPriceRange)! } : {}),
+	...(product.compareAtPriceRange ? { compareAtPriceRange: buildPriceRange(product.compareAtPriceRange)! } : {}),
+	currency: product.currency ?? null,
 	modifiers: product.modifiers || [],
-	ribbon: product.ribbon?.name,
+	ribbon: product.ribbon?.name ?? null,
 };
 
 const infoSections = product.infoSections || [];
@@ -96,10 +77,10 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 					{mediaItems.length > 0 ? (
 						<>
 							<div class="gallery-main">
-								{mediaItems[0].type === 'video' ? (
-									<video id="main-video" src={mediaItems[0].url} controls autoplay muted loop playsinline />
+								{mediaItems[0]!.type === 'video' ? (
+									<video id="main-video" src={mediaItems[0]!.url} poster={mediaItems[0]!.thumbnail || ''} controls autoplay muted loop playsinline />
 								) : (
-									<img id="main-image" src={mediaItems[0].url} alt={product.name} />
+									<img id="main-image" src={mediaItems[0]!.url} alt={product.name} />
 								)}
 							</div>
 							{mediaItems.length > 1 && (
@@ -109,10 +90,15 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 											class:list={['thumb', { active: i === 0 }]}
 											data-src={m.url}
 											data-type={m.type}
+											data-thumbnail={m.thumbnail || ''}
 											data-index={i}
 										>
 											{m.type === 'video' ? (
-												<div class="thumb-video">&#9654;</div>
+												m.thumbnail ? (
+													<img src={m.thumbnail} alt={`${product.name} video`} />
+												) : (
+													<div class="thumb-video">&#9654;</div>
+												)
 											) : (
 												<img src={m.url} alt={`${product.name} ${i + 1}`} />
 											)}
@@ -174,12 +160,14 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 <script>
 	document.querySelectorAll('.thumb').forEach(thumb => {
 		thumb.addEventListener('click', () => {
-			const src = (thumb as HTMLElement).dataset.src;
-			const type = (thumb as HTMLElement).dataset.type;
+			const el = thumb as HTMLElement;
+			const src = el.dataset.src;
+			const type = el.dataset.type;
+			const thumbnail = el.dataset.thumbnail;
 			const main = document.querySelector('.gallery-main')!;
 
 			if (type === 'video') {
-				main.innerHTML = `<video id="main-video" src="${src}" controls autoplay muted loop playsinline></video>`;
+				main.innerHTML = `<video id="main-video" src="${src}" poster="${thumbnail || ''}" controls autoplay muted loop playsinline></video>`;
 			} else {
 				main.innerHTML = `<img id="main-image" src="${src}" alt="Product" />`;
 			}

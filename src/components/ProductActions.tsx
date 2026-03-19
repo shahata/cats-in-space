@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { currentCart, backInStockNotifications } from "@wix/ecom";
+import type { cart as cartTypes } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 import type { productsV3 } from "@wix/stores";
 
@@ -37,7 +38,9 @@ export default function ProductActions({ product }: Props) {
     (m) => m.modifierRenderType === "FREE_TEXT",
   );
   const choiceModifiers = modifiers.filter(
-    (m) => m.modifierRenderType === "TEXT_CHOICES" || m.modifierRenderType === "SWATCH_CHOICES",
+    (m) =>
+      m.modifierRenderType === "TEXT_CHOICES" ||
+      m.modifierRenderType === "SWATCH_CHOICES",
   );
   const hasOptions = options.length > 0;
   const isPreOrder = product.inventory?.preorderStatus === "ENABLED";
@@ -47,18 +50,20 @@ export default function ProductActions({ product }: Props) {
     for (const opt of options) {
       const choices = opt.choicesSettings?.choices;
       if (choices?.length && opt.name) {
-        init[opt.name] = choices[0].name ?? "";
+        init[opt.name] = choices[0]?.name ?? "";
       }
     }
     return init;
   });
   const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
-  const [modifierSelections, setModifierSelections] = useState<Record<string, string>>(() => {
+  const [modifierSelections, setModifierSelections] = useState<
+    Record<string, string>
+  >(() => {
     const init: Record<string, string> = {};
     for (const mod of choiceModifiers) {
       const choices = mod.choicesSettings?.choices;
       if (choices?.length && mod.key) {
-        init[mod.key] = choices[0].key ?? choices[0].name ?? "";
+        init[mod.key] = choices[0]?.key ?? choices[0]?.name ?? "";
       }
     }
     return init;
@@ -91,13 +96,19 @@ export default function ProductActions({ product }: Props) {
   const variantId = selectedVariant?._id;
   const variantPreorder = selectedVariant?.inventoryStatus?.preorderEnabled;
   const isInStock = selectedVariant
-    ? (selectedVariant.inventoryStatus?.inStock !== false) || variantPreorder === true
+    ? selectedVariant.inventoryStatus?.inStock !== false ||
+      variantPreorder === true
     : product.inventory?.availabilityStatus !== "OUT_OF_STOCK" || isPreOrder;
 
-  const displayPrice = selectedVariant?.price?.actualPrice?.formattedAmount
-    || (selectedVariant?.price?.actualPrice?.amount ? `${product.currency || ''}${selectedVariant.price.actualPrice.amount}` : null)
-    || product.priceRange?.minValue?.formattedAmount
-    || (product.priceRange?.minValue?.amount ? `${product.currency || ''}${product.priceRange.minValue.amount}` : null);
+  const displayPrice =
+    selectedVariant?.price?.actualPrice?.formattedAmount ||
+    (selectedVariant?.price?.actualPrice?.amount
+      ? `${product.currency || ""}${selectedVariant.price.actualPrice.amount}`
+      : null) ||
+    product.priceRange?.minValue?.formattedAmount ||
+    (product.priceRange?.minValue?.amount
+      ? `${product.currency || ""}${product.priceRange.minValue.amount}`
+      : null);
   const comparePrice = selectedVariant?.price?.compareAtPrice?.formattedAmount;
   const onSale = !!comparePrice && comparePrice !== displayPrice;
 
@@ -107,8 +118,8 @@ export default function ProductActions({ product }: Props) {
     setBisSubmitted(false);
   };
 
-  const buildCatalogRef = () => {
-    const ref: Record<string, unknown> = {
+  const buildCatalogRef = (): cartTypes.CatalogReference => {
+    const ref: cartTypes.CatalogReference = {
       catalogItemId: product._id,
       appId: STORES_APP_ID,
     };
@@ -131,12 +142,15 @@ export default function ProductActions({ product }: Props) {
     const modChoices: Record<string, string> = {};
     for (const mod of choiceModifiers) {
       if (mod.key && modifierSelections[mod.key]) {
-        modChoices[mod.key] = modifierSelections[mod.key];
+        modChoices[mod.key] = modifierSelections[mod.key]!;
       }
     }
     if (Object.keys(modChoices).length > 0) {
       if (!opts.options) opts.options = {};
       Object.assign(opts.options as Record<string, string>, modChoices);
+    }
+    if (isPreOrder || variantPreorder) {
+      opts.preOrderRequested = true;
     }
     if (Object.keys(opts).length > 0) {
       ref.options = opts;
@@ -157,9 +171,17 @@ export default function ProductActions({ product }: Props) {
     setMessage(null);
     try {
       await currentCart.addToCurrentCart({
-        lineItems: [{ quantity: Math.max(1, quantity), catalogReference: buildCatalogRef() }],
+        lineItems: [
+          {
+            quantity: Math.max(1, quantity),
+            catalogReference: buildCatalogRef(),
+          },
+        ],
       });
-      setMessage({ type: "success", text: isPreOrder ? "Pre-order added to cart!" : "Added to cart!" });
+      setMessage({
+        type: "success",
+        text: isPreOrder ? "Pre-order added to cart!" : "Added to cart!",
+      });
       window.dispatchEvent(new CustomEvent("cart-updated"));
     } catch (e) {
       setMessage({
@@ -182,7 +204,7 @@ export default function ProductActions({ product }: Props) {
         channelType: "WEB",
       });
       const { redirectSession } = await redirects.createRedirectSession({
-        ecomCheckout: { checkoutId },
+        ecomCheckout: { checkoutId: checkoutId! },
         callbacks: {
           thankYouPageUrl: window.location.origin + "/store/thank-you",
           postFlowUrl: window.location.origin + "/store",
@@ -254,7 +276,9 @@ export default function ProductActions({ product }: Props) {
             {onSale && comparePrice && (
               <span className="pa-original-price">{comparePrice}</span>
             )}
-            <span className={onSale ? "pa-sale-price" : ""}>{displayPrice}</span>
+            <span className={onSale ? "pa-sale-price" : ""}>
+              {displayPrice}
+            </span>
           </div>
         )}
       </div>
@@ -275,14 +299,18 @@ export default function ProductActions({ product }: Props) {
                         key={choice.name}
                         className={`pa-swatch ${isActive ? "pa-swatch-active" : ""}`}
                         style={{ backgroundColor: colorCode }}
-                        onClick={() => handleOptionChange(opt.name!, choice.name!)}
+                        onClick={() =>
+                          handleOptionChange(opt.name!, choice.name!)
+                        }
                         title={choice.name ?? ""}
                       />
                     ) : (
                       <button
                         key={choice.name}
                         className={`pa-choice ${isActive ? "pa-choice-active" : ""}`}
-                        onClick={() => handleOptionChange(opt.name!, choice.name!)}
+                        onClick={() =>
+                          handleOptionChange(opt.name!, choice.name!)
+                        }
                       >
                         {choice.name}
                       </button>
@@ -302,25 +330,38 @@ export default function ProductActions({ product }: Props) {
             return (
               <div key={mod.key} className="pa-option">
                 <label className="pa-option-label">
-                  {mod.name}{mod.mandatory && <span className="pa-required">*</span>}
+                  {mod.name}
+                  {mod.mandatory && <span className="pa-required">*</span>}
                 </label>
                 <div className="pa-choices">
                   {mod.choicesSettings?.choices?.map((choice) => {
-                    const isActive = modifierSelections[mod.key!] === (choice.key ?? choice.name);
+                    const isActive =
+                      modifierSelections[mod.key!] ===
+                      (choice.key ?? choice.name);
                     const colorCode = choice.colorCode;
                     return isSwatch && colorCode ? (
                       <button
                         key={choice.key}
                         className={`pa-swatch ${isActive ? "pa-swatch-active" : ""}`}
                         style={{ backgroundColor: colorCode }}
-                        onClick={() => setModifierSelections((prev) => ({ ...prev, [mod.key!]: choice.key ?? choice.name ?? "" }))}
+                        onClick={() =>
+                          setModifierSelections((prev) => ({
+                            ...prev,
+                            [mod.key!]: choice.key ?? choice.name ?? "",
+                          }))
+                        }
                         title={choice.name ?? ""}
                       />
                     ) : (
                       <button
                         key={choice.key}
                         className={`pa-choice ${isActive ? "pa-choice-active" : ""}`}
-                        onClick={() => setModifierSelections((prev) => ({ ...prev, [mod.key!]: choice.key ?? choice.name ?? "" }))}
+                        onClick={() =>
+                          setModifierSelections((prev) => ({
+                            ...prev,
+                            [mod.key!]: choice.key ?? choice.name ?? "",
+                          }))
+                        }
                       >
                         {choice.name}
                       </button>
@@ -342,7 +383,8 @@ export default function ProductActions({ product }: Props) {
             return (
               <div key={mod.name} className="pa-option">
                 <label className="pa-option-label">
-                  {title}{mod.mandatory && <span className="pa-required">*</span>}
+                  {title}
+                  {mod.mandatory && <span className="pa-required">*</span>}
                 </label>
                 <input
                   type="text"
@@ -358,7 +400,9 @@ export default function ProductActions({ product }: Props) {
                   placeholder={title ?? ""}
                 />
                 {maxChars && (
-                  <span className="pa-char-count">{currentLen}/{maxChars}</span>
+                  <span className="pa-char-count">
+                    {currentLen}/{maxChars}
+                  </span>
                 )}
               </div>
             );

@@ -36,7 +36,7 @@ try {
 	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
 	if (res.member) {
 		currentMemberName = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
-		currentMemberPhoto = res.member.profile?.photo?.url || undefined;
+		currentMemberPhoto = res.member.profile?.photo?.url ?? undefined;
 	}
 } catch {}
 
@@ -95,11 +95,11 @@ const writerSlug = writer?.profile?.slug;
 
 			{post.preview ? (
 				<div class="post-content">
-					<PremiumContentResolver slug={slug!} previewContent={post.richContent} client:load />
+					<PremiumContentResolver slug={slug!} {...(post.richContent ? { previewContent: post.richContent } : {})} client:load />
 				</div>
 			) : (
 				<div class="post-content">
-					<RichContentViewer content={post.richContent} client:load />
+					{post.richContent && <RichContentViewer content={post.richContent} client:load />}
 				</div>
 			)}
 
@@ -116,7 +116,7 @@ const writerSlug = writer?.profile?.slug;
 				</div>
 			</div>
 
-			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} memberName={currentMemberName} memberPhoto={currentMemberPhoto} commentingEnabled={post.commentingEnabled !== false} client:load />
+			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} {...(currentMemberName ? { memberName: currentMemberName } : {})} {...(currentMemberPhoto ? { memberPhoto: currentMemberPhoto } : {})} commentingEnabled={post.commentingEnabled !== false} client:load />
 
 			<footer class="post-footer">
 				<a href="/blog" class="btn btn-outline">&larr; More Transmissions</a>

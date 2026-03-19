@@ -21,8 +21,8 @@ if (!member) return Astro.redirect(`/api/auth/login?returnToUrl=${encodeURICompo
 let myOrders: Record<string, any>[] = [];
 try {
 	const result = await orders.memberListOrders() as { orders?: Record<string, any>[] };
-	const today = new Date().toISOString().split('T')[0];
-	myOrders = (result.orders || []).filter(o => o.status !== 'DRAFT' && !(o.endDate && new Date(o.endDate as string).toISOString().split('T')[0] < today));
+	const today = new Date().toISOString().split('T')[0]!;
+	myOrders = (result.orders || []).filter(o => o.status !== 'DRAFT' && !(o.endDate && new Date(o.endDate as string).toISOString().split('T')[0]! < today));
 } catch {}
 
 // Fetch member about

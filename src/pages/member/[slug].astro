@@ -30,7 +30,7 @@ let aboutContent: membersAboutTypes.RichContent | null = null;
 try {
 	const result = await membersAbout.queryMemberAbouts().eq('memberId', member._id).limit(1).find();
 	if (result.items.length > 0) {
-		aboutContent = result.items[0].content ?? null;
+		aboutContent = result.items[0]!.content ?? null;
 	}
 } catch {}
 

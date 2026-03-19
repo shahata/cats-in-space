@@ -11,7 +11,7 @@ if (result.items.length === 0) {
 	return Astro.redirect('/missions');
 }
 
-const mission = result.items[0];
+const mission = result.items[0]!;
 
 function getStatusBadge(status: string) {
 	const map: Record<string, string> = {

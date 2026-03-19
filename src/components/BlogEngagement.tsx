@@ -147,9 +147,13 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
     await Promise.all([...memberIds].filter(id => !profiles.has(id)).map(async (id) => {
       try {
         const m = await members.getMember(id, { fieldsets: ['FULL'] });
-        const nickname = m.profile?.nickname || m.contact?.firstName || undefined;
+        const nickname = m.profile?.nickname || m.contact?.firstName;
         if (nickname) {
-          profiles.set(id, { nickname, title: m.profile?.title || undefined, photo: m.profile?.photo?.url || undefined, slug: m.profile?.slug || undefined });
+          const entry: { nickname: string; title?: string; photo?: string; slug?: string } = { nickname };
+          if (m.profile?.title) entry.title = m.profile.title;
+          if (m.profile?.photo?.url) entry.photo = m.profile.photo.url;
+          if (m.profile?.slug) entry.slug = m.profile.slug;
+          profiles.set(id, entry);
         }
       } catch {}
     }));
@@ -285,11 +289,16 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
     const memberId = comment.author?.memberId;
     if (memberId) {
       const profile = memberProfiles.get(memberId);
-      if (profile) return {
-        name: profile.nickname, title: profile.title, photo: profile.photo,
-        profileUrl: `/member/${profile.slug || memberId}`,
-        isMember: true,
-      };
+      if (profile) {
+        const result: { name: string; title?: string; photo?: string; profileUrl?: string; isMember: boolean } = {
+          name: profile.nickname,
+          profileUrl: `/member/${profile.slug || memberId}`,
+          isMember: true,
+        };
+        if (profile.title) result.title = profile.title;
+        if (profile.photo) result.photo = profile.photo;
+        return result;
+      }
     }
     const authorName = (comment.author as { authorName?: string })?.authorName;
     return { name: authorName || "Space Visitor", isMember: false };

@@ -52,14 +52,6 @@ const post = res.post;
 type Post = posts.Post & { metrics?: posts.Metrics };
 ```
 
-**CRITICAL:** `members.getMember()` returns `Member` directly, NOT `{ member: Member }`. The SDK unwraps it.
-
-**CRITICAL:** Use `npx astro check` (not `tsc --noEmit`) for type checking. `tsc` does NOT check `.astro` files.
-
-## Source Code Reference
-
-Blog post service proto (internal): https://github.com/wix-private/blog-node/blob/master/packages/platformized-proto/src/main/proto/com/wixpress/npm/communities/platformized/blog/v3/post-service.proto
-
 ## Tags
 
 **CRITICAL:** `queryTags` is a direct async function, NOT a query builder. Do NOT chain `.find()`.

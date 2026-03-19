@@ -281,11 +281,3 @@ The Wix Comments system uses a layered permission model:
 
 3. **Best approach for headless**: Don't pre-check permissions. Let the user attempt the action and handle `PERMISSION_DENIED` errors gracefully by showing a login prompt.
 
-## Source Code References
-
-- Comment service proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-ng/proto/wix/comments/ng/v1/comments_ng.proto
-- Comment entity proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-ng/proto/wix/comments/ng/v1/comment.proto
-- Comments middleware proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-middleware/proto/wix/comments/middleware/v1/comments_middleware.proto
-- Comments category proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-categories/proto/wix/comments/categories/v1/category.proto
-- Comments context host proto: https://github.com/wix-private/catalyst-server/blob/master/comments/comments-context-host/proto/wix/comments/context/v1/comments_context_host.proto
-- Comments widget permissions: https://github.com/wix-private/wix-comments/blob/master/comments-web/comments-ooi-client/src/common/store/comments/comments-permissions.ts

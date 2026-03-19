@@ -1,6 +1,6 @@
 ---
 name: wix-headless
-description: Core Wix managed headless guide. Covers scaffolding, Astro + Wix SDK patterns, CMS collections, image handling, dynamic routes, and deployment. Trigger on Wix headless, headless site, Wix CMS, Wix Astro, wix managed, wix SDK data queries.
+description: Core Wix managed headless guide. Covers scaffolding, Astro + Wix SDK patterns, CMS collections, image handling, dynamic routes, deployment, authentication, members, media helpers, and general coding conventions. Trigger on Wix headless, headless site, Wix CMS, Wix Astro, wix managed, wix SDK data queries.
 ---
 
 # Wix Managed Headless - Developer Guide
@@ -83,10 +83,9 @@ result.items[0].data.title  // ❌ TypeError
 import { items } from '@wix/data';
 
 const result = await items.query('CollectionId').find();
-await items.query('Planets').descending('habitabilityScore').find();
-await items.query('Planets').eq('status', 'Top Candidate').find();
-await items.query('CatExplorers').limit(4).find();
-await items.query('Missions').eq('planet', 'Purrion-7').descending('launchDate').limit(10).find();
+await items.query('Collection').descending('score').find();
+await items.query('Collection').eq('status', 'Active').find();
+await items.query('Collection').limit(4).find();
 ```
 
 ### Result Shape
@@ -105,7 +104,8 @@ npm install @wix/members    # Members API
 npm install @wix/stores     # Stores API
 npm install @wix/blog       # Blog API
 npm install @wix/comments   # Comments API
-npm install @wix/ricos      # Rich content viewer (React)
+npm install @wix/ecom       # Cart, checkout, orders
+npm install @wix/redirects  # Redirect sessions (checkout, plans)
 ```
 
 ## CMS Collections
@@ -117,8 +117,8 @@ npm install @wix/ricos      # Rich content viewer (React)
 ```json
 {
   "collection": {
-    "id": "Planets",
-    "displayName": "Planets",
+    "id": "MyCollection",
+    "displayName": "My Collection",
     "displayField": "title",
     "fields": [
       { "key": "title", "displayName": "Title", "type": "TEXT", "required": true },
@@ -151,12 +151,12 @@ npm install @wix/ricos      # Rich content viewer (React)
 
 **Single:** `POST https://www.wixapis.com/wix-data/v2/items`
 ```json
-{ "dataCollectionId": "Planets", "dataItem": { "data": { "title": "Purrion-7", "slug": "purrion-7" } } }
+{ "dataCollectionId": "MyCollection", "dataItem": { "data": { "title": "Item", "slug": "item" } } }
 ```
 
 **Bulk:** `POST https://www.wixapis.com/wix-data/v2/bulk/items/insert`
 ```json
-{ "dataCollectionId": "Planets", "dataItems": [{ "data": { "title": "Planet A" } }], "returnEntity": true }
+{ "dataCollectionId": "MyCollection", "dataItems": [{ "data": { "title": "Item A" } }], "returnEntity": true }
 ```
 
 **IMPORTANT:** Bulk patch uses `patches` array with `fieldModifications`, NOT `dataItems`. Wrong shape = `WDE0080` error.
@@ -177,21 +177,14 @@ Returns `file.url` (wixstatic.com) — usable immediately even while `operationS
 
 IMAGE fields store: `wix:image://v1/{mediaId}/{filename}#originWidth={w}&originHeight={h}`
 
-### Converting for Display
+### Wix Media Helpers
 
-Use `media` from `@wix/sdk` instead of building URLs manually:
+Use `media` from `@wix/sdk` instead of building URLs manually. Recommended utility pattern:
 
 ```typescript
 import { media } from '@wix/sdk';
 
-// Parse wix:image:// string to get URL and metadata
-const parsed = media.getImageUrl('wix:image://v1/mediaId/file.png#originWidth=800&originHeight=600');
-// Returns: { id, url, height, width, altText, filename }
-
-// Get a scaled URL with specific dimensions
-const url = media.getScaledToFillImageUrl('wix:image://...', 800, 600, {});
-
-// Wrapper that handles all formats (wix:image://, media IDs, regular URLs)
+// Image: handles wix:image://, media IDs, and regular URLs
 function getImageUrl(wixImage: string | undefined, width = 800, height = 800): string | null {
   if (!wixImage) return null;
   if (wixImage.startsWith('http')) return wixImage;
@@ -201,6 +194,36 @@ function getImageUrl(wixImage: string | undefined, width = 800, height = 800): s
     return parsed?.url || null;
   }
   return `https://static.wixstatic.com/media/${wixImage}`;
+}
+
+// Video: parses wix:video:// → playable URL + thumbnail image
+function getVideoUrl(wixVideo: string | undefined, thumbW = 800, thumbH = 800): { url: string; thumbnail: string | null } | null {
+  if (!wixVideo) return null;
+  if (wixVideo.startsWith('http')) return { url: wixVideo, thumbnail: null };
+  if (wixVideo.startsWith('wix:video://')) {
+    const result = media.getVideoUrl(wixVideo);
+    return { url: result.url, thumbnail: result.thumbnail ? getImageUrl(result.thumbnail, thumbW, thumbH) : null };
+  }
+  return { url: `https://video.wixstatic.com/video/${wixVideo}/file`, thumbnail: null };
+}
+```
+
+For Wix Stores `ProductMedia` objects, combine into a single helper:
+```typescript
+import type { productsV3 } from '@wix/stores';
+
+function extractMediaUrl(m: productsV3.ProductMedia | undefined, w = 800, h = 800): { type: 'image' | 'video'; url: string; thumbnail?: string } | null {
+  if (!m) return null;
+  if (m.mediaType === 'VIDEO' && m.video) {
+    const video = getVideoUrl(m.video, w, h);
+    if (video) return { type: 'video', url: video.url, ...(video.thumbnail ? { thumbnail: video.thumbnail } : {}) };
+    return null;
+  }
+  if (m.image) {
+    const imageUrl = getImageUrl(m.image, w, h);
+    if (imageUrl) return { type: 'image', url: imageUrl };
+  }
+  return null;
 }
 ```
 
@@ -212,9 +235,9 @@ Use Astro's `[slug].astro` pattern — no `getStaticPaths()` needed since `outpu
 ---
 import { items } from '@wix/data';
 const { slug } = Astro.params;
-const result = await items.query('Planets').eq('slug', slug).find();
-if (result.items.length === 0) return Astro.redirect('/planets');
-const planet = result.items[0];
+const result = await items.query('MyCollection').eq('slug', slug).find();
+if (result.items.length === 0) return Astro.redirect('/');
+const item = result.items[0];
 ---
 ```
 
@@ -229,8 +252,8 @@ const planet = result.items[0];
 
 The Wix Astro middleware provides auth endpoints out of the box:
 
-- **Login:** `<a href="/api/auth/login">` — GET, redirects to Wix login page. Supports `returnToUrl` query param to redirect back after login: `/api/auth/login?returnToUrl=/current-page`
-- **Logout:** `<form action="/api/auth/logout" method="POST">` — **POST** handler, use a form not a link. Also supports `returnToUrl` query param: `/api/auth/logout?returnToUrl=/current-page`
+- **Login:** `<a href="/api/auth/login">` — GET, redirects to Wix login page. Supports `returnToUrl` query param: `/api/auth/login?returnToUrl=/current-page`
+- **Logout:** `<form action="/api/auth/logout" method="POST">` — **POST** handler, use a form not a link. Also supports `returnToUrl`.
 
 **Detect login state server-side:**
 ```astro
@@ -242,12 +265,6 @@ try {
   if (res.member) memberName = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
 } catch {}
 ---
-{memberName ? (
-  <span>{memberName}</span>
-  <form action="/api/auth/logout" method="POST"><button>Logout</button></form>
-) : (
-  <a href={`/api/auth/login?returnToUrl=${encodeURIComponent(currentPath)}`}>Login</a>
-)}
 ```
 
 **CRITICAL:** `getCurrentMember()` returns `{ member?: Member }` (wrapped response), NOT `Member` directly.
@@ -259,93 +276,43 @@ try {
 ```typescript
 import { members } from '@wix/members';
 
-// Update member profile (client-side)
 await members.updateMember(member._id, {
-  profile: {
-    nickname: "New Name",
-    title: "New Title",
-  },
-  contact: {
-    firstName: "First",
-    lastName: "Last",
-    company: "Company",
-    jobTitle: "Job",
-    birthdate: "2000-01-15",  // YYYY-MM-DD format
-  },
+  profile: { nickname: "New Name", title: "New Title" },
+  contact: { firstName: "First", lastName: "Last", company: "Co", jobTitle: "Job", birthdate: "2000-01-15" },
 });
 ```
 
 **Member fields:**
 - **Profile (public):** `nickname`, `title`, `photo` (`{ url, _id, width, height }`), `slug`, `cover`
 - **Contact (private):** `firstName`, `lastName`, `phones`, `emails`, `addresses`, `birthdate`, `company`, `jobTitle`
-- **Photo URL:** `member.profile.photo.url` — directly usable in `<img>` tags
 
-**Protect member-only pages:**
-```astro
----
-const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
-if (!res.member) return Astro.redirect(`/api/auth/login?returnToUrl=${encodeURIComponent('/member')}`);
-const member = res.member;
----
-```
+**Remove profile photo:** Send `{ url: "" }` — not `null`.
 
-**Member area tab pattern:** Use URL hash fragments for tab navigation in the member area. Split MemberProfile into sections via a `tab` prop (`"profile"`, `"personal"`, `"account"`). Render one `<MemberProfile>` per tab panel with the appropriate tab value. Use a `<script>` block for hash-based tab switching. This keeps each tab lightweight and allows easy addition of new tabs.
+**CRITICAL:** `updateMember` silently ignores `privacyStatus`. Use `members.joinCommunity()` (PUBLIC) and `members.leaveCommunity()` (PRIVATE).
 
-**Remove profile photo:** Send `{ url: "" }` — not `null`, not `{ url: "", _id: "" }`.
-
-**CRITICAL:** `updateMember` silently ignores `privacyStatus`. Use `members.joinCommunity()` (PUBLIC) and `members.leaveCommunity()` (PRIVATE) instead.
+**CRITICAL:** `members.getMember()` returns `Member` directly, NOT `{ member: Member }`.
 
 ### Member About (Bio)
 
-The about/bio is a **separate API**, not part of the Member profile:
-
 ```typescript
 import { membersAbout } from '@wix/members';
-
-// Read own about (client-side)
 const res = await membersAbout.getMyMemberAbout();
 const content = res.memberAbout?.content; // RichContent (Ricos format)
-// Note: getMyMemberAbout returns { memberAbout } (wrapped)
-
-// Read any member's about (server-side)
-const result = await membersAbout.queryMemberAbouts().eq('memberId', memberId).limit(1).find();
-const content = result.items[0]?.content; // RichContent
-
-// Create about
-await membersAbout.createMemberAbout({ memberId, content: richContent });
-
-// Update about (requires revision)
-await membersAbout.updateMemberAbout(aboutId, { content: richContent, revision });
 ```
 
-**CRITICAL:** `getMyMemberAbout()` returns `{ memberAbout }` (wrapped), but `getMemberAbout(id)` returns `MemberAbout` directly. Use `queryMemberAbouts` for consistency.
-
-**Content is RichContent (Ricos format)** — render with `RicosViewer`, create with PARAGRAPH/TEXT nodes.
+**CRITICAL:** `getMyMemberAbout()` returns `{ memberAbout }` (wrapped), but `getMemberAbout(id)` returns `MemberAbout` directly.
 
 ### Member Authentication
 
 ```typescript
 import { authentication } from '@wix/members';
-
-// Change login email (client-side, needs member session)
 await authentication.changeLoginEmail(memberId, newEmail);
-
-// Send password reset email (client-side, needs member session)
 await authentication.sendSetPasswordEmail(email);
 ```
 
-**CRITICAL:** Both require **member identity** — call from client-side where the member session is active. `auth.elevate()` strips member identity and causes 403.
+**CRITICAL:** Both require **member identity** — call from client-side. `auth.elevate()` strips member identity.
 
-**Phone numbers must be E.164 format:** The API rejects phone numbers not in `+[country code][number]` format. Convert before saving:
-```typescript
-function toE164(phone: string): string {
-  const cleaned = phone.replace(/[^\d+]/g, "");
-  if (cleaned.startsWith("+")) return cleaned;
-  if (cleaned.length === 10) return `+1${cleaned}`; // assume US
-  return `+${cleaned}`;
-}
-// Usage: phones: phone ? [toE164(phone)] : []
-```
+**Phone numbers must be E.164 format:** `+[country code][number]`.
 
 ### File Upload to Wix Media
 
@@ -362,44 +329,45 @@ import { auth } from '@wix/essentials';
 export const POST: APIRoute = async ({ request }) => {
   const formData = await request.formData();
   const file = formData.get('file') as File;
-
-  // 1. Generate upload URL with elevated permissions
   const elevatedGenerate = auth.elevate(files.generateFileUploadUrl);
   const { uploadUrl } = await elevatedGenerate(file.type, { fileName: file.name });
-
-  // 2. Upload file binary server-side (avoids CORS/ORB in browser)
-  const uploadRes = await fetch(uploadUrl!, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: Buffer.from(await file.arrayBuffer()),
-  });
-
+  const uploadRes = await fetch(uploadUrl!, { method: 'PUT', headers: { 'Content-Type': file.type }, body: Buffer.from(await file.arrayBuffer()) });
   const data = await uploadRes.json();
   return new Response(JSON.stringify({ id: data.file?.id, url: data.file?.url }));
 };
 ```
 
-Client sends file as FormData:
-```typescript
-const formData = new FormData();
-formData.append("file", file);
-const res = await fetch("/api/upload-url", { method: "POST", body: formData });
-const { id, url } = await res.json();
-```
-
-**CRITICAL:** Do NOT upload from the browser directly — the PUT to Wix upload servers causes ERR_BLOCKED_BY_ORB (cross-origin response blocking). Handle both `generateFileUploadUrl` and the PUT on the server.
+**CRITICAL:** Do NOT upload from the browser directly — causes ERR_BLOCKED_BY_ORB. Handle both `generateFileUploadUrl` and PUT on the server.
 
 **CRITICAL:** `auth.elevate()` only works server-side (Astro API routes, not client-side React).
 
-## Tips & Gotchas
+## Price Formatting
 
-1. **No `.data` wrapper** — SDK query results have fields directly on items
-2. **Server-rendered by default** — `output: "server"` means all pages are SSR
-3. **Auth is automatic** — don't create SDK clients manually
-4. **IMAGE fields need conversion** — `wix:image://` URLs must be parsed for `<img>` tags
-5. **Dev server port** — defaults to 4321, auto-increments if busy
-6. **`static.wixstatic.com`** — already in `astro.config.mjs` image domains
-7. **`httpClient.fetchWithAuth`** from `@wix/essentials` for authenticated REST calls client-side. Import from main module, NOT subpath.
-8. **Type checking** — Use `npx astro check` (not `tsc --noEmit`). `tsc` does NOT check `.astro` files.
-9. **`members.getMember()`** returns `Member` directly, NOT `{ member: Member }`. The SDK unwraps it.
-10. **Use `media` from `@wix/sdk`** for image URLs — `media.getImageUrl()`, `media.getScaledToFillImageUrl()`. Don't build URLs manually.
+```typescript
+import { i18n } from '@wix/essentials';
+const locale = await i18n.getLocale();
+const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
+```
+
+## Coding Conventions
+
+### SDK Types
+- Always prefer SDK types (`cart.LineItem`, `cart.CatalogReference`, `productsV3.ProductMedia`, etc.) over custom types like `Record<string, unknown>`
+- Import types: `import type { cart as cartTypes } from '@wix/ecom'`, `import type { productsV3 as productsV3Types } from '@wix/stores'`
+- **Never use `as any`, `as unknown as`, or `Record<string, any>` to cast SDK objects.** If the type doesn't match, the implementation is wrong — fix the code, not the type.
+
+### TypeScript
+- Use `astro/tsconfigs/strictest` — use `?? null` (not `|| undefined`) for optional properties typed as `string | null`
+- Type check with `npx astro check` (not `tsc --noEmit`) — `tsc` does NOT check `.astro` files
+- Use `as Function` (not `as any`) for SDK overload workarounds
+
+### React Islands in Astro
+- Don't use inline `<style>{...}` in React — causes hydration mismatch due to HTML entity encoding. Put styles in Astro `<style>` with `:global()`
+- No generic types with angle brackets in Astro template expressions (e.g., `Record<string, any>` breaks the parser). Define types in frontmatter
+
+### Wix SDK Gotchas
+- `getCurrentCart` returns Cart directly, not `{ cart }`
+- `searchOrders` takes OrderSearch directly, not `{ search: OrderSearch }`
+- `estimateCurrentCartTotals` response: `priceSummary` at top level, not under `estimatedTotals`
+- `httpClient.fetchWithAuth` from `@wix/essentials` for authenticated REST calls client-side. Import from main module, NOT subpath
+- `media` from `@wix/sdk` for image/video URLs — `media.getImageUrl()`, `media.getScaledToFillImageUrl()`, `media.getVideoUrl()`

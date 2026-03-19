@@ -1,6 +1,4 @@
-# Wix Stores Catalog V1 (Legacy Reference)
-
-**This site currently uses V3.** This file is kept as reference for V1 patterns.
+# Wix Stores Catalog V1
 
 appId: `1380b703-ce81-ff05-f115-39571d94dfcd`
 
