@@ -42,8 +42,13 @@ try {
 
 // Fetch tags
 const tagsResult = await tagsApi.queryTags({});
-const tagsMap = new Map<string, BlogTag>((tagsResult.tags || []).map((t) => [t._id!, t]));
-const postTags: BlogTag[] = (post.tagIds || []).map((id) => tagsMap.get(id)).filter((t): t is BlogTag => !!t);
+const allTags = tagsResult.tags || [];
+const tagsMap = new Map<string, BlogTag>(allTags.map((t) => [t._id!, t]));
+const tagOrder = new Map(allTags.map((t, i) => [t._id!, i]));
+const postTags: BlogTag[] = (post.tagIds || [])
+	.map((id) => tagsMap.get(id))
+	.filter((t): t is BlogTag => !!t)
+	.sort((a, b) => (tagOrder.get(a._id!) ?? 999) - (tagOrder.get(b._id!) ?? 999));
 
 function formatDate(dateStr: string | Date | null | undefined) {
 	if (!dateStr) return '';
@@ -87,7 +92,7 @@ const writerSlug = writer?.profile?.slug;
 				{postTags.length > 0 && (
 					<div class="post-tags">
 						{postTags.map((tag) => (
-							<span class="tag">{tag.label}</span>
+							<a href={`/blog?tag=${tag._id}`} class="tag">{tag.label}</a>
 						))}
 					</div>
 				)}
@@ -241,6 +246,12 @@ const writerSlug = writer?.profile?.slug;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
+		transition: background 0.2s, border-color 0.2s;
+	}
+
+	.tag:hover {
+		background: rgba(255, 102, 0, 0.2);
+		border-color: var(--accent);
 	}
 
 	.post-content {

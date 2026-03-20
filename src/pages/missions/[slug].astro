@@ -3,9 +3,10 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { items } from '@wix/data';
+import { getImageUrl } from '../../utils/image';
 
 const { slug } = Astro.params;
-const result = await items.query('Missions').eq('slug', slug).find();
+const result = await items.query('Missions').eq('slug', slug).include('planetRef', 'crew').find();
 
 if (result.items.length === 0) {
 	return Astro.redirect('/missions');
@@ -57,11 +58,16 @@ function getStatusBadge(status: string) {
 						<h3>Mission Details</h3>
 						<div class="info-row">
 							<span class="info-label">Destination</span>
-							<span class="info-value">{mission.planet}</span>
-						</div>
-						<div class="info-row">
-							<span class="info-label">Crew Size</span>
-							<span class="info-value">{mission.crewSize} cats</span>
+							{mission.planetRef ? (
+								<a href={`/planets/${mission.planetRef.slug}`} class="info-planet-link">
+									{getImageUrl(mission.planetRef.image, 28, 28) && (
+										<img src={getImageUrl(mission.planetRef.image, 28, 28)!} alt={mission.planetRef.title} class="info-planet-img" />
+									)}
+									<span class="info-value">{mission.planetRef.title}</span>
+								</a>
+							) : (
+								<span class="info-value">{mission.planet}</span>
+							)}
 						</div>
 						<div class="info-row">
 							<span class="info-label">Launch Date</span>
@@ -72,6 +78,27 @@ function getStatusBadge(status: string) {
 							<span class="info-value">{mission.status}</span>
 						</div>
 					</div>
+
+					{mission.crew && mission.crew.length > 0 && (
+						<div class="info-card crew-card">
+							<h3>Crew ({mission.crew.length})</h3>
+							<div class="crew-list">
+								{mission.crew.map((cat: any) => (
+									<a href={`/crew/${cat.slug}`} class="crew-member">
+										{getImageUrl(cat.image, 40, 40) ? (
+											<img src={getImageUrl(cat.image, 40, 40)!} alt={cat.name} class="crew-member-img" />
+										) : (
+											<span class="crew-member-img crew-member-fallback">🐱</span>
+										)}
+										<div class="crew-member-info">
+											<span class="crew-member-name">{cat.name}</span>
+											<span class="crew-member-role">{cat.role}</span>
+										</div>
+									</a>
+								))}
+							</div>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>
@@ -183,6 +210,76 @@ function getStatusBadge(status: string) {
 
 	.info-label { color: var(--text-muted); font-size: 0.85rem; }
 	.info-value { color: var(--accent); font-family: var(--font-title); font-size: 0.8rem; }
+
+	.info-planet-link {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		text-decoration: none;
+		transition: opacity 0.2s;
+	}
+	.info-planet-link:hover { opacity: 0.8; }
+	.info-planet-img {
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		object-fit: cover;
+		border: 1px solid var(--accent);
+	}
+
+	.crew-card { margin-top: 1rem; }
+
+	.crew-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.crew-member {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.5rem;
+		border-radius: 12px;
+		transition: background 0.2s;
+		text-decoration: none;
+		color: inherit;
+	}
+
+	.crew-member:hover { background: rgba(255, 102, 0, 0.08); }
+
+	.crew-member-img {
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		object-fit: cover;
+		border: 1px solid rgba(255, 102, 0, 0.3);
+		flex-shrink: 0;
+	}
+
+	.crew-member-fallback {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(255, 102, 0, 0.1);
+		font-size: 1rem;
+	}
+
+	.crew-member-info {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.crew-member-name {
+		font-family: var(--font-title);
+		font-size: 0.8rem;
+		color: var(--accent);
+	}
+
+	.crew-member-role {
+		font-size: 0.7rem;
+		color: var(--text-muted);
+	}
 
 	@media (max-width: 768px) {
 		.detail-grid { grid-template-columns: 1fr; }

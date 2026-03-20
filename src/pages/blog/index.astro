@@ -17,7 +17,12 @@ const queryResult = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 
 const blogPosts = queryResult.items || [];
 // Fetch all tags
 const tagsResult = await tagsApi.queryTags({});
-const tagsMap = new Map<string, BlogTag>((tagsResult.tags || []).map((t) => [t._id!, t]));
+const allTags = tagsResult.tags || [];
+const tagsMap = new Map<string, BlogTag>(allTags.map((t) => [t._id!, t]));
+
+// Build list of tags that are actually used by posts
+const usedTagIds = new Set(blogPosts.flatMap((p) => p.tagIds || []));
+const usedTags = allTags.filter((t) => t._id && usedTagIds.has(t._id));
 
 // Fetch all members for writer info
 const memberIds = [...new Set(blogPosts.map((p) => p.memberId).filter((id): id is string => !!id))];
@@ -62,8 +67,13 @@ function getWriter(post: Post): string {
 	return m?.profile?.nickname || m?.contact?.firstName || 'Anonymous Cat';
 }
 
+const tagOrder = new Map(usedTags.map((t, i) => [t._id!, i]));
+
 function getPostTags(post: Post): BlogTag[] {
-	return (post.tagIds || []).map((id) => tagsMap.get(id)).filter((t): t is BlogTag => !!t);
+	return (post.tagIds || [])
+		.map((id) => tagsMap.get(id))
+		.filter((t): t is BlogTag => !!t)
+		.sort((a, b) => (tagOrder.get(a._id!) ?? 999) - (tagOrder.get(b._id!) ?? 999));
 }
 ---
 
@@ -81,53 +91,134 @@ function getPostTags(post: Post): BlogTag[] {
 			{blogPosts.length === 0 ? (
 				<p class="empty-state">No transmissions received yet. Check back soon.</p>
 			) : (
-				<div class="blog-grid">
-					{blogPosts.map((post, i) => (
-						<a href={`/blog/${post.slug}`} class:list={['blog-card', { featured: i === 0 }]}>
-							{getCoverImage(post) && (
-								<img src={getCoverImage(post)!} alt={post.title} class="blog-cover" />
-							)}
-							<div class="blog-card-body">
-								<div class="blog-meta">
-									<span class="blog-writer">{getWriter(post)}</span>
-									<span class="meta-sep">&middot;</span>
-									<span class="blog-date">{formatDate(post.firstPublishedDate)}</span>
-									{post.minutesToRead && (
-										<>
-											<span class="meta-sep">&middot;</span>
-											<span class="blog-read-time">{post.minutesToRead} min read</span>
-										</>
-									)}
-								</div>
-								<div class="blog-title-row">
-									{post.pinned && <span class="pinned-badge" title="Pinned">&#128204;</span>}
-									<h2>{post.title}</h2>
-								</div>
-								{getPostTags(post).length > 0 && (
-									<div class="blog-tags">
-										{getPostTags(post).map((tag) => (
-											<span class="tag">{tag.label}</span>
-										))}
-									</div>
+				<>
+					{usedTags.length > 0 && (
+						<div class="filter-tabs" id="tag-tabs">
+							<button class="filter-tab active" data-tag="all">All</button>
+							{usedTags.map((tag) => (
+								<button class="filter-tab" data-tag={tag._id}>{tag.label}</button>
+							))}
+						</div>
+					)}
+					<div class="blog-grid" id="blog-grid">
+						{blogPosts.map((post, i) => {
+							const tagIds = (post.tagIds || []).join(',');
+							return (
+							<a href={`/blog/${post.slug}`} class:list={['blog-card', { featured: i === 0 }]} data-tags={tagIds}>
+								{getCoverImage(post) && (
+									<img src={getCoverImage(post)!} alt={post.title} class="blog-cover" />
 								)}
-								<p class="blog-excerpt">{getExcerpt(post)}...</p>
-								<div class="blog-footer">
-									<div class="blog-stats">
-										<span class="stat" title="Views">{getMetric(post, 'views')} views</span>
-										<span class="stat" title="Likes">{getMetric(post, 'likes')} likes</span>
-										<span class="stat" title="Comments">{getMetric(post, 'comments')} comments</span>
+								<div class="blog-card-body">
+									<div class="blog-meta">
+										<span class="blog-writer">{getWriter(post)}</span>
+										<span class="meta-sep">&middot;</span>
+										<span class="blog-date">{formatDate(post.firstPublishedDate)}</span>
+										{post.minutesToRead && (
+											<>
+												<span class="meta-sep">&middot;</span>
+												<span class="blog-read-time">{post.minutesToRead} min read</span>
+											</>
+										)}
 									</div>
-									<span class="read-more">Read Transmission &rarr;</span>
+									<div class="blog-title-row">
+										{post.pinned && <span class="pinned-badge" title="Pinned">&#128204;</span>}
+										<h2>{post.title}</h2>
+									</div>
+									{getPostTags(post).length > 0 && (
+										<div class="blog-tags">
+											{getPostTags(post).map((tag) => (
+												<span class="tag tag-link" data-tag-id={tag._id}>{tag.label}</span>
+											))}
+										</div>
+									)}
+									<p class="blog-excerpt">{getExcerpt(post)}...</p>
+									<div class="blog-footer">
+										<div class="blog-stats">
+											<span class="stat" title="Views">{getMetric(post, 'views')} views</span>
+											<span class="stat" title="Likes">{getMetric(post, 'likes')} likes</span>
+											<span class="stat" title="Comments">{getMetric(post, 'comments')} comments</span>
+										</div>
+										<span class="read-more">Read Transmission &rarr;</span>
+									</div>
 								</div>
-							</div>
-						</a>
-					))}
-				</div>
+							</a>
+							);
+						})}
+					</div>
+				</>
 			)}
 		</div>
 	</section>
 	<Footer />
 </Layout>
+
+<script is:inline>
+	function filterByTag(tagId) {
+		// Update tabs
+		document.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
+		var activeTab = document.querySelector('.filter-tab[data-tag="' + tagId + '"]')
+			|| document.querySelector('.filter-tab[data-tag="all"]');
+		if (activeTab) activeTab.classList.add('active');
+
+		// Filter cards
+		var grid = document.getElementById('blog-grid');
+		if (!grid) return;
+		grid.querySelectorAll('.blog-card').forEach(function(card) {
+			if (tagId === 'all') {
+				card.style.display = '';
+			} else {
+				var tags = card.dataset.tags || '';
+				card.style.display = tags.split(',').indexOf(tagId) !== -1 ? '' : 'none';
+			}
+		});
+
+		// First visible card gets featured
+		var cards = grid.querySelectorAll('.blog-card');
+		var first = true;
+		cards.forEach(function(card) {
+			card.classList.remove('featured');
+			if (card.style.display !== 'none' && first) {
+				card.classList.add('featured');
+				first = false;
+			}
+		});
+
+		// Update URL without reload
+		var url = new URL(window.location);
+		if (tagId === 'all') {
+			url.searchParams.delete('tag');
+		} else {
+			url.searchParams.set('tag', tagId);
+		}
+		history.replaceState(null, '', url);
+	}
+
+	// Handle tab clicks
+	document.addEventListener('click', function(e) {
+		var tab = e.target.closest('.filter-tab');
+		if (tab) {
+			filterByTag(tab.dataset.tag);
+			return;
+		}
+
+		// Handle tag clicks inside cards
+		var tagEl = e.target.closest('.tag-link[data-tag-id]');
+		if (tagEl) {
+			e.preventDefault();
+			e.stopPropagation();
+			filterByTag(tagEl.dataset.tagId);
+			document.getElementById('tag-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			return;
+		}
+	});
+
+	// On page load, apply ?tag= filter if present
+	(function() {
+		var params = new URLSearchParams(window.location.search);
+		var tag = params.get('tag');
+		if (tag) filterByTag(tag);
+	})();
+</script>
 
 <style>
 	.page-header {
@@ -136,6 +227,80 @@ function getPostTags(post: Post): BlogTag[] {
 
 	.content {
 		padding-bottom: 60px;
+	}
+
+	.filter-tabs {
+		display: flex;
+		gap: 4px;
+		margin-bottom: 32px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+		padding: 6px;
+		width: fit-content;
+		overflow-x: auto;
+		flex-wrap: wrap;
+	}
+
+	.filter-tab {
+		padding: 10px 20px;
+		font-family: var(--font-heading);
+		font-size: 0.85rem;
+		letter-spacing: 1px;
+		color: var(--text-muted);
+		background: none;
+		border: none;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.2s;
+		white-space: nowrap;
+	}
+
+	.filter-tab:hover {
+		color: var(--text-secondary);
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.filter-tab.active {
+		color: #000;
+		background: var(--accent);
+	}
+
+	:global(#tag-tabs) {
+		display: flex;
+		gap: 4px;
+		margin-bottom: 32px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+		padding: 6px;
+		width: fit-content;
+		overflow-x: auto;
+		flex-wrap: wrap;
+	}
+
+	:global(#tag-tabs .filter-tab) {
+		padding: 10px 20px;
+		font-family: var(--font-heading);
+		font-size: 0.85rem;
+		letter-spacing: 1px;
+		color: var(--text-muted);
+		background: none;
+		border: none;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.2s;
+		white-space: nowrap;
+	}
+
+	:global(#tag-tabs .filter-tab:hover) {
+		color: var(--text-secondary);
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	:global(#tag-tabs .filter-tab.active) {
+		color: #000;
+		background: var(--accent);
 	}
 
 	.empty-state {
@@ -237,6 +402,16 @@ function getPostTags(post: Post): BlogTag[] {
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
+	}
+
+	.tag-link {
+		cursor: pointer;
+		transition: background 0.2s, border-color 0.2s;
+	}
+
+	.tag-link:hover {
+		background: rgba(255, 102, 0, 0.2);
+		border-color: var(--accent);
 	}
 
 	.blog-read-time {

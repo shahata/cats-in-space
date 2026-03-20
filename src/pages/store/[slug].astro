@@ -21,12 +21,15 @@ if (!product) return Astro.redirect('/store');
 const variantData = product.variantsInfo?.variants || [];
 
 const catResult = await categories.queryCategories({ cursorPaging: { limit: 100 } }, { treeReference: { appNamespace: '@wix/stores' } });
+const allCategories = catResult.categories || [];
 const categoryMap = new Map<string, string>();
-for (const c of (catResult.categories || [])) categoryMap.set(c._id!, c.name!);
+for (const c of allCategories) categoryMap.set(c._id!, c.name!);
+const categoryOrder = new Map(allCategories.map((c, i) => [c._id!, i]));
 
 const productCollections = (product.directCategoriesInfo?.categories || [])
-	.map(cat => cat._id ? categoryMap.get(cat._id) : undefined)
-	.filter((x): x is string => !!x);
+	.map(cat => cat._id ? { _id: cat._id, name: categoryMap.get(cat._id) } : undefined)
+	.filter((x): x is { _id: string; name: string } => !!x && !!x.name)
+	.sort((a, b) => (categoryOrder.get(a._id) ?? 999) - (categoryOrder.get(b._id) ?? 999));
 
 const mediaItems = (product.media?.itemsInfo?.items || [])
 	.map(m => extractMediaUrl(m, 600, 600))
@@ -116,8 +119,8 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 
 				<div class="product-details">
 					<div class="product-top-badges">
-						{productCollections.map((name: string) => (
-							<span class="collection-tag">{name}</span>
+						{productCollections.map((col) => (
+							<a href={`/store?cat=${col._id}`} class="collection-tag">{col.name}</a>
 						))}
 						{ribbon && <span class="ribbon-tag">{ribbon}</span>}
 					</div>
@@ -292,6 +295,12 @@ type ProductActionsProps = import('../../components/ProductActions').ProductData
 		font-family: var(--font-heading);
 		font-size: 0.7rem;
 		letter-spacing: 1px;
+		transition: background 0.2s;
+	}
+
+	.collection-tag:hover {
+		background: var(--accent-yellow);
+		color: #000;
 	}
 
 	.ribbon-tag {
