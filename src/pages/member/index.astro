@@ -4,7 +4,9 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import MemberProfile from '../../components/MemberProfile';
 import CancelSubscription from '../../components/CancelSubscription';
+import SavedPaymentMethods from '../../components/SavedPaymentMethods';
 import { members, membersAbout } from '@wix/members';
+import { savedPaymentMethods } from '@wix/payments';
 import type { members as membersTypes } from '@wix/members';
 import { orders } from '@wix/pricing-plans';
 import { orders as ecomOrders } from '@wix/ecom';
@@ -48,6 +50,13 @@ try {
 const storeOrdersResult = await ecomOrders.searchOrders({ cursorPaging: { limit: 50 } }).catch(() => null);
 const storeOrders = (storeOrdersResult?.orders || []).filter(o => o.status !== 'INITIALIZED');
 
+let paymentMethodsList: any[] = [];
+try {
+	const pmResult = await savedPaymentMethods.listSavedPaymentMethods({ siteMemberId: member._id! });
+	paymentMethodsList = pmResult.savedPaymentMethods || [];
+} catch {}
+
+
 const fmtDate = (d: string | Date | null | undefined) => d ? new Date(d as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
 const statusColors = { APPROVED: '#4caf50', FULFILLED: '#4caf50', CANCELED: '#f44336', PARTIALLY_FULFILLED: '#ff9800', PENDING: '#2196f3' } as const;
 type StatusKey = keyof typeof statusColors;
@@ -57,6 +66,7 @@ const tabs = [
 	{ id: 'personal', label: 'Personal Info', icon: '&#9998;' },
 	{ id: 'orders', label: 'Orders', icon: '&#9733;' },
 	{ id: 'subscriptions', label: 'Subscriptions', icon: '&#9830;' },
+	{ id: 'payment', label: 'Payment', icon: '&#128179;' },
 	{ id: 'account', label: 'Account', icon: '&#9881;' },
 ];
 ---
@@ -294,6 +304,10 @@ const tabs = [
 							})}
 						</div>
 					)}
+				</div>
+
+				<div class="tab-panel" id="panel-payment" style="display:none">
+					<SavedPaymentMethods initial={paymentMethodsList} client:load />
 				</div>
 
 				<div class="tab-panel" id="panel-account" style="display:none">
