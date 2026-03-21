@@ -8,6 +8,7 @@ interface StaffInfo {
   name: string;
   description: string;
   emoji: string;
+  imageUrl?: string;
 }
 
 interface TimeSlot {
@@ -229,7 +230,11 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
                   borderColor: selectedStaff === s.id ? "#ff6600" : "#222",
                 }}
               >
-                <span style={styles.staffEmoji}>{s.emoji}</span>
+                {s.imageUrl ? (
+                  <img src={s.imageUrl} alt={s.name} style={styles.staffBtnImg} />
+                ) : (
+                  <span style={styles.staffEmoji}>{s.emoji}</span>
+                )}
                 <span style={styles.staffBtnName}>{s.name}</span>
               </button>
             ))}
@@ -433,6 +438,13 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 6,
     transition: "all 0.2s",
     color: "#ccc",
+  },
+  staffBtnImg: {
+    width: 48,
+    height: 48,
+    borderRadius: "50%",
+    objectFit: "cover" as const,
+    border: "2px solid #ff6600",
   },
   staffEmoji: {
     fontSize: "1.5rem",

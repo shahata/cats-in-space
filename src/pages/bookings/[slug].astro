@@ -46,12 +46,16 @@ const roleEmojis: Record<string, string> = {
 	'Dr. Luna Clawdia': '👩‍⚕️',
 };
 
-const staffForClient = serviceStaff.map((s: any) => ({
-	id: s!.resourceId || '',
-	name: s!.name || '',
-	description: s!.description || '',
-	emoji: roleEmojis[s!.name || ''] || '🐱',
-}));
+const staffForClient = serviceStaff.map((s: any) => {
+	const sMediaImg = s.mainMedia?.image;
+	return {
+		id: s!.resourceId || '',
+		name: s!.name || '',
+		description: s!.description || '',
+		emoji: roleEmojis[s!.name || ''] || '🐱',
+		imageUrl: getImageUrl(typeof sMediaImg === 'string' ? sMediaImg : (sMediaImg?.id || sMediaImg?.url), 100, 100) || '',
+	};
+});
 ---
 
 <Layout title={`${service.name} - Medical Bay - Cats In Space`}>
