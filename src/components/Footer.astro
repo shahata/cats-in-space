@@ -1,7 +1,11 @@
+---
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
+---
 <footer class="footer">
 	<div class="container footer-inner">
-		<p class="footer-text">CATS IN SPACE &copy; {new Date().getFullYear()}</p>
-		<p class="footer-sub">No cats were harmed. Several were mildly inconvenienced by space suits.</p>
+		<p class="footer-text">{t('footer.copyright', { year: new Date().getFullYear().toString() })}</p>
+		<p class="footer-sub">{t('footer.tagline')}</p>
 	</div>
 </footer>
 

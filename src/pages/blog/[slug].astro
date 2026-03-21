@@ -7,6 +7,8 @@ import PremiumContentResolver from '../../components/PremiumContentResolver';
 import BlogEngagement from '../../components/BlogEngagement';
 import { posts, tags as tagsApi } from '@wix/blog';
 import { members } from '@wix/members';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 type Post = posts.Post;
 type BlogTag = tagsApi.BlogTag;
@@ -63,11 +65,11 @@ const writerPhoto = writer?.profile?.photo?.url;
 const writerSlug = writer?.profile?.slug;
 ---
 
-<Layout title={`${post.title} - Ship's Log`}>
+<Layout title={`${post.title} - ${t('blog.pageTitle')}`}>
 	<Nav />
 	<article class="blog-post">
 		<div class="container">
-			<a href="/blog" class="back-link">&larr; Back to Ship's Log</a>
+			<a href="/blog" class="back-link">&larr; {t('blog.backToLog')}</a>
 
 			<header class="post-header">
 				<div class="post-meta-row">
@@ -84,10 +86,10 @@ const writerSlug = writer?.profile?.slug;
 					</div>
 					<div class="post-date-info">
 						<span class="post-date">{formatDate(post.firstPublishedDate)}</span>
-						{post.minutesToRead && <span class="read-time">{post.minutesToRead} min read</span>}
+						{post.minutesToRead && <span class="read-time">{post.minutesToRead} {t('blog.minRead')}</span>}
 					</div>
 				</div>
-				{post.pinned && <div class="pinned-indicator">&#128204; Pinned Post</div>}
+				{post.pinned && <div class="pinned-indicator">&#128204; {t('blog.pinnedPost')}</div>}
 				<h1>{post.title}</h1>
 				{postTags.length > 0 && (
 					<div class="post-tags">
@@ -115,7 +117,7 @@ const writerSlug = writer?.profile?.slug;
 					</a>
 				)}
 				<div class="writer-card-info">
-					<span class="writer-card-label">Written by</span>
+					<span class="writer-card-label">{t('blog.writtenBy')}</span>
 					<a href={writerSlug ? `/member/${writerSlug}` : '#'} class="writer-card-name">{writerName}</a>
 					{writerTitle && <span class="writer-card-title">{writerTitle}</span>}
 				</div>
@@ -124,7 +126,7 @@ const writerSlug = writer?.profile?.slug;
 			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} {...(currentMemberName ? { memberName: currentMemberName } : {})} {...(currentMemberPhoto ? { memberPhoto: currentMemberPhoto } : {})} commentingEnabled={post.commentingEnabled !== false} client:load />
 
 			<footer class="post-footer">
-				<a href="/blog" class="btn btn-outline">&larr; More Transmissions</a>
+				<a href="/blog" class="btn btn-outline">&larr; {t('blog.moreTransmissions')}</a>
 			</footer>
 		</div>
 	</article>

@@ -8,6 +8,8 @@ import SavedPaymentMethods from '../../components/SavedPaymentMethods';
 import MyBookings from '../../components/MyBookings';
 import { members, membersAbout } from '@wix/members';
 import { savedPaymentMethods } from '@wix/payments';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 import type { members as membersTypes } from '@wix/members';
 import { orders } from '@wix/pricing-plans';
 import { orders as ecomOrders } from '@wix/ecom';
@@ -63,22 +65,22 @@ const statusColors = { APPROVED: '#4caf50', FULFILLED: '#4caf50', CANCELED: '#f4
 type StatusKey = keyof typeof statusColors;
 
 const tabs = [
-	{ id: 'profile', label: 'Profile', icon: '&#9734;' },
-	{ id: 'personal', label: 'Personal Info', icon: '&#9998;' },
-	{ id: 'bookings', label: 'Bookings', icon: '&#128137;' },
-	{ id: 'orders', label: 'Orders', icon: '&#9733;' },
-	{ id: 'subscriptions', label: 'Subscriptions', icon: '&#9830;' },
-	{ id: 'payment', label: 'Payment', icon: '&#128179;' },
-	{ id: 'account', label: 'Account', icon: '&#9881;' },
+	{ id: 'profile', label: t('member.tabProfile'), icon: '&#9734;' },
+	{ id: 'personal', label: t('member.tabPersonalInfo'), icon: '&#9998;' },
+	{ id: 'bookings', label: t('member.tabBookings'), icon: '&#128137;' },
+	{ id: 'orders', label: t('member.tabOrders'), icon: '&#9733;' },
+	{ id: 'subscriptions', label: t('member.tabSubscriptions'), icon: '&#9830;' },
+	{ id: 'payment', label: t('member.tabPayment'), icon: '&#128179;' },
+	{ id: 'account', label: t('member.tabAccount'), icon: '&#9881;' },
 ];
 ---
 
-<Layout title="My Profile - Cats In Space">
+<Layout title={`${t('member.pageTitle')} - Cats In Space`}>
 	<Nav />
 	<section class="page-header">
 		<div class="container">
-			<h1 class="section-title">Crew Profile</h1>
-			<p class="section-subtitle">Manage your identity aboard the SS Scratching Post</p>
+			<h1 class="section-title">{t('member.pageTitle')}</h1>
+			<p class="section-subtitle">{t('member.pageSubtitle')}</p>
 		</div>
 	</section>
 
@@ -109,8 +111,8 @@ const tabs = [
 				<div class="tab-panel" id="panel-orders" style="display:none">
 				{storeOrders.length === 0 ? (
 					<div class="empty-subs">
-						<p>You haven't placed any orders yet.</p>
-						<a href="/store">Browse Store</a>
+						<p>{t('member.emptyOrders')}</p>
+						<a href="/store">{t('member.browseStore')}</a>
 					</div>
 				) : (
 					<div class="subs-list">
@@ -159,13 +161,13 @@ const tabs = [
 									<div class="sub-details">
 										{sOrder.priceSummary?.total && (
 											<div class="sub-detail">
-												<span class="sub-detail-label">Total</span>
+												<span class="sub-detail-label">{t('member.total')}</span>
 												<span class="sub-detail-value">{sOrder.priceSummary.total.formattedAmount || `${sCurr}${sOrder.priceSummary.total.amount}`}</span>
 											</div>
 										)}
 										{sOrder.shippingInfo?.logistics?.deliveryTime && (
 											<div class="sub-detail">
-												<span class="sub-detail-label">Delivery</span>
+												<span class="sub-detail-label">{t('member.delivery')}</span>
 												<span class="sub-detail-value">{sOrder.shippingInfo.logistics.deliveryTime}</span>
 											</div>
 										)}
@@ -180,8 +182,8 @@ const tabs = [
 			<div class="tab-panel" id="panel-subscriptions" style="display:none">
 					{myOrders.length === 0 ? (
 						<div class="empty-subs">
-							<p>You don't have any subscriptions yet.</p>
-							<a href="/plans">Browse Plans</a>
+							<p>{t('member.emptySubscriptions')}</p>
+							<a href="/plans">{t('member.browsePlans')}</a>
 						</div>
 					) : (
 						<div class="subs-list">
@@ -212,7 +214,7 @@ const tabs = [
 												{order.planDescription && <div class="sub-plan-desc">{order.planDescription}</div>}
 											</div>
 											<div class="sub-badges">
-												{inTrial && <span class="sub-badge sub-badge-trial">Free Trial</span>}
+												{inTrial && <span class="sub-badge sub-badge-trial">{t('member.freeTrial')}</span>}
 												<span class:list={['sub-badge', `sub-badge-${order.autoRenewCanceled ? 'canceling' : (order.status || 'unknown').toLowerCase()}`]}>
 													{order.autoRenewCanceled ? 'Canceling' : order.status}
 												</span>
@@ -221,57 +223,57 @@ const tabs = [
 
 										<div class="sub-details">
 											<div class="sub-detail">
-												<span class="sub-detail-label">Price</span>
+												<span class="sub-detail-label">{t('member.price')}</span>
 												<span class="sub-detail-value">
-													{isFree ? 'Free' : `${curr}${planPrice}`}
+													{isFree ? t('plans.free') : `${curr}${planPrice}`}
 													{cycleLabel && !isFree && <span class="sub-cycle"> / {cycleLabel.replace('Every ', '')}</span>}
 												</span>
 											</div>
 											{discount && (
 												<div class="sub-detail">
-													<span class="sub-detail-label">Discount</span>
+													<span class="sub-detail-label">{t('member.discount')}</span>
 													<span class="sub-detail-value sub-discount">-{curr}{discount}{couponCode && ` (${couponCode})`}</span>
 												</div>
 											)}
 											{discount && (
 												<div class="sub-detail">
-													<span class="sub-detail-label">Total Paid</span>
+													<span class="sub-detail-label">{t('member.totalPaid')}</span>
 													<span class="sub-detail-value">{curr}{total}</span>
 												</div>
 											)}
 											{inTrial && order.freeTrialDays && (
 												<div class="sub-detail">
-													<span class="sub-detail-label">Trial</span>
-													<span class="sub-detail-value">{order.freeTrialDays} days</span>
+													<span class="sub-detail-label">{t('member.trial')}</span>
+													<span class="sub-detail-value">{order.freeTrialDays} {t('member.days')}</span>
 												</div>
 											)}
 											<div class="sub-detail">
-												<span class="sub-detail-label">Started</span>
+												<span class="sub-detail-label">{t('member.started')}</span>
 												<span class="sub-detail-value">{startDate || '—'}</span>
 											</div>
 											{nextBilling && order.status === 'ACTIVE' && !order.autoRenewCanceled && (
 												<div class="sub-detail">
-													<span class="sub-detail-label">Next Billing</span>
+													<span class="sub-detail-label">{t('member.nextBilling')}</span>
 													<span class="sub-detail-value">{nextBilling}</span>
 												</div>
 											)}
 											{endDate && (
 												<div class="sub-detail">
-													<span class="sub-detail-label">{order.status === 'CANCELED' || order.autoRenewCanceled ? 'Expires' : 'Ends'}</span>
+													<span class="sub-detail-label">{order.status === 'CANCELED' || order.autoRenewCanceled ? t('member.expires') : t('member.ends')}</span>
 													<span class="sub-detail-value">{endDate}</span>
 												</div>
 											)}
 											{order.currentCycle && order.currentCycle.index > 0 && (
 												<div class="sub-detail">
-													<span class="sub-detail-label">Billing Cycle</span>
+													<span class="sub-detail-label">{t('member.billingCycle')}</span>
 													<span class="sub-detail-value">#{order.currentCycle.index}</span>
 												</div>
 											)}
 											{paymentStatus && (
 												<div class="sub-detail">
-													<span class="sub-detail-label">Last Payment</span>
+													<span class="sub-detail-label">{t('member.lastPayment')}</span>
 													<span class:list={['sub-detail-value', { 'sub-payment-paid': paymentStatus === 'PAID', 'sub-payment-unpaid': paymentStatus === 'UNPAID' || paymentStatus === 'FAILED' }]}>
-														{paymentStatus === 'PAID' ? 'Paid' : paymentStatus === 'NOT_APPLICABLE' ? 'N/A' : paymentStatus}
+														{paymentStatus === 'PAID' ? t('member.paid') : paymentStatus === 'NOT_APPLICABLE' ? 'N/A' : paymentStatus}
 													</span>
 												</div>
 											)}
@@ -279,9 +281,9 @@ const tabs = [
 
 										{cancellation && (
 											<div class="sub-cancellation">
-												<span class="sub-detail-label">Cancellation</span>
+												<span class="sub-detail-label">{t('member.cancellation')}</span>
 												<span class="sub-detail-value">
-													{cancellation.cause === 'OWNER_ACTION' ? 'Canceled by you' : cancellation.cause === 'UNDEFINED' ? 'Canceled' : cancellation.cause}
+													{cancellation.cause === 'OWNER_ACTION' ? t('member.canceledByYou') : cancellation.cause === 'UNDEFINED' ? 'Canceled' : cancellation.cause}
 													{cancellation.requestedDate && ` on ${fmt(cancellation.requestedDate)}`}
 													{cancellation.effectiveAt === 'NEXT_PAYMENT_DATE' && ' — active until next billing date'}
 													{cancellation.effectiveAt === 'IMMEDIATELY' && ' — effective immediately'}
@@ -291,10 +293,10 @@ const tabs = [
 
 										{order.pausePeriods?.length > 0 && (
 											<div class="sub-pauses">
-												<span class="sub-detail-label">Pause History</span>
+												<span class="sub-detail-label">{t('member.pauseHistory')}</span>
 												{order.pausePeriods.map((p: { pauseDate?: string; resumeDate?: string }) => (
 													<span class="sub-detail-value">
-														{fmt(String(p.pauseDate))} — {p.resumeDate ? fmt(String(p.resumeDate)) : 'ongoing'}
+														{fmt(String(p.pauseDate))} — {p.resumeDate ? fmt(String(p.resumeDate)) : t('member.ongoing')}
 													</span>
 												))}
 											</div>

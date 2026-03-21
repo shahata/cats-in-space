@@ -4,6 +4,8 @@ import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import { items } from '@wix/data';
 import { getImageUrl } from '../utils/image';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 const planetsResult = await items.query('Planets').descending('habitabilityScore').limit(3).find();
 const planets = planetsResult.items;
@@ -27,13 +29,13 @@ function getStatusBadge(status: string) {
 }
 ---
 
-<Layout title="Cats In Space - Finding a New Home Among the Stars">
+<Layout title={`${t('home.title')} - Finding a New Home Among the Stars`}>
 	<Nav />
 
 	<!-- Ticker -->
 	<div class="ticker">
 		<div class="ticker-content">
-			BREAKING: Earth's litter box declared full &mdash; Feline Space Council authorizes interstellar search &mdash; Captain Whiskers assumes command of SS Scratching Post &mdash; Purrion-7 detected with 92% habitability &mdash; Dr. Mittens calculates optimal nap-to-exploration ratio at 80/20 &mdash; Major Floof successfully navigates asteroid field while half asleep &mdash;
+			{t('home.ticker')}
 		</div>
 	</div>
 
@@ -43,15 +45,14 @@ function getStatusBadge(status: string) {
 			<div class="hero-bg" style={`background-image: url(${getImageUrl(planets[0].image, 1200, 800)})`}></div>
 		)}
 		<div class="hero-content container">
-			<h1>CATS IN SPACE</h1>
-			<p class="hero-subtitle">Earth's litter box is full. Time to find a new planet.</p>
+			<h1>{t('home.title')}</h1>
+			<p class="hero-subtitle">{t('home.subtitle')}</p>
 			<p class="hero-desc">
-				A brave crew of cats has launched into the cosmos on a mission of cosmic importance:
-				finding a new world with better sunbeams, more boxes, and zero vacuum cleaners.
+				{t('home.description')}
 			</p>
 			<div class="hero-actions">
-				<a href="/planets" class="btn">EXPLORE PLANETS</a>
-				<a href="/crew" class="btn btn-outline">MEET THE CREW</a>
+				<a href="/planets" class="btn">{t('home.explorePlanets')}</a>
+				<a href="/crew" class="btn btn-outline">{t('home.meetCrew')}</a>
 			</div>
 		</div>
 	</section>
@@ -62,19 +63,19 @@ function getStatusBadge(status: string) {
 			<div class="stats-grid">
 				<div class="stat-box">
 					<div class="stat-num">{planets.length}+</div>
-					<div class="stat-label">Planets Scanned</div>
+					<div class="stat-label">{t('home.planetsScanned')}</div>
 				</div>
 				<div class="stat-box">
 					<div class="stat-num">{crew.length}</div>
-					<div class="stat-label">Brave Explorers</div>
+					<div class="stat-label">{t('home.braveExplorers')}</div>
 				</div>
 				<div class="stat-box">
 					<div class="stat-num">{missions.length}</div>
-					<div class="stat-label">Active Missions</div>
+					<div class="stat-label">{t('home.activeMissions')}</div>
 				</div>
 				<div class="stat-box">
 					<div class="stat-num">0</div>
-					<div class="stat-label">Vacuum Cleaners</div>
+					<div class="stat-label">{t('home.vacuumCleaners')}</div>
 				</div>
 			</div>
 		</div>
@@ -83,8 +84,8 @@ function getStatusBadge(status: string) {
 	<!-- Story Cards: Planets -->
 	<section class="stories">
 		<div class="container">
-			<h2 class="section-title">TOP PLANET CANDIDATES</h2>
-			<p class="section-subtitle">Our best picks for a new feline homeworld</p>
+			<h2 class="section-title">{t('home.topPlanets')}</h2>
+			<p class="section-subtitle">{t('home.topPlanetsSubtitle')}</p>
 
 			{planets.map((planet, i) => (
 				<a href={`/planets/${planet.slug}`} class:list={['story-card', { reverse: i % 2 !== 0 }]}>
@@ -101,11 +102,11 @@ function getStatusBadge(status: string) {
 						<div class="story-stats">
 							<div class="story-stat">
 								<span class="story-stat-num">{planet.habitabilityScore}%</span>
-								<span class="story-stat-label">Habitable</span>
+								<span class="story-stat-label">{t('home.habitable')}</span>
 							</div>
 							<div class="story-stat">
 								<span class="story-stat-num">{planet.distance} ly</span>
-								<span class="story-stat-label">Distance</span>
+								<span class="story-stat-label">{t('home.distance')}</span>
 							</div>
 						</div>
 					</div>
@@ -117,8 +118,8 @@ function getStatusBadge(status: string) {
 	<!-- Crew Grid -->
 	<section class="crew-section">
 		<div class="container">
-			<h2 class="section-title">THE CREW</h2>
-			<p class="section-subtitle">The bravest (and furriest) explorers in the galaxy</p>
+			<h2 class="section-title">{t('home.theCrew')}</h2>
+			<p class="section-subtitle">{t('home.theCrewSubtitle')}</p>
 			<div class="crew-grid">
 				{crew.map((cat) => (
 					<a href={`/crew/${cat.slug}`} class="crew-card">
@@ -137,7 +138,7 @@ function getStatusBadge(status: string) {
 				))}
 			</div>
 			<div class="section-cta">
-				<a href="/crew" class="btn btn-outline">FULL CREW ROSTER &rarr;</a>
+				<a href="/crew" class="btn btn-outline">{t('home.fullCrewRoster')}</a>
 			</div>
 		</div>
 	</section>
@@ -145,8 +146,8 @@ function getStatusBadge(status: string) {
 	<!-- Missions Timeline -->
 	<section class="missions-section">
 		<div class="container">
-			<h2 class="section-title">MISSION LOG</h2>
-			<p class="section-subtitle">Current expeditions and upcoming launches</p>
+			<h2 class="section-title">{t('home.missionLog')}</h2>
+			<p class="section-subtitle">{t('home.missionLogSubtitle')}</p>
 			<div class="timeline">
 				{missions.map((mission) => (
 					<a href={`/missions/${mission.slug}`} class="timeline-item">
@@ -155,13 +156,13 @@ function getStatusBadge(status: string) {
 						<p>{mission.description}</p>
 						<div class="timeline-meta">
 							<span class={`badge ${getStatusBadge(mission.status)}`}>{mission.status}</span>
-							<span class="timeline-dest">Destination: {mission.planet}</span>
+							<span class="timeline-dest">{t('home.destination')}: {mission.planet}</span>
 						</div>
 					</a>
 				))}
 			</div>
 			<div class="section-cta">
-				<a href="/missions" class="btn btn-outline">ALL MISSIONS &rarr;</a>
+				<a href="/missions" class="btn btn-outline">{t('home.allMissions')}</a>
 			</div>
 		</div>
 	</section>
@@ -169,8 +170,8 @@ function getStatusBadge(status: string) {
 	<!-- Quote -->
 	<section class="quotes">
 		<div class="container">
-			<p class="quote">"One small step for cat, one giant leap for catkind."</p>
-			<p class="quote-author">&mdash; Captain Whiskers, before the first launch</p>
+			<p class="quote">"{t('home.quote')}"</p>
+			<p class="quote-author">&mdash; {t('home.quoteAuthor')}</p>
 		</div>
 	</section>
 

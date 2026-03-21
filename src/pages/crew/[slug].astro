@@ -4,6 +4,8 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { items } from '@wix/data';
 import { getImageUrl } from '../../utils/image';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 const { slug } = Astro.params;
 const result = await items.query('CatExplorers').eq('slug', slug).find();
@@ -34,7 +36,7 @@ function getStatusBadge(status: string) {
 	<Nav />
 	<div class="detail-page">
 		<div class="container">
-			<a href="/crew" class="back-link">&larr; All Crew</a>
+			<a href="/crew" class="back-link">&larr; {t('crew.backToAll')}</a>
 
 			<div class="profile">
 				<div class="profile-header">
@@ -54,29 +56,29 @@ function getStatusBadge(status: string) {
 
 				<div class="profile-grid">
 					<div class="profile-main">
-						<h2>Bio</h2>
+						<h2>{t('crew.bio')}</h2>
 						<p class="bio">{cat.bio}</p>
 					</div>
 
 					<div class="profile-sidebar">
 						<div class="info-card">
-							<h3>Dossier</h3>
+							<h3>{t('crew.dossier')}</h3>
 							<div class="info-row">
-								<span class="info-label">Special Skill</span>
+								<span class="info-label">{t('crew.specialSkill')}</span>
 								<span class="info-value">{cat.specialSkill}</span>
 							</div>
 							<div class="info-row">
-								<span class="info-label">Status</span>
+								<span class="info-label">{t('crew.status')}</span>
 								<span class="info-value">{cat.status}</span>
 							</div>
 							<div class="info-row">
-								<span class="info-label">Role</span>
+								<span class="info-label">{t('crew.role')}</span>
 								<span class="info-value">{cat.role}</span>
 							</div>
 						</div>
 
 						<div class="fun-fact-card">
-							<h3>Fun Fact</h3>
+							<h3>{t('crew.funFact')}</h3>
 							<p>{cat.funFact}</p>
 						</div>
 					</div>

@@ -7,6 +7,7 @@ import { i18n } from '@wix/essentials';
 
 const orderId = Astro.url.searchParams.get('orderId');
 const locale = await i18n.getLocale();
+const t = i18n.getTranslationFunction();
 
 let order: Record<string, any> | null = null;
 if (orderId) {
@@ -20,29 +21,29 @@ const fmt = (amount: number, currency: string) =>
 	new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
 ---
 
-<Layout title="Welcome Aboard - Cats In Space">
+<Layout title={`${t('plans.thankYouTitle')} - Cats In Space`}>
 	<Nav />
 	<section class="thank-you">
 		<div class="container">
 			<div class="ty-hero">
 				<div class="ty-icon">&#11088;</div>
-				<h1 class="section-title">Welcome Aboard, Crew Member!</h1>
-				<p class="ty-subtitle">Your subscription is now active. You're officially part of the crew.</p>
+				<h1 class="section-title">{t('plans.thankYouTitle')}</h1>
+				<p class="ty-subtitle">{t('plans.thankYouSubtitle')}</p>
 			</div>
 
 			{order ? (
 				<div class="ty-order">
 					<div class="ty-order-header">
 						<div>
-							<span class="ty-label">Plan</span>
+							<span class="ty-label">{t('plans.plan')}</span>
 							<span class="ty-value">{order.planName}</span>
 						</div>
 						{order.priceDetails && (
 							<div>
-								<span class="ty-label">Price</span>
+								<span class="ty-label">{t('plans.price')}</span>
 								<span class="ty-value ty-total">
 									{parseFloat(order.priceDetails.planPrice || '0') === 0
-										? 'Free'
+										? t('plans.free')
 										: fmt(parseFloat(order.priceDetails.total || order.priceDetails.planPrice), order.priceDetails.currency || 'USD')}
 								</span>
 							</div>
@@ -55,30 +56,30 @@ const fmt = (amount: number, currency: string) =>
 
 					{order.priceDetails?.subscription?.cycleDuration && (
 						<div class="ty-detail">
-							<span class="ty-label">Billing</span>
+							<span class="ty-label">{t('plans.billing')}</span>
 							<span class="ty-detail-value">
-								Every {order.priceDetails.subscription.cycleDuration.count > 1 ? order.priceDetails.subscription.cycleDuration.count + ' ' : ''}{(order.priceDetails.subscription.cycleDuration.unit || '').toLowerCase()}{order.priceDetails.subscription.cycleDuration.count > 1 ? 's' : ''}
+								{t('plans.every')} {order.priceDetails.subscription.cycleDuration.count > 1 ? order.priceDetails.subscription.cycleDuration.count + ' ' : ''}{(order.priceDetails.subscription.cycleDuration.unit || '').toLowerCase()}{order.priceDetails.subscription.cycleDuration.count > 1 ? 's' : ''}
 							</span>
 						</div>
 					)}
 
 					{order.freeTrialDays > 0 && (
 						<div class="ty-detail">
-							<span class="ty-label">Free Trial</span>
-							<span class="ty-detail-value">{order.freeTrialDays} days</span>
+							<span class="ty-label">{t('plans.freeTrial')}</span>
+							<span class="ty-detail-value">{order.freeTrialDays} {t('plans.days')}</span>
 						</div>
 					)}
 
 					<div class="ty-actions">
-						<a href="/member#subscriptions" class="ty-btn ty-btn-primary">View Subscription</a>
-						<a href="/" class="ty-btn ty-btn-secondary">Back to Home</a>
+						<a href="/member#subscriptions" class="ty-btn ty-btn-primary">{t('plans.viewSubscription')}</a>
+						<a href="/" class="ty-btn ty-btn-secondary">{t('plans.backToHome')}</a>
 					</div>
 				</div>
 			) : (
 				<div class="ty-actions">
-					<p class="ty-no-order">Your subscription is being processed. Check your email for confirmation.</p>
-					<a href="/member#subscriptions" class="ty-btn ty-btn-primary">View Subscriptions</a>
-					<a href="/" class="ty-btn ty-btn-secondary">Back to Home</a>
+					<p class="ty-no-order">{t('plans.subscriptionProcessing')}</p>
+					<a href="/member#subscriptions" class="ty-btn ty-btn-primary">{t('plans.viewSubscriptions')}</a>
+					<a href="/" class="ty-btn ty-btn-secondary">{t('plans.backToHome')}</a>
 				</div>
 			)}
 		</div>

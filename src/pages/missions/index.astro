@@ -4,6 +4,8 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { items } from '@wix/data';
 import { getImageUrl } from '../../utils/image';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 const result = await items.query('Missions').include('planetRef', 'crew').find();
 const missions = result.items;
@@ -30,12 +32,12 @@ const sorted = [...missions].sort((a, b) =>
 );
 ---
 
-<Layout title="Missions - Cats In Space">
+<Layout title={`${t('missions.pageTitle')} - Cats In Space`}>
 	<Nav />
 	<section class="page-header">
 		<div class="container">
-			<h1 class="section-title">Mission Control</h1>
-			<p class="section-subtitle">Tracking every whisker-raising expedition into the unknown</p>
+			<h1 class="section-title">{t('missions.pageTitle')}</h1>
+			<p class="section-subtitle">{t('missions.pageSubtitle')}</p>
 		</div>
 	</section>
 
@@ -71,7 +73,7 @@ const sorted = [...missions].sort((a, b) =>
 							<div class="card-bottom">
 								{mission.crew && mission.crew.length > 0 && (
 									<div class="crew-section">
-										<span class="meta-label">Crew</span>
+										<span class="meta-label">{t('missions.crew')}</span>
 										<div class="crew-stack">
 											{mission.crew.map((cat: any, i: number) => (
 												<a
@@ -91,7 +93,7 @@ const sorted = [...missions].sort((a, b) =>
 									</div>
 								)}
 								<div class="launch-section">
-									<span class="meta-label">Launch</span>
+									<span class="meta-label">{t('missions.launch')}</span>
 									<span class="launch-val">{mission.launchDate}</span>
 								</div>
 							</div>

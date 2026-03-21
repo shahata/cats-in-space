@@ -5,6 +5,8 @@ import Footer from '../../components/Footer.astro';
 import { posts, tags as tagsApi } from '@wix/blog';
 import { members } from '@wix/members';
 import { getImageUrl } from '../../utils/image';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 type Metrics = posts.Metrics;
 type BlogTag = tagsApi.BlogTag;
@@ -77,24 +79,24 @@ function getPostTags(post: Post): BlogTag[] {
 }
 ---
 
-<Layout title="Ship's Log - Cats In Space">
+<Layout title={`${t('blog.pageTitle')} - Cats In Space`}>
 	<Nav />
 	<section class="page-header">
 		<div class="container">
-			<h1 class="section-title">Ship's Log</h1>
-			<p class="section-subtitle">Dispatches, reports, and tall tales from the feline frontier</p>
+			<h1 class="section-title">{t('blog.pageTitle')}</h1>
+			<p class="section-subtitle">{t('blog.pageSubtitle')}</p>
 		</div>
 	</section>
 
 	<section class="content">
 		<div class="container">
 			{blogPosts.length === 0 ? (
-				<p class="empty-state">No transmissions received yet. Check back soon.</p>
+				<p class="empty-state">{t('blog.noTransmissions')}</p>
 			) : (
 				<>
 					{usedTags.length > 0 && (
 						<div class="filter-tabs" id="tag-tabs">
-							<button class="filter-tab active" data-tag="all">All</button>
+							<button class="filter-tab active" data-tag="all">{t('blog.all')}</button>
 							{usedTags.map((tag) => (
 								<button class="filter-tab" data-tag={tag._id}>{tag.label}</button>
 							))}
@@ -116,7 +118,7 @@ function getPostTags(post: Post): BlogTag[] {
 										{post.minutesToRead && (
 											<>
 												<span class="meta-sep">&middot;</span>
-												<span class="blog-read-time">{post.minutesToRead} min read</span>
+												<span class="blog-read-time">{post.minutesToRead} {t('blog.minRead')}</span>
 											</>
 										)}
 									</div>
@@ -134,11 +136,11 @@ function getPostTags(post: Post): BlogTag[] {
 									<p class="blog-excerpt">{getExcerpt(post)}...</p>
 									<div class="blog-footer">
 										<div class="blog-stats">
-											<span class="stat" title="Views">{getMetric(post, 'views')} views</span>
-											<span class="stat" title="Likes">{getMetric(post, 'likes')} likes</span>
-											<span class="stat" title="Comments">{getMetric(post, 'comments')} comments</span>
+											<span class="stat" title="Views">{getMetric(post, 'views')} {t('blog.views')}</span>
+											<span class="stat" title="Likes">{getMetric(post, 'likes')} {t('blog.likes')}</span>
+											<span class="stat" title="Comments">{getMetric(post, 'comments')} {t('blog.comments')}</span>
 										</div>
-										<span class="read-more">Read Transmission &rarr;</span>
+										<span class="read-more">{t('blog.readTransmission')}</span>
 									</div>
 								</div>
 							</a>

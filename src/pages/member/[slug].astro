@@ -4,6 +4,8 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import RichContentViewer from '../../components/RichContentViewer';
 import { members, membersAbout } from '@wix/members';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 import type { members as membersTypes } from '@wix/members';
 import type { membersAbout as membersAboutTypes } from '@wix/members';
 
@@ -48,7 +50,7 @@ const slug_ = member.profile?.slug || '';
 	<Nav />
 	<section class="profile-page">
 		<div class="container">
-			<a href="/blog" class="back-link">&larr; Back to Ship's Log</a>
+			<a href="/blog" class="back-link">&larr; {t('blog.backToLog')}</a>
 
 			{cover && (
 				<div class="cover-wrapper">

@@ -8,6 +8,7 @@ import { getImageUrl } from '../../utils/image';
 
 const orderId = Astro.url.searchParams.get('orderId');
 const locale = await i18n.getLocale();
+const t = i18n.getTranslationFunction();
 
 let order: Record<string, any> | null = null;
 if (orderId) {
@@ -21,26 +22,26 @@ const fmt = (amount: number, currency: string) =>
 	new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
 ---
 
-<Layout title="Order Confirmed - Cats In Space">
+<Layout title={`${t('store.thankYouTitle')} - Cats In Space`}>
 	<Nav />
 	<section class="thank-you">
 		<div class="container">
 			<div class="ty-hero">
 				<div class="ty-icon">&#128640;</div>
-				<h1 class="section-title">Mission Accomplished!</h1>
-				<p class="ty-subtitle">Your order has been received and is being prepared for launch.</p>
+				<h1 class="section-title">{t('store.thankYouTitle')}</h1>
+				<p class="ty-subtitle">{t('store.thankYouSubtitle')}</p>
 			</div>
 
 			{order ? (
 				<div class="ty-order">
 					<div class="ty-order-header">
 						<div>
-							<span class="ty-label">Order</span>
+							<span class="ty-label">{t('store.order')}</span>
 							<span class="ty-value">#{order.number || orderId?.slice(-8)}</span>
 						</div>
 						{order.priceSummary?.total && (
 							<div>
-								<span class="ty-label">Total</span>
+								<span class="ty-label">{t('store.total')}</span>
 								<span class="ty-value ty-total">
 									{fmt(parseFloat(order.priceSummary.total.amount), order.currency || 'USD')}
 								</span>
@@ -63,7 +64,7 @@ const fmt = (amount: number, currency: string) =>
 										</div>
 										<div class="ty-item-info">
 											<div class="ty-item-name">{li.productName?.translated || li.productName?.original}</div>
-											<div class="ty-item-qty">Qty: {li.quantity}</div>
+											<div class="ty-item-qty">{t('store.qty')}: {li.quantity}</div>
 										</div>
 										<div class="ty-item-price">{li.price?.formattedAmount}</div>
 									</div>
@@ -73,15 +74,15 @@ const fmt = (amount: number, currency: string) =>
 					)}
 
 					<div class="ty-actions">
-						<a href="/store" class="ty-btn ty-btn-primary">Continue Shopping</a>
-						<a href="/member#orders" class="ty-btn ty-btn-secondary">View Orders</a>
+						<a href="/store" class="ty-btn ty-btn-primary">{t('store.continueShopping')}</a>
+						<a href="/member#orders" class="ty-btn ty-btn-secondary">{t('store.viewOrders')}</a>
 					</div>
 				</div>
 			) : (
 				<div class="ty-actions">
-					<p class="ty-no-order">Your order is being processed. Check your email for confirmation.</p>
-					<a href="/store" class="ty-btn ty-btn-primary">Continue Shopping</a>
-					<a href="/member#orders" class="ty-btn ty-btn-secondary">View Orders</a>
+					<p class="ty-no-order">{t('store.orderProcessing')}</p>
+					<a href="/store" class="ty-btn ty-btn-primary">{t('store.continueShopping')}</a>
+					<a href="/member#orders" class="ty-btn ty-btn-secondary">{t('store.viewOrders')}</a>
 				</div>
 			)}
 		</div>

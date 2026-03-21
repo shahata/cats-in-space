@@ -4,6 +4,8 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { services, staffMembers } from '@wix/bookings';
 import { getImageUrl } from '../../utils/image';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 const servicesResult = await services.queryServices({}) as any;
 const allServices = ((servicesResult.services || servicesResult.items || []) as any[]).filter((s: any) => s.onlineBooking?.enabled && !s.hidden);
@@ -30,19 +32,19 @@ const roleEmojis: Record<string, string> = {
 };
 ---
 
-<Layout title="Medical Bay - Cats In Space">
+<Layout title={`${t('bookings.pageTitle')} - Cats In Space`}>
 	<Nav />
 	<section class="page-header">
 		<div class="container">
-			<h1 class="section-title">Medical Bay</h1>
-			<p class="section-subtitle">Book an appointment with our expert feline medical staff aboard the SS Scratching Post</p>
+			<h1 class="section-title">{t('bookings.pageTitle')}</h1>
+			<p class="section-subtitle">{t('bookings.pageSubtitle')}</p>
 		</div>
 	</section>
 
 	<section class="content">
 		<div class="container">
 			<div class="staff-section">
-				<h2 class="subsection-title">Our Medical Staff</h2>
+				<h2 class="subsection-title">{t('bookings.ourMedicalStaff')}</h2>
 				<div class="staff-grid">
 					{allStaff.map((staff: any) => {
 						const staffImg = getImageUrl(typeof staff.mainMedia?.image === 'string' ? staff.mainMedia.image : (staff.mainMedia?.image?.id || staff.mainMedia?.image?.url), 200, 200);
@@ -61,7 +63,7 @@ const roleEmojis: Record<string, string> = {
 				</div>
 			</div>
 
-			<h2 class="subsection-title">Available Services</h2>
+			<h2 class="subsection-title">{t('bookings.availableServices')}</h2>
 			<div class="services-grid">
 				{allServices.map((service: any) => {
 					const duration = service.schedule?.availabilityConstraints?.sessionDurations?.[0];
@@ -88,7 +90,7 @@ const roleEmojis: Record<string, string> = {
 								<div class="service-meta">
 									{duration && (
 										<span class="service-duration">
-											<span class="meta-icon">⏱</span> {duration} min
+											<span class="meta-icon">⏱</span> {duration} {t('bookings.min')}
 										</span>
 									)}
 									{service.payment?.rateType === 'FIXED' ? (
@@ -97,11 +99,11 @@ const roleEmojis: Record<string, string> = {
 										</span>
 									) : service.payment?.options?.pricingPlan ? (
 										<span class="service-price service-price-plan">
-											<span class="meta-icon">⭐</span> Members Only
+											<span class="meta-icon">⭐</span> {t('bookings.membersOnly')}
 										</span>
 									) : (
 										<span class="service-price">
-											<span class="meta-icon">💰</span> Free
+											<span class="meta-icon">💰</span> {t('bookings.free')}
 										</span>
 									)}
 								</div>
@@ -111,15 +113,15 @@ const roleEmojis: Record<string, string> = {
 									))}
 								</div>
 							</div>
-							<div class="service-cta">Book Now →</div>
+							<div class="service-cta">{t('bookings.bookNow')} →</div>
 						</a>
 					);
 				})}
 			</div>
 
 			<div class="policy-note">
-				<h3>Booking Policy</h3>
-				<p>Appointments can be canceled or rescheduled up to 2 hours before the scheduled time. You must book at least 1 hour in advance. All medical services are complimentary for crew members.</p>
+				<h3>{t('bookings.bookingPolicy')}</h3>
+				<p>{t('bookings.bookingPolicyText')}</p>
 			</div>
 		</div>
 	</section>

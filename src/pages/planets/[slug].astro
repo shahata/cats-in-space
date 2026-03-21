@@ -4,6 +4,8 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { items } from '@wix/data';
 import { getImageUrl } from '../../utils/image';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 const { slug } = Astro.params;
 const result = await items.query('Planets').eq('slug', slug).find();
@@ -33,7 +35,7 @@ function getStatusBadge(status: string) {
 	<Nav />
 	<div class="detail-page">
 		<div class="container">
-			<a href="/planets" class="back-link">&larr; All Planets</a>
+			<a href="/planets" class="back-link">&larr; {t('planets.backToAll')}</a>
 
 			<div class="detail-hero">
 				{getImageUrl(planet.image, 300, 300) ? (
@@ -48,12 +50,12 @@ function getStatusBadge(status: string) {
 
 			<div class="detail-grid">
 				<div class="detail-main">
-					<h2>Overview</h2>
+					<h2>{t('planets.overview')}</h2>
 					<p class="description">{planet.description}</p>
 
 					{missions.length > 0 && (
 						<div class="related-section">
-							<h2>Related Missions</h2>
+							<h2>{t('planets.relatedMissions')}</h2>
 							{missions.map(m => (
 								<a href={`/missions/${m.slug}`} class="related-card">
 									<span class="related-title">{m.title}</span>
@@ -66,24 +68,24 @@ function getStatusBadge(status: string) {
 
 				<div class="detail-sidebar">
 					<div class="stat-card">
-						<h3>Planet Stats</h3>
+						<h3>{t('planets.planetStats')}</h3>
 						<div class="stat-row">
-							<span class="stat-label">Habitability</span>
+							<span class="stat-label">{t('planets.habitability')}</span>
 							<div class="score-bar">
 								<div class="score-fill" style={`width: ${planet.habitabilityScore}%`}></div>
 							</div>
 							<span class="stat-value">{planet.habitabilityScore}%</span>
 						</div>
 						<div class="stat-row">
-							<span class="stat-label">Distance</span>
-							<span class="stat-value">{planet.distance} light years</span>
+							<span class="stat-label">{t('planets.distance')}</span>
+							<span class="stat-value">{planet.distance} {t('planets.lightYears')}</span>
 						</div>
 						<div class="stat-row">
-							<span class="stat-label">Gravity</span>
+							<span class="stat-label">{t('planets.gravity')}</span>
 							<span class="stat-value">{planet.gravity}</span>
 						</div>
 						<div class="stat-row">
-							<span class="stat-label">Atmosphere</span>
+							<span class="stat-label">{t('planets.atmosphere')}</span>
 							<span class="stat-value">{planet.atmosphere}</span>
 						</div>
 					</div>

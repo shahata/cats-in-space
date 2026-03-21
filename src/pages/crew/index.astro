@@ -4,6 +4,8 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { items } from '@wix/data';
 import { getImageUrl } from '../../utils/image';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 const result = await items.query('CatExplorers').find();
 const crew = result.items;
@@ -24,12 +26,12 @@ function getStatusBadge(status: string) {
 }
 ---
 
-<Layout title="Crew - Cats In Space">
+<Layout title={`${t('crew.pageTitle')} - Cats In Space`}>
 	<Nav />
 	<section class="page-header">
 		<div class="container">
-			<h1 class="section-title">Crew Roster</h1>
-			<p class="section-subtitle">The bravest cats to ever leave a perfectly good cardboard box behind</p>
+			<h1 class="section-title">{t('crew.pageTitle')}</h1>
+			<p class="section-subtitle">{t('crew.pageSubtitle')}</p>
 		</div>
 	</section>
 

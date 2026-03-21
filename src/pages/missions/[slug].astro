@@ -4,6 +4,8 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { items } from '@wix/data';
 import { getImageUrl } from '../../utils/image';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 const { slug } = Astro.params;
 const result = await items.query('Missions').eq('slug', slug).include('planetRef', 'crew').find();
@@ -27,7 +29,7 @@ function getStatusBadge(status: string) {
 	<Nav />
 	<div class="detail-page">
 		<div class="container">
-			<a href="/missions" class="back-link">&larr; All Missions</a>
+			<a href="/missions" class="back-link">&larr; {t('missions.backToAll')}</a>
 
 			<div class="mission-hero">
 				<div class="mission-icon">
@@ -41,11 +43,11 @@ function getStatusBadge(status: string) {
 
 			<div class="detail-grid">
 				<div class="detail-main">
-					<h2>Mission Brief</h2>
+					<h2>{t('missions.missionBrief')}</h2>
 					<p class="description">{mission.description}</p>
 
 					<div class="log-section">
-						<h2>Mission Log</h2>
+						<h2>{t('missions.missionLog')}</h2>
 						<div class="log-card">
 							<div class="log-dot"></div>
 							<p>{mission.missionLog}</p>
@@ -55,9 +57,9 @@ function getStatusBadge(status: string) {
 
 				<div class="detail-sidebar">
 					<div class="info-card">
-						<h3>Mission Details</h3>
+						<h3>{t('missions.missionDetails')}</h3>
 						<div class="info-row">
-							<span class="info-label">Destination</span>
+							<span class="info-label">{t('missions.destination')}</span>
 							{mission.planetRef ? (
 								<a href={`/planets/${mission.planetRef.slug}`} class="info-planet-link">
 									{getImageUrl(mission.planetRef.image, 28, 28) && (
@@ -70,18 +72,18 @@ function getStatusBadge(status: string) {
 							)}
 						</div>
 						<div class="info-row">
-							<span class="info-label">Launch Date</span>
+							<span class="info-label">{t('missions.launchDate')}</span>
 							<span class="info-value">{mission.launchDate}</span>
 						</div>
 						<div class="info-row">
-							<span class="info-label">Status</span>
+							<span class="info-label">{t('missions.status')}</span>
 							<span class="info-value">{mission.status}</span>
 						</div>
 					</div>
 
 					{mission.crew && mission.crew.length > 0 && (
 						<div class="info-card crew-card">
-							<h3>Crew ({mission.crew.length})</h3>
+							<h3>{t('missions.crew')} ({mission.crew.length})</h3>
 							<div class="crew-list">
 								{mission.crew.map((cat: any) => (
 									<a href={`/crew/${cat.slug}`} class="crew-member">

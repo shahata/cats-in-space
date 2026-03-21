@@ -6,6 +6,8 @@ import BookingFlow from '../../components/BookingFlow';
 import { services, staffMembers } from '@wix/bookings';
 import { members } from '@wix/members';
 import { getImageUrl } from '../../utils/image';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 const { slug } = Astro.params;
 
@@ -64,7 +66,7 @@ const staffForClient = serviceStaff.map((s: any) => {
 	<Nav />
 	<section class="page-header">
 		<div class="container">
-			<a href="/bookings" class="back-link">← Back to Medical Bay</a>
+			<a href="/bookings" class="back-link">← {t('bookings.back')} to {t('bookings.pageTitle')}</a>
 			<div class="service-header">
 				<span class="service-icon">{icon}</span>
 				<div>
@@ -85,34 +87,34 @@ const staffForClient = serviceStaff.map((s: any) => {
 			<div class="booking-layout">
 				<div class="service-details">
 					<div class="detail-card">
-						<h3>About This Service</h3>
+						<h3>{t('bookings.aboutService')}</h3>
 						<p>{service.description}</p>
 					</div>
 
 					<div class="detail-card">
-						<h3>Details</h3>
+						<h3>{t('bookings.details')}</h3>
 						<div class="detail-row">
-							<span class="detail-label">Duration</span>
-							<span class="detail-value">{duration} minutes</span>
+							<span class="detail-label">{t('bookings.duration')}</span>
+							<span class="detail-value">{duration} {t('bookings.minutes')}</span>
 						</div>
 						<div class="detail-row">
-							<span class="detail-label">Cost</span>
+							<span class="detail-label">{t('bookings.cost')}</span>
 							<span class="detail-value">
 								{service.payment?.rateType === 'FIXED'
 									? `${service.payment.fixed?.price?.currency} ${service.payment.fixed?.price?.value}`
 									: service.payment?.options?.pricingPlan
-										? 'Included with paid membership plans'
-										: 'Free (included with crew membership)'}
+										? t('bookings.membersOnly')
+										: t('bookings.free')}
 							</span>
 						</div>
 						<div class="detail-row">
-							<span class="detail-label">Location</span>
-							<span class="detail-value">Medical Bay, Deck 3</span>
+							<span class="detail-label">{t('bookings.location')}</span>
+							<span class="detail-value">{t('bookings.locationValue')}</span>
 						</div>
 					</div>
 
 					<div class="detail-card">
-						<h3>Available Staff</h3>
+						<h3>{t('bookings.staff')}</h3>
 						<div class="staff-list">
 							{serviceStaff.map((s: any) => {
 								const sImg = getImageUrl(typeof s.mainMedia?.image === 'string' ? s.mainMedia.image : (s.mainMedia?.image?.id || s.mainMedia?.image?.url), 100, 100);
@@ -134,11 +136,11 @@ const staffForClient = serviceStaff.map((s: any) => {
 					</div>
 
 					<div class="detail-card policy-card">
-						<h3>Booking Policy</h3>
+						<h3>{t('bookings.bookingPolicy')}</h3>
 						<ul>
-							<li>Book at least 1 hour in advance</li>
-							<li>Cancel or reschedule up to 2 hours before</li>
-							<li>1 participant per booking</li>
+							<li>{t('bookings.policyAdvance')}</li>
+							<li>{t('bookings.policyCancelReschedule')}</li>
+							<li>{t('bookings.policyParticipants')}</li>
 						</ul>
 					</div>
 				</div>
@@ -154,9 +156,9 @@ const staffForClient = serviceStaff.map((s: any) => {
 						/>
 					) : (
 						<div class="login-prompt">
-							<h3>Login Required</h3>
-							<p>You need to be logged in to book an appointment.</p>
-							<a href={`/api/auth/login?returnToUrl=${encodeURIComponent(`/bookings/${slug}`)}`} class="login-btn">Login to Book</a>
+							<h3>{t('bookings.loginRequired')}</h3>
+							<p>{t('bookings.loginRequiredMessage')}</p>
+							<a href={`/api/auth/login?returnToUrl=${encodeURIComponent(`/bookings/${slug}`)}`} class="login-btn">{t('bookings.loginToBook')}</a>
 						</div>
 					)}
 				</div>

@@ -9,6 +9,7 @@ import { i18n } from '@wix/essentials';
 import { extractMediaUrl } from '../../utils/image';
 
 const locale = await i18n.getLocale();
+const t = i18n.getTranslationFunction();
 const productResult = await productsV3.queryProducts({ fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO'] }).limit(100).find();
 const allProducts = productResult.items || [];
 
@@ -41,12 +42,12 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 
 ---
 
-<Layout title="Store - Cats In Space">
+<Layout title={`${t('store.pageTitle')} - Cats In Space`}>
 	<Nav />
 	<section class="page-header">
 		<div class="container">
-			<h1 class="section-title">Space Cat Supply Depot</h1>
-			<p class="section-subtitle">Gear up for the mission. Every purchase supports the Feline Space Program.</p>
+			<h1 class="section-title">{t('store.pageTitle')}</h1>
+			<p class="section-subtitle">{t('store.pageSubtitle')}</p>
 		</div>
 	</section>
 
@@ -95,7 +96,7 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 									<span class={original ? 'price-sale' : ''}>{formatted}</span>
 								</div>
 								{product.inventory?.availabilityStatus === 'OUT_OF_STOCK' && (
-									<span class="oos-badge">Out of Stock</span>
+									<span class="oos-badge">{t('store.outOfStock')}</span>
 								)}
 							</div>
 						</a>
@@ -105,7 +106,7 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 
 			{allProducts.length === 0 && (
 				<div class="empty-store">
-					<p>No products available yet. Check back soon!</p>
+					<p>{t('store.noProducts')}</p>
 				</div>
 			)}
 		</div>
