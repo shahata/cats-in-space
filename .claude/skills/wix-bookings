@@ -27,7 +27,8 @@ import { services, staffMembers } from '@wix/bookings';
 ### SDK Imports (Client-Side React)
 
 ```typescript
-import { httpClient } from "@wix/essentials";
+import { availabilityCalendar, extendedBookings, bookings } from "@wix/bookings";
+import type { availabilityCalendar as availabilityTypes, extendedBookings as extendedBookingsTypes } from "@wix/bookings";
 import { redirects } from "@wix/redirects";
 ```
 
@@ -107,21 +108,21 @@ Body: {
 
 **CRITICAL:** `payment.options` must specify either `online: true` or `inPerson: true`. Omitting both causes a validation error even for NO_FEE services.
 
-## Querying Services (Server-Side)
+## Querying Services & Staff (Server-Side)
 
 ```typescript
 import { services, staffMembers } from '@wix/bookings';
 
-// List all services
-const result = await services.queryServices({});
-const allServices = result.items || [];
+// List all services — response key is `services`, not `items`
+const result = await services.queryServices({}) as any;
+const allServices = (result.services || []) as any[];
 
-// List staff
-const staffResult = await staffMembers.queryStaffMembers({});
-const allStaff = staffResult.items || [];
+// List staff — response key is `staffMembers`, not `items`
+const staffResult = await staffMembers.queryStaffMembers({}) as any;
+const allStaff = (staffResult.staffMembers || []) as any[];
 
 // Map resource IDs to staff
-const staffMap = new Map(allStaff.map(s => [s.resourceId, s]));
+const staffMap = new Map(allStaff.map((s: any) => [s.resourceId, s]));
 ```
 
 Service object key fields:
@@ -130,58 +131,47 @@ Service object key fields:
 - `service.staffMemberIds` — array of resource IDs
 - `service.schedule.availabilityConstraints.sessionDurations` — durations in minutes
 - `service.payment.rateType` — "NO_FEE", "FIXED", "VARIED", "CUSTOM"
-
-## Time Slots (Client-Side via REST)
-
-Use `httpClient.fetchWithAuth` from `@wix/essentials` for the Time Slots V2 API:
-
-```typescript
-import { httpClient } from "@wix/essentials";
-
-const res = await httpClient.fetchWithAuth(
-  "https://www.wixapis.com/_api/service-availability/v2/time-slots",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      serviceId: "<service-id>",
-      fromLocalDate: "2026-03-22T00:00:00",
-      toLocalDate: "2026-03-22T23:59:00",
-      bookable: true,
-      cursorPaging: { limit: 100 },
-    }),
-  }
-);
-const data = await res.json();
-const slots = data.timeSlots || [];
-```
-
-Each time slot has:
-- `localStartDate` / `localEndDate` — "YYYY-MM-DDThh:mm:ss" format
-- `bookable` — boolean
-- `availableResources` — array of resource types with available resources
-- `remainingCapacity` / `totalCapacity`
-
-**CRITICAL:** The deprecated `availabilityCalendar` API uses different response shapes. Use Time Slots V2 (`_api/service-availability/v2/time-slots`) for new implementations.
+- `service.media.mainMedia.image` — `wix:image://` string (see `wix-media-handling` skill)
 
 ## Booking Flow (Client-Side)
 
-### Using Redirect Session (Recommended for Headless)
+**Use `availabilityCalendar.queryAvailability()` + `redirects.createRedirectSession()`.**
+
+The key insight: `queryAvailability` returns `SlotAvailability` objects that pass **directly** to `createRedirectSession` — no manual slot/resource construction needed.
+
+### Step 1: Query Available Slots
+
+```typescript
+import { availabilityCalendar } from "@wix/bookings";
+import type { availabilityCalendar as availabilityTypes } from "@wix/bookings";
+
+const result = await availabilityCalendar.queryAvailability(
+  {
+    filter: {
+      serviceId: [serviceId],
+      startDate: "2026-03-22T00:00:00.000Z",
+      endDate: "2026-03-23T00:00:00.000Z",
+      // Optional: filter by staff resource ID
+      resourceId: [staffResourceId],
+    },
+  },
+  { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+);
+
+const entries: availabilityTypes.SlotAvailability[] = (result.availabilityEntries ?? []).filter(e => e.bookable);
+// Each entry has: entry.slot?.startDate, entry.slot?.endDate, entry.bookable
+```
+
+### Step 2: Redirect to Booking Checkout
+
+Pass the selected `SlotAvailability` directly — no manual object construction:
 
 ```typescript
 import { redirects } from "@wix/redirects";
 
 const redirect = await redirects.createRedirectSession({
   bookingsCheckout: {
-    slotAvailability: {
-      slot: {
-        serviceId: "<service-id>",
-        startDate: new Date(slot.localStartDate).toISOString(),
-        endDate: new Date(slot.localEndDate).toISOString(),
-        resource: { id: "<staff-resource-id>" },  // optional
-      },
-      bookable: true,
-    },
+    slotAvailability: selectedEntry,  // pass the SDK object directly
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   },
   callbacks: {
@@ -193,59 +183,54 @@ const redirect = await redirects.createRedirectSession({
 window.location.href = redirect.redirectSession.fullUrl;
 ```
 
-This redirects to Wix checkout which handles the booking creation, form, and confirmation.
-
 ## Managing Bookings (Client-Side)
 
 ### Query My Bookings
 
+Use `extendedBookings.queryExtendedBookings()` — a query builder with `.limit()` and `.find()`:
+
 ```typescript
-const res = await httpClient.fetchWithAuth(
-  "https://www.wixapis.com/bookings/bookings-reader/v2/extended-bookings/query",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query: { sort: [{ fieldName: "createdDate", order: "DESC" }], cursorPaging: { limit: 50 } },
-      withBookingAllowedActions: true,
-    }),
-  }
-);
-const data = await res.json();
-const bookings = data.bookings || [];
+import { extendedBookings } from "@wix/bookings";
+import type { extendedBookings as extendedBookingsTypes } from "@wix/bookings";
+
+const result = await extendedBookings.queryExtendedBookings({
+  withBookingAllowedActions: true,
+}).limit(50).find();
+
+const items: extendedBookingsTypes.ExtendedBooking[] = result.items;
 ```
 
-Each extended booking has:
-- `id`, `status` (CONFIRMED, PENDING, CANCELED, DECLINED)
-- `bookedEntity.title` — service name
-- `bookedEntity.item.slot.startDate` / `endDate` — ISO dates
-- `bookedEntity.item.slot.resource.name` — staff name
-- `allowedActions` — array of actions like "CANCEL", "RESCHEDULE"
+**ExtendedBooking structure** — the actual booking data is nested under `.booking`:
+- `eb.booking?._id` — booking GUID
+- `eb.booking?.status` — "CONFIRMED", "PENDING", "CANCELED", "DECLINED"
+- `eb.booking?.revision` — required for cancel/reschedule
+- `eb.booking?.bookedEntity?.title` — service name
+- `eb.booking?.bookedEntity?.slot?.startDate` / `endDate` — ISO dates
+- `eb.booking?.bookedEntity?.slot?.resource?.name` — staff member name
+- `eb.allowedActions?.cancel` — boolean (NOT a string array)
+- `eb.allowedActions?.reschedule` — boolean
 
 ### Cancel a Booking
 
 ```typescript
-await httpClient.fetchWithAuth(
-  `https://www.wixapis.com/bookings/v2/bookings/${bookingId}/cancel`,
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ participantNotification: { notifyParticipants: true } }),
-  }
-);
+import { bookings } from "@wix/bookings";
+
+await bookings.cancelBooking(bookingId, {
+  revision: booking.revision,  // required
+  participantNotification: { notifyParticipants: true },
+});
 ```
 
 ## Tips & Gotchas
 
 1. **staffMemberIds = resource IDs** — Services reference staff by their `resourceId`, not their `staffMember.id`
 2. **payment.options required** — Even NO_FEE services must set `inPerson: true` or `online: true`
-3. **Time Slots V2** — Use `_api/service-availability/v2/time-slots`, NOT the deprecated `availabilityCalendar`
-4. **Local dates** — Time slots use local dates (no timezone suffix), not ISO/UTC dates
-5. **Staff default to business hours** — By default, staff work during business opening hours. Use Assign Working Hours Schedule for custom hours
-6. **Category required for visibility** — Services without a category.id won't appear on the live site
-7. **Redirect session for checkout** — In headless, use `redirects.createRedirectSession` with `bookingsCheckout` for the simplest booking flow
-8. **httpClient.fetchWithAuth** — Import from `"@wix/essentials"` (main module), NOT from subpath
-9. **withBookingAllowedActions** — Pass `true` when querying bookings to get cancel/reschedule permissions
-10. **Media fields are `wix:image://` strings in SDK** — See the `wix-media-handling` skill for the full pattern. Use `typeof img === 'string'` check before accessing sub-properties.
-11. **queryServices returns `{ services: [...] }`** — NOT `{ items: [...] }`.
-12. **queryStaffMembers returns `{ staffMembers: [...] }`** — NOT `{ items: [...] }`.
+3. **Use SDK methods, not REST** — Use `availabilityCalendar.queryAvailability()` for slots, `extendedBookings.queryExtendedBookings()` for bookings, `bookings.cancelBooking()` for cancellation. Don't use `httpClient.fetchWithAuth` with manual REST URLs — the SDK handles auth, types, and response shapes correctly
+4. **Pass SlotAvailability directly** — The object from `queryAvailability` passes directly to `createRedirectSession({ bookingsCheckout: { slotAvailability } })`. Don't construct slot objects manually — you'll get field names wrong (`_id` vs `id`, etc.)
+5. **ExtendedBooking nesting** — The booking data is at `eb.booking?.bookedEntity`, not `eb.bookedEntity`. AllowedActions are booleans (`eb.allowedActions?.cancel`), not a string array
+6. **cancelBooking requires revision** — Pass `booking.revision` in the options
+7. **Staff default to business hours** — By default, staff work during business opening hours. Use Assign Working Hours Schedule for custom hours
+8. **Category required for visibility** — Services without a `category.id` won't appear on the live site
+9. **queryServices returns `{ services: [...] }`** — NOT `{ items: [...] }`
+10. **queryStaffMembers returns `{ staffMembers: [...] }`** — NOT `{ items: [...] }`
+11. **Media fields are `wix:image://` strings in SDK** — See the `wix-media-handling` skill

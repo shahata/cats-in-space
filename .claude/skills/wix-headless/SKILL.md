@@ -366,8 +366,9 @@ const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', cu
 - No generic types with angle brackets in Astro template expressions (e.g., `Record<string, any>` breaks the parser). Define types in frontmatter
 
 ### Wix SDK Gotchas
+- **Always use SDK methods over manual REST calls** — SDK methods handle auth, types, and response shapes correctly. Don't use `httpClient.fetchWithAuth` with manual REST URLs when an SDK method exists. When one SDK method returns an object (e.g. `SlotAvailability`), pass it directly to the next SDK method that accepts it — don't reconstruct objects manually
 - `getCurrentCart` returns Cart directly, not `{ cart }`
 - `searchOrders` takes OrderSearch directly, not `{ search: OrderSearch }`
 - `estimateCurrentCartTotals` response: `priceSummary` at top level, not under `estimatedTotals`
-- `httpClient.fetchWithAuth` from `@wix/essentials` for authenticated REST calls client-side. Import from main module, NOT subpath
+- `httpClient.fetchWithAuth` from `@wix/essentials` — only use when no SDK method exists for the endpoint. Import from main module, NOT subpath
 - `media` from `@wix/sdk` for image/video URLs — `media.getImageUrl()`, `media.getScaledToFillImageUrl()`, `media.getVideoUrl()`
