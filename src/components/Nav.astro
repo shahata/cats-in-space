@@ -20,19 +20,9 @@ const supportedLanguages = (() => {
 	}
 })();
 
-// Get the page path without locale prefix for active-link matching and language switching
-const pagePath = (() => {
-	let path = currentPath;
-	for (const lang of supportedLanguages) {
-		if (!lang.primary && lang.id) {
-			const prefix = `/${lang.id}`;
-			if (path.startsWith(prefix + '/') || path === prefix) {
-				return path.slice(prefix.length) || '/';
-			}
-		}
-	}
-	return path;
-})();
+// Get the page path without locale prefix using getRelativeLocaleUrl
+const localePrefix = getRelativeLocaleUrl('/').replace(/\/$/, '');
+const pagePath = localePrefix ? currentPath.replace(localePrefix, '') || '/' : currentPath;
 
 const languageFlags: Record<string, string> = {
 	en: 'EN',
