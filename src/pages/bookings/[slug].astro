@@ -34,6 +34,8 @@ const serviceIcons: Record<string, string> = {
 	'Vaccination & Immunization': '💉',
 	'Emergency & Trauma Care': '🚑',
 	'Sleep & Anxiety Therapy': '😴',
+	'Premium Full-Body Diagnostic': '🔬',
+	'Holistic Wellness Program': '🧘',
 };
 const icon = serviceIcons[service.name || ''] || '🏥';
 const svcMediaImg = service.media?.mainMedia?.image;
@@ -95,7 +97,13 @@ const staffForClient = serviceStaff.map((s: any) => {
 						</div>
 						<div class="detail-row">
 							<span class="detail-label">Cost</span>
-							<span class="detail-value">Free (included with crew membership)</span>
+							<span class="detail-value">
+								{service.payment?.rateType === 'FIXED'
+									? `${service.payment.fixed?.price?.currency} ${service.payment.fixed?.price?.value}`
+									: service.payment?.options?.pricingPlan
+										? 'Included with paid membership plans'
+										: 'Free (included with crew membership)'}
+							</span>
 						</div>
 						<div class="detail-row">
 							<span class="detail-label">Location</span>

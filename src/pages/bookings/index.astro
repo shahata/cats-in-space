@@ -18,6 +18,8 @@ const serviceIcons: Record<string, string> = {
 	'Vaccination & Immunization': '💉',
 	'Emergency & Trauma Care': '🚑',
 	'Sleep & Anxiety Therapy': '😴',
+	'Premium Full-Body Diagnostic': '🔬',
+	'Holistic Wellness Program': '🧘',
 };
 
 const roleEmojis: Record<string, string> = {
@@ -89,9 +91,19 @@ const roleEmojis: Record<string, string> = {
 											<span class="meta-icon">⏱</span> {duration} min
 										</span>
 									)}
-									<span class="service-price">
-										<span class="meta-icon">💰</span> Free
-									</span>
+									{service.payment?.rateType === 'FIXED' ? (
+										<span class="service-price service-price-paid">
+											<span class="meta-icon">💰</span> {service.payment.fixed?.price?.currency} {service.payment.fixed?.price?.value}
+										</span>
+									) : service.payment?.options?.pricingPlan ? (
+										<span class="service-price service-price-plan">
+											<span class="meta-icon">⭐</span> Members Only
+										</span>
+									) : (
+										<span class="service-price">
+											<span class="meta-icon">💰</span> Free
+										</span>
+									)}
 								</div>
 								<div class="service-staff">
 									{serviceStaff.map((s: any) => (
@@ -261,6 +273,16 @@ const roleEmojis: Record<string, string> = {
 		display: flex;
 		gap: 16px;
 		margin-bottom: 12px;
+	}
+
+	.service-price-paid {
+		color: var(--accent) !important;
+		font-weight: 700;
+	}
+
+	.service-price-plan {
+		color: #9c27b0 !important;
+		font-weight: 700;
 	}
 
 	.service-duration,
