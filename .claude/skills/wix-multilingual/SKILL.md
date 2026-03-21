@@ -147,28 +147,30 @@ This returns all schemas grouped by source app. Each schema defines translatable
 
 Filter by app: `?appId=<appId>` or scope: `?scope=SITE` (for CMS collections).
 
-### Step 2: Query English Content
+### Step 2: For Each Schema, Query EN and JA Content
+
+**CRITICAL**: Do NOT query all content at once (`locale: "en"` without `schemaId`). This misses entries from some schemas. Always query per-schema:
 
 ```http
 POST https://www.wixapis.com/translation-content/v1/contents/query
-Body: { "query": { "filter": { "locale": "en" }, "paging": { "limit": 100 } } }
+Body: { "query": { "filter": { "locale": "en", "schemaId": "<schema-id>" }, "paging": { "limit": 100 } } }
 ```
-
-**CRITICAL**: The API response can be very large (50KB+) and may get truncated. To handle this:
-- Filter by specific schema: `"filter": { "locale": "en", "schemaId": { "$in": ["schema-id-1", "schema-id-2"] } }`
-- Use cursor paging for pagination
-- Process in batches by schema group
-
-Each entry has: `schemaId`, `entityId`, `locale`, `fields` (map of field key → `{textValue, published, updatedBy}`)
-
-### Step 3: Query Existing Target Translations
 
 ```http
 POST https://www.wixapis.com/translation-content/v1/contents/query
-Body: { "query": { "filter": { "locale": "ja" }, "paging": { "limit": 100 } } }
+Body: { "query": { "filter": { "locale": "ja", "schemaId": "<schema-id>" }, "paging": { "limit": 100 } } }
 ```
 
-Compare against English entries by `schemaId` + `entityId` to find what's missing.
+Per-schema queries return small responses that work well with MCP (no truncation). Compare EN vs JA entries by `entityId` to find missing entries. Also compare **field-by-field** within matching entries to find missing fields.
+
+Each entry has: `schemaId`, `entityId`, `locale`, `fields` (map of field key → `{textValue, published, updatedBy}` or `{richContent, published, updatedBy}`)
+
+### Step 3: Find Missing Translations (Two Levels)
+
+1. **Missing entries**: EN entry exists but no JA entry with same `entityId` → create new JA entry
+2. **Missing fields**: JA entry exists but some fields lack `textValue`/`richContent` → update JA entry to add missing fields
+
+Both levels matter — the Translation Manager counts individual fields, not just entries.
 
 ### Step 4: Create Translations
 
@@ -191,28 +193,57 @@ Body: {
 
 **Batch size**: Push up to 10 entries per API call to avoid timeouts.
 
-### What to Translate vs Skip
+### What to Translate
 
-**Translate** (text fields with `textValue`):
+**CRITICAL**: Translate ALL fields that have `textValue` or `richContent` — even `_id`, `slug`, `distance`, `gravity`, `launchDate`. The Translation Manager counts every field. For non-translatable values (IDs, slugs, dates, numbers), copy the English value as-is to the JA entry.
+
+**Text fields** (`textValue`):
 - Product names, descriptions, additional info titles/descriptions
 - Service names, descriptions, taglines
 - Staff names, descriptions
 - Page titles, menu labels
-- Category/collection names
-- Shipping rule names, option titles
+- Category/collection names, shipping rule names
 - Form field labels (Email → メール, Phone → 電話)
-- Product option names and choice values (Color → カラー, Black → ブラック)
-- Product ribbons (Bestseller → ベストセラー, New → 新着)
-- CMS collection text fields (title, description, bio, tagline, etc.)
+- Product option names and choice values (Color → カラー)
+- Product ribbons, preorder messages
+- CMS fields: title, description, bio, tagline, gravity, atmosphere, status
+- `_id`, `slug`, `distance`, `launchDate` → copy EN value as-is
 
-**Skip**:
-- Fields with empty `textValue` ("")
-- System keys (e.g., `"settings.offlineTitleOptionDefault"`)
-- `_id`, `slug` fields (identifiers, not user-facing)
-- `image`, `video` fields (media, not text)
-- Numeric fields (distance, price)
-- Date fields (launchDate)
-- `RICH_CONTENT` type fields — these need `richContent` format, not plain `textValue`. The API returns `INVALID_ARGUMENT` for plain text. Handle separately or skip.
+**Rich content fields** (`richContent`):
+- Product descriptions (in Products V3 schema)
+- Info section descriptions (Specifications, How It Works, Pre-Order Info)
+- Form display fields (e.g., "Client Details" heading)
+- These use `richContent: { nodes: [...] }` format, NOT `textValue`
+- Translate text inside `TEXT` nodes, preserve node structure (HEADING, PARAGRAPH, etc.)
+- Set via update: `{"richContent": {"nodes": [...]}, "published": true, "updatedBy": "USER"}`
+
+**Skip only**:
+- Fields with empty `textValue` ("") AND no `richContent`
+- `image`/`video` fields (media references, no text)
+
+### Updating Existing Entries with Missing Fields
+
+When a JA entry exists but is missing some fields, use the bulk update API:
+
+```http
+POST https://www.wixapis.com/translation-content/v1/bulk/contents/update
+Body: {
+  "contents": [{
+    "content": {
+      "id": "<ja-content-id>",
+      "schemaId": "...",
+      "entityId": "...",
+      "locale": "ja",
+      "fields": {
+        "missingFieldKey": { "textValue": "value", "published": true, "updatedBy": "USER" }
+      }
+    }
+  }],
+  "returnEntity": false
+}
+```
+
+The update requires the JA entry's `id` (content GUID), not just `entityId`.
 
 ### Translating CMS Collections
 
