@@ -24,35 +24,36 @@ function t(key: string): string {
 	return typeof value === 'string' ? value : key;
 }
 
-// Get supported languages for language switcher
-let supportedLanguages: { id: string | undefined; displayName: string | undefined; primary: boolean | undefined }[] = [];
-try {
-	supportedLanguages = multilingual.listSupportedLanguages();
-} catch {
-	// Fallback if multilingual not available
-	supportedLanguages = [
-		{ id: 'en', displayName: 'English', primary: true },
-		{ id: 'ja', displayName: 'Japanese', primary: false },
-	];
-}
+// Get supported languages for language switcher — each has id, displayName, url, primary
+const supportedLanguages = (() => {
+	try {
+		return multilingual.listSupportedLanguages();
+	} catch {
+		return [
+			{ id: 'en', displayName: 'English', url: '/', primary: true },
+			{ id: 'ja', displayName: 'Japanese', url: '/ja', primary: false },
+		];
+	}
+})();
 
-// Build language URLs: strip locale prefix from current path, then apply new locale
-function getLanguageUrl(langId: string, isPrimary: boolean | undefined): string {
-	// Remove any existing locale prefix to get the base path
-	let basePath = currentPath;
+// Get the page path without locale prefix, to append to language URLs
+const pagePath = (() => {
+	let path = currentPath;
 	for (const lang of supportedLanguages) {
 		if (!lang.primary && lang.id) {
 			const prefix = `/${lang.id}`;
-			if (basePath.startsWith(prefix + '/') || basePath === prefix) {
-				basePath = basePath.slice(prefix.length) || '/';
-				break;
+			if (path.startsWith(prefix + '/') || path === prefix) {
+				return path.slice(prefix.length) || '/';
 			}
 		}
 	}
-	if (isPrimary) {
-		return basePath;
-	}
-	return `/${langId}${basePath === '/' ? '' : basePath}`;
+	return path;
+})();
+
+// Build language URL: base from SDK + current page path
+function getLanguageUrl(lang: { url?: string | undefined; primary?: boolean | undefined }): string {
+	const base = lang.url ? new URL(lang.url).pathname.replace(/\/$/, '') : '';
+	return base + (pagePath === '/' ? '/' : pagePath);
 }
 
 const languageFlags: Record<string, string> = {
@@ -81,20 +82,7 @@ const links = [
 	{ href: getRelativeLocaleUrl('/plans'), label: t('nav.plans'), matchPath: '/plans' },
 ];
 
-// Strip locale prefix for matching
-function stripLocalePrefix(path: string): string {
-	for (const lang of supportedLanguages) {
-		if (!lang.primary && lang.id) {
-			const prefix = `/${lang.id}`;
-			if (path.startsWith(prefix + '/') || path === prefix) {
-				return path.slice(prefix.length) || '/';
-			}
-		}
-	}
-	return path;
-}
-
-const strippedPath = stripLocalePrefix(currentPath);
+const strippedPath = pagePath;
 ---
 
 <nav class="nav">
@@ -131,7 +119,7 @@ const strippedPath = stripLocalePrefix(currentPath);
 								<div class="lang-submenu">
 									{supportedLanguages.map(lang => (
 										<a
-											href={getLanguageUrl(lang.id || 'en', lang.primary)}
+											href={getLanguageUrl(lang)}
 											class:list={['lang-option', { 'lang-active': lang.id === currentLanguage }]}
 										>
 											<span class="lang-flag">{languageFlags[lang.id || ''] || (lang.id || '').toUpperCase()}</span>
@@ -156,7 +144,7 @@ const strippedPath = stripLocalePrefix(currentPath);
 							<div class="lang-standalone-dropdown">
 								{supportedLanguages.map(lang => (
 									<a
-										href={getLanguageUrl(lang.id || 'en', lang.primary)}
+										href={getLanguageUrl(lang)}
 										class:list={['lang-option', { 'lang-active': lang.id === currentLanguage }]}
 									>
 										<span class="lang-flag">{languageFlags[lang.id || ''] || (lang.id || '').toUpperCase()}</span>
