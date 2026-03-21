@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { httpClient } from "@wix/essentials";
+import { availabilityCalendar } from "@wix/bookings";
+import type { availabilityCalendar as availabilityTypes } from "@wix/bookings";
 import { redirects } from "@wix/redirects";
-import type { redirects as redirectsTypes } from "@wix/redirects";
 
 interface StaffInfo {
   id: string;
@@ -10,16 +10,6 @@ interface StaffInfo {
   description: string;
   emoji: string;
   imageUrl?: string;
-}
-
-interface TimeSlot {
-  localStartDate: string;
-  localEndDate: string;
-  bookable: boolean;
-  availableResources?: {
-    resourceTypeId: string;
-    resources: { id: string; name: string }[];
-  }[];
 }
 
 interface BookingFlowProps {
@@ -32,21 +22,19 @@ interface BookingFlowProps {
 export default function BookingFlow({ serviceId, serviceName, duration, staff }: BookingFlowProps) {
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [availabilityEntries, setAvailabilityEntries] = useState<availabilityTypes.SlotAvailability[]>([]);
+  const [selectedEntry, setSelectedEntry] = useState<availabilityTypes.SlotAvailability | null>(null);
   const [loading, setLoading] = useState(false);
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"staff" | "date" | "time" | "confirm">("staff");
 
-  // Set default date to tomorrow
   useEffect(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     setSelectedDate(tomorrow.toISOString().split("T")[0]!);
   }, []);
 
-  // Only require staff selection if there's more than one
   useEffect(() => {
     if (staff.length === 1) {
       setSelectedStaff(staff[0]!.id);
@@ -54,56 +42,39 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
     }
   }, [staff]);
 
-  async function fetchTimeSlots() {
+  async function fetchAvailability() {
     if (!selectedDate) return;
     setLoading(true);
     setError(null);
-    setTimeSlots([]);
-    setSelectedSlot(null);
+    setAvailabilityEntries([]);
+    setSelectedEntry(null);
 
     try {
-      const fromDate = `${selectedDate}T00:00:00`;
-      const toDate = `${selectedDate}T23:59:00`;
+      const startDate = `${selectedDate}T00:00:00.000Z`;
+      const nextDay = new Date(selectedDate + "T00:00:00");
+      nextDay.setDate(nextDay.getDate() + 1);
+      const endDate = nextDay.toISOString();
 
-      const body: Record<string, unknown> = {
-        serviceId,
-        fromLocalDate: fromDate,
-        toLocalDate: toDate,
-        bookable: true,
-        cursorPaging: { limit: 100 },
+      const filter: Record<string, unknown> = {
+        serviceId: [serviceId],
+        startDate,
+        endDate,
       };
 
       if (selectedStaff) {
-        body.resourceTypes = [{ resourceTypeId: "staff", resourceIds: [selectedStaff] }];
+        filter.resourceId = [selectedStaff];
       }
 
-      const res = await httpClient.fetchWithAuth(
-        "https://www.wixapis.com/_api/service-availability/v2/time-slots",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
+      const result = await availabilityCalendar.queryAvailability(
+        { filter },
+        { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
       );
 
-      const data = await res.json();
-      const slots = (data.timeSlots || []).filter((s: TimeSlot) => s.bookable);
-
-      // Filter by selected staff if needed
-      if (selectedStaff && slots.length > 0) {
-        const filtered = slots.filter((slot: TimeSlot) => {
-          if (!slot.availableResources || slot.availableResources.length === 0) return true;
-          return slot.availableResources.some(ar =>
-            ar.resources.some(r => r.id === selectedStaff)
-          );
-        });
-        setTimeSlots(filtered.length > 0 ? filtered : slots);
-      } else {
-        setTimeSlots(slots);
-      }
+      const entries = (result.availabilityEntries ?? []).filter(e => e.bookable);
+      setAvailabilityEntries(entries);
     } catch (err) {
       setError("Failed to load available time slots. Please try again.");
-      console.error("Time slots error:", err);
+      console.error("Availability error:", err);
     } finally {
       setLoading(false);
     }
@@ -117,35 +88,23 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
   function handleSelectDate() {
     if (!selectedDate) return;
     setStep("time");
-    fetchTimeSlots();
+    fetchAvailability();
   }
 
-  function handleSelectSlot(slot: TimeSlot) {
-    setSelectedSlot(slot);
+  function handleSelectSlot(entry: availabilityTypes.SlotAvailability) {
+    setSelectedEntry(entry);
     setStep("confirm");
   }
 
   async function handleBook() {
-    if (!selectedSlot) return;
+    if (!selectedEntry) return;
     setBooking(true);
     setError(null);
 
     try {
-      const slot: redirectsTypes.Slot = {
-        serviceId,
-        startDate: new Date(selectedSlot.localStartDate).toISOString(),
-        endDate: new Date(selectedSlot.localEndDate).toISOString(),
-        ...(selectedStaff ? { resource: { _id: selectedStaff } } : {}),
-      };
-
-      const slotAvailability: redirectsTypes.SlotAvailability = {
-        slot,
-        bookable: true,
-      };
-
       const redirect = await redirects.createRedirectSession({
         bookingsCheckout: {
-          slotAvailability,
+          slotAvailability: selectedEntry,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
         callbacks: {
@@ -167,17 +126,10 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
     }
   }
 
-  function formatTime(dateStr: string) {
+  function formatTime(dateStr: string | null | undefined) {
+    if (!dateStr) return "";
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) {
-      // It's a local date string like "2026-03-22T09:00:00"
-      const parts = dateStr.split("T")[1]?.split(":") || [];
-      const h = parseInt(parts[0] || "0");
-      const m = parts[1] || "00";
-      const ampm = h >= 12 ? "PM" : "AM";
-      const h12 = h % 12 || 12;
-      return `${h12}:${m} ${ampm}`;
-    }
+    if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   }
 
@@ -292,7 +244,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
               <div style={styles.spinner} />
               <p>Scanning medical bay schedules...</p>
             </div>
-          ) : timeSlots.length === 0 ? (
+          ) : availabilityEntries.length === 0 ? (
             <div style={styles.noSlots}>
               <p>No available time slots for this date.</p>
               <button onClick={() => setStep("date")} style={styles.secondaryBtn}>
@@ -301,13 +253,13 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
             </div>
           ) : (
             <div style={styles.slotsGrid}>
-              {timeSlots.map((slot, i) => (
+              {availabilityEntries.map((entry, i) => (
                 <button
                   key={i}
-                  onClick={() => handleSelectSlot(slot)}
+                  onClick={() => handleSelectSlot(entry)}
                   style={styles.slotBtn}
                 >
-                  {formatTime(slot.localStartDate)}
+                  {formatTime(entry.slot?.startDate)}
                 </button>
               ))}
             </div>
@@ -316,7 +268,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
       )}
 
       {/* Step 4: Confirm */}
-      {step === "confirm" && selectedSlot && (
+      {step === "confirm" && selectedEntry && (
         <div>
           <p style={styles.stepLabel}>Confirm your appointment:</p>
           <div style={styles.confirmCard}>
@@ -339,7 +291,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
             <div style={styles.confirmRow}>
               <span style={styles.confirmLabel}>Time</span>
               <span style={styles.confirmValue}>
-                {formatTime(selectedSlot.localStartDate)} — {formatTime(selectedSlot.localEndDate)}
+                {formatTime(selectedEntry.slot?.startDate)} — {formatTime(selectedEntry.slot?.endDate)}
               </span>
             </div>
             <div style={styles.confirmRow}>
