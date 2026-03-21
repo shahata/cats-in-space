@@ -1,33 +1,15 @@
 ---
 import { members } from '@wix/members';
 import { i18n } from '@wix/essentials';
-import { multilingual } from '@wix/site';
 import { getRelativeLocaleUrl } from 'wix:astro:i18n';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const currentPath = Astro.url.pathname;
-const currentLanguage = i18n.getLanguage();
 const t = i18n.getTranslationFunction();
 
-// Get supported languages for language switcher
-const supportedLanguages = (() => {
-	try {
-		return multilingual.listSupportedLanguages();
-	} catch {
-		return [
-			{ id: 'en', displayName: 'English', primary: true },
-			{ id: 'ja', displayName: 'Japanese', primary: false },
-		];
-	}
-})();
-
-// Get the page path without locale prefix using getRelativeLocaleUrl
+// Get the page path without locale prefix for active-link matching
 const localePrefix = getRelativeLocaleUrl('/').replace(/\/$/, '');
 const pagePath = localePrefix ? currentPath.replace(localePrefix, '') || '/' : currentPath;
-
-const languageFlags: Record<string, string> = {
-	en: 'EN',
-	ja: 'JA',
-};
 
 let loggedInMember: string | null = null;
 let memberPhoto: string | null = null;
@@ -80,23 +62,7 @@ const strippedPath = pagePath;
 						</button>
 						<div class="member-dropdown">
 							<a href={getRelativeLocaleUrl('/member')} class="dropdown-item">{t('nav.myProfile')}</a>
-							<div class="dropdown-item dropdown-lang-trigger">
-								<span>{t('nav.language')}</span>
-								<span class="lang-current-flag">{languageFlags[currentLanguage] || currentLanguage.toUpperCase()}</span>
-								<span class="lang-caret">&#9656;</span>
-								<div class="lang-submenu">
-									{supportedLanguages.map(lang => (
-										<a
-											href={lang.primary ? pagePath : `/${lang.id}${pagePath === '/' ? '' : pagePath}`}
-											class:list={['lang-option', { 'lang-active': lang.id === currentLanguage }]}
-										>
-											<span class="lang-flag">{languageFlags[lang.id || ''] || (lang.id || '').toUpperCase()}</span>
-											<span class="lang-name">{lang.displayName}</span>
-											{lang.id === currentLanguage && <span class="lang-check">&#10003;</span>}
-										</a>
-									))}
-								</div>
-							</div>
+							<LanguageSwitcher variant="dropdown" client:load />
 							<form action={`/api/auth/logout?returnToUrl=${encodeURIComponent(currentPath)}`} method="POST">
 								<button type="submit" class="dropdown-item dropdown-logout">{t('nav.logout')}</button>
 							</form>
@@ -104,24 +70,7 @@ const strippedPath = pagePath;
 						</div>
 				) : (
 					<>
-						<div class="lang-standalone">
-							<button class="lang-standalone-btn" type="button">
-								<span class="lang-standalone-flag">{languageFlags[currentLanguage] || currentLanguage.toUpperCase()}</span>
-								<span class="lang-standalone-caret">&#9662;</span>
-							</button>
-							<div class="lang-standalone-dropdown">
-								{supportedLanguages.map(lang => (
-									<a
-										href={lang.primary ? pagePath : `/${lang.id}${pagePath === '/' ? '' : pagePath}`}
-										class:list={['lang-option', { 'lang-active': lang.id === currentLanguage }]}
-									>
-										<span class="lang-flag">{languageFlags[lang.id || ''] || (lang.id || '').toUpperCase()}</span>
-										<span class="lang-name">{lang.displayName}</span>
-										{lang.id === currentLanguage && <span class="lang-check">&#10003;</span>}
-									</a>
-								))}
-							</div>
-						</div>
+						<LanguageSwitcher variant="standalone" client:load />
 						<a href={`/api/auth/login?returnToUrl=${encodeURIComponent(currentPath)}`} class="auth-link">{t('nav.login')}</a>
 					</>
 				)}
@@ -145,17 +94,8 @@ const strippedPath = pagePath;
 		dropdown?.classList.toggle('member-dropdown-open');
 	});
 
-	// Standalone language switcher for logged-out users
-	const langStandaloneBtn = document.querySelector('.lang-standalone-btn');
-	const langStandaloneDropdown = document.querySelector('.lang-standalone-dropdown');
-	langStandaloneBtn?.addEventListener('click', (e) => {
-		e.stopPropagation();
-		langStandaloneDropdown?.classList.toggle('lang-standalone-dropdown-open');
-	});
-
 	document.addEventListener('click', () => {
 		dropdown?.classList.remove('member-dropdown-open');
-		langStandaloneDropdown?.classList.remove('lang-standalone-dropdown-open');
 	});
 </script>
 
@@ -367,131 +307,6 @@ const strippedPath = pagePath;
 		background: rgba(255, 102, 0, 0.1);
 	}
 
-	/* Language sub-menu inside member dropdown */
-	.dropdown-lang-trigger {
-		position: relative;
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		cursor: pointer;
-	}
-
-	.lang-current-flag {
-		font-size: 0.7rem;
-		font-weight: 700;
-		color: var(--accent);
-		margin-left: auto;
-	}
-
-	.lang-caret {
-		font-size: 0.55rem;
-		color: var(--text-muted);
-	}
-
-	.lang-submenu {
-		display: none;
-		position: absolute;
-		left: 100%;
-		top: -6px;
-		background: rgba(20, 20, 20, 0.98);
-		border: 1px solid #333;
-		border-radius: 8px;
-		min-width: 150px;
-		padding: 6px 0;
-		z-index: 210;
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-	}
-
-	.dropdown-lang-trigger:hover .lang-submenu {
-		display: block;
-	}
-
-	.lang-option {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 8px 14px;
-		font-size: 0.8rem;
-		font-family: var(--font-heading);
-		letter-spacing: 1px;
-		color: var(--text-secondary);
-		text-decoration: none;
-		transition: all 0.15s;
-	}
-
-	.lang-option:hover {
-		color: var(--accent);
-		background: rgba(255, 102, 0, 0.08);
-	}
-
-	.lang-active {
-		color: var(--accent-yellow);
-	}
-
-	.lang-flag {
-		font-size: 0.7rem;
-		font-weight: 700;
-		min-width: 24px;
-	}
-
-	.lang-name {
-		flex: 1;
-	}
-
-	.lang-check {
-		font-size: 0.7rem;
-		color: var(--accent);
-	}
-
-	/* Standalone language switcher for logged-out users */
-	.lang-standalone {
-		position: relative;
-	}
-
-	.lang-standalone-btn {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		padding: 6px 10px;
-		background: none;
-		border: 1px solid #333;
-		border-radius: 6px;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.lang-standalone-btn:hover {
-		border-color: var(--accent);
-	}
-
-	.lang-standalone-flag {
-		font-size: 0.75rem;
-		font-weight: 700;
-		color: var(--accent);
-	}
-
-	.lang-standalone-caret {
-		font-size: 0.5rem;
-		color: var(--text-muted);
-	}
-
-	.lang-standalone-dropdown {
-		display: none;
-		position: absolute;
-		top: calc(100% + 6px);
-		right: 0;
-		background: rgba(20, 20, 20, 0.98);
-		border: 1px solid #333;
-		border-radius: 8px;
-		min-width: 150px;
-		padding: 6px 0;
-		z-index: 200;
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-	}
-
-	.lang-standalone-dropdown-open {
-		display: block;
-	}
 
 	@media (max-width: 960px) {
 		.nav-toggle {
@@ -537,11 +352,6 @@ const strippedPath = pagePath;
 			transform: translateX(-50%);
 		}
 
-		.lang-submenu {
-			left: auto;
-			right: 0;
-			top: 100%;
-		}
 
 		.lang-standalone-dropdown {
 			left: auto;
