@@ -361,6 +361,12 @@ const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', cu
 - Type check with `npx astro check` (not `tsc --noEmit`) — `tsc` does NOT check `.astro` files
 - Use `as Function` (not `as any`) for SDK overload workarounds
 
+### Translations
+- Use `i18n.getTranslationFunction()` from `@wix/essentials` for ALL user-visible text — works in both Astro pages and React components (`client:load`)
+- Never hardcode English text in pages or components — add keys to `src/translations.json` and use `t('group.key')`
+- In React components, call `const t = i18n.getTranslationFunction()` inside the component function (not at module level)
+- Requires `@wix/essentials` >= 1.0.6
+
 ### React Islands in Astro
 - Don't use inline `<style>{...}` in React — causes hydration mismatch due to HTML entity encoding. Put styles in Astro `<style>` with `:global()`
 - No generic types with angle brackets in Astro template expressions (e.g., `Record<string, any>` breaks the parser). Define types in frontmatter

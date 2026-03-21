@@ -109,16 +109,42 @@ wix({ essentials: true, translations: true })
 
 ### Using Translations in Code
 
-```ts
+`i18n.getTranslationFunction()` works in **both** Astro pages (server-side) and React components (client-side `client:load`).
+
+**In Astro pages** (frontmatter):
+```astro
+---
 import { i18n } from '@wix/essentials';
-
 const t = i18n.getTranslationFunction();
-
-t('nav.home');      // "Home" or "ホーム" depending on current language
-t('common.bookNow'); // "Book Now" or "今すぐ予約"
+---
+<h1>{t('home.title')}</h1>
 ```
 
+**In React components** (inside the component function):
+```tsx
+import { i18n } from "@wix/essentials";
+
+export default function MyComponent() {
+  const t = i18n.getTranslationFunction();
+  return <h1>{t('home.title')}</h1>;
+}
+```
+
+**CRITICAL**: Call `getTranslationFunction()` inside the component function, not at module level. It needs the request context.
+
 **NOTE**: Requires `@wix/essentials` >= 1.0.6. Older 0.x versions don't have `getTranslationFunction()` at runtime. Make sure to restart the dev server after upgrading.
+
+### Best Practice: Move ALL Static Text to Translations
+
+Every user-visible string should go through `t()` — not just nav labels. This includes:
+- Page titles, subtitles, section headings
+- Button labels, link text
+- Form labels, placeholders
+- Error messages, success messages, loading states
+- Empty state text, confirmation dialogs
+- Status labels, meta information
+
+Organize keys by page/component: `home.*`, `planets.*`, `crew.*`, `missions.*`, `blog.*`, `store.*`, `plans.*`, `bookings.*`, `member.*`, `cart.*`, `footer.*`, `profile.*`, `product.*`, `premium.*`, `payment.*`, `cancelSub.*`, `common.*`
 
 ### Language & Locale Helpers
 
