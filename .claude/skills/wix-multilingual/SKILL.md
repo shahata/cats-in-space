@@ -306,26 +306,27 @@ const languages = multilingual.listSupportedLanguages();
 
 Each language object has `id`, `displayName`, `primary`, and `url`.
 
-**IMPORTANT**: `url` is only populated **client-side** (in React components with `client:load`). In server-side Astro pages, `url` is `undefined`. Handle both cases:
+**IMPORTANT**: `url` is only populated **client-side** (in React components with `client:load`). In server-side Astro pages, `url` is `undefined`.
 
-**Client-side (React)** — use `lang.url` directly for language switching links.
+**Best practice**: Build the language switcher as a **React component** (`client:load`) so it can use `lang.url` directly — no manual URL building needed:
 
-**Server-side (Astro)** — build URLs manually using the subdirectory pattern:
-```ts
-// Strip locale prefix from current path to get base page path
-const pagePath = /* strip /ja etc from currentPath */;
+```tsx
+import { multilingual } from "@wix/site";
+import { i18n } from "@wix/essentials";
 
-// For primary language: just the page path
-// For secondary: /{langId}{pagePath}
-const url = lang.primary ? pagePath : `/${lang.id}${pagePath === '/' ? '' : pagePath}`;
+function LanguageSwitcher() {
+  const currentLanguage = i18n.getLanguage();
+  const languages = multilingual.listSupportedLanguages();
+
+  return languages.map(lang => (
+    <a key={lang.id} href={lang.url}>{lang.displayName}</a>
+  ));
+}
 ```
 
-`getRelativeLocaleUrl(path)` from `wix:astro:i18n` localizes a path for the **current** locale only — it doesn't accept a target locale parameter, so it can't be used for switching to a different language.
+This eliminates all manual URL parsing (stripping locale prefixes, building subdirectory paths). The SDK handles it correctly for all URL structures (subdirectory, subdomain, query param).
 
-### UI Patterns
-
-- **Logged-in users**: language sub-menu inside the member dropdown
-- **Logged-out users**: standalone language button with dropdown
+**Note**: `getRelativeLocaleUrl(path)` from `wix:astro:i18n` localizes a path for the **current** locale only — it doesn't accept a target locale parameter, so it can't be used for switching to a different language.
 
 ---
 
