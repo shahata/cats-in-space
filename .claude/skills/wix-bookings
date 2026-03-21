@@ -27,10 +27,9 @@ import { services, staffMembers } from '@wix/bookings';
 ### SDK Imports (Client-Side React)
 
 ```typescript
-import { availabilityTimeSlots, extendedBookings, bookings } from "@wix/bookings";
-import type { availabilityTimeSlots as timeSlotsTypes, extendedBookings as extendedBookingsTypes } from "@wix/bookings";
+import { availabilityCalendar, extendedBookings, bookings } from "@wix/bookings";
+import type { availabilityCalendar as availabilityTypes, extendedBookings as extendedBookingsTypes } from "@wix/bookings";
 import { redirects } from "@wix/redirects";
-import type { redirects as redirectsTypes } from "@wix/redirects";
 ```
 
 ## Architecture
@@ -136,53 +135,43 @@ Service object key fields:
 
 ## Booking Flow (Client-Side)
 
-**Use `availabilityTimeSlots.listAvailabilityTimeSlots()` + `redirects.createRedirectSession()`.**
+**Use `availabilityCalendar.queryAvailability()` + `redirects.createRedirectSession()`.**
 
-**CRITICAL:** `availabilityCalendar.queryAvailability()` is **deprecated** (removal March 2026). Use `availabilityTimeSlots.listAvailabilityTimeSlots()` instead.
+The key insight: `queryAvailability` returns `SlotAvailability` objects that pass **directly** to `createRedirectSession` — no manual slot/resource construction needed.
 
 ### Step 1: Query Available Slots
 
 ```typescript
-import { availabilityTimeSlots } from "@wix/bookings";
-import type { availabilityTimeSlots as timeSlotsTypes } from "@wix/bookings";
+import { availabilityCalendar } from "@wix/bookings";
+import type { availabilityCalendar as availabilityTypes } from "@wix/bookings";
 
-const result = await availabilityTimeSlots.listAvailabilityTimeSlots({
-  serviceId,
-  fromLocalDate: `${selectedDate}T00:00:00`,
-  toLocalDate: `${selectedDate}T23:59:00`,
-  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  bookable: true,
-  cursorPaging: { limit: 100 },
-});
+const result = await availabilityCalendar.queryAvailability(
+  {
+    filter: {
+      serviceId: [serviceId],
+      startDate: "2026-03-22T00:00:00.000Z",
+      endDate: "2026-03-23T00:00:00.000Z",
+      // Optional: filter by staff resource ID
+      resourceId: [staffResourceId],
+    },
+  },
+  { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+);
 
-const slots: timeSlotsTypes.TimeSlot[] = result.timeSlots ?? [];
-// Each slot has: slot.localStartDate, slot.localEndDate, slot.bookable, slot.serviceId, slot.scheduleId
+const entries: availabilityTypes.SlotAvailability[] = (result.availabilityEntries ?? []).filter(e => e.bookable);
+// Each entry has: entry.slot?.startDate, entry.slot?.endDate, entry.bookable
 ```
 
-### Step 2: Map TimeSlot to SlotAvailability and Redirect
+### Step 2: Redirect to Booking Checkout
 
-`createRedirectSession` expects a `SlotAvailability` (from the old API shape). Map the `TimeSlot` to it using the redirects SDK types:
+Pass the selected `SlotAvailability` directly — no manual object construction:
 
 ```typescript
 import { redirects } from "@wix/redirects";
-import type { redirects as redirectsTypes } from "@wix/redirects";
-
-function timeSlotToSlotAvailability(ts: timeSlotsTypes.TimeSlot): redirectsTypes.SlotAvailability {
-  const slot: redirectsTypes.Slot = {
-    startDate: ts.localStartDate ?? null,
-    endDate: ts.localEndDate ?? null,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  };
-  if (ts.serviceId) slot.serviceId = ts.serviceId;
-  if (ts.scheduleId) slot.scheduleId = ts.scheduleId;
-  return { slot, bookable: ts.bookable ?? true };
-}
-
-const slotAvailability = timeSlotToSlotAvailability(selectedSlot);
 
 const redirect = await redirects.createRedirectSession({
   bookingsCheckout: {
-    slotAvailability,
+    slotAvailability: selectedEntry,  // pass the SDK object directly
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   },
   callbacks: {
@@ -193,8 +182,6 @@ const redirect = await redirects.createRedirectSession({
 
 window.location.href = redirect.redirectSession.fullUrl;
 ```
-
-**Why the mapping?** `listAvailabilityTimeSlots` returns `TimeSlot` (with `localStartDate`/`localEndDate`), but `createRedirectSession` expects `SlotAvailability` with `slot.startDate`/`slot.endDate`. Use `redirectsTypes.Slot` and `redirectsTypes.SlotAvailability` to build the bridge — the compiler catches any field name mismatches.
 
 ## Managing Bookings (Client-Side)
 
@@ -238,8 +225,8 @@ await bookings.cancelBooking(bookingId, {
 
 1. **staffMemberIds = resource IDs** — Services reference staff by their `resourceId`, not their `staffMember.id`
 2. **payment.options required** — Even NO_FEE services must set `inPerson: true` or `online: true`
-3. **Use SDK methods, not REST** — Use `availabilityTimeSlots.listAvailabilityTimeSlots()` for slots, `extendedBookings.queryExtendedBookings()` for bookings, `bookings.cancelBooking()` for cancellation. Don't use `httpClient.fetchWithAuth` with manual REST URLs — the SDK handles auth, types, and response shapes correctly
-4. **`availabilityCalendar` is deprecated** — Use `availabilityTimeSlots.listAvailabilityTimeSlots()` instead. The `TimeSlot` return type differs from `createRedirectSession`'s `SlotAvailability` — use the `timeSlotToSlotAvailability` mapping function with `redirectsTypes.Slot` and `redirectsTypes.SlotAvailability` types
+3. **Use SDK methods, not REST** — Use `availabilityCalendar.queryAvailability()` for slots, `extendedBookings.queryExtendedBookings()` for bookings, `bookings.cancelBooking()` for cancellation. Don't use `httpClient.fetchWithAuth` with manual REST URLs — the SDK handles auth, types, and response shapes correctly
+4. **Pass SlotAvailability directly** — The object from `queryAvailability` passes directly to `createRedirectSession({ bookingsCheckout: { slotAvailability } })`. Don't construct slot objects manually — you'll get field names wrong (`_id` vs `id`, etc.)
 5. **ExtendedBooking nesting** — The booking data is at `eb.booking?.bookedEntity`, not `eb.bookedEntity`. AllowedActions are booleans (`eb.allowedActions?.cancel`), not a string array
 6. **cancelBooking requires revision** — Pass `booking.revision` in the options
 7. **Staff default to business hours** — By default, staff work during business opening hours. Use Assign Working Hours Schedule for custom hours
