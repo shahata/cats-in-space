@@ -5,6 +5,7 @@ import Footer from '../../components/Footer.astro';
 import MemberProfile from '../../components/MemberProfile';
 import CancelSubscription from '../../components/CancelSubscription';
 import SavedPaymentMethods from '../../components/SavedPaymentMethods';
+import MyBookings from '../../components/MyBookings';
 import { members, membersAbout } from '@wix/members';
 import { savedPaymentMethods } from '@wix/payments';
 import type { members as membersTypes } from '@wix/members';
@@ -64,6 +65,7 @@ type StatusKey = keyof typeof statusColors;
 const tabs = [
 	{ id: 'profile', label: 'Profile', icon: '&#9734;' },
 	{ id: 'personal', label: 'Personal Info', icon: '&#9998;' },
+	{ id: 'bookings', label: 'Bookings', icon: '&#128137;' },
 	{ id: 'orders', label: 'Orders', icon: '&#9733;' },
 	{ id: 'subscriptions', label: 'Subscriptions', icon: '&#9830;' },
 	{ id: 'payment', label: 'Payment', icon: '&#128179;' },
@@ -98,6 +100,10 @@ const tabs = [
 
 				<div class="tab-panel" id="panel-personal" style="display:none">
 					<MemberProfile member={member} aboutData={aboutData} tab="personal" client:load />
+				</div>
+
+				<div class="tab-panel" id="panel-bookings" style="display:none">
+					<MyBookings client:load />
 				</div>
 
 				<div class="tab-panel" id="panel-orders" style="display:none">
