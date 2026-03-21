@@ -25,6 +25,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
   const [availabilityEntries, setAvailabilityEntries] = useState<availabilityTypes.SlotAvailability[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<availabilityTypes.SlotAvailability | null>(null);
   const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"staff" | "date" | "time" | "confirm">("staff");
@@ -77,6 +78,60 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
       console.error("Availability error:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function findNextAvailable() {
+    setSearching(true);
+    setError(null);
+
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const fromDate = new Date(selectedDate + "T00:00:00");
+      fromDate.setDate(fromDate.getDate() + 1);
+      const toDate = new Date(fromDate);
+      toDate.setDate(toDate.getDate() + 30);
+
+      const filter: Record<string, unknown> = {
+        serviceId: [serviceId],
+        startDate: fromDate.toISOString(),
+        endDate: toDate.toISOString(),
+      };
+      if (selectedStaff) filter.resourceId = [selectedStaff];
+
+      // Use slotsPerDay: 1 to efficiently find the first day with availability
+      const result = await availabilityCalendar.queryAvailability(
+        { filter },
+        { timezone: tz, slotsPerDay: 1 }
+      );
+
+      const entries = (result.availabilityEntries ?? []).filter(e => e.bookable);
+      if (entries.length > 0 && entries[0]?.slot?.startDate) {
+        // Found a day — update date and load all slots for that day
+        const nextDate = new Date(entries[0].slot.startDate);
+        const dateStr = nextDate.toISOString().split("T")[0]!;
+        setSelectedDate(dateStr);
+
+        const dayFilter: Record<string, unknown> = {
+          serviceId: [serviceId],
+          startDate: `${dateStr}T00:00:00.000Z`,
+          endDate: new Date(new Date(dateStr + "T00:00:00").getTime() + 86400000).toISOString(),
+        };
+        if (selectedStaff) dayFilter.resourceId = [selectedStaff];
+
+        const dayResult = await availabilityCalendar.queryAvailability(
+          { filter: dayFilter },
+          { timezone: tz }
+        );
+        setAvailabilityEntries((dayResult.availabilityEntries ?? []).filter(e => e.bookable));
+      } else {
+        setError("No available slots found in the next 30 days.");
+      }
+    } catch (err) {
+      setError("Failed to search for available dates.");
+      console.error("Find next available error:", err);
+    } finally {
+      setSearching(false);
     }
   }
 
@@ -247,9 +302,14 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
           ) : availabilityEntries.length === 0 ? (
             <div style={styles.noSlots}>
               <p>No available time slots for this date.</p>
-              <button onClick={() => setStep("date")} style={styles.secondaryBtn}>
-                Try Another Date
-              </button>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                <button onClick={() => setStep("date")} style={styles.secondaryBtn}>
+                  Try Another Date
+                </button>
+                <button onClick={findNextAvailable} disabled={searching} style={styles.primaryBtn}>
+                  {searching ? "Searching..." : "Find Available Date"}
+                </button>
+              </div>
             </div>
           ) : (
             <div style={styles.slotsGrid}>
