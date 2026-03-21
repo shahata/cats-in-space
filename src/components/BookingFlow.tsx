@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { availabilityCalendar } from "@wix/bookings";
-import type { availabilityCalendar as availabilityTypes } from "@wix/bookings";
+import { availabilityTimeSlots } from "@wix/bookings";
+import type { availabilityTimeSlots as timeSlotsTypes } from "@wix/bookings";
 import { redirects } from "@wix/redirects";
+import type { redirects as redirectsTypes } from "@wix/redirects";
 
 interface StaffInfo {
   id: string;
@@ -22,8 +23,8 @@ interface BookingFlowProps {
 export default function BookingFlow({ serviceId, serviceName, duration, staff }: BookingFlowProps) {
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [availabilityEntries, setAvailabilityEntries] = useState<availabilityTypes.SlotAvailability[]>([]);
-  const [selectedEntry, setSelectedEntry] = useState<availabilityTypes.SlotAvailability | null>(null);
+  const [timeSlots, setTimeSlots] = useState<timeSlotsTypes.TimeSlot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<timeSlotsTypes.TimeSlot | null>(null);
   const [loading, setLoading] = useState(false);
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,32 +47,20 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
     if (!selectedDate) return;
     setLoading(true);
     setError(null);
-    setAvailabilityEntries([]);
-    setSelectedEntry(null);
+    setTimeSlots([]);
+    setSelectedSlot(null);
 
     try {
-      const startDate = `${selectedDate}T00:00:00.000Z`;
-      const nextDay = new Date(selectedDate + "T00:00:00");
-      nextDay.setDate(nextDay.getDate() + 1);
-      const endDate = nextDay.toISOString();
+      const result = await availabilityTimeSlots.listAvailabilityTimeSlots({
+        serviceId,
+        fromLocalDate: `${selectedDate}T00:00:00`,
+        toLocalDate: `${selectedDate}T23:59:00`,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        bookable: true,
+        cursorPaging: { limit: 100 },
+      });
 
-      const filter: Record<string, unknown> = {
-        serviceId: [serviceId],
-        startDate,
-        endDate,
-      };
-
-      if (selectedStaff) {
-        filter.resourceId = [selectedStaff];
-      }
-
-      const result = await availabilityCalendar.queryAvailability(
-        { filter },
-        { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
-      );
-
-      const entries = (result.availabilityEntries ?? []).filter(e => e.bookable);
-      setAvailabilityEntries(entries);
+      setTimeSlots(result.timeSlots ?? []);
     } catch (err) {
       setError("Failed to load available time slots. Please try again.");
       console.error("Availability error:", err);
@@ -91,20 +80,34 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
     fetchAvailability();
   }
 
-  function handleSelectSlot(entry: availabilityTypes.SlotAvailability) {
-    setSelectedEntry(entry);
+  function handleSelectSlot(slot: timeSlotsTypes.TimeSlot) {
+    setSelectedSlot(slot);
     setStep("confirm");
   }
 
+  function timeSlotToSlotAvailability(ts: timeSlotsTypes.TimeSlot): redirectsTypes.SlotAvailability {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const slot: redirectsTypes.Slot = {
+      startDate: ts.localStartDate ?? null,
+      endDate: ts.localEndDate ?? null,
+      timezone: tz,
+    };
+    if (ts.serviceId) slot.serviceId = ts.serviceId;
+    if (ts.scheduleId) slot.scheduleId = ts.scheduleId;
+    return { slot, bookable: ts.bookable ?? true };
+  }
+
   async function handleBook() {
-    if (!selectedEntry) return;
+    if (!selectedSlot) return;
     setBooking(true);
     setError(null);
 
     try {
+      const slotAvailability = timeSlotToSlotAvailability(selectedSlot);
+
       const redirect = await redirects.createRedirectSession({
         bookingsCheckout: {
-          slotAvailability: selectedEntry,
+          slotAvailability,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
         callbacks: {
@@ -244,7 +247,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
               <div style={styles.spinner} />
               <p>Scanning medical bay schedules...</p>
             </div>
-          ) : availabilityEntries.length === 0 ? (
+          ) : timeSlots.length === 0 ? (
             <div style={styles.noSlots}>
               <p>No available time slots for this date.</p>
               <button onClick={() => setStep("date")} style={styles.secondaryBtn}>
@@ -253,13 +256,13 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
             </div>
           ) : (
             <div style={styles.slotsGrid}>
-              {availabilityEntries.map((entry, i) => (
+              {timeSlots.map((slot, i) => (
                 <button
                   key={i}
-                  onClick={() => handleSelectSlot(entry)}
+                  onClick={() => handleSelectSlot(slot)}
                   style={styles.slotBtn}
                 >
-                  {formatTime(entry.slot?.startDate)}
+                  {formatTime(slot.localStartDate)}
                 </button>
               ))}
             </div>
@@ -268,7 +271,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
       )}
 
       {/* Step 4: Confirm */}
-      {step === "confirm" && selectedEntry && (
+      {step === "confirm" && selectedSlot && (
         <div>
           <p style={styles.stepLabel}>Confirm your appointment:</p>
           <div style={styles.confirmCard}>
@@ -291,7 +294,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
             <div style={styles.confirmRow}>
               <span style={styles.confirmLabel}>Time</span>
               <span style={styles.confirmValue}>
-                {formatTime(selectedEntry.slot?.startDate)} — {formatTime(selectedEntry.slot?.endDate)}
+                {formatTime(selectedSlot.localStartDate)} — {formatTime(selectedSlot.localEndDate)}
               </span>
             </div>
             <div style={styles.confirmRow}>
