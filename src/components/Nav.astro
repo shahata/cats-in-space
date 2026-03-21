@@ -24,19 +24,19 @@ function t(key: string): string {
 	return typeof value === 'string' ? value : key;
 }
 
-// Get supported languages for language switcher — each has id, displayName, url, primary
+// Get supported languages for language switcher
 const supportedLanguages = (() => {
 	try {
 		return multilingual.listSupportedLanguages();
 	} catch {
 		return [
-			{ id: 'en', displayName: 'English', url: '/', primary: true },
-			{ id: 'ja', displayName: 'Japanese', url: '/ja', primary: false },
+			{ id: 'en', displayName: 'English', primary: true },
+			{ id: 'ja', displayName: 'Japanese', primary: false },
 		];
 	}
 })();
 
-// Get the page path without locale prefix, to append to language URLs
+// Get the page path without locale prefix for active-link matching and language switching
 const pagePath = (() => {
 	let path = currentPath;
 	for (const lang of supportedLanguages) {
@@ -49,12 +49,6 @@ const pagePath = (() => {
 	}
 	return path;
 })();
-
-// Build language URL: base from SDK + current page path
-function getLanguageUrl(lang: { url?: string | undefined; primary?: boolean | undefined }): string {
-	const base = lang.url ? new URL(lang.url).pathname.replace(/\/$/, '') : '';
-	return base + (pagePath === '/' ? '/' : pagePath);
-}
 
 const languageFlags: Record<string, string> = {
 	en: 'EN',
@@ -119,7 +113,7 @@ const strippedPath = pagePath;
 								<div class="lang-submenu">
 									{supportedLanguages.map(lang => (
 										<a
-											href={getLanguageUrl(lang)}
+											href={lang.primary ? pagePath : `/${lang.id}${pagePath === '/' ? '' : pagePath}`}
 											class:list={['lang-option', { 'lang-active': lang.id === currentLanguage }]}
 										>
 											<span class="lang-flag">{languageFlags[lang.id || ''] || (lang.id || '').toUpperCase()}</span>
@@ -144,7 +138,7 @@ const strippedPath = pagePath;
 							<div class="lang-standalone-dropdown">
 								{supportedLanguages.map(lang => (
 									<a
-										href={getLanguageUrl(lang)}
+										href={lang.primary ? pagePath : `/${lang.id}${pagePath === '/' ? '' : pagePath}`}
 										class:list={['lang-option', { 'lang-active': lang.id === currentLanguage }]}
 									>
 										<span class="lang-flag">{languageFlags[lang.id || ''] || (lang.id || '').toUpperCase()}</span>
