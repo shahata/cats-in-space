@@ -114,10 +114,11 @@ import { i18n } from '@wix/essentials';
 
 const t = i18n.getTranslationFunction();
 
-// Use translation keys
 t('nav.home');      // "Home" or "ホーム" depending on current language
 t('common.bookNow'); // "Book Now" or "今すぐ予約"
 ```
+
+**NOTE**: Requires `@wix/essentials` >= 1.0.6. Older 0.x versions don't have `getTranslationFunction()` at runtime. Make sure to restart the dev server after upgrading.
 
 ### Language & Locale Helpers
 

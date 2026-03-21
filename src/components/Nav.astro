@@ -6,23 +6,7 @@ import { getRelativeLocaleUrl } from 'wix:astro:i18n';
 
 const currentPath = Astro.url.pathname;
 const currentLanguage = i18n.getLanguage();
-
-// i18n.getTranslationFunction() is not available at runtime in managed headless
-const allTranslations = (globalThis as Record<string, unknown>).__wix_translations__ as Record<string, Record<string, Record<string, string>>> | undefined;
-const langTranslations = allTranslations?.[currentLanguage] ?? allTranslations?.['en'] ?? {};
-
-function t(key: string): string {
-	const parts = key.split('.');
-	let value: unknown = langTranslations;
-	for (const part of parts) {
-		if (value && typeof value === 'object') {
-			value = (value as Record<string, unknown>)[part];
-		} else {
-			return key;
-		}
-	}
-	return typeof value === 'string' ? value : key;
-}
+const t = i18n.getTranslationFunction();
 
 // Get supported languages for language switcher
 const supportedLanguages = (() => {
