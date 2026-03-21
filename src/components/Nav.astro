@@ -1,7 +1,64 @@
 ---
 import { members } from '@wix/members';
+import { i18n } from '@wix/essentials';
+import { multilingual } from '@wix/site';
+import { getRelativeLocaleUrl } from 'wix:astro:i18n';
 
 const currentPath = Astro.url.pathname;
+const currentLanguage = i18n.getLanguage();
+
+// Get translations from the global translations object
+const allTranslations = (globalThis as Record<string, unknown>).__wix_translations__ as Record<string, Record<string, Record<string, string>>> | undefined;
+const langTranslations = allTranslations?.[currentLanguage] ?? allTranslations?.['en'] ?? {};
+
+function t(key: string): string {
+	const parts = key.split('.');
+	let value: unknown = langTranslations;
+	for (const part of parts) {
+		if (value && typeof value === 'object') {
+			value = (value as Record<string, unknown>)[part];
+		} else {
+			return key;
+		}
+	}
+	return typeof value === 'string' ? value : key;
+}
+
+// Get supported languages for language switcher
+let supportedLanguages: { id: string | undefined; displayName: string | undefined; primary: boolean | undefined }[] = [];
+try {
+	supportedLanguages = multilingual.listSupportedLanguages();
+} catch {
+	// Fallback if multilingual not available
+	supportedLanguages = [
+		{ id: 'en', displayName: 'English', primary: true },
+		{ id: 'ja', displayName: 'Japanese', primary: false },
+	];
+}
+
+// Build language URLs: strip locale prefix from current path, then apply new locale
+function getLanguageUrl(langId: string, isPrimary: boolean | undefined): string {
+	// Remove any existing locale prefix to get the base path
+	let basePath = currentPath;
+	for (const lang of supportedLanguages) {
+		if (!lang.primary && lang.id) {
+			const prefix = `/${lang.id}`;
+			if (basePath.startsWith(prefix + '/') || basePath === prefix) {
+				basePath = basePath.slice(prefix.length) || '/';
+				break;
+			}
+		}
+	}
+	if (isPrimary) {
+		return basePath;
+	}
+	return `/${langId}${basePath === '/' ? '' : basePath}`;
+}
+
+const languageFlags: Record<string, string> = {
+	en: 'EN',
+	ja: 'JA',
+};
 
 let loggedInMember: string | null = null;
 let memberPhoto: string | null = null;
@@ -14,20 +71,35 @@ try {
 } catch {}
 
 const links = [
-	{ href: '/', label: 'Home' },
-	{ href: '/planets', label: 'Planets' },
-	{ href: '/crew', label: 'Crew' },
-	{ href: '/missions', label: 'Missions' },
-	{ href: '/blog', label: "Ship's Log" },
-	{ href: '/store', label: 'Store' },
-	{ href: '/bookings', label: 'Medical Bay' },
-	{ href: '/plans', label: 'Plans' },
+	{ href: getRelativeLocaleUrl('/'), label: t('nav.home'), matchPath: '/' },
+	{ href: getRelativeLocaleUrl('/planets'), label: t('nav.planets'), matchPath: '/planets' },
+	{ href: getRelativeLocaleUrl('/crew'), label: t('nav.crew'), matchPath: '/crew' },
+	{ href: getRelativeLocaleUrl('/missions'), label: t('nav.missions'), matchPath: '/missions' },
+	{ href: getRelativeLocaleUrl('/blog'), label: t('nav.blog'), matchPath: '/blog' },
+	{ href: getRelativeLocaleUrl('/store'), label: t('nav.store'), matchPath: '/store' },
+	{ href: getRelativeLocaleUrl('/bookings'), label: t('nav.bookings'), matchPath: '/bookings' },
+	{ href: getRelativeLocaleUrl('/plans'), label: t('nav.plans'), matchPath: '/plans' },
 ];
+
+// Strip locale prefix for matching
+function stripLocalePrefix(path: string): string {
+	for (const lang of supportedLanguages) {
+		if (!lang.primary && lang.id) {
+			const prefix = `/${lang.id}`;
+			if (path.startsWith(prefix + '/') || path === prefix) {
+				return path.slice(prefix.length) || '/';
+			}
+		}
+	}
+	return path;
+}
+
+const strippedPath = stripLocalePrefix(currentPath);
 ---
 
 <nav class="nav">
 	<div class="nav-inner container">
-		<a href="/" class="nav-logo">CATS IN SPACE</a>
+		<a href={getRelativeLocaleUrl('/')} class="nav-logo">CATS IN SPACE</a>
 		<button class="nav-toggle" aria-label="Toggle menu">
 			<span class="nav-toggle-bar"></span>
 			<span class="nav-toggle-bar"></span>
@@ -37,7 +109,7 @@ const links = [
 			{links.map(link => (
 				<a
 					href={link.href}
-					class:list={['nav-link', { active: currentPath === link.href || (link.href !== '/' && currentPath.startsWith(link.href)) }]}
+					class:list={['nav-link', { active: strippedPath === link.matchPath || (link.matchPath !== '/' && strippedPath.startsWith(link.matchPath)) }]}
 				>
 					{link.label}
 				</a>
@@ -51,14 +123,51 @@ const links = [
 							<span class="member-caret">&#9662;</span>
 						</button>
 						<div class="member-dropdown">
-							<a href="/member" class="dropdown-item">My Profile</a>
+							<a href={getRelativeLocaleUrl('/member')} class="dropdown-item">{t('nav.myProfile')}</a>
+							<div class="dropdown-item dropdown-lang-trigger">
+								<span>{t('nav.language')}</span>
+								<span class="lang-current-flag">{languageFlags[currentLanguage] || currentLanguage.toUpperCase()}</span>
+								<span class="lang-caret">&#9656;</span>
+								<div class="lang-submenu">
+									{supportedLanguages.map(lang => (
+										<a
+											href={getLanguageUrl(lang.id || 'en', lang.primary)}
+											class:list={['lang-option', { 'lang-active': lang.id === currentLanguage }]}
+										>
+											<span class="lang-flag">{languageFlags[lang.id || ''] || (lang.id || '').toUpperCase()}</span>
+											<span class="lang-name">{lang.displayName}</span>
+											{lang.id === currentLanguage && <span class="lang-check">&#10003;</span>}
+										</a>
+									))}
+								</div>
+							</div>
 							<form action={`/api/auth/logout?returnToUrl=${encodeURIComponent(currentPath)}`} method="POST">
-								<button type="submit" class="dropdown-item dropdown-logout">Logout</button>
+								<button type="submit" class="dropdown-item dropdown-logout">{t('nav.logout')}</button>
 							</form>
 						</div>
 						</div>
 				) : (
-					<a href={`/api/auth/login?returnToUrl=${encodeURIComponent(currentPath)}`} class="auth-link">Login</a>
+					<>
+						<div class="lang-standalone">
+							<button class="lang-standalone-btn" type="button">
+								<span class="lang-standalone-flag">{languageFlags[currentLanguage] || currentLanguage.toUpperCase()}</span>
+								<span class="lang-standalone-caret">&#9662;</span>
+							</button>
+							<div class="lang-standalone-dropdown">
+								{supportedLanguages.map(lang => (
+									<a
+										href={getLanguageUrl(lang.id || 'en', lang.primary)}
+										class:list={['lang-option', { 'lang-active': lang.id === currentLanguage }]}
+									>
+										<span class="lang-flag">{languageFlags[lang.id || ''] || (lang.id || '').toUpperCase()}</span>
+										<span class="lang-name">{lang.displayName}</span>
+										{lang.id === currentLanguage && <span class="lang-check">&#10003;</span>}
+									</a>
+								))}
+							</div>
+						</div>
+						<a href={`/api/auth/login?returnToUrl=${encodeURIComponent(currentPath)}`} class="auth-link">{t('nav.login')}</a>
+					</>
 				)}
 			</div>
 		</div>
@@ -79,8 +188,18 @@ const links = [
 		e.stopPropagation();
 		dropdown?.classList.toggle('member-dropdown-open');
 	});
+
+	// Standalone language switcher for logged-out users
+	const langStandaloneBtn = document.querySelector('.lang-standalone-btn');
+	const langStandaloneDropdown = document.querySelector('.lang-standalone-dropdown');
+	langStandaloneBtn?.addEventListener('click', (e) => {
+		e.stopPropagation();
+		langStandaloneDropdown?.classList.toggle('lang-standalone-dropdown-open');
+	});
+
 	document.addEventListener('click', () => {
 		dropdown?.classList.remove('member-dropdown-open');
+		langStandaloneDropdown?.classList.remove('lang-standalone-dropdown-open');
 	});
 </script>
 
@@ -292,6 +411,132 @@ const links = [
 		background: rgba(255, 102, 0, 0.1);
 	}
 
+	/* Language sub-menu inside member dropdown */
+	.dropdown-lang-trigger {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		cursor: pointer;
+	}
+
+	.lang-current-flag {
+		font-size: 0.7rem;
+		font-weight: 700;
+		color: var(--accent);
+		margin-left: auto;
+	}
+
+	.lang-caret {
+		font-size: 0.55rem;
+		color: var(--text-muted);
+	}
+
+	.lang-submenu {
+		display: none;
+		position: absolute;
+		left: 100%;
+		top: -6px;
+		background: rgba(20, 20, 20, 0.98);
+		border: 1px solid #333;
+		border-radius: 8px;
+		min-width: 150px;
+		padding: 6px 0;
+		z-index: 210;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+	}
+
+	.dropdown-lang-trigger:hover .lang-submenu {
+		display: block;
+	}
+
+	.lang-option {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 14px;
+		font-size: 0.8rem;
+		font-family: var(--font-heading);
+		letter-spacing: 1px;
+		color: var(--text-secondary);
+		text-decoration: none;
+		transition: all 0.15s;
+	}
+
+	.lang-option:hover {
+		color: var(--accent);
+		background: rgba(255, 102, 0, 0.08);
+	}
+
+	.lang-active {
+		color: var(--accent-yellow);
+	}
+
+	.lang-flag {
+		font-size: 0.7rem;
+		font-weight: 700;
+		min-width: 24px;
+	}
+
+	.lang-name {
+		flex: 1;
+	}
+
+	.lang-check {
+		font-size: 0.7rem;
+		color: var(--accent);
+	}
+
+	/* Standalone language switcher for logged-out users */
+	.lang-standalone {
+		position: relative;
+	}
+
+	.lang-standalone-btn {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 6px 10px;
+		background: none;
+		border: 1px solid #333;
+		border-radius: 6px;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.lang-standalone-btn:hover {
+		border-color: var(--accent);
+	}
+
+	.lang-standalone-flag {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--accent);
+	}
+
+	.lang-standalone-caret {
+		font-size: 0.5rem;
+		color: var(--text-muted);
+	}
+
+	.lang-standalone-dropdown {
+		display: none;
+		position: absolute;
+		top: calc(100% + 6px);
+		right: 0;
+		background: rgba(20, 20, 20, 0.98);
+		border: 1px solid #333;
+		border-radius: 8px;
+		min-width: 150px;
+		padding: 6px 0;
+		z-index: 200;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+	}
+
+	.lang-standalone-dropdown-open {
+		display: block;
+	}
+
 	@media (max-width: 960px) {
 		.nav-toggle {
 			display: flex;
@@ -334,6 +579,17 @@ const links = [
 			right: auto;
 			left: 50%;
 			transform: translateX(-50%);
+		}
+
+		.lang-submenu {
+			left: auto;
+			right: 0;
+			top: 100%;
+		}
+
+		.lang-standalone-dropdown {
+			left: auto;
+			right: 0;
 		}
 	}
 </style>
