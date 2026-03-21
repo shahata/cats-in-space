@@ -144,7 +144,7 @@ Every user-visible string should go through `t()` — not just nav labels. This 
 - Empty state text, confirmation dialogs
 - Status labels, meta information
 
-Organize keys by page/component: `home.*`, `planets.*`, `crew.*`, `missions.*`, `blog.*`, `store.*`, `plans.*`, `bookings.*`, `member.*`, `cart.*`, `footer.*`, `profile.*`, `product.*`, `premium.*`, `payment.*`, `cancelSub.*`, `common.*`
+Organize keys by page or component using nested groups in `translations.json`.
 
 ### Language & Locale Helpers
 
