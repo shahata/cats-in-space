@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { httpClient } from "@wix/essentials";
 import { redirects } from "@wix/redirects";
+import type { redirects as redirectsTypes } from "@wix/redirects";
 
 interface StaffInfo {
   id: string;
@@ -130,20 +131,21 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
     setError(null);
 
     try {
-      // Use the redirect session approach for booking checkout
-      const slotAvailability = {
-        slot: {
-          serviceId,
-          startDate: new Date(selectedSlot.localStartDate).toISOString(),
-          endDate: new Date(selectedSlot.localEndDate).toISOString(),
-          ...(selectedStaff ? { resource: { id: selectedStaff } } : {}),
-        },
+      const slot: redirectsTypes.Slot = {
+        serviceId,
+        startDate: new Date(selectedSlot.localStartDate).toISOString(),
+        endDate: new Date(selectedSlot.localEndDate).toISOString(),
+        ...(selectedStaff ? { resource: { _id: selectedStaff } } : {}),
+      };
+
+      const slotAvailability: redirectsTypes.SlotAvailability = {
+        slot,
         bookable: true,
       };
 
       const redirect = await redirects.createRedirectSession({
         bookingsCheckout: {
-          slotAvailability: slotAvailability as any,
+          slotAvailability,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
         callbacks: {
