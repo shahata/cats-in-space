@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { availabilityCalendar } from "@wix/bookings";
 import type { availabilityCalendar as availabilityTypes } from "@wix/bookings";
 import { redirects } from "@wix/redirects";
+import { i18n } from "@wix/essentials";
 
 interface StaffInfo {
   id: string;
@@ -20,6 +21,7 @@ interface BookingFlowProps {
 }
 
 export default function BookingFlow({ serviceId, serviceName, duration, staff }: BookingFlowProps) {
+  const t = i18n.getTranslationFunction();
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [availabilityEntries, setAvailabilityEntries] = useState<availabilityTypes.SlotAvailability[]>([]);
@@ -74,7 +76,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
       const entries = (result.availabilityEntries ?? []).filter(e => e.bookable);
       setAvailabilityEntries(entries);
     } catch (err) {
-      setError("Failed to load available time slots. Please try again.");
+      setError(t('common.errorLoadSlots'));
       console.error("Availability error:", err);
     } finally {
       setLoading(false);
@@ -125,10 +127,10 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
         );
         setAvailabilityEntries((dayResult.availabilityEntries ?? []).filter(e => e.bookable));
       } else {
-        setError("No available slots found in the next 30 days.");
+        setError(t('bookings.noSlotsIn30Days'));
       }
     } catch (err) {
-      setError("Failed to search for available dates.");
+      setError(t('common.errorSearchDates'));
       console.error("Find next available error:", err);
     } finally {
       setSearching(false);
@@ -171,12 +173,12 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
       if (redirect.redirectSession?.fullUrl) {
         window.location.href = redirect.redirectSession.fullUrl;
       } else {
-        setError("Failed to create booking checkout. Please try again.");
+        setError(t('common.errorCreateBooking'));
         setBooking(false);
       }
     } catch (err) {
       console.error("Booking error:", err);
-      setError("Failed to create booking. Please try again.");
+      setError(t('common.errorCreateBookingGeneric'));
       setBooking(false);
     }
   }
@@ -202,22 +204,28 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
 
   const selectedStaffInfo = staff.find(s => s.id === selectedStaff);
 
+  const stepLabels: Record<string, string> = {
+    staff: t('bookings.staff'),
+    date: t('bookings.date'),
+    time: t('bookings.time'),
+    confirm: t('bookings.confirm'),
+  };
+
   return (
     <div style={styles.container}>
-      <h3 style={styles.title}>Book Appointment</h3>
+      <h3 style={styles.title}>{t('bookings.bookAppointment')}</h3>
 
       {/* Progress steps */}
       <div style={styles.progress}>
-        {["Staff", "Date", "Time", "Confirm"].map((label, i) => {
-          const stepNames = ["staff", "date", "time", "confirm"];
-          const currentIdx = stepNames.indexOf(step);
+        {(["staff", "date", "time", "confirm"] as const).map((stepName, i) => {
+          const currentIdx = (["staff", "date", "time", "confirm"] as const).indexOf(step);
           const isActive = i <= currentIdx;
           const skipStaff = staff.length === 1 && i === 0;
           if (skipStaff) return null;
           return (
-            <div key={label} style={{ ...styles.progressStep, opacity: isActive ? 1 : 0.3 }}>
+            <div key={stepName} style={{ ...styles.progressStep, opacity: isActive ? 1 : 0.3 }}>
               <div style={{ ...styles.progressDot, background: isActive ? "#ff6600" : "#333" }} />
-              <span style={styles.progressLabel}>{label}</span>
+              <span style={styles.progressLabel}>{stepLabels[stepName]}</span>
             </div>
           );
         })}
@@ -228,7 +236,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
       {/* Step 1: Select Staff */}
       {step === "staff" && staff.length > 1 && (
         <div>
-          <p style={styles.stepLabel}>Choose your medical provider:</p>
+          <p style={styles.stepLabel}>{t('bookings.chooseProvider')}</p>
           <div style={styles.staffGrid}>
             {staff.map(s => (
               <button
@@ -251,8 +259,8 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
               onClick={() => { setSelectedStaff(null); setStep("date"); }}
               style={{ ...styles.staffBtn, borderColor: "#222" }}
             >
-              <span style={styles.staffEmoji}>🎲</span>
-              <span style={styles.staffBtnName}>Any Available</span>
+              <span style={styles.staffEmoji}>&#127922;</span>
+              <span style={styles.staffBtnName}>{t('bookings.anyAvailable')}</span>
             </button>
           </div>
         </div>
@@ -262,12 +270,12 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
       {step === "date" && (
         <div>
           <p style={styles.stepLabel}>
-            {selectedStaffInfo ? `Booking with ${selectedStaffInfo.name}` : "Any available staff"}
+            {selectedStaffInfo ? `${t('bookings.bookingWith').replace('{name}', selectedStaffInfo.name)}` : t('bookings.anyAvailableStaff')}
             {staff.length > 1 && (
-              <button onClick={() => setStep("staff")} style={styles.changeBtn}>Change</button>
+              <button onClick={() => setStep("staff")} style={styles.changeBtn}>{t('bookings.change')}</button>
             )}
           </p>
-          <p style={styles.stepLabel}>Select a date:</p>
+          <p style={styles.stepLabel}>{t('bookings.selectDate')}</p>
           <input
             type="date"
             value={selectedDate}
@@ -281,7 +289,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
             disabled={!selectedDate}
             style={{ ...styles.primaryBtn, opacity: selectedDate ? 1 : 0.5 }}
           >
-            Find Available Times
+            {t('bookings.findAvailableTimes')}
           </button>
         </div>
       )}
@@ -291,23 +299,23 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
         <div>
           <p style={styles.stepLabel}>
             {selectedDate && new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-            <button onClick={() => setStep("date")} style={styles.changeBtn}>Change Date</button>
+            <button onClick={() => setStep("date")} style={styles.changeBtn}>{t('bookings.changeDate')}</button>
           </p>
 
           {loading ? (
             <div style={styles.loading}>
               <div style={styles.spinner} />
-              <p>Scanning medical bay schedules...</p>
+              <p>{t('bookings.scanningSchedules')}</p>
             </div>
           ) : availabilityEntries.length === 0 ? (
             <div style={styles.noSlots}>
-              <p>No available time slots for this date.</p>
+              <p>{t('bookings.noSlotsForDate')}</p>
               <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                 <button onClick={() => setStep("date")} style={styles.secondaryBtn}>
-                  Try Another Date
+                  {t('bookings.tryAnotherDate')}
                 </button>
                 <button onClick={findNextAvailable} disabled={searching} style={styles.primaryBtn}>
-                  {searching ? "Searching..." : "Find Available Date"}
+                  {searching ? t('bookings.searching') : t('bookings.findAvailableDate')}
                 </button>
               </div>
             </div>
@@ -330,46 +338,46 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
       {/* Step 4: Confirm */}
       {step === "confirm" && selectedEntry && (
         <div>
-          <p style={styles.stepLabel}>Confirm your appointment:</p>
+          <p style={styles.stepLabel}>{t('bookings.confirmAppointment')}</p>
           <div style={styles.confirmCard}>
             <div style={styles.confirmRow}>
-              <span style={styles.confirmLabel}>Service</span>
+              <span style={styles.confirmLabel}>{t('bookings.service')}</span>
               <span style={styles.confirmValue}>{serviceName}</span>
             </div>
             <div style={styles.confirmRow}>
-              <span style={styles.confirmLabel}>Provider</span>
+              <span style={styles.confirmLabel}>{t('bookings.provider')}</span>
               <span style={styles.confirmValue}>
-                {selectedStaffInfo ? `${selectedStaffInfo.emoji} ${selectedStaffInfo.name}` : "Any Available"}
+                {selectedStaffInfo ? `${selectedStaffInfo.emoji} ${selectedStaffInfo.name}` : t('bookings.anyAvailable')}
               </span>
             </div>
             <div style={styles.confirmRow}>
-              <span style={styles.confirmLabel}>Date</span>
+              <span style={styles.confirmLabel}>{t('bookings.date')}</span>
               <span style={styles.confirmValue}>
                 {selectedDate && new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
               </span>
             </div>
             <div style={styles.confirmRow}>
-              <span style={styles.confirmLabel}>Time</span>
+              <span style={styles.confirmLabel}>{t('bookings.time')}</span>
               <span style={styles.confirmValue}>
                 {formatTime(selectedEntry.slot?.startDate)} — {formatTime(selectedEntry.slot?.endDate)}
               </span>
             </div>
             <div style={styles.confirmRow}>
-              <span style={styles.confirmLabel}>Duration</span>
-              <span style={styles.confirmValue}>{duration} minutes</span>
+              <span style={styles.confirmLabel}>{t('bookings.duration')}</span>
+              <span style={styles.confirmValue}>{duration} {t('bookings.minutes')}</span>
             </div>
             <div style={styles.confirmRow}>
-              <span style={styles.confirmLabel}>Cost</span>
-              <span style={styles.confirmValue}>Free</span>
+              <span style={styles.confirmLabel}>{t('bookings.cost')}</span>
+              <span style={styles.confirmValue}>{t('bookings.free')}</span>
             </div>
           </div>
 
           <div style={styles.confirmActions}>
             <button onClick={() => setStep("time")} style={styles.secondaryBtn}>
-              Back
+              {t('bookings.back')}
             </button>
             <button onClick={handleBook} disabled={booking} style={styles.primaryBtn}>
-              {booking ? "Processing..." : "Confirm Booking"}
+              {booking ? t('bookings.processing') : t('bookings.confirmBooking')}
             </button>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { posts } from "@wix/blog";
 import type { posts as blogTypes } from "@wix/blog";
 import RichContentViewer from "./RichContentViewer";
+import { i18n } from "@wix/essentials";
 
 interface Props {
   slug: string;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function PremiumContentResolver({ slug, previewContent }: Props) {
+  const t = i18n.getTranslationFunction();
   const [content, setContent] = useState<blogTypes.RichContent | undefined>(previewContent);
   const [isPreview, setIsPreview] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -36,9 +38,9 @@ export default function PremiumContentResolver({ slug, previewContent }: Props) 
         <div className="paywall">
           <div className="paywall-fade"></div>
           <div className="paywall-content">
-            <h3>This content is for crew members only</h3>
-            <p>Subscribe to a plan to read the full transmission</p>
-            <a href="/plans" className="paywall-btn">View Plans</a>
+            <h3>{t('premium.membersOnly')}</h3>
+            <p>{t('premium.subscribeToRead')}</p>
+            <a href="/plans" className="paywall-btn">{t('premium.viewPlans')}</a>
           </div>
         </div>
       )}

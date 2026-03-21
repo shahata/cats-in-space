@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { members, authentication, membersAbout } from "@wix/members";
 import type { members as membersTypes } from "@wix/members";
 import { getData as getCountries } from "country-list";
+import { i18n } from "@wix/essentials";
 
 function toE164(phone: string): string {
   // Strip everything except digits and leading +
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export default function MemberProfile({ member, aboutData, tab = "profile" }: Props) {
+  const t = i18n.getTranslationFunction();
   // Public profile
   const [nickname, setNickname] = useState(member.profile?.nickname || "");
   const [title, setTitle] = useState(member.profile?.title || "");
@@ -87,10 +89,10 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
         setPhoto(data.url);
         setRemovePhoto(false);
       } else {
-        alert(data.error || "Failed to upload image");
+        alert(data.error || t('profile.failedUpload'));
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Upload failed");
+      alert(err instanceof Error ? err.message : t('profile.failedUpload'));
     }
     setPhotoUploading(false);
   }
@@ -107,10 +109,10 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "Failed to remove photo");
+        alert(data.error || t('profile.failedRemovePhoto'));
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to remove photo");
+      alert(err instanceof Error ? err.message : t('profile.failedRemovePhoto'));
     }
   }
 
@@ -128,10 +130,10 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       if (res.ok && data.url) {
         setCover(data.url);
       } else {
-        alert(data.error || "Failed to upload cover");
+        alert(data.error || t('profile.failedUploadCover'));
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Upload failed");
+      alert(err instanceof Error ? err.message : t('profile.failedUploadCover'));
     }
     setCoverUploading(false);
   }
@@ -146,10 +148,10 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "Failed to remove cover");
+        alert(data.error || t('profile.failedRemoveCover'));
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to remove cover");
+      alert(err instanceof Error ? err.message : t('profile.failedRemoveCover'));
     }
   }
 
@@ -181,7 +183,7 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       }
       setTimeout(() => setAboutSaved(false), 3000);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to save about");
+      alert(e instanceof Error ? e.message : t('profile.failedSaveAbout'));
     }
     setAboutSaving(false);
   }
@@ -193,10 +195,10 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
     try {
       // Must be called as the member (not elevated) — requires Member identity
       await authentication.changeLoginEmail(member._id!, newEmail.trim());
-      setEmailMsg("Login email updated! You may need to log in again.");
+      setEmailMsg(t('profile.emailUpdated'));
       setNewEmail("");
     } catch (e) {
-      setEmailMsg(e instanceof Error ? e.message : "Failed to change email");
+      setEmailMsg(e instanceof Error ? e.message : t('profile.failedChangeEmail'));
     }
     setEmailChanging(false);
   }
@@ -206,9 +208,9 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
     setPasswordMsg("");
     try {
       await authentication.sendSetPasswordEmail(member.loginEmail!);
-      setPasswordMsg("Password reset email sent! Check your inbox.");
+      setPasswordMsg(t('profile.passwordResetSent'));
     } catch (e) {
-      setPasswordMsg(e instanceof Error ? e.message : "Failed to send reset email");
+      setPasswordMsg(e instanceof Error ? e.message : t('profile.failedResetPassword'));
     }
     setPasswordSending(false);
   }
@@ -255,7 +257,7 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to update profile");
+      alert(e instanceof Error ? e.message : t('profile.failedUpdateProfile'));
     }
     setSaving(false);
   }
@@ -268,7 +270,7 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to update slug");
+      alert(e instanceof Error ? e.message : t('profile.failedUpdateSlug'));
     }
     setSlugSaving(false);
   }
@@ -282,16 +284,16 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
             {cover ? (
               <img src={cover} alt="Cover" style={coverImageStyle} referrerPolicy="no-referrer" />
             ) : (
-              <div style={coverPlaceholderStyle}>No cover photo</div>
+              <div style={coverPlaceholderStyle}>{t('profile.noCoverPhoto')}</div>
             )}
             <div style={coverActionsStyle}>
               <label style={photoUploadLabelStyle}>
-                {coverUploading ? "..." : "Change Cover"}
+                {coverUploading ? "..." : t('profile.changeCover')}
                 <input type="file" accept="image/*" onChange={handleCoverUpload}
                   style={{ display: "none" }} disabled={coverUploading} />
               </label>
               {cover && (
-                <button type="button" onClick={handleRemoveCover} style={photoRemoveBtnStyle}>Remove</button>
+                <button type="button" onClick={handleRemoveCover} style={photoRemoveBtnStyle}>{t('profile.remove')}</button>
               )}
             </div>
           </div>
@@ -306,72 +308,72 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
               )}
               <div style={photoActionsStyle}>
                 <label style={photoUploadLabelStyle}>
-                  {photoUploading ? "..." : "Change"}
+                  {photoUploading ? "..." : t('profile.change')}
                   <input type="file" accept="image/*" onChange={handlePhotoUpload}
                     style={{ display: "none" }} disabled={photoUploading} />
                 </label>
                 {photo && (
-                  <button type="button" onClick={handleRemovePhoto} style={photoRemoveBtnStyle}>Remove</button>
+                  <button type="button" onClick={handleRemovePhoto} style={photoRemoveBtnStyle}>{t('profile.remove')}</button>
                 )}
               </div>
             </div>
             <div>
-              <div style={headerNameStyle}>{nickname || firstName || "Unnamed Cat"}</div>
+              <div style={headerNameStyle}>{nickname || firstName || t('profile.unnamedCat')}</div>
               {title && <div style={headerTitleStyle}>{title}</div>}
               <div style={headerEmailStyle}>{member.loginEmail}</div>
               <div style={headerMetaStyle}>
-                Member since {member._createdDate ? new Date(member._createdDate).toLocaleDateString() : "unknown"}
-                {member.lastLoginDate && <> · Last login {new Date(member.lastLoginDate).toLocaleDateString()}</>}
+                {t('profile.memberSince')} {member._createdDate ? new Date(member._createdDate).toLocaleDateString() : "unknown"}
+                {member.lastLoginDate && <> &middot; {t('profile.lastLogin')} {new Date(member.lastLoginDate).toLocaleDateString()}</>}
               </div>
             </div>
           </div>
 
           <form onSubmit={handleSave}>
-            <h3 style={sectionHeadingStyle}>Public Profile</h3>
-            <p style={sectionDescStyle}>Visible to other crew members and visitors</p>
+            <h3 style={sectionHeadingStyle}>{t('profile.publicProfile')}</h3>
+            <p style={sectionDescStyle}>{t('profile.publicProfileDesc')}</p>
 
-            <label style={labelStyle}>Nickname</label>
+            <label style={labelStyle}>{t('profile.nickname')}</label>
             <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)}
-              placeholder="How others see you" style={inputStyle} />
+              placeholder={t('profile.nicknamePlaceholder')} style={inputStyle} />
 
-            <label style={labelStyle}>Title</label>
+            <label style={labelStyle}>{t('profile.title')}</label>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Chief Napping Officer" style={inputStyle} />
+              placeholder={t('profile.titlePlaceholder')} style={inputStyle} />
 
-            <label style={labelStyle}>Profile Slug</label>
+            <label style={labelStyle}>{t('profile.profileSlug')}</label>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)}
-                placeholder="my-profile-url" style={{ ...inputStyle, flex: 1 }} />
+                placeholder={t('profile.slugPlaceholder')} style={{ ...inputStyle, flex: 1 }} />
               <button type="button" onClick={handleSlugUpdate} disabled={slugSaving}
                 style={{ ...smallButtonStyle, marginTop: 0 }}>
-                {slugSaving ? "..." : "Update"}
+                {slugSaving ? "..." : t('profile.update')}
               </button>
             </div>
 
-            <label style={labelStyle}>Privacy</label>
+            <label style={labelStyle}>{t('profile.privacy')}</label>
             <select value={privacyStatus} onChange={(e) => setPrivacyStatus(e.target.value)} style={inputStyle}>
-              <option value="PUBLIC">Public — visible to everyone</option>
-              <option value="PRIVATE">Private — visible only to site admins</option>
+              <option value="PUBLIC">{t('profile.privacyPublic')}</option>
+              <option value="PRIVATE">{t('profile.privacyPrivate')}</option>
             </select>
 
-            <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>About</h3>
-            <p style={sectionDescStyle}>Tell other crew members about yourself</p>
+            <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>{t('profile.about')}</h3>
+            <p style={sectionDescStyle}>{t('profile.aboutDesc')}</p>
             <textarea value={about} onChange={(e) => setAbout(e.target.value)}
-              placeholder="Write something about yourself..." rows={4}
+              placeholder={t('profile.aboutPlaceholder')} rows={4}
               style={{ ...inputStyle, resize: "vertical" as const }} />
             <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "8px" }}>
               <button type="button" onClick={handleSaveAbout} disabled={aboutSaving}
                 style={smallButtonStyle}>
-                {aboutSaving ? "Saving..." : "Save About"}
+                {aboutSaving ? t('profile.saving') : t('profile.saveAbout')}
               </button>
-              {aboutSaved && <span style={{ color: "#4caf50", fontSize: "0.8rem" }}>Saved!</span>}
+              {aboutSaved && <span style={{ color: "#4caf50", fontSize: "0.8rem" }}>{t('profile.saved')}</span>}
             </div>
 
             <div style={{ marginTop: "32px", display: "flex", alignItems: "center", gap: "16px" }}>
               <button type="submit" disabled={saving} style={saveButtonStyle}>
-                {saving ? "Saving..." : "Save Changes"}
+                {saving ? t('profile.saving') : t('profile.saveChanges')}
               </button>
-              {saved && <span style={{ color: "#4caf50", fontSize: "0.9rem" }}>Profile updated!</span>}
+              {saved && <span style={{ color: "#4caf50", fontSize: "0.9rem" }}>{t('profile.profileUpdated')}</span>}
             </div>
           </form>
         </>
@@ -379,17 +381,17 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
 
       {tab === "personal" && (
         <form onSubmit={handleSave}>
-          <h3 style={sectionHeadingStyle}>Personal Info</h3>
-          <p style={sectionDescStyle}>Only visible to site administrators</p>
+          <h3 style={sectionHeadingStyle}>{t('profile.personalInfo')}</h3>
+          <p style={sectionDescStyle}>{t('profile.personalInfoDesc')}</p>
 
           <div style={gridStyle}>
             <div>
-              <label style={labelStyle}>First Name</label>
+              <label style={labelStyle}>{t('profile.firstName')}</label>
               <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
                 style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Last Name</label>
+              <label style={labelStyle}>{t('profile.lastName')}</label>
               <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
                 style={inputStyle} />
             </div>
@@ -397,12 +399,12 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
 
           <div style={gridStyle}>
             <div>
-              <label style={labelStyle}>Company</label>
+              <label style={labelStyle}>{t('profile.company')}</label>
               <input type="text" value={company} onChange={(e) => setCompany(e.target.value)}
                 style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Job Title</label>
+              <label style={labelStyle}>{t('profile.jobTitle')}</label>
               <input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)}
                 style={inputStyle} />
             </div>
@@ -410,94 +412,94 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
 
           <div style={gridStyle}>
             <div>
-              <label style={labelStyle}>Phone</label>
+              <label style={labelStyle}>{t('profile.phone')}</label>
               <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                placeholder="+12025551234 (E.164 format)" style={inputStyle} />
+                placeholder={t('profile.phonePlaceholder')} style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Birthdate</label>
+              <label style={labelStyle}>{t('profile.birthdate')}</label>
               <input type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)}
                 style={inputStyle} />
             </div>
           </div>
 
-          <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>Address</h3>
-          <p style={sectionDescStyle}>Only visible to site administrators</p>
+          <h3 style={{ ...sectionHeadingStyle, marginTop: "40px" }}>{t('profile.address')}</h3>
+          <p style={sectionDescStyle}>{t('profile.addressDesc')}</p>
 
-          <label style={labelStyle}>Address Line 1</label>
+          <label style={labelStyle}>{t('profile.addressLine1')}</label>
           <input type="text" value={addressLine} onChange={(e) => setAddressLine(e.target.value)}
-            placeholder="Street and number" style={inputStyle} />
+            placeholder={t('profile.addressLine1Placeholder')} style={inputStyle} />
 
-          <label style={labelStyle}>Address Line 2</label>
+          <label style={labelStyle}>{t('profile.addressLine2')}</label>
           <input type="text" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)}
-            placeholder="Apartment, suite, floor" style={inputStyle} />
+            placeholder={t('profile.addressLine2Placeholder')} style={inputStyle} />
 
           <div style={gridStyle}>
             <div>
-              <label style={labelStyle}>City</label>
+              <label style={labelStyle}>{t('profile.city')}</label>
               <input type="text" value={city} onChange={(e) => setCity(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Postal Code</label>
+              <label style={labelStyle}>{t('profile.postalCode')}</label>
               <input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} style={inputStyle} />
             </div>
           </div>
 
           <div style={gridStyle}>
             <div>
-              <label style={labelStyle}>Country</label>
+              <label style={labelStyle}>{t('profile.country')}</label>
               <select value={country} onChange={(e) => setCountry(e.target.value)} style={inputStyle}>
-                <option value="">Select country...</option>
+                <option value="">{t('profile.selectCountry')}</option>
                 {getCountries().map(c => (
                   <option key={c.code} value={c.code}>{c.name}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label style={labelStyle}>State / Province</label>
+              <label style={labelStyle}>{t('profile.stateProvince')}</label>
               <input type="text" value={subdivision} onChange={(e) => setSubdivision(e.target.value)} style={inputStyle} />
             </div>
           </div>
 
           <div style={{ marginTop: "32px", display: "flex", alignItems: "center", gap: "16px" }}>
             <button type="submit" disabled={saving} style={saveButtonStyle}>
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? t('profile.saving') : t('profile.saveChanges')}
             </button>
-            {saved && <span style={{ color: "#4caf50", fontSize: "0.9rem" }}>Profile updated!</span>}
+            {saved && <span style={{ color: "#4caf50", fontSize: "0.9rem" }}>{t('profile.profileUpdated')}</span>}
           </div>
         </form>
       )}
 
       {tab === "account" && (
         <>
-          <h3 style={sectionHeadingStyle}>Login Credentials</h3>
-          <p style={sectionDescStyle}>Change your login email or reset your password</p>
+          <h3 style={sectionHeadingStyle}>{t('profile.loginCredentials')}</h3>
+          <p style={sectionDescStyle}>{t('profile.loginCredentialsDesc')}</p>
 
           <div style={{ background: "#141414", border: "1px solid #222", borderRadius: "12px", padding: "24px" }}>
-            <label style={labelStyle}>Current Login Email</label>
+            <label style={labelStyle}>{t('profile.currentLoginEmail')}</label>
             <p style={{ color: "#e0e0e0", fontSize: "0.9rem", marginBottom: "16px" }}>{member.loginEmail}</p>
 
-            <label style={labelStyle}>New Login Email</label>
+            <label style={labelStyle}>{t('profile.newLoginEmail')}</label>
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="new@email.com" style={{ ...inputStyle, flex: 1 }} />
+                placeholder={t('profile.newEmailPlaceholder')} style={{ ...inputStyle, flex: 1 }} />
               <button type="button" onClick={handleChangeEmail} disabled={emailChanging}
                 style={smallButtonStyle}>
-                {emailChanging ? "..." : "Change Email"}
+                {emailChanging ? "..." : t('profile.changeEmail')}
               </button>
             </div>
-            {emailMsg && <p style={{ fontSize: "0.8rem", color: emailMsg.includes("updated") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{emailMsg}</p>}
+            {emailMsg && <p style={{ fontSize: "0.8rem", color: emailMsg.includes("updated") || emailMsg.includes(t('profile.emailUpdated').substring(0, 5)) ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{emailMsg}</p>}
 
             <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #222" }}>
-              <label style={labelStyle}>Change Password</label>
+              <label style={labelStyle}>{t('profile.changePassword')}</label>
               <p style={{ color: "#888", fontSize: "0.8rem", marginBottom: "8px" }}>
-                We'll send a secure link to <strong style={{ color: "#e0e0e0" }}>{member.loginEmail}</strong> where you can set a new password.
+                {t('profile.changePasswordDesc').replace('{email}', member.loginEmail || '')}
               </p>
               <button type="button" onClick={handleResetPassword} disabled={passwordSending}
                 style={smallButtonStyle}>
-                {passwordSending ? "Sending..." : "Send Change Password Link"}
+                {passwordSending ? t('profile.sending') : t('profile.sendChangePasswordLink')}
               </button>
-              {passwordMsg && <p style={{ fontSize: "0.8rem", color: passwordMsg.includes("sent") ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{passwordMsg}</p>}
+              {passwordMsg && <p style={{ fontSize: "0.8rem", color: passwordMsg.includes("sent") || passwordMsg.includes(t('profile.passwordResetSent').substring(0, 5)) ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{passwordMsg}</p>}
             </div>
           </div>
         </>

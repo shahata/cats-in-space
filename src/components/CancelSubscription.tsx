@@ -1,13 +1,15 @@
 "use client";
 import { useState } from "react";
 import { orders } from "@wix/pricing-plans";
+import { i18n } from "@wix/essentials";
 
 export default function CancelSubscription({ orderId }: { orderId: string }) {
+  const t = i18n.getTranslationFunction();
   const [cancelling, setCancelling] = useState(false);
   const [canceled, setCanceled] = useState(false);
 
   async function handleCancel() {
-    if (!confirm("Are you sure you want to cancel this subscription?")) return;
+    if (!confirm(t('cancelSub.confirm'))) return;
     setCancelling(true);
     try {
       await orders.requestCancellation(orderId, "NEXT_PAYMENT_DATE");
@@ -15,7 +17,7 @@ export default function CancelSubscription({ orderId }: { orderId: string }) {
       try {
         await orders.requestCancellation(orderId, "IMMEDIATELY");
       } catch (e) {
-        alert(e instanceof Error ? e.message : "Failed to cancel subscription");
+        alert(e instanceof Error ? e.message : t('common.errorGeneric'));
         setCancelling(false);
         return;
       }
@@ -25,7 +27,7 @@ export default function CancelSubscription({ orderId }: { orderId: string }) {
   }
 
   if (canceled) {
-    return <span style={{ color: "#ff9800", fontSize: "0.8rem", fontFamily: "'Bangers', cursive", letterSpacing: "1px" }}>Cancellation requested</span>;
+    return <span style={{ color: "#ff9800", fontSize: "0.8rem", fontFamily: "'Bangers', cursive", letterSpacing: "1px" }}>{t('cancelSub.requested')}</span>;
   }
 
   return (
@@ -39,7 +41,7 @@ export default function CancelSubscription({ orderId }: { orderId: string }) {
         letterSpacing: "1px", cursor: "pointer",
       }}
     >
-      {cancelling ? "Canceling..." : "Cancel Subscription"}
+      {cancelling ? t('cancelSub.canceling') : t('cancelSub.cancelSubscription')}
     </button>
   );
 }

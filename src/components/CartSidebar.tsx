@@ -3,8 +3,10 @@ import { currentCart } from "@wix/ecom";
 import type { cart as cartTypes } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 import { getImageUrl } from "../utils/image";
+import { i18n } from "@wix/essentials";
 
 export default function CartSidebar() {
+  const t = i18n.getTranslationFunction();
   const [open, setOpen] = useState(false);
   const [cart, setCart] = useState<cartTypes.Cart | null>(null);
   const [totals, setTotals] = useState<cartTypes.EstimateTotalsResponse | null>(null);
@@ -84,7 +86,7 @@ export default function CartSidebar() {
         window.location.href = redirectSession.fullUrl;
       }
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Checkout failed");
+      alert(e instanceof Error ? e.message : t('cart.checkoutFailed'));
       setCheckingOut(false);
     }
   };
@@ -115,14 +117,14 @@ export default function CartSidebar() {
 
       <div className={`cs-panel ${open ? "cs-panel-open" : ""}`}>
         <div className="cs-header">
-          <h2 className="cs-title">Your Cart</h2>
+          <h2 className="cs-title">{t('cart.yourCart')}</h2>
           <button className="cs-close" onClick={() => setOpen(false)}>&times;</button>
         </div>
 
         {lineItems.length === 0 ? (
           <div className="cs-empty">
-            <p>Your cart is empty</p>
-            <a href="/store" onClick={() => setOpen(false)}>Browse Store</a>
+            <p>{t('cart.empty')}</p>
+            <a href="/store" onClick={() => setOpen(false)}>{t('cart.browseStore')}</a>
           </div>
         ) : (
           <>
@@ -175,7 +177,7 @@ export default function CartSidebar() {
                           className="cs-remove"
                           onClick={() => removeItem(li._id!)}
                           disabled={loading}
-                          title="Remove"
+                          title={t('payment.remove')}
                         >
                           &times;
                         </button>
@@ -189,19 +191,19 @@ export default function CartSidebar() {
             <div className="cs-footer">
               {subtotal && (
                 <div className="cs-row">
-                  <span>Subtotal</span>
+                  <span>{t('cart.subtotal')}</span>
                   <span>{subtotal}</span>
                 </div>
               )}
               {discount && (
                 <div className="cs-row cs-discount">
-                  <span>Discount</span>
+                  <span>{t('cart.discount')}</span>
                   <span>-{discount}</span>
                 </div>
               )}
               {total && (
                 <div className="cs-row cs-total">
-                  <span>Estimated Total</span>
+                  <span>{t('cart.estimatedTotal')}</span>
                   <span>{total}</span>
                 </div>
               )}
@@ -210,7 +212,7 @@ export default function CartSidebar() {
                 onClick={checkout}
                 disabled={checkingOut || loading}
               >
-                {checkingOut ? "Redirecting..." : "Checkout"}
+                {checkingOut ? t('cart.redirecting') : t('cart.checkout')}
               </button>
             </div>
           </>

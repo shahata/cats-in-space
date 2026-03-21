@@ -3,6 +3,7 @@ import { currentCart, backInStockNotifications } from "@wix/ecom";
 import type { cart as cartTypes } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 import type { productsV3 } from "@wix/stores";
+import { i18n } from "@wix/essentials";
 
 const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
 const ECOM_PLATFORM_APP_ID = "1380b703-ce81-ff05-f115-39571d94dfcd";
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export default function ProductActions({ product }: Props) {
+  const t = i18n.getTranslationFunction();
   const options = product.options || [];
   const variants = product.variants || [];
   const modifiers = product.modifiers || [];
@@ -164,7 +166,7 @@ export default function ProductActions({ product }: Props) {
 
   const addToCart = async () => {
     if (missingRequired) {
-      setMessage({ type: "error", text: "Please fill in all required fields" });
+      setMessage({ type: "error", text: t('product.fillRequired') });
       return;
     }
     setLoading("cart");
@@ -180,13 +182,13 @@ export default function ProductActions({ product }: Props) {
       });
       setMessage({
         type: "success",
-        text: isPreOrder ? "Pre-order added to cart!" : "Added to cart!",
+        text: isPreOrder ? t('product.preorderAdded') : t('product.addedToCart'),
       });
       window.dispatchEvent(new CustomEvent("cart-updated"));
     } catch (e) {
       setMessage({
         type: "error",
-        text: e instanceof Error ? e.message : "Failed to add to cart",
+        text: e instanceof Error ? e.message : t('product.failedAddToCart'),
       });
     } finally {
       setLoading(null);
@@ -216,7 +218,7 @@ export default function ProductActions({ product }: Props) {
     } catch (e) {
       setMessage({
         type: "error",
-        text: e instanceof Error ? e.message : "Failed to start checkout",
+        text: e instanceof Error ? e.message : t('product.failedCheckout'),
       });
       setLoading(null);
     }
@@ -247,13 +249,13 @@ export default function ProductActions({ product }: Props) {
       setBisSubmitted(true);
       setMessage({
         type: "success",
-        text: "You'll be notified when this item is back in stock!",
+        text: t('product.backInStockNotified'),
       });
     } catch (e) {
       setMessage({
         type: "error",
         text:
-          e instanceof Error ? e.message : "Failed to register notification",
+          e instanceof Error ? e.message : t('product.failedNotification'),
       });
     } finally {
       setLoading(null);
@@ -412,16 +414,16 @@ export default function ProductActions({ product }: Props) {
 
       <div className="pa-stock-status">
         {isInStock ? (
-          <span className="pa-in-stock">In Stock</span>
+          <span className="pa-in-stock">{t('product.inStock')}</span>
         ) : (
-          <span className="pa-oos">Out of Stock</span>
+          <span className="pa-oos">{t('product.outOfStock')}</span>
         )}
       </div>
 
       {isInStock ? (
         <>
           <div className="pa-quantity">
-            <label className="pa-option-label">Quantity</label>
+            <label className="pa-option-label">{t('product.quantity')}</label>
             <div className="pa-qty-controls">
               <button
                 className="pa-qty-btn"
@@ -447,17 +449,17 @@ export default function ProductActions({ product }: Props) {
               disabled={loading !== null}
             >
               {loading === "cart"
-                ? "Adding..."
+                ? t('product.adding')
                 : isPreOrder
-                  ? "Pre-Order"
-                  : "Add to Cart"}
+                  ? t('product.preOrder')
+                  : t('product.addToCart')}
             </button>
             <button
               className="pa-btn pa-btn-buy"
               onClick={buyNow}
               disabled={loading !== null}
             >
-              {loading === "buy" ? "Processing..." : "Buy Now"}
+              {loading === "buy" ? t('product.processingBuy') : t('product.buyNow')}
             </button>
           </div>
         </>
@@ -466,7 +468,7 @@ export default function ProductActions({ product }: Props) {
           {!bisSubmitted ? (
             <>
               <p className="pa-bis-text">
-                Want to know when this is back? Enter your email:
+                {t('product.backInStockText')}
               </p>
               <div className="pa-bis-form">
                 <input
@@ -481,12 +483,12 @@ export default function ProductActions({ product }: Props) {
                   onClick={submitBackInStock}
                   disabled={loading !== null || !bisEmail}
                 >
-                  {loading === "bis" ? "..." : "Notify Me"}
+                  {loading === "bis" ? "..." : t('product.notifyMe')}
                 </button>
               </div>
             </>
           ) : (
-            <p className="pa-bis-done">We'll email you when it's back!</p>
+            <p className="pa-bis-done">{t('product.backInStockDone')}</p>
           )}
         </div>
       )}

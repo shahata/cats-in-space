@@ -2,18 +2,19 @@
 import React, { useState } from "react";
 import { savedPaymentMethods } from "@wix/payments";
 import type { savedPaymentMethods as spmTypes } from "@wix/payments";
+import { i18n } from "@wix/essentials";
 
 type SavedPaymentMethod = spmTypes.SavedPaymentMethod;
 
 const brandIcons: Record<string, string> = {
-  VISA: "💳 Visa",
-  MASTERCARD: "💳 Mastercard",
-  AMEX: "💳 Amex",
-  DISCOVER: "💳 Discover",
-  DINERS: "💳 Diners",
-  JCB: "💳 JCB",
-  MAESTRO: "💳 Maestro",
-  UNIONPAY: "💳 UnionPay",
+  VISA: "Visa",
+  MASTERCARD: "Mastercard",
+  AMEX: "Amex",
+  DISCOVER: "Discover",
+  DINERS: "Diners",
+  JCB: "JCB",
+  MAESTRO: "Maestro",
+  UNIONPAY: "UnionPay",
 };
 
 function detectBrandFromBin(bin: string | null | undefined): string {
@@ -32,8 +33,8 @@ function getCardDisplay(pm: SavedPaymentMethod) {
   const cardInfo = pm.paymentMethod?.cardInfo;
   const typeId = pm.paymentMethod?.typeId;
   const brand = detectBrandFromBin(cardInfo?.bin);
-  const brandLabel = brandIcons[brand] || (typeId === "payPal" ? "🅿️ PayPal" : `💳 ${brand}`);
-  const last4 = cardInfo?.lastFourDigits || "····";
+  const brandLabel = brandIcons[brand] ? `\uD83D\uDCB3 ${brandIcons[brand]}` : (typeId === "payPal" ? "\uD83C\uDD7F\uFE0F PayPal" : `\uD83D\uDCB3 ${brand}`);
+  const last4 = cardInfo?.lastFourDigits || "\u00B7\u00B7\u00B7\u00B7";
   const expMonth = cardInfo?.expirationMonth;
   const expYear = cardInfo?.expirationYear;
   const exp =
@@ -49,19 +50,20 @@ export default function SavedPaymentMethodsPanel({
 }: {
   initial: SavedPaymentMethod[];
 }) {
+  const t = i18n.getTranslationFunction();
   const [methods, setMethods] = useState<SavedPaymentMethod[]>(initial);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleDelete(id: string) {
-    if (!confirm("Remove this payment method?")) return;
+    if (!confirm(t('payment.removeConfirm'))) return;
     setLoading(id);
     setError(null);
     try {
       await savedPaymentMethods.deleteSavedPaymentMethod(id);
       setMethods((prev) => prev.filter((m) => m._id !== id));
     } catch (e: any) {
-      setError(e.message || "Failed to delete");
+      setError(e.message || t('payment.failedDelete'));
     } finally {
       setLoading(null);
     }
@@ -76,7 +78,7 @@ export default function SavedPaymentMethodsPanel({
         prev.map((m) => ({ ...m, primary: m._id === id }))
       );
     } catch (e: any) {
-      setError(e.message || "Failed to update");
+      setError(e.message || t('payment.failedUpdate'));
     } finally {
       setLoading(null);
     }
@@ -85,9 +87,9 @@ export default function SavedPaymentMethodsPanel({
   if (methods.length === 0) {
     return (
       <div style={styles.empty}>
-        <p style={styles.emptyText}>No saved payment methods.</p>
+        <p style={styles.emptyText}>{t('payment.noSavedMethods')}</p>
         <p style={styles.emptyHint}>
-          Payment methods are saved during checkout.
+          {t('payment.savedDuringCheckout')}
         </p>
       </div>
     );
@@ -105,7 +107,7 @@ export default function SavedPaymentMethodsPanel({
               <div style={styles.cardMain}>
                 <div style={styles.cardInfo}>
                   <span style={styles.brand}>{brandLabel}</span>
-                  <span style={styles.digits}>•••• {last4}</span>
+                  <span style={styles.digits}>&bull;&bull;&bull;&bull; {last4}</span>
                   {pm.primary && <span style={styles.primaryBadge}>Primary</span>}
                 </div>
                 <div style={styles.cardMeta}>
@@ -120,7 +122,7 @@ export default function SavedPaymentMethodsPanel({
                     disabled={isLoading}
                     style={styles.btnSecondary}
                   >
-                    {isLoading ? "..." : "Set Primary"}
+                    {isLoading ? "..." : t('payment.setPrimary')}
                   </button>
                 )}
                 <button
@@ -128,7 +130,7 @@ export default function SavedPaymentMethodsPanel({
                   disabled={isLoading}
                   style={styles.btnDanger}
                 >
-                  {isLoading ? "..." : "Remove"}
+                  {isLoading ? "..." : t('payment.remove')}
                 </button>
               </div>
             </div>

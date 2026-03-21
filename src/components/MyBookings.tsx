@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from "react";
 import { extendedBookings, bookings } from "@wix/bookings";
 import type { extendedBookings as extendedBookingsTypes } from "@wix/bookings";
+import { i18n } from "@wix/essentials";
 
 export default function MyBookings() {
+  const t = i18n.getTranslationFunction();
   const [items, setItems] = useState<extendedBookingsTypes.ExtendedBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,14 +25,14 @@ export default function MyBookings() {
       setItems(result.items);
     } catch (err) {
       console.error("Failed to load bookings:", err);
-      setError("Failed to load your bookings.");
+      setError(t('common.errorLoadBookings'));
     } finally {
       setLoading(false);
     }
   }
 
   async function handleCancel(bookingId: string, revision: string) {
-    if (!confirm("Are you sure you want to cancel this appointment?")) return;
+    if (!confirm(t('common.confirmCancelAppointment'))) return;
     setActionLoading(bookingId);
     try {
       await bookings.cancelBooking(bookingId, {
@@ -40,7 +42,7 @@ export default function MyBookings() {
       await loadBookings();
     } catch (err) {
       console.error("Cancel error:", err);
-      alert("Failed to cancel the booking. It may be too close to the appointment time.");
+      alert(t('common.errorCancelBooking'));
     } finally {
       setActionLoading(null);
     }
@@ -67,7 +69,7 @@ export default function MyBookings() {
   }
 
   function getServiceName(b: extendedBookingsTypes.ExtendedBooking) {
-    return b.booking?.bookedEntity?.title ?? "Appointment";
+    return b.booking?.bookedEntity?.title ?? t('bookings.appointment');
   }
 
   function getStaffName(b: extendedBookingsTypes.ExtendedBooking) {
@@ -85,7 +87,7 @@ export default function MyBookings() {
     const s = status ?? "";
     return {
       background: colors[s] || "#888",
-      label: s === "CONFIRMED" ? "Confirmed" : s === "PENDING" ? "Pending" : s === "CANCELED" ? "Canceled" : s === "DECLINED" ? "Declined" : s,
+      label: s === "CONFIRMED" ? t('bookings.confirmed') : s === "PENDING" ? t('bookings.pending') : s === "CANCELED" ? t('bookings.canceled') : s === "DECLINED" ? t('bookings.declined') : s,
     };
   }
 
@@ -100,14 +102,14 @@ export default function MyBookings() {
   });
 
   if (loading) {
-    return <div style={{ textAlign: "center", padding: 40, color: "#999" }}>Loading your appointments...</div>;
+    return <div style={{ textAlign: "center", padding: 40, color: "#999" }}>{t('common.loadingAppointments')}</div>;
   }
 
   if (error) {
     return (
       <div style={{ textAlign: "center", padding: 40, color: "#f44336" }}>
         {error}
-        <button onClick={loadBookings} style={styles.retryBtn}>Retry</button>
+        <button onClick={loadBookings} style={styles.retryBtn}>{t('common.retry')}</button>
       </div>
     );
   }
@@ -115,8 +117,8 @@ export default function MyBookings() {
   if (items.length === 0) {
     return (
       <div style={styles.empty}>
-        <p>You don't have any appointments yet.</p>
-        <a href="/bookings" style={styles.bookLink}>Visit Medical Bay</a>
+        <p>{t('member.emptyBookings')}</p>
+        <a href="/bookings" style={styles.bookLink}>{t('bookings.visitMedicalBay')}</a>
       </div>
     );
   }
@@ -125,7 +127,7 @@ export default function MyBookings() {
     <div>
       {upcoming.length > 0 && (
         <div>
-          <h3 style={styles.sectionTitle}>Upcoming Appointments</h3>
+          <h3 style={styles.sectionTitle}>{t('bookings.upcomingAppointments')}</h3>
           {upcoming.map(b => {
             const d = getSlotDate(b);
             const endD = getEndDate(b);
@@ -138,34 +140,34 @@ export default function MyBookings() {
                 <div style={styles.cardHeader}>
                   <div>
                     <div style={styles.serviceName}>{getServiceName(b)}</div>
-                    {getStaffName(b) && <div style={styles.staffName}>with {getStaffName(b)}</div>}
+                    {getStaffName(b) && <div style={styles.staffName}>{t('bookings.with')} {getStaffName(b)}</div>}
                   </div>
                   <span style={{ ...styles.badge, background: badge.background }}>{badge.label}</span>
                 </div>
                 <div style={styles.cardDetails}>
                   {d && (
                     <div style={styles.detailItem}>
-                      <span style={styles.detailIcon}>📅</span>
+                      <span style={styles.detailIcon}>&#128197;</span>
                       <span>{formatDate(d)}</span>
                     </div>
                   )}
                   {d && (
                     <div style={styles.detailItem}>
-                      <span style={styles.detailIcon}>⏰</span>
+                      <span style={styles.detailIcon}>&#9200;</span>
                       <span>{formatTime(d)}{endD ? ` — ${formatTime(endD)}` : ""}</span>
                     </div>
                   )}
                 </div>
                 {(canCancel || canReschedule) && (
                   <div style={styles.cardActions}>
-                    {canReschedule && <a href="/bookings" style={styles.rescheduleBtn}>Reschedule</a>}
+                    {canReschedule && <a href="/bookings" style={styles.rescheduleBtn}>{t('bookings.reschedule')}</a>}
                     {canCancel && b.booking?._id && b.booking?.revision && (
                       <button
                         onClick={() => handleCancel(b.booking!._id!, b.booking!.revision!)}
                         disabled={actionLoading === b.booking?._id}
                         style={styles.cancelBtn}
                       >
-                        {actionLoading === b.booking?._id ? "Canceling..." : "Cancel"}
+                        {actionLoading === b.booking?._id ? t('bookings.canceling') : t('bookings.cancel')}
                       </button>
                     )}
                   </div>
@@ -178,7 +180,7 @@ export default function MyBookings() {
 
       {past.length > 0 && (
         <div style={{ marginTop: upcoming.length > 0 ? 32 : 0 }}>
-          <h3 style={styles.sectionTitle}>Past Appointments</h3>
+          <h3 style={styles.sectionTitle}>{t('bookings.pastAppointments')}</h3>
           {past.map(b => {
             const d = getSlotDate(b);
             const badge = getStatusBadge(b.booking?.status);
@@ -187,14 +189,14 @@ export default function MyBookings() {
                 <div style={styles.cardHeader}>
                   <div>
                     <div style={styles.serviceName}>{getServiceName(b)}</div>
-                    {getStaffName(b) && <div style={styles.staffName}>with {getStaffName(b)}</div>}
+                    {getStaffName(b) && <div style={styles.staffName}>{t('bookings.with')} {getStaffName(b)}</div>}
                   </div>
                   <span style={{ ...styles.badge, background: badge.background }}>{badge.label}</span>
                 </div>
                 {d && (
                   <div style={styles.cardDetails}>
                     <div style={styles.detailItem}>
-                      <span style={styles.detailIcon}>📅</span>
+                      <span style={styles.detailIcon}>&#128197;</span>
                       <span>{formatDate(d)}</span>
                     </div>
                   </div>
@@ -206,7 +208,7 @@ export default function MyBookings() {
       )}
 
       <div style={{ textAlign: "center", marginTop: 24 }}>
-        <a href="/bookings" style={styles.bookLink}>Book New Appointment</a>
+        <a href="/bookings" style={styles.bookLink}>{t('bookings.bookNewAppointment')}</a>
       </div>
     </div>
   );
