@@ -128,75 +128,60 @@ t('common.bookNow'); // "Book Now" or "今すぐ予約"
 
 ## Dynamic Content Translation (Business Data)
 
-Dynamic content (products, services, staff, blog posts, etc.) is translated via the **Translation Content API**.
+Dynamic content (products, services, staff, blog posts, CMS collections, etc.) is translated via the **Translation Content API**. The full workflow to translate everything:
 
-### Query Existing Content (English)
+### Step 1: List All Translation Schemas
+
+```http
+GET https://www.wixapis.com/translation-schema/v1/schemas/site
+```
+
+This returns all schemas grouped by source app. Each schema defines translatable fields for a content type. Key schemas:
+- **Wix Stores**: product names, descriptions, care instructions, sizes, ribbons, collection names
+- **Wix Bookings**: service names/descriptions/taglines, staff names/descriptions, category names, booking policy names
+- **Wix Blog**: post titles, blog settings
+- **Wix eCommerce**: checkout settings, shipping rules, payment methods
+- **Wix Platform**: page titles, menus, UI components (buttons, text, etc.)
+- **Wix Forms**: contact field names
+- **CMS collections**: custom collection fields (must be enabled from dashboard first)
+
+Filter by app: `?appId=<appId>` or scope: `?scope=SITE` (for CMS collections).
+
+### Step 2: Query English Content
 
 ```http
 POST https://www.wixapis.com/translation-content/v1/contents/query
-Content-Type: application/json
-Authorization: <site auth>
-
-{
-  "query": {
-    "filter": {
-      "locale": "en"
-    },
-    "paging": {
-      "limit": 50
-    }
-  }
-}
+Body: { "query": { "filter": { "locale": "en" }, "paging": { "limit": 100 } } }
 ```
 
-### Content Structure
+**CRITICAL**: The API response can be very large (50KB+) and may get truncated. To handle this:
+- Filter by specific schema: `"filter": { "locale": "en", "schemaId": { "$in": ["schema-id-1", "schema-id-2"] } }`
+- Use cursor paging for pagination
+- Process in batches by schema group
 
-Each entry returned has:
+Each entry has: `schemaId`, `entityId`, `locale`, `fields` (map of field key → `{textValue, published, updatedBy}`)
 
-```json
-{
-  "schemaId": "stores/product",
-  "entityId": "abc123-...",
-  "locale": "en",
-  "fields": {
-    "name": {
-      "textValue": "Space Cat Helmet",
-      "published": true,
-      "updatedBy": "USER"
-    },
-    "description": {
-      "textValue": "A helmet for cats in space.",
-      "published": true,
-      "updatedBy": "USER"
-    }
-  }
-}
+### Step 3: Query Existing Target Translations
+
+```http
+POST https://www.wixapis.com/translation-content/v1/contents/query
+Body: { "query": { "filter": { "locale": "ja" }, "paging": { "limit": 100 } } }
 ```
 
-### Bulk Create Translations
+Compare against English entries by `schemaId` + `entityId` to find what's missing.
+
+### Step 4: Create Translations
 
 ```http
 POST https://www.wixapis.com/translation-content/v1/bulk/contents/create
-Content-Type: application/json
-Authorization: <site auth>
-
-{
+Body: {
   "contents": [
     {
-      "schemaId": "stores/product",
-      "entityId": "abc123-...",
+      "schemaId": "same-as-english",
+      "entityId": "same-as-english",
       "locale": "ja",
       "fields": {
-        "name": {
-          "textValue": "宇宙猫ヘルメット",
-          "published": true,
-          "updatedBy": "USER"
-        },
-        "description": {
-          "textValue": "宇宙の猫用ヘルメット。",
-          "published": true,
-          "updatedBy": "USER"
-        }
+        "fieldKey": { "textValue": "Japanese text", "published": true, "updatedBy": "USER" }
       }
     }
   ],
@@ -204,10 +189,49 @@ Authorization: <site auth>
 }
 ```
 
-Each translated entry must have:
-- Same `schemaId` and `entityId` as the English original
-- Target `locale` (e.g., `"ja"`)
-- `fields` with translated `textValue`, `published: true`, `updatedBy: "USER"`
+**Batch size**: Push up to 10 entries per API call to avoid timeouts.
+
+### What to Translate vs Skip
+
+**Translate** (text fields with `textValue`):
+- Product names, descriptions, additional info titles/descriptions
+- Service names, descriptions, taglines
+- Staff names, descriptions
+- Page titles, menu labels
+- Category/collection names
+- Shipping rule names, option titles
+- Form field labels (Email → メール, Phone → 電話)
+- Product option names and choice values (Color → カラー, Black → ブラック)
+- Product ribbons (Bestseller → ベストセラー, New → 新着)
+- CMS collection text fields (title, description, bio, tagline, etc.)
+
+**Skip**:
+- Fields with empty `textValue` ("")
+- System keys (e.g., `"settings.offlineTitleOptionDefault"`)
+- `_id`, `slug` fields (identifiers, not user-facing)
+- `image`, `video` fields (media, not text)
+- Numeric fields (distance, price)
+- Date fields (launchDate)
+- `RICH_CONTENT` type fields — these need `richContent` format, not plain `textValue`. The API returns `INVALID_ARGUMENT` for plain text. Handle separately or skip.
+
+### Translating CMS Collections
+
+CMS collections need extra setup:
+1. **Enable from dashboard**: Go to Multilingual > Translation Manager and enable each collection
+2. **Schemas appear under a different appId** (not the standard CMS appId). Query with `?scope=SITE` to find them
+3. **English content auto-populated** once schemas are created
+4. **Translate via the same API** using the CMS schema IDs
+
+Query CMS-only schemas:
+```http
+GET https://www.wixapis.com/translation-schema/v1/schemas/site?scope=SITE
+```
+
+Then query content for those schemas:
+```http
+POST https://www.wixapis.com/translation-content/v1/contents/query
+Body: { "query": { "filter": { "locale": "en", "schemaId": { "$in": ["planet-schema-id", "crew-schema-id"] } } } }
+```
 
 ---
 
