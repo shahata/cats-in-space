@@ -44,15 +44,19 @@ const links = [
 			))}
 			<div class="auth-section">
 				{loggedInMember ? (
-					<>
-						<a href="/member" class="member-link">
+					<div class="member-menu">
+						<button class="member-link" type="button">
 							{memberPhoto && <img src={memberPhoto} alt={loggedInMember} class="member-avatar" referrerpolicy="no-referrer" />}
 							<span class="member-name">{loggedInMember}</span>
-						</a>
-						<form action={`/api/auth/logout?returnToUrl=${encodeURIComponent(currentPath)}`} method="POST" style="display:inline">
-							<button type="submit" class="auth-link">Logout</button>
-						</form>
-					</>
+							<span class="member-caret">&#9662;</span>
+						</button>
+						<div class="member-dropdown">
+							<a href="/member" class="dropdown-item">My Profile</a>
+							<form action={`/api/auth/logout?returnToUrl=${encodeURIComponent(currentPath)}`} method="POST">
+								<button type="submit" class="dropdown-item dropdown-logout">Logout</button>
+							</form>
+						</div>
+						</div>
 				) : (
 					<a href={`/api/auth/login?returnToUrl=${encodeURIComponent(currentPath)}`} class="auth-link">Login</a>
 				)}
@@ -67,6 +71,16 @@ const links = [
 	toggle?.addEventListener('click', () => {
 		links?.classList.toggle('nav-links-open');
 		toggle.classList.toggle('nav-toggle-active');
+	});
+
+	const menuBtn = document.querySelector('.member-menu .member-link');
+	const dropdown = document.querySelector('.member-dropdown');
+	menuBtn?.addEventListener('click', (e) => {
+		e.stopPropagation();
+		dropdown?.classList.toggle('member-dropdown-open');
+	});
+	document.addEventListener('click', () => {
+		dropdown?.classList.remove('member-dropdown-open');
 	});
 </script>
 
@@ -156,16 +170,82 @@ const links = [
 		background: var(--accent);
 	}
 
+	.member-menu {
+		position: relative;
+	}
+
 	.member-link {
 		display: flex;
 		align-items: center;
 		gap: 8px;
 		text-decoration: none;
 		transition: opacity 0.2s;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0;
 	}
 
 	.member-link:hover {
 		opacity: 0.8;
+	}
+
+	.member-caret {
+		font-size: 0.6rem;
+		color: var(--text-muted);
+		transition: transform 0.2s;
+	}
+
+	.member-dropdown {
+		display: none;
+		position: absolute;
+		top: calc(100% + 8px);
+		right: 0;
+		background: rgba(20, 20, 20, 0.98);
+		border: 1px solid #333;
+		border-radius: 8px;
+		min-width: 160px;
+		padding: 6px 0;
+		z-index: 200;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+	}
+
+	.member-dropdown-open {
+		display: block;
+	}
+
+	.dropdown-item {
+		display: block;
+		width: 100%;
+		padding: 10px 16px;
+		font-size: 0.85rem;
+		font-family: var(--font-heading);
+		letter-spacing: 1px;
+		color: var(--text-secondary);
+		text-decoration: none;
+		background: none;
+		border: none;
+		cursor: pointer;
+		text-align: left;
+		transition: all 0.15s;
+		box-sizing: border-box;
+	}
+
+	.dropdown-item:hover {
+		color: var(--accent);
+		background: rgba(255, 102, 0, 0.08);
+	}
+
+	.dropdown-logout {
+		color: var(--text-muted);
+		border-top: 1px solid #222;
+		margin-top: 2px;
+		padding-top: 10px;
+	}
+
+	.dropdown-logout:hover {
+		color: #f44336;
+		background: rgba(244, 67, 54, 0.08);
 	}
 
 	.member-avatar {
@@ -248,6 +328,12 @@ const links = [
 			border-top: 1px solid #333;
 			width: 100%;
 			justify-content: center;
+		}
+
+		.member-dropdown {
+			right: auto;
+			left: 50%;
+			transform: translateX(-50%);
 		}
 	}
 </style>
