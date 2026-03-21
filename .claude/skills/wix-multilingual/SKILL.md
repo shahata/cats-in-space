@@ -300,24 +300,27 @@ Body: { "query": { "filter": { "locale": "en", "schemaId": { "$in": ["planet-sch
 ```ts
 import { multilingual } from '@wix/site';
 
-const languages = await multilingual.listSupportedLanguages();
-// Returns array of supported languages with fallback handling
+const languages = multilingual.listSupportedLanguages();
+// Returns: [{ id, displayName, url, primary, resolutionMethod }, ...]
 ```
 
-### Building Locale-Aware URLs
+Each language object has `id`, `displayName`, `primary`, and `url`.
 
+**IMPORTANT**: `url` is only populated **client-side** (in React components with `client:load`). In server-side Astro pages, `url` is `undefined`. Handle both cases:
+
+**Client-side (React)** — use `lang.url` directly for language switching links.
+
+**Server-side (Astro)** — build URLs manually using the subdirectory pattern:
 ```ts
-import { getRelativeLocaleUrl } from 'wix:astro:i18n';
+// Strip locale prefix from current path to get base page path
+const pagePath = /* strip /ja etc from currentPath */;
 
-// Build URL for a specific locale
-const jaUrl = getRelativeLocaleUrl('ja', '/shop');  // "/ja/shop"
-const enUrl = getRelativeLocaleUrl('en', '/shop');  // "/shop" (primary, no prefix)
+// For primary language: just the page path
+// For secondary: /{langId}{pagePath}
+const url = lang.primary ? pagePath : `/${lang.id}${pagePath === '/' ? '' : pagePath}`;
 ```
 
-To switch languages from the current page:
-1. Strip any existing locale prefix from the current path
-2. For non-primary languages, prepend the new locale prefix
-3. For the primary language, use the path without prefix
+`getRelativeLocaleUrl(path)` from `wix:astro:i18n` localizes a path for the **current** locale only — it doesn't accept a target locale parameter, so it can't be used for switching to a different language.
 
 ### UI Patterns
 
