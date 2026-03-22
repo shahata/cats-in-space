@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { likes, posts } from "@wix/blog";
 import { comments as commentsApi } from "@wix/comments";
 import { members } from "@wix/members";
-import { httpClient } from "@wix/essentials";
+import { httpClient, i18n } from "@wix/essentials";
 
 type Comment = commentsApi.Comment;
 
@@ -325,7 +325,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
   function formatDate(dateStr: string | Date | null | undefined) {
     if (!dateStr) return "";
     const d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
-    return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString(i18n.getLocale(), { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
   function renderReplyThread(reply: Comment, depth: number): React.ReactNode {

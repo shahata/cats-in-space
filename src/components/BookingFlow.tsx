@@ -187,7 +187,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
     if (!dateStr) return "";
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return d.toLocaleTimeString(i18n.getLocale(), { hour: "numeric", minute: "2-digit" });
   }
 
   function getMinDate() {
@@ -298,7 +298,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
       {step === "time" && (
         <div>
           <p style={styles.stepLabel}>
-            {selectedDate && new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            {selectedDate && new Date(selectedDate + "T12:00:00").toLocaleDateString(i18n.getLocale(), { weekday: "long", month: "long", day: "numeric" })}
             <button onClick={() => setStep("date")} style={styles.changeBtn}>{t('bookings.changeDate')}</button>
           </p>
 
@@ -353,7 +353,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
             <div style={styles.confirmRow}>
               <span style={styles.confirmLabel}>{t('bookings.date')}</span>
               <span style={styles.confirmValue}>
-                {selectedDate && new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                {selectedDate && new Date(selectedDate + "T12:00:00").toLocaleDateString(i18n.getLocale(), { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
               </span>
             </div>
             <div style={styles.confirmRow}>

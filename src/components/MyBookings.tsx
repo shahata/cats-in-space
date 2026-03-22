@@ -61,11 +61,11 @@ export default function MyBookings() {
   }
 
   function formatDate(d: Date) {
-    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+    return d.toLocaleDateString(i18n.getLocale(), { weekday: "short", month: "short", day: "numeric", year: "numeric" });
   }
 
   function formatTime(d: Date) {
-    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return d.toLocaleTimeString(i18n.getLocale(), { hour: "numeric", minute: "2-digit" });
   }
 
   function getServiceName(b: extendedBookingsTypes.ExtendedBooking) {
