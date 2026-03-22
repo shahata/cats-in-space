@@ -80,7 +80,7 @@ const writerSlug = writer?.profile?.slug;
 							</a>
 						)}
 						<div>
-							<span class="writer-name">{writerName}</span>
+							<a href={writerSlug ? `/member/${writerSlug}` : '#'} class="writer-name-link"><span class="writer-name">{writerName}</span></a>
 							{writerTitle && <span class="writer-title">{writerTitle}</span>}
 						</div>
 					</div>
@@ -201,11 +201,20 @@ const writerSlug = writer?.profile?.slug;
 		margin-bottom: 12px;
 	}
 
+	.writer-name-link {
+		text-decoration: none;
+	}
+
+	.writer-name-link:hover .writer-name {
+		color: var(--accent);
+	}
+
 	.writer-name {
 		font-family: var(--font-heading);
 		font-size: 1rem;
 		color: var(--accent-yellow);
 		letter-spacing: 1px;
+		transition: color 0.2s;
 	}
 
 	.writer-title {
