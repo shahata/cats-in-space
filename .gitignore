@@ -1,5 +1,9 @@
 # wix integration
 .wix/
+!.wix/multilingual/
+!.wix/multilingual/translations/
+!.wix/multilingual/translations/*.json
+!.wix/multilingual/metadata.json
 
 # build output
 dist/
