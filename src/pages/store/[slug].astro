@@ -7,6 +7,8 @@ import RichContentViewer from '../../components/RichContentViewer';
 import { productsV3 } from '@wix/stores';
 import { categories } from '@wix/categories';
 import { extractMediaUrl } from '../../utils/image';
+import { i18n } from '@wix/essentials';
+const t = i18n.getTranslationFunction();
 
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/store');
@@ -69,7 +71,7 @@ const ribbon = product.ribbon?.name;
 type ProductActionsProps = import('../../components/ProductActions').ProductData;
 ---
 
-<Layout title={`${product.name} - Cats In Space Store`}>
+<Layout title={`${product.name} - ${t('home.title')}`}>
 	<Nav />
 	<section class="product-page">
 		<div class="container">

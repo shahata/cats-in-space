@@ -21,7 +21,7 @@ const fmt = (amount: number, currency: string) =>
 	new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
 ---
 
-<Layout title={`${t('plans.thankYouTitle')} - Cats In Space`}>
+<Layout title={`${t('plans.thankYouTitle')} - ${t('home.title')}`}>
 	<Nav />
 	<section class="thank-you">
 		<div class="container">
