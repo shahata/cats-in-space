@@ -47,6 +47,7 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
   const currentLang = languages.find((l) => l.id === currentLanguage);
   const currentFlag =
     langToFlag(currentLang?.regionalFormat) || currentLanguage.toUpperCase();
+  const isRtl = typeof document !== "undefined" && document.documentElement.dir === "rtl";
 
   if (variant === "dropdown") {
     return (
@@ -58,9 +59,9 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
       >
         <span>{t("nav.language")}</span>
         <span style={styles.currentFlag}>{currentFlag}</span>
-        <span style={styles.caret}>&#9656;</span>
+        <span style={styles.caret}>{isRtl ? "\u25C2" : "\u25B8"}</span>
         {open && (
-          <div style={styles.submenu}>
+          <div style={isRtl ? styles.submenuRtl : styles.submenu}>
             {languages.map((lang) => (
               <a
                 key={lang.id}
@@ -142,7 +143,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "1.2rem",
     fontWeight: 700,
     color: "#ff6600",
-    marginLeft: "auto",
+    marginInlineStart: "auto",
   },
   caret: {
     fontSize: "0.55rem",
@@ -151,6 +152,18 @@ const styles: Record<string, React.CSSProperties> = {
   submenu: {
     position: "absolute",
     left: "100%",
+    top: -6,
+    background: "rgba(20, 20, 20, 0.98)",
+    border: "1px solid #333",
+    borderRadius: 8,
+    minWidth: 150,
+    padding: "6px 0",
+    zIndex: 210,
+    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5)",
+  },
+  submenuRtl: {
+    position: "absolute",
+    right: "100%",
     top: -6,
     background: "rgba(20, 20, 20, 0.98)",
     border: "1px solid #333",

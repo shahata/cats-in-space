@@ -294,7 +294,7 @@ const isExploreActive = ['/planets', '/crew', '/missions'].some(p => currentPath
 		display: none;
 		position: absolute;
 		top: calc(100% + 8px);
-		right: 0;
+		inset-inline-end: 0;
 		background: rgba(20, 20, 20, 0.98);
 		border: 1px solid #333;
 		border-radius: 8px;
@@ -426,7 +426,7 @@ const isExploreActive = ['/planets', '/crew', '/missions'].some(p => currentPath
 		}
 
 		.member-dropdown {
-			right: auto;
+			inset-inline-end: auto;
 			left: 50%;
 			transform: translateX(-50%);
 		}
