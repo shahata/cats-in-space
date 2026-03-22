@@ -139,7 +139,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: "all 0.15s",
   },
   currentFlag: {
-    fontSize: "0.7rem",
+    fontSize: "1.2rem",
     fontWeight: 700,
     color: "#ff6600",
     marginLeft: "auto",
@@ -175,7 +175,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: "all 0.2s",
   },
   standaloneFlag: {
-    fontSize: "0.75rem",
+    fontSize: "1.2rem",
     fontWeight: 700,
     color: "#ff6600",
   },
@@ -211,7 +211,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#ffcc00",
   },
   flag: {
-    fontSize: "0.7rem",
+    fontSize: "1.2rem",
     fontWeight: 700,
     minWidth: 24,
   },
