@@ -69,7 +69,7 @@ const writerSlug = writer?.profile?.slug;
 	<Nav />
 	<article class="blog-post">
 		<div class="container">
-			<a href="/blog" class="back-link">&larr; {t('blog.backToLog')}</a>
+			<a href="/blog" class="back-link">{t('blog.backToLog')}</a>
 
 			<header class="post-header">
 				<div class="post-meta-row">
@@ -126,7 +126,7 @@ const writerSlug = writer?.profile?.slug;
 			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} {...(currentMemberName ? { memberName: currentMemberName } : {})} {...(currentMemberPhoto ? { memberPhoto: currentMemberPhoto } : {})} commentingEnabled={post.commentingEnabled !== false} client:load />
 
 			<footer class="post-footer">
-				<a href="/blog" class="btn btn-outline">&larr; {t('blog.moreTransmissions')}</a>
+				<a href="/blog" class="btn btn-outline">{t('blog.moreTransmissions')}</a>
 			</footer>
 		</div>
 	</article>

@@ -64,7 +64,7 @@ const sorted = [...missions].sort((a, b) =>
 										<span class={`badge ${getStatusBadge(mission.status)}`}>{mission.status}</span>
 									</div>
 									{mission.planetRef && (
-										<a href={`/planets/${mission.planetRef.slug}`} class="dest-link">→ {mission.planetRef.title}</a>
+										<a href={`/planets/${mission.planetRef.slug}`} class="dest-link">{t('missions.goToPlanet').replace('{planet}', mission.planetRef.title)}</a>
 									)}
 									<p class="mission-desc">{mission.description}</p>
 								</div>
