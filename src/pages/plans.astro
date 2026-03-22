@@ -49,7 +49,7 @@ const allPlans = result.items || [];
 								)}
 							</div>
 							{trialDays > 0 && (
-								<p class="trial-info">{t('plans.freeTrialDays', { days: trialDays.toString() })}</p>
+								<p class="trial-info">{t('plans.freeTrialDays').replace('{days}', trialDays.toString())}</p>
 							)}
 							<ul class="perks">
 								{perksList.map((perk: string) => (
