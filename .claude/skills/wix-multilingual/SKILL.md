@@ -158,6 +158,25 @@ t('copyright', { year: '2026' })           // → "© 2026 My Site"
 
 **CRITICAL**: Always use `{{double braces}}` in translation strings. Single `{braces}` will NOT be interpolated — they'll render literally as `{days}` in the UI.
 
+### Currency and Number Formatting
+
+**CRITICAL**: Never manually construct currency strings like `'$' + price` or `currency === 'USD' ? '$' : currency`. This breaks for:
+- Non-USD currencies (no symbol mapping)
+- Locale-specific symbol placement (Hebrew puts symbol after: `9.99 ₪`, not `₪9.99`)
+- Decimal separators (comma vs period)
+
+Use `Intl.NumberFormat` instead:
+```ts
+const locale = i18n.getLocale();
+new Intl.NumberFormat(locale, {
+  style: 'currency',
+  currency: currencyCode,  // "USD", "ILS", "EUR", etc.
+}).format(amount);
+// → "$9.99" (en-US), "9.99 ₪" (he-IL), "9,99 €" (de-DE)
+```
+
+For billing period units (DAY, WEEK, MONTH, YEAR) — these are server enums and must be translated, not displayed raw or lowercased. Add translation keys like `plans.perMonth`, `plans.perYear` and map the enum to the key.
+
 ### Best Practice: Move ALL Static Text to Translations
 
 Every user-visible string should go through `t()` — not just nav labels. This includes:
