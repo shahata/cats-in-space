@@ -62,8 +62,8 @@ try {
 
 const fmtDate = (d: string | Date | null | undefined) => d ? new Date(d as string).toLocaleDateString(i18n.getLocale(), { year: 'numeric', month: 'short', day: 'numeric' }) : null;
 const ts = (status: string) => {
-	const key = status.replace(/\s+/g, '');
-	const statusKey = key.charAt(0).toLowerCase() + key.slice(1);
+	const statusKey = status.toLowerCase()
+		.replace(/[_\s]+(.)/g, (_, c: string) => c.toUpperCase());
 	return t(`status.${statusKey}`) || status;
 };
 const statusColors = { APPROVED: '#4caf50', FULFILLED: '#4caf50', CANCELED: '#f44336', PARTIALLY_FULFILLED: '#ff9800', PENDING: '#2196f3' } as const;
