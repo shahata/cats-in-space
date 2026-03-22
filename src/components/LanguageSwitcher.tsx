@@ -47,7 +47,7 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
   const currentLang = languages.find((l) => l.id === currentLanguage);
   const currentFlag =
     langToFlag(currentLang?.regionalFormat) || currentLanguage.toUpperCase();
-  const isRtl = typeof document !== "undefined" && document.documentElement.dir === "rtl";
+  const isRtl = ["he", "ar"].includes(currentLanguage);
 
   if (variant === "dropdown") {
     return (
