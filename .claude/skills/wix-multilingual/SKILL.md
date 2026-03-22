@@ -326,7 +326,24 @@ function LanguageSwitcher() {
 
 This eliminates all manual URL parsing (stripping locale prefixes, building subdirectory paths). The SDK handles it correctly for all URL structures (subdirectory, subdomain, query param).
 
-**Note**: `getRelativeLocaleUrl(path)` from `wix:astro:i18n` localizes a path for the **current** locale only — it doesn't accept a target locale parameter, so it can't be used for switching to a different language.
+### Locale-Aware Links in Astro Pages
+
+Use `getRelativeLocaleUrl(path)` from `wix:astro:i18n` to build links that include the current locale prefix:
+```ts
+import { getRelativeLocaleUrl } from 'wix:astro:i18n';
+
+const href = getRelativeLocaleUrl('/bookings'); // "/bookings" or "/ja/bookings"
+```
+
+**IMPORTANT**: `Astro.url.pathname` does NOT include the locale prefix — it's always the base path (e.g., `/bookings`, never `/ja/bookings`). When matching active nav links, compare `Astro.url.pathname` against the raw path, not the localized href:
+```ts
+const links = [
+  { href: getRelativeLocaleUrl('/bookings'), path: '/bookings', label: '...' },
+];
+// Active check: currentPath === link.path (NOT link.href)
+```
+
+`getRelativeLocaleUrl` only works for the **current** locale — it doesn't accept a target locale parameter, so it can't be used for switching to a different language. Use the React `LanguageSwitcher` component for that.
 
 ---
 
