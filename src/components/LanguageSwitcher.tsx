@@ -21,6 +21,13 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
     }
   })();
 
+  function countryToFlag(countryCode: string | undefined): string {
+    if (!countryCode || countryCode.length !== 2) return "";
+    return String.fromCodePoint(
+      ...countryCode.toUpperCase().split("").map(c => 0x1F1E6 + c.charCodeAt(0) - 65)
+    );
+  }
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -33,7 +40,8 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
 
   if (languages.length < 2) return null;
 
-  const currentFlag = currentLanguage.toUpperCase();
+  const currentLang = languages.find(l => l.id === currentLanguage);
+  const currentFlag = countryToFlag((currentLang as unknown as Record<string, string>)?.countryCode) || currentLanguage.toUpperCase();
 
   if (variant === "dropdown") {
     return (
@@ -57,9 +65,11 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
                   ...(lang.id === currentLanguage ? styles.optionActive : {}),
                 }}
               >
-                <span style={styles.flag}>{(lang.id || "").toUpperCase()}</span>
+                <span style={styles.flag}>{countryToFlag((lang as unknown as Record<string, string>).countryCode) || (lang.id || "").toUpperCase()}</span>
                 <span style={styles.name}>{lang.displayName}</span>
-                {lang.id === currentLanguage && <span style={styles.check}>&#10003;</span>}
+                {lang.id === currentLanguage && (
+                  <span style={styles.check}>&#10003;</span>
+                )}
               </a>
             ))}
           </div>
@@ -73,7 +83,10 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
       <button
         type="button"
         style={styles.standaloneBtn}
-        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
       >
         <span style={styles.standaloneFlag}>{currentFlag}</span>
         <span style={styles.standaloneCaret}>&#9662;</span>
@@ -89,9 +102,11 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
                 ...(lang.id === currentLanguage ? styles.optionActive : {}),
               }}
             >
-              <span style={styles.flag}>{(lang.id || "").toUpperCase()}</span>
+              <span style={styles.flag}>{countryToFlag((lang as unknown as Record<string, string>).countryCode) || (lang.id || "").toUpperCase()}</span>
               <span style={styles.name}>{lang.displayName}</span>
-              {lang.id === currentLanguage && <span style={styles.check}>&#10003;</span>}
+              {lang.id === currentLanguage && (
+                <span style={styles.check}>&#10003;</span>
+              )}
             </a>
           ))}
         </div>
