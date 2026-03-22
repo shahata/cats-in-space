@@ -54,14 +54,16 @@ const isExploreActive = ['/planets', '/crew', '/missions'].some(p => currentPath
 					{t('nav.explore')} <span class="nav-caret">&#9662;</span>
 				</button>
 				<div class="nav-dropdown-menu">
-					{exploreLinks.map(link => (
-						<a
-							href={link.href}
-							class:list={['dropdown-item', { active: currentPath === link.path || currentPath.startsWith(link.path + '/') }]}
-						>
-							{link.label}
-						</a>
-					))}
+					<div class="nav-dropdown-menu-inner">
+						{exploreLinks.map(link => (
+							<a
+								href={link.href}
+								class:list={['dropdown-item', { active: currentPath === link.path || currentPath.startsWith(link.path + '/') }]}
+							>
+								{link.label}
+							</a>
+						))}
+					</div>
 				</div>
 			</div>
 			{links.slice(1).map(link => (
@@ -116,8 +118,9 @@ const isExploreActive = ['/planets', '/crew', '/missions'].some(p => currentPath
 
 	const exploreDropdown = document.querySelector('.nav-dropdown');
 	const exploreMenu = document.querySelector('.nav-dropdown-menu');
-	exploreDropdown?.addEventListener('mouseenter', () => exploreMenu?.classList.add('nav-dropdown-open'));
-	exploreDropdown?.addEventListener('mouseleave', () => exploreMenu?.classList.remove('nav-dropdown-open'));
+	let closeTimer: ReturnType<typeof setTimeout>;
+	exploreDropdown?.addEventListener('mouseenter', () => { clearTimeout(closeTimer); exploreMenu?.classList.add('nav-dropdown-open'); });
+	exploreDropdown?.addEventListener('mouseleave', () => { closeTimer = setTimeout(() => exploreMenu?.classList.remove('nav-dropdown-open'), 150); });
 	exploreDropdown?.querySelector('.nav-dropdown-trigger')?.addEventListener('click', (e) => {
 		e.stopPropagation();
 		exploreMenu?.classList.toggle('nav-dropdown-open');
@@ -237,15 +240,19 @@ const isExploreActive = ['/planets', '/crew', '/missions'].some(p => currentPath
 	.nav-dropdown-menu {
 		display: none;
 		position: absolute;
-		top: calc(100% + 4px);
+		top: 100%;
 		left: 50%;
 		transform: translateX(-50%);
+		padding-top: 8px;
+		min-width: 160px;
+		z-index: 200;
+	}
+
+	.nav-dropdown-menu-inner {
 		background: rgba(20, 20, 20, 0.98);
 		border: 1px solid #333;
 		border-radius: 8px;
-		min-width: 160px;
 		padding: 6px 0;
-		z-index: 200;
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 	}
 
