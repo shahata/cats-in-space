@@ -52,7 +52,8 @@
     "distance": "距離",
     "gravity": "重力",
     "atmosphere": "大気",
-    "lightYears": "光年"
+    "lightYears": "光年",
+    "ly": "光年"
   },
   "crew": {
     "pageTitle": "クルー名簿",

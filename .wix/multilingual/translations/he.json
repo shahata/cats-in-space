@@ -52,7 +52,8 @@
     "distance": "מרחק",
     "gravity": "כבידה",
     "atmosphere": "אטמוספירה",
-    "lightYears": "שנות אור"
+    "lightYears": "שנות אור",
+    "ly": "שנות אור"
   },
   "crew": {
     "pageTitle": "רשימת הצוות",

@@ -52,7 +52,8 @@
     "distance": "Distance",
     "gravity": "Gravity",
     "atmosphere": "Atmosphere",
-    "lightYears": "light years"
+    "lightYears": "light years",
+    "ly": "ly"
   },
   "crew": {
     "pageTitle": "Crew Roster",
