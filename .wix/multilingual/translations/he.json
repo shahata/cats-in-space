@@ -12,7 +12,8 @@
     "login": "התחברות",
     "myProfile": "הפרופיל שלי",
     "logout": "התנתקות",
-    "language": "שפה"
+    "language": "שפה",
+    "explore": "חקור"
   },
   "home": {
     "ticker": "מבזק: ארגז החול של כדור הארץ הוכרז כמלא...",
@@ -31,11 +32,11 @@
     "distance": "מרחק",
     "theCrew": "הצוות",
     "theCrewSubtitle": "החוקרים האמיצים (והפרוותיים) ביותר בגלקסיה",
-    "fullCrewRoster": "רשימת הצוות המלאה \u2192",
+    "fullCrewRoster": "\u2190 רשימת הצוות המלאה",
     "missionLog": "יומן משימות",
     "missionLogSubtitle": "משלחות נוכחיות ושיגורים קרובים",
     "destination": "יעד",
-    "allMissions": "כל המשימות \u2192",
+    "allMissions": "\u2190 כל המשימות",
     "quote": "צעד קטן לחתול, קפיצת ענק לחתוליות.",
     "quoteAuthor": "קפטן שפם, לפני השיגור הראשון"
   },
@@ -43,7 +44,7 @@
     "pageTitle": "מאגר כוכבי הלכת",
     "pageSubtitle": "כל העולמות שנסקרו, מדורגים לפי התאמה לחיי חתולים",
     "habitable": "ראוי למגורים",
-    "backToAll": "כל כוכבי הלכת →",
+    "backToAll": "\u2192 כל כוכבי הלכת",
     "overview": "סקירה",
     "relatedMissions": "משימות קשורות",
     "planetStats": "נתוני הכוכב",
@@ -56,7 +57,7 @@
   "crew": {
     "pageTitle": "רשימת הצוות",
     "pageSubtitle": "החתולים האמיצים ביותר שאי פעם עזבו קופסת קרטון מושלמת",
-    "backToAll": "כל הצוות →",
+    "backToAll": "\u2192 כל הצוות",
     "bio": "ביוגרפיה",
     "dossier": "תיק אישי",
     "specialSkill": "כישרון מיוחד",
@@ -69,14 +70,14 @@
     "pageSubtitle": "מעקב אחרי כל משלחת מסמרת שפם אל הלא נודע",
     "crew": "צוות",
     "launch": "שיגור",
-    "backToAll": "כל המשימות →",
+    "backToAll": "\u2192 כל המשימות",
     "missionBrief": "תקציר המשימה",
     "missionLog": "יומן המשימה",
     "missionDetails": "פרטי המשימה",
     "destination": "יעד",
     "launchDate": "תאריך שיגור",
     "status": "סטטוס",
-    "goToPlanet": "{planet} ←"
+    "goToPlanet": "\u2190 {planet}"
   },
   "blog": {
     "pageTitle": "יומן הספינה",
@@ -87,11 +88,11 @@
     "views": "צפיות",
     "likes": "לייקים",
     "comments": "תגובות",
-    "readTransmission": "קראו את השידור \u2192",
-    "backToLog": "חזרה ליומן הספינה →",
+    "readTransmission": "\u2190 קראו את השידור",
+    "backToLog": "\u2192 חזרה ליומן הספינה",
     "pinnedPost": "פוסט מוצמד",
     "writtenBy": "נכתב על ידי",
-    "moreTransmissions": "שידורים נוספים →"
+    "moreTransmissions": "\u2192 שידורים נוספים"
   },
   "store": {
     "pageTitle": "מחסן הציוד של חתולי החלל",

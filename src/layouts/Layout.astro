@@ -142,12 +142,7 @@ const { title = t('home.title'), description = "Feline explorers searching the g
 		max-width: 100%;
 	}
 
-	/* RTL support */
-	[dir="rtl"] .nav-links { direction: rtl; }
-	[dir="rtl"] .cs-panel { right: auto; left: -420px; border-left: none; border-right: 1px solid var(--border-card); }
-	[dir="rtl"] .cs-panel-open { left: 0; right: auto; }
-	[dir="rtl"] .cs-badge { right: auto; left: 24px; }
-	[dir="rtl"] .cs-count { right: auto; left: -4px; }
+	/* RTL support — cart icon and sidebar stay on the right */
 
 	/* CartSidebar styles */
 	.cs-badge { position: fixed; bottom: 24px; right: 24px; z-index: 90; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: #000; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px var(--accent-glow); transition: transform 0.2s; }

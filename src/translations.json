@@ -12,7 +12,8 @@
     "login": "Login",
     "myProfile": "My Profile",
     "logout": "Logout",
-    "language": "Language"
+    "language": "Language",
+    "explore": "Explore"
   },
   "home": {
     "ticker": "BREAKING: Earth's litter box declared full...",
