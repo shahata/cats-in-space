@@ -18,14 +18,14 @@ try {
 } catch {}
 
 const links = [
-	{ href: getRelativeLocaleUrl('/'), label: t('nav.home') },
-	{ href: getRelativeLocaleUrl('/planets'), label: t('nav.planets') },
-	{ href: getRelativeLocaleUrl('/crew'), label: t('nav.crew') },
-	{ href: getRelativeLocaleUrl('/missions'), label: t('nav.missions') },
-	{ href: getRelativeLocaleUrl('/blog'), label: t('nav.blog') },
-	{ href: getRelativeLocaleUrl('/store'), label: t('nav.store') },
-	{ href: getRelativeLocaleUrl('/bookings'), label: t('nav.bookings') },
-	{ href: getRelativeLocaleUrl('/plans'), label: t('nav.plans') },
+	{ href: getRelativeLocaleUrl('/'), path: '/', label: t('nav.home') },
+	{ href: getRelativeLocaleUrl('/planets'), path: '/planets', label: t('nav.planets') },
+	{ href: getRelativeLocaleUrl('/crew'), path: '/crew', label: t('nav.crew') },
+	{ href: getRelativeLocaleUrl('/missions'), path: '/missions', label: t('nav.missions') },
+	{ href: getRelativeLocaleUrl('/blog'), path: '/blog', label: t('nav.blog') },
+	{ href: getRelativeLocaleUrl('/store'), path: '/store', label: t('nav.store') },
+	{ href: getRelativeLocaleUrl('/bookings'), path: '/bookings', label: t('nav.bookings') },
+	{ href: getRelativeLocaleUrl('/plans'), path: '/plans', label: t('nav.plans') },
 ];
 ---
 
@@ -41,7 +41,7 @@ const links = [
 			{links.map(link => (
 				<a
 					href={link.href}
-					class:list={['nav-link', { active: currentPath === link.href || (link.href !== getRelativeLocaleUrl('/') && currentPath.startsWith(link.href)) }]}
+					class:list={['nav-link', { active: currentPath === link.path || (link.path !== '/' && currentPath.startsWith(link.path)) }]}
 				>
 					{link.label}
 				</a>
