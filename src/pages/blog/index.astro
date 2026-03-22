@@ -39,7 +39,7 @@ for (const id of memberIds) {
 
 function formatDate(dateStr: string | Date | null | undefined) {
 	if (!dateStr) return '';
-	return new Date(dateStr).toLocaleDateString('en-US', {
+	return new Date(dateStr).toLocaleDateString(i18n.getLocale(), {
 		year: 'numeric', month: 'long', day: 'numeric'
 	});
 }

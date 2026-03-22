@@ -11,7 +11,7 @@ const t = i18n.getTranslationFunction();
 const locale = i18n.getLocale();
 const lang = i18n.getLanguage();
 const dir = ['he', 'ar'].includes(lang) ? 'rtl' : 'ltr';
-const { title = t('home.title'), description = "Feline explorers searching the galaxy for a new home world" } = Astro.props;
+const { title = t('home.title'), description = t('home.subtitle') } = Astro.props;
 ---
 
 <!doctype html>

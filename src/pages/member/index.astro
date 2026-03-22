@@ -60,7 +60,12 @@ try {
 } catch {}
 
 
-const fmtDate = (d: string | Date | null | undefined) => d ? new Date(d as string).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+const fmtDate = (d: string | Date | null | undefined) => d ? new Date(d as string).toLocaleDateString(i18n.getLocale(), { year: 'numeric', month: 'short', day: 'numeric' }) : null;
+const ts = (status: string) => {
+	const key = status.replace(/\s+/g, '');
+	const statusKey = key.charAt(0).toLowerCase() + key.slice(1);
+	return t(`status.${statusKey}`) || status;
+};
 const statusColors = { APPROVED: '#4caf50', FULFILLED: '#4caf50', CANCELED: '#f44336', PARTIALLY_FULFILLED: '#ff9800', PENDING: '#2196f3' } as const;
 type StatusKey = keyof typeof statusColors;
 
@@ -124,17 +129,17 @@ const tabs = [
 								<div class="sub-card">
 									<div class="sub-header">
 										<div>
-											<div class="sub-plan-name">Order #{sOrder.number || sOrder._id?.slice(-8)}</div>
+											<div class="sub-plan-name">{t('member.orderNumber').replace('{number}', String(sOrder.number || sOrder._id?.slice(-8)))}</div>
 											<div class="sub-plan-desc">{fmtDate(sOrder._createdDate)}</div>
 										</div>
 										<div class="sub-badges">
 											{sOrder.paymentStatus && (
 												<span class="sub-badge" style={`background: ${sOrder.paymentStatus === 'PAID' ? '#4caf50' : '#ff9800'}`}>
-													{sOrder.paymentStatus}
+													{ts(sOrder.paymentStatus)}
 												</span>
 											)}
 											<span class="sub-badge" style={`background: ${sColor}`}>
-												{sOrder.fulfillmentStatus || sOrder.status || 'PROCESSING'}
+												{ts(sOrder.fulfillmentStatus || sOrder.status || 'PROCESSING')}
 											</span>
 										</div>
 									</div>
@@ -210,13 +215,13 @@ const tabs = [
 									<div class="sub-card">
 										<div class="sub-header">
 											<div>
-												<div class="sub-plan-name">{order.planName || 'Unknown Plan'}</div>
+												<div class="sub-plan-name">{order.planName || t('member.unknownPlan')}</div>
 												{order.planDescription && <div class="sub-plan-desc">{order.planDescription}</div>}
 											</div>
 											<div class="sub-badges">
 												{inTrial && <span class="sub-badge sub-badge-trial">{t('member.freeTrial')}</span>}
 												<span class:list={['sub-badge', `sub-badge-${order.autoRenewCanceled ? 'canceling' : (order.status || 'unknown').toLowerCase()}`]}>
-													{order.autoRenewCanceled ? 'Canceling' : order.status}
+													{order.autoRenewCanceled ? t('status.canceling') : ts(order.status)}
 												</span>
 											</div>
 										</div>
@@ -273,7 +278,7 @@ const tabs = [
 												<div class="sub-detail">
 													<span class="sub-detail-label">{t('member.lastPayment')}</span>
 													<span class:list={['sub-detail-value', { 'sub-payment-paid': paymentStatus === 'PAID', 'sub-payment-unpaid': paymentStatus === 'UNPAID' || paymentStatus === 'FAILED' }]}>
-														{paymentStatus === 'PAID' ? t('member.paid') : paymentStatus === 'NOT_APPLICABLE' ? 'N/A' : paymentStatus}
+														{paymentStatus === 'PAID' ? t('member.paid') : paymentStatus === 'NOT_APPLICABLE' ? t('member.notApplicable') : ts(paymentStatus)}
 													</span>
 												</div>
 											)}
@@ -283,10 +288,10 @@ const tabs = [
 											<div class="sub-cancellation">
 												<span class="sub-detail-label">{t('member.cancellation')}</span>
 												<span class="sub-detail-value">
-													{cancellation.cause === 'OWNER_ACTION' ? t('member.canceledByYou') : cancellation.cause === 'UNDEFINED' ? 'Canceled' : cancellation.cause}
-													{cancellation.requestedDate && ` on ${fmt(cancellation.requestedDate)}`}
-													{cancellation.effectiveAt === 'NEXT_PAYMENT_DATE' && ' — active until next billing date'}
-													{cancellation.effectiveAt === 'IMMEDIATELY' && ' — effective immediately'}
+													{cancellation.cause === 'OWNER_ACTION' ? t('member.canceledByYou') : cancellation.cause === 'UNDEFINED' ? t('status.canceled') : cancellation.cause}
+													{cancellation.requestedDate && ` — ${t('member.canceledOn').replace('{date}', fmt(cancellation.requestedDate) || '')}`}
+													{cancellation.effectiveAt === 'NEXT_PAYMENT_DATE' && ' — ' + t('member.activeUntilNextBilling')}
+													{cancellation.effectiveAt === 'IMMEDIATELY' && ' — ' + t('member.effectiveImmediately')}
 												</span>
 											</div>
 										)}

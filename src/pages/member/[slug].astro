@@ -40,7 +40,7 @@ const nickname = member.profile?.nickname || member.contact?.firstName || 'Unkno
 const title = member.profile?.title || '';
 const photo = member.profile?.photo?.url;
 const cover = member.profile?.cover?.url;
-const joinDate = member._createdDate ? new Date(member._createdDate).toLocaleDateString('en-US', {
+const joinDate = member._createdDate ? new Date(member._createdDate).toLocaleDateString(i18n.getLocale(), {
 	year: 'numeric', month: 'long', day: 'numeric'
 }) : '';
 const slug_ = member.profile?.slug || '';
@@ -67,14 +67,14 @@ const slug_ = member.profile?.slug || '';
 				<div class="profile-info">
 					<h1>{nickname}</h1>
 					{title && <p class="profile-title">{title}</p>}
-					{joinDate && <p class="profile-meta">Crew member since {joinDate}</p>}
+					{joinDate && <p class="profile-meta">{t('member.crewMemberSince').replace('{date}', joinDate)}</p>}
 					{slug_ && <p class="profile-meta">@{slug_}</p>}
 				</div>
 			</div>
 
 			{aboutContent && (
 				<div class="about-section">
-					<h2>About</h2>
+					<h2>{t('profile.about')}</h2>
 					<div class="about-content">
 						<RichContentViewer content={aboutContent} client:load />
 					</div>
