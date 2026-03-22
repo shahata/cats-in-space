@@ -25,9 +25,13 @@ description: Wix Blog posts, tags, writers, rich content (ricos), and creating/u
 import { posts, tags as tagsApi } from '@wix/blog';
 
 // CRITICAL: Use queryPosts, NOT listPosts — listPosts returns zero metrics in managed headless
+// Filter by current language for multilingual sites
+import { i18n } from '@wix/essentials';
+const currentLanguage = i18n.getLanguage();
+
 const result = await posts.queryPosts({
   fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID']
-}).find();
+}).eq('language', currentLanguage).find();
 const blogPosts = result.items || [];  // Note: .items not .posts
 
 // Available fieldsets: URL, CONTENT_TEXT, METRICS, SEO, CONTACT_ID, RICH_CONTENT, REFERENCE_ID
