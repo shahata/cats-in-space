@@ -134,6 +134,30 @@ export default function MyComponent() {
 
 **NOTE**: Requires `@wix/essentials` >= 1.0.6. Older 0.x versions don't have `getTranslationFunction()` at runtime. Make sure to restart the dev server after upgrading.
 
+### Interpolation (Variables in Translations)
+
+The `t()` function uses **i18next** under the hood. Placeholders use **double curly braces** `{{variable}}`, NOT single braces `{variable}`.
+
+**In translation files:**
+```json
+{
+  "greeting": "Hello {{name}}!",
+  "trialDays": "{{days}}-day free trial",
+  "copyright": "© {{year}} My Site"
+}
+```
+
+**In code — pass an object as the second argument:**
+```ts
+t('greeting', { name: 'Whiskers' })        // → "Hello Whiskers!"
+t('trialDays', { days: '7' })              // → "7-day free trial"
+t('copyright', { year: '2026' })           // → "© 2026 My Site"
+```
+
+**CRITICAL**: Do NOT use `.replace('{var}', value)` — use `t('key', { var: value })` instead. The `.replace()` pattern breaks when the translation string changes word order across languages.
+
+**CRITICAL**: Always use `{{double braces}}` in translation strings. Single `{braces}` will NOT be interpolated — they'll render literally as `{days}` in the UI.
+
 ### Best Practice: Move ALL Static Text to Translations
 
 Every user-visible string should go through `t()` — not just nav labels. This includes:
@@ -143,8 +167,28 @@ Every user-visible string should go through `t()` — not just nav labels. This 
 - Error messages, success messages, loading states
 - Empty state text, confirmation dialogs
 - Status labels, meta information
+- **Directional arrows** (← →) — include them in the translation string so translators can flip direction for RTL languages
+- **Server enum values** (status codes like PAID, FULFILLED, Active, In Progress) — map to translation keys rather than displaying raw English enums
 
 Organize keys by page or component using nested groups in `translations.json`.
+
+### RTL Support
+
+Set the `dir` attribute dynamically on `<html>` based on the current language:
+```astro
+const lang = i18n.getLanguage();
+const dir = ['he', 'ar'].includes(lang) ? 'rtl' : 'ltr';
+---
+<html lang={i18n.getLocale()} dir={dir}>
+```
+
+Key RTL guidelines:
+- Use CSS logical properties (`margin-inline-start`, `padding-inline-end`, `inset-inline-end`, `border-inline-start`, `text-align: start`) instead of physical (`margin-left`, `right`, `border-left`, `text-align: left`)
+- **Directional arrows** in translation strings should flip character but keep position: EN `"text →"` becomes HE `"text ←"`, EN `"← text"` becomes HE `"→ text"`
+- Dropdown menus positioned with `right: 0` should use `inset-inline-end: 0`
+- Submenus opening to the right (`left: 100%`) should detect RTL and use `right: 100%` instead
+- The `dir="rtl"` attribute automatically reverses flexbox order, text alignment, and table layout — leverage this rather than adding manual overrides
+- Use `i18n.getLocale()` instead of hardcoded `'en-US'` for date formatting (`toLocaleDateString`)
 
 ### Language & Locale Helpers
 
