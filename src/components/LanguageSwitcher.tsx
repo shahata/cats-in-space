@@ -21,10 +21,14 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
     }
   })();
 
-  function countryToFlag(countryCode: string | undefined): string {
-    if (!countryCode || countryCode.length !== 2) return "";
+  function langToFlag(regionalFormat: string | undefined): string {
+    const country = regionalFormat?.split("-")[1];
+    if (!country || country.length !== 2) return "";
     return String.fromCodePoint(
-      ...countryCode.toUpperCase().split("").map(c => 0x1F1E6 + c.charCodeAt(0) - 65)
+      ...country
+        .toUpperCase()
+        .split("")
+        .map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
     );
   }
 
@@ -40,8 +44,9 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
 
   if (languages.length < 2) return null;
 
-  const currentLang = languages.find(l => l.id === currentLanguage);
-  const currentFlag = countryToFlag((currentLang as unknown as Record<string, string>)?.countryCode) || currentLanguage.toUpperCase();
+  const currentLang = languages.find((l) => l.id === currentLanguage);
+  const currentFlag =
+    langToFlag(currentLang?.regionalFormat) || currentLanguage.toUpperCase();
 
   if (variant === "dropdown") {
     return (
@@ -65,7 +70,9 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
                   ...(lang.id === currentLanguage ? styles.optionActive : {}),
                 }}
               >
-                <span style={styles.flag}>{countryToFlag((lang as unknown as Record<string, string>).countryCode) || (lang.id || "").toUpperCase()}</span>
+                <span style={styles.flag}>
+                  {langToFlag(lang.regionalFormat) || (lang.id || "").toUpperCase()}
+                </span>
                 <span style={styles.name}>{lang.displayName}</span>
                 {lang.id === currentLanguage && (
                   <span style={styles.check}>&#10003;</span>
@@ -102,7 +109,9 @@ export default function LanguageSwitcher({ variant }: LanguageSwitcherProps) {
                 ...(lang.id === currentLanguage ? styles.optionActive : {}),
               }}
             >
-              <span style={styles.flag}>{countryToFlag((lang as unknown as Record<string, string>).countryCode) || (lang.id || "").toUpperCase()}</span>
+              <span style={styles.flag}>
+                {langToFlag(lang.regionalFormat) || (lang.id || "").toUpperCase()}
+              </span>
               <span style={styles.name}>{lang.displayName}</span>
               {lang.id === currentLanguage && (
                 <span style={styles.check}>&#10003;</span>
