@@ -20,6 +20,7 @@ interface Props {
 
 export default function BlogEngagement({ postId, referenceId, memberName, memberPhoto, commentingEnabled = true }: Props) {
   const isLoggedIn = !!memberName;
+  const t = i18n.getTranslationFunction();
   const [metrics, setMetrics] = useState({ views: 0, likes: 0, comments: 0 });
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -215,7 +216,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
     try {
       const created = await commentsApi.createComment({
         appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
-        author: (isLoggedIn ? {} : { authorName: commentName.trim() || "Anonymous Space Cat" }) as commentsApi.CommentAuthor,
+        author: (isLoggedIn ? {} : { authorName: commentName.trim() || t('blog.anonymousCat') }) as commentsApi.CommentAuthor,
         content: makeRichContent(newComment.trim()),
       });
       captureIdentity(created);
@@ -234,7 +235,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
     try {
       const created = await commentsApi.createComment({
         appId: BLOG_APP_ID, contextId: referenceId, resourceId: referenceId,
-        author: (isLoggedIn ? {} : { authorName: replyName.trim() || "Anonymous Space Cat" }) as commentsApi.CommentAuthor,
+        author: (isLoggedIn ? {} : { authorName: replyName.trim() || t('blog.anonymousCat') }) as commentsApi.CommentAuthor,
         parentComment: { _id: parentId },
         content: makeRichContent(replyText.trim()),
       });
@@ -277,7 +278,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
   }
 
   async function handleDelete(commentId: string) {
-    if (!confirm("Delete this transmission?")) return;
+    if (!confirm(t('blog.deleteConfirm'))) return;
     try {
       await commentsApi.deleteComment(commentId);
       await loadComments();
@@ -301,7 +302,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
       }
     }
     const authorName = (comment.author as { authorName?: string })?.authorName;
-    return { name: authorName || "Space Visitor", isMember: false };
+    return { name: authorName || t('blog.spaceVisitor'), isMember: false };
   }
 
   function isOwnComment(comment: Comment): boolean {
@@ -339,7 +340,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
     const indent = Math.min(depth * 24, 72);
 
     return (
-      <div key={replyId + "-" + myVisitorId} style={{ ...commentCardStyle, marginLeft: indent, borderLeft: "2px solid #333" }}>
+      <div key={replyId + "-" + myVisitorId} style={{ ...commentCardStyle, marginInlineStart: indent, borderLeft: "2px solid #333" }}>
         <div style={commentHeaderStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             {rAuthorInfo.profileUrl ? (
@@ -353,9 +354,9 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
                 <span style={commentAuthorStyle}>{rAuthor}</span>
               </>
             )}
-            {rAuthorInfo.isMember && <span style={memberBadgeStyle}>crew</span>}
+            {rAuthorInfo.isMember && <span style={memberBadgeStyle}>{t('blog.crew')}</span>}
             {rAuthorInfo.title && <span style={{ fontSize: "0.7rem", color: "#666", fontStyle: "italic" }}>{rAuthorInfo.title}</span>}
-            {reply.contentEdited && <span style={editedBadgeStyle}>(edited)</span>}
+            {reply.contentEdited && <span style={editedBadgeStyle}>{t('blog.edited')}</span>}
           </div>
           <span style={commentDateStyle}>{formatDate(reply._createdDate)}</span>
         </div>
@@ -365,9 +366,9 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
               rows={2} style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => handleEdit(replyId, reply.revision!)}
-                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>Save</button>
+                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>{t('blog.save')}</button>
               <button onClick={() => { setEditingId(null); setEditText(""); }}
-                style={smallBtnStyle}>Cancel</button>
+                style={smallBtnStyle}>{t('blog.cancel')}</button>
             </div>
           </div>
         ) : (
@@ -377,15 +378,15 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
           <div style={commentActionsStyle}>
             <button onClick={() => toggleCommentLike(reply)}
               style={{ ...actionBtnStyle, color: likedCommentIds.has(replyId) ? "#ff6600" : "#888" }}>
-              {likedCommentIds.has(replyId) ? "♥ Liked" : "♡ Like"}</button>
+              {likedCommentIds.has(replyId) ? t('blog.likedComment') : t('blog.likeComment')}</button>
             {commentingEnabled && !loginRequired && <button onClick={() => { setReplyingTo(replyingTo === replyId ? null : replyId); setReplyText(""); setReplyName(""); }}
-              style={actionBtnStyle}>Reply</button>}
+              style={actionBtnStyle}>{t('blog.reply')}</button>}
             {rIsMine && (
               <>
                 <button onClick={() => { setEditingId(replyId); setEditText(rText); }}
-                  style={actionBtnStyle}>Edit</button>
+                  style={actionBtnStyle}>{t('blog.edit')}</button>
                 <button onClick={() => handleDelete(replyId)}
-                  style={{ ...actionBtnStyle, color: "#cc0000" }}>Delete</button>
+                  style={{ ...actionBtnStyle, color: "#cc0000" }}>{t('blog.delete')}</button>
               </>
             )}
           </div>
@@ -395,20 +396,20 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
             {isLoggedIn ? (
               <div style={{ ...memberIndicatorStyle, marginBottom: "8px" }}>
                 {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} referrerPolicy="no-referrer" />}
-                <span>Replying as <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
+                <span>{t('blog.replyingAs')} <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
               </div>
             ) : (
-              <input type="text" placeholder="Your name (optional)" value={replyName}
+              <input type="text" placeholder={t('blog.yourName')} value={replyName}
                 onChange={(e) => setReplyName(e.target.value)} style={{ ...inputStyle, marginBottom: "8px" }} />
             )}
-            <textarea placeholder="Write a reply..." value={replyText}
+            <textarea placeholder={t('blog.writeReply')} value={replyText}
               onChange={(e) => setReplyText(e.target.value)} rows={2}
               style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => submitReply(replyId)} disabled={submitting}
                 style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>
-                {submitting ? "Sending..." : "Send Reply"}</button>
-              <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>Cancel</button>
+                {submitting ? t('blog.sending') : t('blog.sendReply')}</button>
+              <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>{t('blog.cancel')}</button>
             </div>
           </div>
         )}
@@ -445,9 +446,9 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
                 <span style={commentAuthorStyle}>{authorInfo.name}</span>
               </>
             )}
-            {authorInfo.isMember && <span style={memberBadgeStyle}>crew</span>}
+            {authorInfo.isMember && <span style={memberBadgeStyle}>{t('blog.crew')}</span>}
             {authorInfo.title && <span style={{ fontSize: "0.7rem", color: "#666", fontStyle: "italic" }}>{authorInfo.title}</span>}
-            {comment.contentEdited && <span style={editedBadgeStyle}>(edited)</span>}
+            {comment.contentEdited && <span style={editedBadgeStyle}>{t('blog.edited')}</span>}
           </div>
           <span style={commentDateStyle}>{formatDate(comment._createdDate)}</span>
         </div>
@@ -458,9 +459,9 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
               rows={3} style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => handleEdit(commentId, comment.revision!)}
-                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>Save</button>
+                style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>{t('blog.save')}</button>
               <button onClick={() => { setEditingId(null); setEditText(""); }}
-                style={smallBtnStyle}>Cancel</button>
+                style={smallBtnStyle}>{t('blog.cancel')}</button>
             </div>
           </div>
         ) : (
@@ -471,15 +472,15 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
           <div style={commentActionsStyle}>
             <button onClick={() => toggleCommentLike(comment)}
               style={{ ...actionBtnStyle, color: likedCommentIds.has(commentId) ? "#ff6600" : "#888" }}>
-              {likedCommentIds.has(commentId) ? "♥ Liked" : "♡ Like"}</button>
+              {likedCommentIds.has(commentId) ? t('blog.likedComment') : t('blog.likeComment')}</button>
             {commentingEnabled && !loginRequired && <button onClick={() => { setReplyingTo(replyingTo === commentId ? null : commentId); setReplyText(""); setReplyName(""); }}
-              style={actionBtnStyle}>Reply{replies.length > 0 ? ` (${replies.length})` : ""}</button>}
+              style={actionBtnStyle}>{t('blog.reply')}{replies.length > 0 ? ` (${replies.length})` : ""}</button>}
             {isMine && (
               <>
                 <button onClick={() => { setEditingId(commentId); setEditText(text); }}
-                  style={actionBtnStyle}>Edit</button>
+                  style={actionBtnStyle}>{t('blog.edit')}</button>
                 <button onClick={() => handleDelete(commentId)}
-                  style={{ ...actionBtnStyle, color: "#cc0000" }}>Delete</button>
+                  style={{ ...actionBtnStyle, color: "#cc0000" }}>{t('blog.delete')}</button>
               </>
             )}
           </div>
@@ -487,17 +488,17 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
 
         {replyingTo === commentId && (
           <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #222" }}>
-            <input type="text" placeholder="Your name (optional)" value={replyName}
+            <input type="text" placeholder={t('blog.yourName')} value={replyName}
               onChange={(e) => setReplyName(e.target.value)}
               style={{ ...inputStyle, marginBottom: "8px" }} />
-            <textarea placeholder="Write a reply..." value={replyText}
+            <textarea placeholder={t('blog.writeReply')} value={replyText}
               onChange={(e) => setReplyText(e.target.value)} rows={2}
               style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => submitReply(commentId)} disabled={submitting}
                 style={{ ...smallBtnStyle, background: "#ff6600", color: "#000" }}>
-                {submitting ? "Sending..." : "Send Reply"}</button>
-              <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>Cancel</button>
+                {submitting ? t('blog.sending') : t('blog.sendReply')}</button>
+              <button onClick={() => setReplyingTo(null)} style={smallBtnStyle}>{t('blog.cancel')}</button>
             </div>
           </div>
         )}
@@ -516,53 +517,53 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
       <div style={statsBarStyle}>
         <div style={statItemStyle}>
           <span style={statNumStyle}>{metrics.views}</span>
-          <span style={statLabelStyle}>Views</span>
+          <span style={statLabelStyle}>{t('blog.views')}</span>
         </div>
         <div style={statItemStyle}>
           <span style={statNumStyle}>{metrics.likes}</span>
-          <span style={statLabelStyle}>Likes</span>
+          <span style={statLabelStyle}>{t('blog.likes')}</span>
         </div>
         <div style={statItemStyle}>
           <span style={statNumStyle}>{totalComments}</span>
-          <span style={statLabelStyle}>Comments</span>
+          <span style={statLabelStyle}>{t('blog.comments')}</span>
         </div>
         <button onClick={toggleLike} disabled={likeLoading}
           style={{ ...likeButtonStyle, background: liked ? "#ff6600" : "transparent", color: liked ? "#000" : "#ff6600" }}>
-          {liked ? "♥ Liked" : "♡ Like this post"}
+          {liked ? t('blog.liked') : t('blog.likePost')}
         </button>
       </div>
 
       <div style={commentsSectionStyle}>
-        <h3 style={commentsHeadingStyle}>Transmissions ({totalComments})</h3>
+        <h3 style={commentsHeadingStyle}>{t('blog.transmissions', { count: totalComments.toString() })}</h3>
         {commentElements.length > 0 && <div style={commentsListStyle}>{commentElements}</div>}
 
         {!commentingEnabled ? (
           <div style={{ ...commentFormStyle, textAlign: "center" as const }}>
-            <p style={{ color: "#666", fontSize: "0.9rem", fontStyle: "italic" }}>Comments are disabled for this post.</p>
+            <p style={{ color: "#666", fontSize: "0.9rem", fontStyle: "italic" }}>{t('blog.commentsDisabled')}</p>
           </div>
         ) : loginRequired ? (
           <div style={{ ...commentFormStyle, textAlign: "center" as const }}>
-            <h4 style={formTitleStyle}>Login Required</h4>
-            <p style={{ color: "#888", fontSize: "0.85rem", marginBottom: "16px" }}>You need to be logged in to leave a transmission.</p>
-            <a href={`/api/auth/login?returnToUrl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`} style={loginLinkStyle}>Log In / Sign Up</a>
+            <h4 style={formTitleStyle}>{t('blog.loginRequired')}</h4>
+            <p style={{ color: "#888", fontSize: "0.85rem", marginBottom: "16px" }}>{t('blog.loginToComment')}</p>
+            <a href={`/api/auth/login?returnToUrl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`} style={loginLinkStyle}>{t('blog.loginSignUp')}</a>
           </div>
         ) : (
           <form onSubmit={submitComment} style={commentFormStyle}>
-            <h4 style={formTitleStyle}>Leave a Transmission</h4>
+            <h4 style={formTitleStyle}>{t('blog.leaveTransmission')}</h4>
             {isLoggedIn ? (
               <div style={memberIndicatorStyle}>
                 {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} referrerPolicy="no-referrer" />}
-                <span>Commenting as <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
+                <span>{t('blog.commentingAs')} <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
               </div>
             ) : (
-              <input type="text" placeholder="Your name (optional)" value={commentName}
+              <input type="text" placeholder={t('blog.yourName')} value={commentName}
                 onChange={(e) => setCommentName(e.target.value)} style={inputStyle} />
             )}
-            <textarea placeholder="Write your message to the crew..." value={newComment}
+            <textarea placeholder={t('blog.writeMessage')} value={newComment}
               onChange={(e) => setNewComment(e.target.value)} rows={4}
               style={{ ...inputStyle, resize: "vertical" as const }} required />
             <button type="submit" disabled={submitting} style={submitButtonStyle}>
-              {submitting ? "Transmitting..." : "Send Transmission"}
+              {submitting ? t('blog.transmitting') : t('blog.sendTransmission')}
             </button>
           </form>
         )}
@@ -576,7 +577,7 @@ const statsBarStyle: React.CSSProperties = { display: "flex", alignItems: "cente
 const statItemStyle: React.CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center" };
 const statNumStyle: React.CSSProperties = { fontFamily: "'Black Ops One', cursive", fontSize: "1.5rem", color: "#ff6600" };
 const statLabelStyle: React.CSSProperties = { fontSize: "0.75rem", color: "#888", textTransform: "uppercase", letterSpacing: "1px", marginTop: "2px" };
-const likeButtonStyle: React.CSSProperties = { marginLeft: "auto", padding: "10px 24px", border: "2px solid #ff6600", borderRadius: "8px", fontFamily: "'Bangers', cursive", fontSize: "1rem", letterSpacing: "1px", cursor: "pointer", transition: "all 0.3s" };
+const likeButtonStyle: React.CSSProperties = { marginInlineStart: "auto", padding: "10px 24px", border: "2px solid #ff6600", borderRadius: "8px", fontFamily: "'Bangers', cursive", fontSize: "1rem", letterSpacing: "1px", cursor: "pointer", transition: "all 0.3s" };
 const commentsSectionStyle: React.CSSProperties = { marginTop: "40px" };
 const commentsHeadingStyle: React.CSSProperties = { fontFamily: "'Bangers', cursive", fontSize: "1.5rem", color: "#ff6600", letterSpacing: "1px", marginBottom: "20px" };
 const commentsListStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "16px", marginBottom: "30px" };
