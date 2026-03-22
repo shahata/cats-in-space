@@ -15,7 +15,8 @@ type Member = members.Member;
 type Post = posts.Post & { metrics?: Metrics };
 
 // Use queryPosts — returns real metrics (views, likes, comments). listPosts returns zeros.
-const queryResult = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).find();
+const currentLanguage = i18n.getLanguage();
+const queryResult = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).eq('language', currentLanguage).find();
 const blogPosts = queryResult.items || [];
 // Fetch all tags
 const tagsResult = await tagsApi.queryTags({});
