@@ -7,10 +7,6 @@ import LanguageSwitcher from './LanguageSwitcher';
 const currentPath = Astro.url.pathname;
 const t = i18n.getTranslationFunction();
 
-// Get the page path without locale prefix for active-link matching
-const localePrefix = getRelativeLocaleUrl('/').replace(/\/$/, '');
-const pagePath = localePrefix ? currentPath.replace(localePrefix, '') || '/' : currentPath;
-
 let loggedInMember: string | null = null;
 let memberPhoto: string | null = null;
 try {
@@ -22,17 +18,15 @@ try {
 } catch {}
 
 const links = [
-	{ href: getRelativeLocaleUrl('/'), label: t('nav.home'), matchPath: '/' },
-	{ href: getRelativeLocaleUrl('/planets'), label: t('nav.planets'), matchPath: '/planets' },
-	{ href: getRelativeLocaleUrl('/crew'), label: t('nav.crew'), matchPath: '/crew' },
-	{ href: getRelativeLocaleUrl('/missions'), label: t('nav.missions'), matchPath: '/missions' },
-	{ href: getRelativeLocaleUrl('/blog'), label: t('nav.blog'), matchPath: '/blog' },
-	{ href: getRelativeLocaleUrl('/store'), label: t('nav.store'), matchPath: '/store' },
-	{ href: getRelativeLocaleUrl('/bookings'), label: t('nav.bookings'), matchPath: '/bookings' },
-	{ href: getRelativeLocaleUrl('/plans'), label: t('nav.plans'), matchPath: '/plans' },
+	{ href: getRelativeLocaleUrl('/'), label: t('nav.home') },
+	{ href: getRelativeLocaleUrl('/planets'), label: t('nav.planets') },
+	{ href: getRelativeLocaleUrl('/crew'), label: t('nav.crew') },
+	{ href: getRelativeLocaleUrl('/missions'), label: t('nav.missions') },
+	{ href: getRelativeLocaleUrl('/blog'), label: t('nav.blog') },
+	{ href: getRelativeLocaleUrl('/store'), label: t('nav.store') },
+	{ href: getRelativeLocaleUrl('/bookings'), label: t('nav.bookings') },
+	{ href: getRelativeLocaleUrl('/plans'), label: t('nav.plans') },
 ];
-
-const strippedPath = pagePath;
 ---
 
 <nav class="nav">
@@ -47,7 +41,7 @@ const strippedPath = pagePath;
 			{links.map(link => (
 				<a
 					href={link.href}
-					class:list={['nav-link', { active: strippedPath === link.matchPath || (link.matchPath !== '/' && strippedPath.startsWith(link.matchPath)) }]}
+					class:list={['nav-link', { active: currentPath === link.href || (link.href !== getRelativeLocaleUrl('/') && currentPath.startsWith(link.href)) }]}
 				>
 					{link.label}
 				</a>
