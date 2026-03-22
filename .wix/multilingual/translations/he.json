@@ -32,11 +32,11 @@
     "distance": "מרחק",
     "theCrew": "הצוות",
     "theCrewSubtitle": "החוקרים האמיצים (והפרוותיים) ביותר בגלקסיה",
-    "fullCrewRoster": "רשימת הצוות המלאה \u2190",
+    "fullCrewRoster": "רשימת הצוות המלאה ←",
     "missionLog": "יומן משימות",
     "missionLogSubtitle": "משלחות נוכחיות ושיגורים קרובים",
     "destination": "יעד",
-    "allMissions": "כל המשימות \u2190",
+    "allMissions": "כל המשימות ←",
     "quote": "צעד קטן לחתול, קפיצת ענק לחתוליות.",
     "quoteAuthor": "קפטן שפם, לפני השיגור הראשון"
   },
@@ -44,7 +44,7 @@
     "pageTitle": "מאגר כוכבי הלכת",
     "pageSubtitle": "כל העולמות שנסקרו, מדורגים לפי התאמה לחיי חתולים",
     "habitable": "ראוי למגורים",
-    "backToAll": "\u2192 כל כוכבי הלכת",
+    "backToAll": "→ כל כוכבי הלכת",
     "overview": "סקירה",
     "relatedMissions": "משימות קשורות",
     "planetStats": "נתוני הכוכב",
@@ -57,7 +57,7 @@
   "crew": {
     "pageTitle": "רשימת הצוות",
     "pageSubtitle": "החתולים האמיצים ביותר שאי פעם עזבו קופסת קרטון מושלמת",
-    "backToAll": "\u2192 כל הצוות",
+    "backToAll": "→ כל הצוות",
     "bio": "ביוגרפיה",
     "dossier": "תיק אישי",
     "specialSkill": "כישרון מיוחד",
@@ -70,14 +70,14 @@
     "pageSubtitle": "מעקב אחרי כל משלחת מסמרת שפם אל הלא נודע",
     "crew": "צוות",
     "launch": "שיגור",
-    "backToAll": "\u2192 כל המשימות",
+    "backToAll": "→ כל המשימות",
     "missionBrief": "תקציר המשימה",
     "missionLog": "יומן המשימה",
     "missionDetails": "פרטי המשימה",
     "destination": "יעד",
     "launchDate": "תאריך שיגור",
     "status": "סטטוס",
-    "goToPlanet": "\u2190 {planet}"
+    "goToPlanet": "← {{planet}}"
   },
   "blog": {
     "pageTitle": "יומן הספינה",
@@ -88,11 +88,11 @@
     "views": "צפיות",
     "likes": "לייקים",
     "comments": "תגובות",
-    "readTransmission": "קראו את השידור \u2190",
-    "backToLog": "\u2192 חזרה ליומן הספינה",
+    "readTransmission": "קראו את השידור ←",
+    "backToLog": "→ חזרה ליומן הספינה",
     "pinnedPost": "פוסט מוצמד",
     "writtenBy": "נכתב על ידי",
-    "moreTransmissions": "\u2192 שידורים נוספים"
+    "moreTransmissions": "→ שידורים נוספים"
   },
   "store": {
     "pageTitle": "מחסן הציוד של חתולי החלל",
@@ -114,7 +114,7 @@
     "pageSubtitle": "בחרו את הדרגה שלכם על סיפון SS מתקן הגירוד",
     "mostPopular": "הכי פופולרי",
     "free": "חינם",
-    "freeTrialDays": "תקופת ניסיון של {days} ימים",
+    "freeTrialDays": "תקופת ניסיון של {{days}} ימים",
     "thankYouTitle": "ברוכים הבאים לסיפון, חבר צוות!",
     "thankYouSubtitle": "המנוי שלכם פעיל כעת. אתם רשמית חלק מהצוות.",
     "plan": "מסלול",
@@ -142,7 +142,7 @@
     "checkout": "לתשלום"
   },
   "footer": {
-    "copyright": "חתולים בחלל \u00a9 {year}",
+    "copyright": "חתולים בחלל © {{year}}",
     "tagline": "אף חתול לא נפגע. כמה חתולים חוו אי נוחות קלה מחליפות חלל."
   },
   "profile": {
@@ -206,7 +206,7 @@
     "newEmailPlaceholder": "new@email.com",
     "changeEmail": "שנו אימייל",
     "changePassword": "שנו סיסמה",
-    "changePasswordDesc": "נשלח קישור מאובטח אל {email} שם תוכלו להגדיר סיסמה חדשה.",
+    "changePasswordDesc": "נשלח קישור מאובטח אל {{email}} שם תוכלו להגדיר סיסמה חדשה.",
     "sendChangePasswordLink": "שלחו קישור לשינוי סיסמה",
     "sending": "שולח...",
     "passwordResetSent": "אימייל לאיפוס סיסמה נשלח! בדקו את תיבת הדואר.",
@@ -293,7 +293,7 @@
     "chooseProvider": "בחרו את המטפל שלכם:",
     "selectDate": "בחרו תאריך:",
     "confirmAppointment": "אשרו את התור:",
-    "bookingWith": "תור עם {name}",
+    "bookingWith": "תור עם {{name}}",
     "anyAvailableStaff": "כל מטפל פנוי",
     "scanningSchedules": "סורק את לוחות הזמנים של המרפאה...",
     "noSlotsForDate": "אין זמנים פנויים בתאריך זה.",
@@ -357,10 +357,10 @@
     "pauseHistory": "היסטוריית השהיות",
     "ongoing": "פעיל",
     "days": "ימים",
-    "orderNumber": "הזמנה #{number}",
+    "orderNumber": "הזמנה #{{number}}",
     "unknownPlan": "מסלול לא ידוע",
-    "crewMemberSince": "חבר צוות מאז {date}",
-    "canceledOn": "ב-{date}",
+    "crewMemberSince": "חבר צוות מאז {{date}}",
+    "canceledOn": "ב-{{date}}",
     "activeUntilNextBilling": "פעיל עד תאריך החיוב הבא",
     "effectiveImmediately": "בתוקף מיידי",
     "notApplicable": "לא רלוונטי"

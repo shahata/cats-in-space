@@ -270,7 +270,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
       {step === "date" && (
         <div>
           <p style={styles.stepLabel}>
-            {selectedStaffInfo ? `${t('bookings.bookingWith').replace('{name}', selectedStaffInfo.name)}` : t('bookings.anyAvailableStaff')}
+            {selectedStaffInfo ? t('bookings.bookingWith', { name: selectedStaffInfo.name }) : t('bookings.anyAvailableStaff')}
             {staff.length > 1 && (
               <button onClick={() => setStep("staff")} style={styles.changeBtn}>{t('bookings.change')}</button>
             )}

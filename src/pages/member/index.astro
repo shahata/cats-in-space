@@ -129,7 +129,7 @@ const tabs = [
 								<div class="sub-card">
 									<div class="sub-header">
 										<div>
-											<div class="sub-plan-name">{t('member.orderNumber').replace('{number}', String(sOrder.number || sOrder._id?.slice(-8)))}</div>
+											<div class="sub-plan-name">{t('member.orderNumber', { number: String(sOrder.number || sOrder._id?.slice(-8)) })}</div>
 											<div class="sub-plan-desc">{fmtDate(sOrder._createdDate)}</div>
 										</div>
 										<div class="sub-badges">
@@ -289,7 +289,7 @@ const tabs = [
 												<span class="sub-detail-label">{t('member.cancellation')}</span>
 												<span class="sub-detail-value">
 													{cancellation.cause === 'OWNER_ACTION' ? t('member.canceledByYou') : cancellation.cause === 'UNDEFINED' ? t('status.canceled') : cancellation.cause}
-													{cancellation.requestedDate && ` — ${t('member.canceledOn').replace('{date}', fmt(cancellation.requestedDate) || '')}`}
+													{cancellation.requestedDate && ` — ${t('member.canceledOn', { date: fmt(cancellation.requestedDate) || '' })}`}
 													{cancellation.effectiveAt === 'NEXT_PAYMENT_DATE' && ' — ' + t('member.activeUntilNextBilling')}
 													{cancellation.effectiveAt === 'IMMEDIATELY' && ' — ' + t('member.effectiveImmediately')}
 												</span>

@@ -493,7 +493,7 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
             <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #222" }}>
               <label style={labelStyle}>{t('profile.changePassword')}</label>
               <p style={{ color: "#888", fontSize: "0.8rem", marginBottom: "8px" }}>
-                {t('profile.changePasswordDesc').replace('{email}', member.loginEmail || '')}
+                {t('profile.changePasswordDesc', { email: member.loginEmail || '' })}
               </p>
               <button type="button" onClick={handleResetPassword} disabled={passwordSending}
                 style={smallButtonStyle}>

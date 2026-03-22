@@ -77,7 +77,7 @@
     "destination": "目的地",
     "launchDate": "打ち上げ日",
     "status": "ステータス",
-    "goToPlanet": "→ {planet}"
+    "goToPlanet": "→ {{planet}}"
   },
   "blog": {
     "pageTitle": "航海日誌",
@@ -114,7 +114,7 @@
     "pageSubtitle": "SS スクラッチングポスト号での階級を選びましょう",
     "mostPopular": "一番人気",
     "free": "無料",
-    "freeTrialDays": "{days}日間無料トライアル",
+    "freeTrialDays": "{{days}}日間無料トライアル",
     "thankYouTitle": "乗船を歓迎します、クルーメンバー！",
     "thankYouSubtitle": "サブスクリプションが有効になりました。正式にクルーの一員です。",
     "plan": "プラン",
@@ -142,7 +142,7 @@
     "checkout": "チェックアウト"
   },
   "footer": {
-    "copyright": "宇宙猫 © {year}",
+    "copyright": "宇宙猫 © {{year}}",
     "tagline": "猫に危害はありませんでした。数匹が宇宙服にちょっと迷惑した程度です。"
   },
   "profile": {
@@ -206,7 +206,7 @@
     "newEmailPlaceholder": "new@email.com",
     "changeEmail": "メールを変更",
     "changePassword": "パスワードを変更",
-    "changePasswordDesc": "{email} に安全なリンクを送信します。そこで新しいパスワードを設定できます。",
+    "changePasswordDesc": "{{email}} に安全なリンクを送信します。そこで新しいパスワードを設定できます。",
     "sendChangePasswordLink": "パスワード変更リンクを送信",
     "sending": "送信中...",
     "passwordResetSent": "パスワードリセットメールを送信しました！受信箱を確認してください。",
@@ -293,7 +293,7 @@
     "chooseProvider": "担当医を選んでください：",
     "selectDate": "日付を選択：",
     "confirmAppointment": "予約内容を確認：",
-    "bookingWith": "{name} で予約",
+    "bookingWith": "{{name}} で予約",
     "anyAvailableStaff": "空いているスタッフ",
     "scanningSchedules": "医療室のスケジュールを確認中...",
     "noSlotsForDate": "この日に空き時間はありません。",
@@ -357,10 +357,10 @@
     "pauseHistory": "一時停止履歴",
     "ongoing": "継続中",
     "days": "日",
-    "orderNumber": "注文 #{number}",
+    "orderNumber": "注文 #{{number}}",
     "unknownPlan": "不明なプラン",
-    "crewMemberSince": "{date}からのクルーメンバー",
-    "canceledOn": "{date}に",
+    "crewMemberSince": "{{date}}からのクルーメンバー",
+    "canceledOn": "{{date}}に",
     "activeUntilNextBilling": "次の請求日まで有効",
     "effectiveImmediately": "即時有効",
     "notApplicable": "N/A"

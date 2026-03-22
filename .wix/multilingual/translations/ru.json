@@ -77,7 +77,7 @@
     "destination": "Пункт назначения",
     "launchDate": "Дата запуска",
     "status": "Статус",
-    "goToPlanet": "→ {planet}"
+    "goToPlanet": "→ {{planet}}"
   },
   "blog": {
     "pageTitle": "Бортовой журнал",
@@ -114,7 +114,7 @@
     "pageSubtitle": "Выберите ваше звание на борту SS Когтеточка",
     "mostPopular": "Самый популярный",
     "free": "Бесплатно",
-    "freeTrialDays": "{days}-дневный пробный период",
+    "freeTrialDays": "{{days}}-дневный пробный период",
     "thankYouTitle": "Добро пожаловать на борт, член экипажа!",
     "thankYouSubtitle": "Ваша подписка активирована. Вы официально в составе экипажа.",
     "plan": "Тариф",
@@ -142,7 +142,7 @@
     "checkout": "Оформить заказ"
   },
   "footer": {
-    "copyright": "КОТЫ В КОСМОСЕ © {year}",
+    "copyright": "КОТЫ В КОСМОСЕ © {{year}}",
     "tagline": "Ни один кот не пострадал. Нескольких слегка побеспокоили скафандры."
   },
   "profile": {
@@ -206,7 +206,7 @@
     "newEmailPlaceholder": "new@email.com",
     "changeEmail": "Изменить email",
     "changePassword": "Изменить пароль",
-    "changePasswordDesc": "Мы отправим защищённую ссылку на {email}, где вы сможете задать новый пароль.",
+    "changePasswordDesc": "Мы отправим защищённую ссылку на {{email}}, где вы сможете задать новый пароль.",
     "sendChangePasswordLink": "Отправить ссылку для смены пароля",
     "sending": "Отправка...",
     "passwordResetSent": "Письмо для сброса пароля отправлено! Проверьте почту.",
@@ -293,7 +293,7 @@
     "chooseProvider": "Выберите врача:",
     "selectDate": "Выберите дату:",
     "confirmAppointment": "Подтвердите запись:",
-    "bookingWith": "Запись к {name}",
+    "bookingWith": "Запись к {{name}}",
     "anyAvailableStaff": "Любой свободный специалист",
     "scanningSchedules": "Сканируем расписание медотсека...",
     "noSlotsForDate": "На эту дату свободных слотов нет.",
@@ -357,10 +357,10 @@
     "pauseHistory": "История приостановок",
     "ongoing": "текущая",
     "days": "дней",
-    "orderNumber": "Заказ #{number}",
+    "orderNumber": "Заказ #{{number}}",
     "unknownPlan": "Неизвестный тариф",
-    "crewMemberSince": "Член экипажа с {date}",
-    "canceledOn": "{date}",
+    "crewMemberSince": "Член экипажа с {{date}}",
+    "canceledOn": "{{date}}",
     "activeUntilNextBilling": "активна до следующей оплаты",
     "effectiveImmediately": "вступает в силу немедленно",
     "notApplicable": "Н/Д"

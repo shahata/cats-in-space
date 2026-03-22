@@ -67,7 +67,7 @@ const slug_ = member.profile?.slug || '';
 				<div class="profile-info">
 					<h1>{nickname}</h1>
 					{title && <p class="profile-title">{title}</p>}
-					{joinDate && <p class="profile-meta">{t('member.crewMemberSince').replace('{date}', joinDate)}</p>}
+					{joinDate && <p class="profile-meta">{t('member.crewMemberSince', { date: joinDate })}</p>}
 					{slug_ && <p class="profile-meta">@{slug_}</p>}
 				</div>
 			</div>
