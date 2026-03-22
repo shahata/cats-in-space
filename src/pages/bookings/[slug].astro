@@ -6,8 +6,10 @@ import BookingFlow from '../../components/BookingFlow';
 import { services, staffMembers } from '@wix/bookings';
 import { members } from '@wix/members';
 import { getImageUrl } from '../../utils/image';
+import { formatCurrency } from '../../utils/format';
 import { i18n } from '@wix/essentials';
 const t = i18n.getTranslationFunction();
+const locale = i18n.getLocale();
 
 const { slug } = Astro.params;
 
@@ -101,7 +103,7 @@ const staffForClient = serviceStaff.map((s: any) => {
 							<span class="detail-label">{t('bookings.cost')}</span>
 							<span class="detail-value">
 								{service.payment?.rateType === 'FIXED'
-									? `${service.payment.fixed?.price?.currency} ${service.payment.fixed?.price?.value}`
+									? formatCurrency(service.payment.fixed?.price?.value || 0, service.payment.fixed?.price?.currency || 'USD', locale)
 									: service.payment?.options?.pricingPlan
 										? t('bookings.membersOnly')
 										: t('bookings.free')}

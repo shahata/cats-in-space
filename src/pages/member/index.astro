@@ -9,7 +9,9 @@ import MyBookings from '../../components/MyBookings';
 import { members, membersAbout } from '@wix/members';
 import { savedPaymentMethods } from '@wix/payments';
 import { i18n } from '@wix/essentials';
+import { formatCurrency, cyclePeriodKey } from '../../utils/format';
 const t = i18n.getTranslationFunction();
+const locale = i18n.getLocale();
 import type { members as membersTypes } from '@wix/members';
 import { orders } from '@wix/pricing-plans';
 import { orders as ecomOrders } from '@wix/ecom';
@@ -195,8 +197,9 @@ const tabs = [
 							{(myOrders || []).map((order) => {
 								const fmt = fmtDate;
 								const isFree = parseFloat(order.priceDetails?.planPrice || "0") === 0;
-								const curr = order.priceDetails?.currency === 'USD' ? '$' : (order.priceDetails?.currency || '$');
+								const currCode = order.priceDetails?.currency || 'USD';
 								const planPrice = order.priceDetails?.planPrice || "0";
+								const fmtPrice = (v: string) => formatCurrency(v, currCode, locale);
 								const discount = order.priceDetails?.discount && parseFloat(order.priceDetails.discount) > 0 ? order.priceDetails.discount : null;
 								const couponCode = order.priceDetails?.coupon?.code;
 								const total = order.priceDetails?.total || planPrice;
@@ -207,7 +210,7 @@ const tabs = [
 								const nextBilling = fmt(order.currentCycle?.endedDate);
 								const sub = order.priceDetails?.subscription;
 								const cycleDuration = sub?.cycleDuration;
-								const cycleLabel = cycleDuration ? `Every ${cycleDuration.count > 1 ? cycleDuration.count + ' ' : ''}${(cycleDuration.unit || '').toLowerCase()}${cycleDuration.count > 1 ? 's' : ''}` : null;
+								const cycleLabel = cycleDuration ? `${t('plans.every')} ${cycleDuration.count > 1 ? cycleDuration.count + ' ' : ''}${t(cyclePeriodKey(cycleDuration.unit || ''))}` : null;
 								const paymentStatus = order.lastPaymentStatus;
 								const cancellation = order.cancellation;
 
@@ -230,20 +233,20 @@ const tabs = [
 											<div class="sub-detail">
 												<span class="sub-detail-label">{t('member.price')}</span>
 												<span class="sub-detail-value">
-													{isFree ? t('plans.free') : `${curr}${planPrice}`}
-													{cycleLabel && !isFree && <span class="sub-cycle"> / {cycleLabel.replace('Every ', '')}</span>}
+													{isFree ? t('plans.free') : fmtPrice(planPrice)}
+													{cycleLabel && !isFree && <span class="sub-cycle"> / {cycleLabel}</span>}
 												</span>
 											</div>
 											{discount && (
 												<div class="sub-detail">
 													<span class="sub-detail-label">{t('member.discount')}</span>
-													<span class="sub-detail-value sub-discount">-{curr}{discount}{couponCode && ` (${couponCode})`}</span>
+													<span class="sub-detail-value sub-discount">-{fmtPrice(discount)}{couponCode && ` (${couponCode})`}</span>
 												</div>
 											)}
 											{discount && (
 												<div class="sub-detail">
 													<span class="sub-detail-label">{t('member.totalPaid')}</span>
-													<span class="sub-detail-value">{curr}{total}</span>
+													<span class="sub-detail-value">{fmtPrice(total)}</span>
 												</div>
 											)}
 											{inTrial && order.freeTrialDays && (

@@ -5,7 +5,9 @@ import Footer from '../components/Footer.astro';
 import PlanCheckout from '../components/PlanCheckout';
 import { plans } from '@wix/pricing-plans';
 import { i18n } from '@wix/essentials';
+import { formatCurrency, cyclePeriodKey } from '../utils/format';
 const t = i18n.getTranslationFunction();
+const locale = i18n.getLocale();
 
 const result = await plans.queryPublicPlans().find();
 const allPlans = result.items || [];
@@ -42,9 +44,8 @@ const allPlans = result.items || [];
 									<span class="price">{t('plans.free')}</span>
 								) : (
 									<>
-										<span class="currency">{currency === 'USD' ? '$' : currency}</span>
-										<span class="price">{priceValue}</span>
-										{cycleDuration && <span class="period">/{cycleDuration.unit?.toLowerCase()}</span>}
+										<span class="price">{formatCurrency(priceValue, currency, locale)}</span>
+										{cycleDuration && <span class="period">/{t(cyclePeriodKey(cycleDuration.unit || ''))}</span>}
 									</>
 								)}
 							</div>

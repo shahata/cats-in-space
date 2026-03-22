@@ -4,6 +4,7 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { orders } from '@wix/pricing-plans';
 import { i18n } from '@wix/essentials';
+import { cyclePeriodKey } from '../../utils/format';
 
 const orderId = Astro.url.searchParams.get('orderId');
 const locale = await i18n.getLocale();
@@ -58,7 +59,7 @@ const fmt = (amount: number, currency: string) =>
 						<div class="ty-detail">
 							<span class="ty-label">{t('plans.billing')}</span>
 							<span class="ty-detail-value">
-								{t('plans.every')} {order.priceDetails.subscription.cycleDuration.count > 1 ? order.priceDetails.subscription.cycleDuration.count + ' ' : ''}{(order.priceDetails.subscription.cycleDuration.unit || '').toLowerCase()}{order.priceDetails.subscription.cycleDuration.count > 1 ? 's' : ''}
+								{t('plans.every')} {order.priceDetails.subscription.cycleDuration.count > 1 ? order.priceDetails.subscription.cycleDuration.count + ' ' : ''}{t(cyclePeriodKey(order.priceDetails.subscription.cycleDuration.unit || ''))}
 							</span>
 						</div>
 					)}
