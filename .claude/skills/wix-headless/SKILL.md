@@ -260,10 +260,31 @@ const item = result.items[0];
 ---
 ```
 
+## Media Generation
+
+**Every entity that supports an image should have one.** Pages without images look incomplete — this applies to products, categories, blog posts, services, staff members, CMS collection items, and any other entity with an image field.
+
+**Always generate images and videos using AI** — do not import pre-existing stock images or placeholder images unless the user explicitly provides URLs or asks to use specific existing images. AI-generated media ensures unique, on-brand visuals for every entity.
+
+### OpenAI API Key
+
+Image and video generation requires an **OpenAI API key**. If one is not already configured in the environment, ask the user to provide it before proceeding with media generation. Use OpenAI's image generation APIs for images and video generation APIs for video.
+
+### Workflow
+
+1. **Generate** the image/video via OpenAI API. Request a URL response format when available — URLs can be passed directly to the Wix import endpoint.
+2. **Upload to Wix:** `POST https://www.wixapis.com/site-media/v1/files/import` with `{ "url": "...", "mimeType": "image/png", "displayName": "..." }`. The returned `file.url` is usable immediately even while `operationStatus` is `PENDING`.
+3. **Attach at creation time** — include media when creating entities, not as a separate step. For products, use `media.itemsInfo.items` inline. For CMS items, set IMAGE fields directly. For blog posts, set the `media.wixMedia.image` field.
+4. **Add images one at a time via MCP** (batching may silently drop).
+5. For **video**: generate via OpenAI → temp host if needed → Wix Import File API → attach by media `id`.
+
 ## Deployment
+
+**CRITICAL:** Always run `npm run build` before `npm run preview` or `npm run release`. The build step compiles the project and catches TypeScript and template errors. Deploying without building first will use stale build output or fail.
 
 | Command | Purpose |
 |---------|---------|
+| `npm run build` | Production build — **run this first** |
 | `npm run preview` | Deploy preview (unique URL each time) |
 | `npm run release` | Deploy to production |
 

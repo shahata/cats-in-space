@@ -286,28 +286,9 @@ A good pricing plans page includes:
    - Subscribe button (PlanCheckout component)
 4. **Featured plan highlighting** — middle plan (or `plan.primary`) gets accent border, glow shadow, and "Most Popular" badge
 
-### Featured Plan Styling
+### Featured Plan
 
-```css
-.plan-card.featured {
-  border-color: var(--accent);
-  box-shadow: 0 0 30px var(--accent-glow);
-  position: relative;
-}
-.featured-badge {
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--accent);
-  color: var(--text-dark);
-  padding: 0.25rem 1rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-```
+Visually highlight the primary/recommended plan (the one with `plan.primary === true` or a middle plan). Show a "Most Popular" badge and make it stand out from the others.
 
 ### Price Display
 
@@ -332,15 +313,7 @@ function getPeriodKey(unit?: string): string {
 
 ### Perks List
 
-```html
-<ul class="perks">
-  {(plan.perks?.values || []).map(perk => (
-    <li>{perk}</li>
-  ))}
-</ul>
-```
-
-Style with checkmark pseudo-element: `li::before { content: '✓'; color: var(--accent); }`
+Display perks as a bulleted list with checkmarks. Access them at `plan.perks?.values` (string array).
 
 **CRITICAL:** Perks are `plan.perks?.values` (not `plan.perks` directly).
 

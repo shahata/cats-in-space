@@ -30,7 +30,7 @@ if (!member) {
 
 ### Fetch All Member Data Server-Side
 
-Load everything in parallel with try-catch fallbacks:
+Load everything with individual try-catch fallbacks:
 
 ```astro
 ---
@@ -51,7 +51,6 @@ try {
 } catch {}
 try {
   const res = await membersAbout.getMyMemberAbout();
-  // Parse rich content to text
   aboutText = extractTextFromRichContent(res.memberAbout?.content);
 } catch {}
 try {
@@ -77,86 +76,39 @@ const activeOrders = planOrders.filter((o: any) =>
 
 ## Tab Navigation
 
-### Structure
+### Tabs to Include
 
-Use 7 tabs: Profile, Personal Info, Bookings, Store Orders, Subscriptions, Payment, Account.
+Include these tabs (omit tabs for features the site doesn't use):
 
-```html
-<div class="tab-nav">
-  <button class="tab active" data-tab="profile">{t('member.tabProfile')}</button>
-  <button class="tab" data-tab="personal">{t('member.tabPersonal')}</button>
-  <button class="tab" data-tab="bookings">{t('member.tabBookings')}</button>
-  <button class="tab" data-tab="orders">{t('member.tabOrders')}</button>
-  <button class="tab" data-tab="subscriptions">{t('member.tabSubscriptions')}</button>
-  <button class="tab" data-tab="payment">{t('member.tabPayment')}</button>
-  <button class="tab" data-tab="account">{t('member.tabAccount')}</button>
-</div>
-```
+1. **Profile** — public profile editing
+2. **Personal Info** — contact details and address
+3. **Bookings** — upcoming and past appointments (if site has bookings)
+4. **Store Orders** — e-commerce order history (if site has a store)
+5. **Subscriptions** — pricing plan subscriptions (if site has plans)
+6. **Payment** — saved payment methods
+7. **Account** — email/password management
 
-### Hash-Based Navigation
+### Hash-Based Tab State
 
-Use URL hash for tab state so it survives page reload and supports deep linking:
+Use URL hash for tab state so it survives page reload and supports deep linking (e.g., `/member#bookings`). This also allows other pages to link directly to a specific tab.
 
-```html
-<script>
-  function showTab(tabId) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    const panel = document.getElementById('panel-' + tabId);
-    const tab = document.querySelector(`[data-tab="${tabId}"]`);
-    if (panel) panel.style.display = 'block';
-    if (tab) tab.classList.add('active');
-  }
+### Responsive Behavior
 
-  // Support hash navigation
-  const hash = window.location.hash.replace('#', '') || 'profile';
-  showTab(hash);
-
-  document.querySelectorAll('.tab').forEach(t => {
-    t.addEventListener('click', () => {
-      const id = t.dataset.tab;
-      window.location.hash = id;
-      showTab(id);
-    });
-  });
-</script>
-```
-
-### Responsive Tabs
-
-On mobile, tabs should show icons only and wrap:
-
-```css
-.tab-nav {
-  display: flex;
-  gap: 0.25rem;
-  overflow-x: auto;
-}
-.tab {
-  flex: 1;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  padding: 0.6rem 0.75rem;
-}
-@media (max-width: 768px) {
-  .tab .tab-label { display: none; }
-}
-```
+On mobile, tabs should show icons only (hide text labels) and scroll horizontally.
 
 ## Profile Tab (MemberProfile Component)
 
-The profile tab is a React `client:load` component that manages:
+Build as a React `client:load` component.
 
-### Public Profile Fields
-- **Cover photo** — 160px height, upload/remove actions via server API endpoint
-- **Profile photo** — circular 80px, upload/remove via server API endpoint
+### Functionality
+
+- **Cover photo** — upload and remove via server API endpoint
+- **Profile photo** — upload and remove via server API endpoint
 - **Nickname** — text input
-- **Title** — text input (e.g., role or tagline)
+- **Title** — text input (role or tagline)
 - **Profile slug** — separate update action (`updateCurrentMemberSlug`)
 - **Privacy** — toggle between PUBLIC and PRIVATE
+- **About/bio** — text area, saved as rich content
 
 **CRITICAL:** `updateMember` silently ignores `privacyStatus`. Use `members.joinCommunity()` for PUBLIC and `members.leaveCommunity()` for PRIVATE.
 
@@ -177,15 +129,9 @@ const res = await fetch('/api/profile-photo', { method: 'POST', body: formData }
 
 ### About Section
 
-Member about uses rich content format:
+Member about uses rich content format. Convert between plain text (for editing) and rich content nodes (for saving):
 
 ```typescript
-import { membersAbout } from '@wix/members';
-
-// Read
-const res = await membersAbout.getMyMemberAbout();
-const content = res.memberAbout?.content; // RichContent
-
 // Write — convert plain text to rich content nodes
 const nodes = text.split('\n').filter(Boolean).map(line => ({
   type: 'PARAGRAPH',
@@ -193,7 +139,6 @@ const nodes = text.split('\n').filter(Boolean).map(line => ({
   paragraphData: {}
 }));
 
-// Update or create
 if (aboutId) {
   await membersAbout.updateMemberAbout(aboutId, { content: { nodes } }, aboutRevision);
 } else {
@@ -201,31 +146,17 @@ if (aboutId) {
 }
 ```
 
-### Save Pattern
+### Save Feedback
 
-Show success feedback that auto-dismisses:
-
-```typescript
-const [saving, setSaving] = useState(false);
-const [saved, setSaved] = useState(false);
-
-async function handleSave() {
-  setSaving(true);
-  try {
-    await members.updateMember(memberId, { profile: {...}, contact: {...} });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  } catch (e) { /* show error */ }
-  finally { setSaving(false); }
-}
-```
+Show success feedback that auto-dismisses after ~3 seconds. Disable the save button during async operations.
 
 ## Personal Info Tab
 
-### Contact Fields
+### Fields
+
 - First name, last name, company, job title, birthdate
-- Phone number (must be E.164 format: `+1XXXXXXXXXX`)
-- Full address: street, line 2, city, state/province, country, postal code
+- Phone number (**must be E.164 format**: `+1XXXXXXXXXX`)
+- Full address: street, line 2, city, state/province, country (dropdown), postal code
 
 ### Phone Number Normalization
 
@@ -238,102 +169,73 @@ function normalizePhone(raw: string): string {
 }
 ```
 
-### Country Selector
-
-Use a package like `country-list` for the dropdown, or build a simple select with common countries.
-
 ## Bookings Tab (MyBookings Component)
 
-React `client:load` component that:
+React `client:load` component.
 
-1. Fetches bookings via `extendedBookings.queryExtendedBookings({ withBookingAllowedActions: true })`
-2. Splits into **upcoming** (future, not cancelled) and **past** sections
-3. Shows: service name, provider, date/time, status badge
-4. Actions: cancel (with confirmation + revision), reschedule (link to bookings page)
+### Functionality
 
-**Key details:**
+1. Fetch bookings via `extendedBookings.queryExtendedBookings({ withBookingAllowedActions: true })`
+2. Split into **upcoming** (future, not cancelled) and **past** sections
+3. For each booking show: service name, provider, date/time (locale-formatted), status badge
+4. Actions: **cancel** (with confirmation dialog + `booking.revision`), **reschedule** (link to bookings page)
+5. Empty state with link to booking page
+
+**Key SDK details:**
 - Booking data is nested: `eb.booking?.bookedEntity?.title`
 - Allowed actions are booleans: `eb.allowedActions?.cancel`
 - `cancelBooking` requires `booking.revision`
-- Status badges: CONFIRMED (green), PENDING (blue), CANCELED (red)
 - Date/time formatting must use `i18n.getLocale()` for locale-aware display
-- Past bookings shown with reduced opacity
-- Empty state links to booking page
+- Past bookings should be visually de-emphasized
 
 ## Store Orders Tab
 
-Render server-side (not a React component). Display each order with:
+Render server-side. For each order show:
 
 1. **Order header** — order number, date, status badges (payment + fulfillment)
 2. **Line items** — product image, name, quantity, price
-3. **Order total** — formatted with locale currency
+3. **Order total** — formatted with locale-aware currency
 4. **Delivery info** — shipping address if available
 
-### Status Badge Colors
+### Status Badges
 
-```typescript
-function getOrderStatusColor(status: string): string {
-  const map: Record<string, string> = {
-    'APPROVED': '#4caf50', 'FULFILLED': '#4caf50',
-    'CANCELED': '#f44336',
-    'PARTIALLY_FULFILLED': '#ff9800',
-    'PENDING': '#2196f3', 'NOT_FULFILLED': '#2196f3',
-    'PAID': '#4caf50', 'UNPAID': '#f44336',
-  };
-  return map[status] || '#999';
-}
-```
+Color-code by status: green for APPROVED/FULFILLED/PAID, red for CANCELED/UNPAID, orange for PARTIALLY_FULFILLED, blue for PENDING.
+
+Translate status values — don't display raw English enum strings.
 
 ### Empty State
 
-Always show a helpful empty state with CTA:
-
-```html
-<p class="empty">{t('member.emptyOrders')}</p>
-<a href="/store">{t('member.browseStore')}</a>
-```
+Show a helpful message with CTA linking to the store page.
 
 ## Subscriptions Tab
 
-Display pricing plan subscriptions with full detail:
+For each pricing plan subscription show:
 
 1. **Plan name** + status badge
-2. **Price details** — total, discount, coupon code
-3. **Billing cycle** — period, next billing date
-4. **Trial info** — free trial badge with duration
-5. **Dates** — start, end, pause periods
-6. **Cancellation info** — reason and effective date
+2. **Price** — formatted with locale-aware currency, billing period
+3. **Discount/coupon** — if applied
+4. **Trial info** — free trial indicator with duration
+5. **Dates** — start, end, pause periods, next billing
+6. **Cancellation info** — reason and effective date (if cancelled)
 7. **Cancel action** — CancelSubscription component
 
-### Subscription Price Display
+### CancelSubscription Component
 
-```typescript
-const currency = order.priceDetails?.currency || 'USD';
-const total = parseFloat(order.priceDetails?.total || '0');
-const formattedPrice = new Intl.NumberFormat(locale, {
-  style: 'currency', currency
-}).format(total);
-
-const cycleDuration = plan.pricing?.subscription?.cycleDuration;
-const periodKey = cycleDuration?.unit === 'MONTH' ? 'plans.perMonth'
-  : cycleDuration?.unit === 'YEAR' ? 'plans.perYear'
-  : 'plans.perPeriod';
-```
-
-### Cancel Subscription Component
-
-- Shows confirmation dialog before cancelling
-- Tries `NEXT_PAYMENT_DATE` first, falls back to `IMMEDIATELY` (single-payment plans)
-- Displays success state after cancellation
-- Styled as danger action (red)
+- Confirm before cancelling
+- Try `NEXT_PAYMENT_DATE` first, fall back to `IMMEDIATELY` (single-payment plans)
+- Show success state after cancellation
+- **CRITICAL:** `requestCancellation` requires member authentication — call from client-side
 
 ## Payment Tab (SavedPaymentMethods Component)
 
-React `client:load` component that:
+React `client:load` component.
 
-1. Lists saved payment methods with card brand, last 4 digits, expiration, holder name
-2. "Primary" badge on default method
-3. Actions: set as primary, delete (with confirmation)
+### Functionality
+
+1. List saved payment methods showing: card brand (detect from BIN), last 4 digits, expiration, cardholder name
+2. Indicate which method is primary
+3. Actions: **set as primary**, **delete** (with confirmation)
+4. Empty state explaining methods are saved during checkout
 
 ### Card Brand Detection
 
@@ -349,39 +251,29 @@ function getCardBrand(bin: string): string {
 
 ## Account Tab
 
-Handles credential management:
+### Functionality
 
 1. **Change email** — `authentication.changeLoginEmail(memberId, newEmail)`
-2. **Reset password** — `authentication.sendSetPasswordEmail(email)`
+2. **Reset password** — `authentication.sendSetPasswordEmail(email)` (sends link, user resets externally)
+3. Display: member since date, last login
 
 **CRITICAL:** Both require member identity — call from client-side. `auth.elevate()` strips member identity.
 
-### Display Member Metadata
-- Member since date (from `_createdDate`)
-- Last login timestamp (from `_updatedDate` or `lastLoginDate`)
-
 ## General Patterns
 
-### Translation Keys
+### Translations
 
-All member area text must use translation keys:
-- Tab labels: `member.tabProfile`, `member.tabOrders`, etc.
-- Status values: `status.active`, `status.canceled`, etc.
-- Empty states: `member.emptyOrders`, `member.emptyBookings`, etc.
-- Actions: `member.browseStore`, `member.browsePlans`, etc.
-- Form labels: `profile.nickname`, `profile.firstName`, etc.
+All member area text must use translation keys — tab labels, status values, empty states, form labels, actions.
 
 ### Error Handling
 
 Every async operation needs:
-1. Loading state (disable buttons, show spinner/text)
+1. Loading state (disable buttons, show indicator)
 2. Error catch with user-friendly message
-3. Success feedback (toast, checkmark, text change)
-4. Auto-dismiss success after 3 seconds
+3. Success feedback (auto-dismiss after ~3 seconds)
 
-### Responsive Design
+### Responsive
 
 - Tabs become icon-only on mobile
-- Form layouts switch from 2-column to single column
+- Forms switch from multi-column to single column
 - Cards stack vertically
-- Photo upload areas shrink proportionally

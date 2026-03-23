@@ -60,16 +60,16 @@ When creating categories, import a representative image and set it on the catego
 
 The store listing page should include:
 
-1. **Category filter tabs** — horizontal scrollable pill buttons, "All" selected by default, client-side filtering
-2. **Product grid** — `repeat(auto-fill, minmax(240px, 1fr))` responsive grid
+1. **Category filter tabs** — "All" selected by default, client-side filtering
+2. **Product grid** — responsive grid of product cards
 3. **Each product card must show:**
-   - Product image (or video poster), with emoji/gradient fallback if no media
-   - Category badge (top-left, accent background) if product has categories
-   - Ribbon badge (top-right, red) if product has a ribbon (e.g., "SALE", "NEW")
+   - Product image (or video poster), with fallback if no media
+   - Category badge if product has categories
+   - Ribbon badge if product has a ribbon (e.g., "SALE", "NEW")
    - Product name
    - Price display: single price or min-max range
-   - Sale pricing: original price strikethrough + sale price in red
-   - Out-of-stock badge when `availabilityStatus === 'OUT_OF_STOCK'`
+   - Sale pricing: original price with strikethrough + discounted price
+   - Out-of-stock indicator when `availabilityStatus === 'OUT_OF_STOCK'`
 4. **Category filtering**: filter by `directCategoriesInfo.categories` with URL state preservation (`?cat=categoryId`)
 
 ### Store listing data fetching
@@ -98,7 +98,7 @@ const compareMin = product.compareAtPriceRange?.minValue;
 const hasRange = min?.amount !== max?.amount;
 const onSale = compareMin && parseFloat(compareMin.amount) > parseFloat(min.amount);
 
-// Display: "₪9.99" or "₪9.99 – ₪19.99" or "₪14.99 ₪9.99" (strikethrough + sale)
+// Display: formatted price, or "min – max" range, or strikethrough original + sale price
 ```
 
 ### Product detail page (ProductActions component)
@@ -218,8 +218,6 @@ await (backInStockNotifications.createBackInStockNotificationRequest as Function
 
 **CRITICAL:** Back-in-stock uses the V1 appId (`1380b703-ce81-ff05-f115-39571d94dfcd`) even on V3 sites. Use the V1 appId for back-in-stock, V3 appId for cart/checkout.
 
-### Media Generation for Products
+### Media Generation
 
-- Images: `dall-e-3` with `response_format: "url"` (NOT `gpt-image-1` which only returns base64)
-- Video: Sora API → temp host → Wix Import File API → Add Product Media by `id`
-- Add images one at a time via MCP (batching may silently drop)
+See the general media generation guidelines in the main `SKILL.md` → "Media Generation" section. Always AI-generate product images, category images, and product videos — do not use stock or placeholder images unless the user explicitly provides them.

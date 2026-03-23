@@ -231,20 +231,10 @@ A good bookings listing page has three sections:
 2. **Services section** — grid of service cards with images, pricing, duration, assigned staff
 3. **Policy note** — informational box about booking/cancellation policy
 
-### Staff Grid
+### Staff Section
 
-Display all staff members in a responsive grid:
-
-```css
-.staff-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 1.5rem;
-}
-```
-
-Each staff card shows:
-- Photo (or role-based emoji fallback like 👨‍⚕️ 👩‍⚕️)
+Display all staff members in a grid. Each staff card shows:
+- Photo (or role-based fallback icon)
 - Name and description
 - Role badge
 
@@ -262,13 +252,12 @@ Each service card must show:
 5. **Assigned staff** as small pills with emoji + name
 6. **"Book Now" CTA** linking to detail page
 
-### Price Color Coding
+### Price Display by Type
 
-```css
-.price-paid { color: var(--accent); }        /* orange for paid */
-.price-plan { color: #ce93d8; }              /* purple for plan-based */
-.price-free { color: var(--text-secondary); } /* default for free */
-```
+Visually distinguish the three pricing types:
+- **Fixed price** — show formatted amount
+- **Plan-based** — indicate "Members only" or similar
+- **Free** — show "Free" text
 
 ### Service Image Extraction
 

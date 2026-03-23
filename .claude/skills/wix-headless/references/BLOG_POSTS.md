@@ -208,20 +208,6 @@ A good blog listing page includes:
 
 5. **Writer resolution** — batch-fetch member profiles for all unique `post.memberId` values to show names/photos instead of IDs
 
-### Featured Card Layout
-
-```css
-.featured {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-@media (max-width: 768px) {
-  .featured { grid-template-columns: 1fr; }
-}
-```
-
 ### Tag Filtering
 
 Client-side filtering with URL state preservation:
@@ -250,19 +236,13 @@ A good blog detail page includes:
 5. **Premium content handling** — if `post.preview`, use `<PremiumContentResolver>` for logged-in re-fetch
 6. **Engagement section** — `<BlogEngagement>` component with likes, comments, replies
 7. **Stats** — views/likes/comments displayed prominently
+8. **Report view event** — when the page loads, fire a view event so the post's view count increments. See `references/BLOG_ENGAGEMENT.md` → "Reporting Post Views" for the `httpClient.fetchWithAuth` call to `/blog/v3/posts/{postId}/view`. Do this client-side (e.g., in the engagement component's `useEffect`) so each visitor counts
 
 **CRITICAL:** Wrap `getPostBySlug` in try/catch — it throws `POST_NOT_FOUND` for invalid slugs (e.g., `.js.map` files hitting `[slug].astro`).
 
-### Rich Content Rendering on Dark Backgrounds
+### Rich Content Color Override
 
-Ricos renders with light-theme (black text). Override for dark backgrounds:
-
-```css
-.post-content :global(span), .post-content :global(div), .post-content :global(p) {
-  color: var(--text-secondary) !important;
-}
-.post-content :global(h2), .post-content :global(h2 *) { color: var(--accent) !important; }
-```
+Ricos renders with light-theme (black text) by default. If your site uses a dark background, override text colors on the Ricos container using `:global()` selectors targeting `span`, `div`, `p`, `h2`, and `blockquote` elements.
 
 ## Members / Writers
 
