@@ -1,6 +1,6 @@
 ---
 name: wix-headless
-description: "Use when building or working on Wix managed headless projects. Covers scaffolding, Astro + Wix SDK patterns, CMS collections, image handling, dynamic routes, deployment, authentication, members, media helpers, Wix Blog (posts, tags, likes, comments, rich content), Wix Stores (cart, checkout, orders), Wix Bookings (services, staff, availability), Wix Pricing Plans, Wix Multilingual (translations, RTL, i18n), and general coding conventions. Trigger on Wix headless, headless site, Wix CMS, Wix Astro, wix managed, wix SDK, Wix Blog, Wix Stores, Wix Bookings, Wix Pricing Plans, multilingual, translation, i18n, RTL."
+description: "Use when building or working on Wix managed headless projects. Covers scaffolding, Astro + Wix SDK patterns, CMS collections, image handling, dynamic routes, deployment, authentication, members, media helpers, Wix Blog (posts, tags, likes, comments, rich content), Wix Stores (cart, checkout, orders), Wix Bookings (services, staff, availability), Wix Pricing Plans, Wix Multilingual (translations, RTL, i18n), homepage/navigation/layout patterns, CMS listing and detail pages, member dashboard, and general coding conventions. Trigger on Wix headless, headless site, Wix CMS, Wix Astro, wix managed, wix SDK, Wix Blog, Wix Stores, Wix Bookings, Wix Pricing Plans, multilingual, translation, i18n, RTL, member dashboard, homepage, navigation, layout."
 ---
 
 # Wix Managed Headless - Developer Guide
@@ -9,15 +9,18 @@ description: "Use when building or working on Wix managed headless projects. Cov
 
 When working on a specific feature area, read the relevant reference guide:
 
-- **Bookings** (`references/BOOKINGS.md`) — Service setup, staff members, availability calendar, booking flow, cancellation
-- **Blog Posts** (`references/BLOG_POSTS.md`) — Posts, tags, writers, rich content (ricos), creating/updating posts
-- **Blog Engagement** (`references/BLOG_ENGAGEMENT.md`) — Likes, comments, replies, views, metrics
-- **eCommerce Store** (`references/ECOMMERCE.md`) — Cart, checkout, orders, back-in-stock, catalog version detection
+- **Homepage, Navigation & Layout** (`references/HOMEPAGE_LAYOUT.md`) — Layout structure, RTL support, CSS variables, navigation, cart sidebar, homepage sections
+- **CMS Data Pages** (`references/CMS_DATA_PAGES.md`) — Listing and detail page patterns for CMS collections (planets, crew, missions)
+- **Blog Posts** (`references/BLOG_POSTS.md`) — Posts, tags, writers, rich content (ricos), blog listing/detail page guidelines
+- **Blog Engagement** (`references/BLOG_ENGAGEMENT.md`) — Likes, comments, replies, views, metrics, engagement UI guidelines
+- **eCommerce Store** (`references/ECOMMERCE.md`) — Store listing page, product detail, cart, checkout, orders, back-in-stock
   - V1 Catalog details: `references/ECOMMERCE_V1.md`
   - V3 Catalog details: `references/ECOMMERCE_V3.md`
+- **Bookings** (`references/BOOKINGS.md`) — Bookings listing page, service cards, staff grid, booking flow wizard, availability
+- **Pricing Plans** (`references/PRICING_PLANS.md`) — Plans listing page, plan cards, checkout flow, subscriptions, cancellation
+- **Member Area** (`references/MEMBER_AREA.md`) — Protected routes, tabbed dashboard, profile management, orders, subscriptions, bookings, payment
 - **Media Handling** (`references/MEDIA.md`) — wix:image:// and wix:video:// formats, URL helpers, SDK vs REST differences
 - **Multilingual** (`references/MULTILINGUAL.md`) — Static translations, Translation Content API, RTL support, currency formatting
-- **Pricing Plans** (`references/PRICING_PLANS.md`) — Subscriptions, checkout flow, orders, cancellation
 
 ## Project Setup
 

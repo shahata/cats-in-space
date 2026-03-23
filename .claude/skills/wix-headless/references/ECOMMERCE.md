@@ -56,6 +56,64 @@ The product detail component should render ALL of:
 
 When creating categories, import a representative image and set it on the category. Categories without images look broken in grid layouts. Use the media import API first, then create the category with the media reference.
 
+### Store listing page must support filtering and rich product cards
+
+The store listing page should include:
+
+1. **Category filter tabs** — horizontal scrollable pill buttons, "All" selected by default, client-side filtering
+2. **Product grid** — `repeat(auto-fill, minmax(240px, 1fr))` responsive grid
+3. **Each product card must show:**
+   - Product image (or video poster), with emoji/gradient fallback if no media
+   - Category badge (top-left, accent background) if product has categories
+   - Ribbon badge (top-right, red) if product has a ribbon (e.g., "SALE", "NEW")
+   - Product name
+   - Price display: single price or min-max range
+   - Sale pricing: original price strikethrough + sale price in red
+   - Out-of-stock badge when `availabilityStatus === 'OUT_OF_STOCK'`
+4. **Category filtering**: filter by `directCategoriesInfo.categories` with URL state preservation (`?cat=categoryId`)
+
+### Store listing data fetching
+
+```typescript
+import { productsV3 } from '@wix/stores';
+import { categories } from '@wix/categories';
+
+const result = await productsV3.queryProducts({
+  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO']
+}).limit(100).find();
+
+const catResult = await categories.queryCategories(
+  { cursorPaging: { limit: 100 } },
+  { treeReference: { appNamespace: '@wix/stores' } }
+);
+```
+
+### Price range display
+
+```typescript
+const min = product.actualPriceRange?.minValue;
+const max = product.actualPriceRange?.maxValue;
+const compareMin = product.compareAtPriceRange?.minValue;
+
+const hasRange = min?.amount !== max?.amount;
+const onSale = compareMin && parseFloat(compareMin.amount) > parseFloat(min.amount);
+
+// Display: "₪9.99" or "₪9.99 – ₪19.99" or "₪14.99 ₪9.99" (strikethrough + sale)
+```
+
+### Product detail page (ProductActions component)
+
+The ProductActions React component (`client:load`) must handle the full product model. See the "Product detail page must support the full product model" section above for the complete checklist.
+
+Key UX patterns:
+- **Option selection** recomputes available variant, updates price display, and checks stock status
+- **Swatch options** render as colored circles (use `choice.colorCode`), text options as buttons
+- **Free text modifiers** show character count and mandatory indicator
+- **Quantity selector** respects min/max from inventory
+- **Loading states** for each action (add to cart, buy now, back-in-stock)
+- **Success/error messages** with auto-dismiss
+- **Cart event dispatch** after adding: `window.dispatchEvent(new CustomEvent('cart-updated'))`
+
 See the version-specific references for catalog queries and product data:
 
 - **[ECOMMERCE_V3.md](ECOMMERCE_V3.md)** — V3 catalog: `productsV3` namespace, categories, `215238eb-...` appId

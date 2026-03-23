@@ -187,6 +187,83 @@ In Astro: `<RichContentViewer content={post.richContent} client:load />`
 .post-content :global(blockquote *) { color: var(--text-primary) !important; /* color only on children — avoids duplicating border-left */ }
 ```
 
+## Blog Page Implementation Guidelines
+
+### Blog Listing Page
+
+A good blog listing page includes:
+
+1. **Tag filter bar** — horizontal scrollable pill buttons, "All" selected by default, client-side filtering
+2. **Featured post** — first visible card spans full width with image on one side, content on the other
+3. **Post cards in grid** — `repeat(auto-fill, minmax(340px, 1fr))` responsive grid
+4. **Each card must show:**
+   - Cover image (from `post.coverMedia?.image` or `post.media`)
+   - Writer name (yellow accent, linked to member profile) + date + read time
+   - Post title
+   - Tag badges (clickable, filter in-page)
+   - Excerpt (extracted from rich content or `post.excerpt`)
+   - Stats row: views, likes, comments (from `post.metrics`)
+   - "Read more" CTA
+   - Pinned badge (📌) for `post.pinned` posts
+
+5. **Writer resolution** — batch-fetch member profiles for all unique `post.memberId` values to show names/photos instead of IDs
+
+### Featured Card Layout
+
+```css
+.featured {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+@media (max-width: 768px) {
+  .featured { grid-template-columns: 1fr; }
+}
+```
+
+### Tag Filtering
+
+Client-side filtering with URL state preservation:
+- Store active tag in URL query param (`?tag=tagId`)
+- Filter cards by `data-tags` attribute containing comma-separated tag IDs
+- After filtering, dynamically assign "featured" class to first visible card
+- Show empty state when no posts match
+
+### Metrics Display
+
+Use `queryPosts` (NOT `listPosts`) with `METRICS` fieldset — `listPosts` returns zeros in managed headless.
+
+```typescript
+type Post = posts.Post & { metrics?: posts.Metrics };
+// post.metrics.views, post.metrics.likes, post.metrics.comments
+```
+
+### Blog Detail Page
+
+A good blog detail page includes:
+
+1. **Back link** to blog listing
+2. **Hero image** from cover media
+3. **Post metadata** — writer (linked), date, read time, tags
+4. **Rich content** via `<RichContentViewer content={post.richContent} client:load />`
+5. **Premium content handling** — if `post.preview`, use `<PremiumContentResolver>` for logged-in re-fetch
+6. **Engagement section** — `<BlogEngagement>` component with likes, comments, replies
+7. **Stats** — views/likes/comments displayed prominently
+
+**CRITICAL:** Wrap `getPostBySlug` in try/catch — it throws `POST_NOT_FOUND` for invalid slugs (e.g., `.js.map` files hitting `[slug].astro`).
+
+### Rich Content Rendering on Dark Backgrounds
+
+Ricos renders with light-theme (black text). Override for dark backgrounds:
+
+```css
+.post-content :global(span), .post-content :global(div), .post-content :global(p) {
+  color: var(--text-secondary) !important;
+}
+.post-content :global(h2), .post-content :global(h2 *) { color: var(--accent) !important; }
+```
+
 ## Members / Writers
 
 ```typescript

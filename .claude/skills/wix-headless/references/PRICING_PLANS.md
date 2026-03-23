@@ -268,6 +268,108 @@ function MemberSubscriptions() {
 }
 ```
 
+## Plans Page Implementation Guidelines
+
+### Plans Listing Page
+
+A good pricing plans page includes:
+
+1. **Page header** — title and subtitle
+2. **Plans grid** — `repeat(auto-fit, minmax(280px, 1fr))` for responsive card layout
+3. **Plan cards** with:
+   - Plan name
+   - Description
+   - Price display (large, prominent) with period label ("/month", "/year")
+   - "Free" text for zero-price plans
+   - Free trial badge if `freeTrialDays > 0`
+   - Perks list with checkmarks
+   - Subscribe button (PlanCheckout component)
+4. **Featured plan highlighting** — middle plan (or `plan.primary`) gets accent border, glow shadow, and "Most Popular" badge
+
+### Featured Plan Styling
+
+```css
+.plan-card.featured {
+  border-color: var(--accent);
+  box-shadow: 0 0 30px var(--accent-glow);
+  position: relative;
+}
+.featured-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: var(--text-dark);
+  padding: 0.25rem 1rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+```
+
+### Price Display
+
+```typescript
+const priceValue = plan.pricing?.price?.value || '0';
+const currency = plan.pricing?.price?.currency || 'USD';
+const isFree = parseFloat(priceValue) === 0;
+
+// Format with locale-aware currency
+const formattedPrice = isFree ? t('plans.free') : new Intl.NumberFormat(locale, {
+  style: 'currency', currency
+}).format(parseFloat(priceValue));
+
+// Period label
+const cycleDuration = plan.pricing?.subscription?.cycleDuration;
+function getPeriodKey(unit?: string): string {
+  switch (unit) { case 'MONTH': return 'plans.perMonth'; case 'YEAR': return 'plans.perYear'; case 'WEEK': return 'plans.perWeek'; default: return ''; }
+}
+```
+
+**CRITICAL:** Never manually construct currency strings like `'$' + price`. Use `Intl.NumberFormat` — it handles symbol placement, decimal separators, and locale differences.
+
+### Perks List
+
+```html
+<ul class="perks">
+  {(plan.perks?.values || []).map(perk => (
+    <li>{perk}</li>
+  ))}
+</ul>
+```
+
+Style with checkmark pseudo-element: `li::before { content: '✓'; color: var(--accent); }`
+
+**CRITICAL:** Perks are `plan.perks?.values` (not `plan.perks` directly).
+
+### Free Trial Display
+
+```typescript
+const trialDays = plan.pricing?.freeTrialDays || 0;
+// Use interpolation: t('plans.freeTrialDays', { days: String(trialDays) })
+```
+
+### Subscribe Button
+
+Use a `PlanCheckout` React component with `client:load`:
+
+```tsx
+<PlanCheckout planId={plan._id!} client:load />
+```
+
+The component calls `redirects.createRedirectSession({ paidPlansCheckout: { planId } })` for ALL plans (free and paid). The Wix checkout page handles login, free enrollment, and payment.
+
+**CRITICAL:** Do NOT check login state or free/paid before redirecting. The redirect page handles all cases.
+
+### Thank You Page
+
+After checkout, Wix redirects to `thankYouPageUrl` with `?planOrderId=<id>`. Create a simple thank-you page that:
+- Shows a success message
+- Links back to the plans page or member dashboard
+- Optionally fetches order details via `orders.memberGetOrder(planOrderId)`
+
 ## Tips
 
 1. **Login required** — Both `createOnlineOrder` and `createRedirectSession` require an active member session

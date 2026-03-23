@@ -221,6 +221,130 @@ await bookings.cancelBooking(bookingId, {
 });
 ```
 
+## Bookings Page Implementation Guidelines
+
+### Bookings Listing Page
+
+A good bookings listing page has three sections:
+
+1. **Staff section** — grid of medical/service staff with photos, names, roles, descriptions
+2. **Services section** — grid of service cards with images, pricing, duration, assigned staff
+3. **Policy note** — informational box about booking/cancellation policy
+
+### Staff Grid
+
+Display all staff members in a responsive grid:
+
+```css
+.staff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+```
+
+Each staff card shows:
+- Photo (or role-based emoji fallback like 👨‍⚕️ 👩‍⚕️)
+- Name and description
+- Role badge
+
+### Service Cards
+
+Each service card must show:
+
+1. **Image** (from `service.media.mainMedia.image`) or emoji fallback icon
+2. **Service name** and tagline
+3. **Duration** with clock icon (e.g., "⏱ 30 min")
+4. **Pricing** with visual distinction by type:
+   - Fixed price: show amount with currency formatting
+   - Plan-based: "Members only" with star badge (⭐)
+   - Free: "Free" text
+5. **Assigned staff** as small pills with emoji + name
+6. **"Book Now" CTA** linking to detail page
+
+### Price Color Coding
+
+```css
+.price-paid { color: var(--accent); }        /* orange for paid */
+.price-plan { color: #ce93d8; }              /* purple for plan-based */
+.price-free { color: var(--text-secondary); } /* default for free */
+```
+
+### Service Image Extraction
+
+Service media in SDK returns `wix:image://` strings. Handle both string and object formats:
+
+```typescript
+let imageUrl: string | null = null;
+const img = service.media?.mainMedia?.image;
+if (typeof img === 'string') {
+  imageUrl = getImageUrl(img, 400, 300);
+} else if (img?.url || img?.id) {
+  imageUrl = getImageUrl(img.url || img.id, 400, 300);
+}
+```
+
+### Staff-to-Service Mapping
+
+Map staff by `resourceId` (NOT `staffMember.id`):
+
+```typescript
+const staffMap = new Map(allStaff.map(s => [s.resourceId, s]));
+const serviceStaff = service.staffMemberIds?.map(id => staffMap.get(id)).filter(Boolean) || [];
+```
+
+### Booking Detail / Flow Page
+
+The booking detail page should include:
+1. Service info (name, description, image, duration, price)
+2. **BookingFlow component** (`client:load`) — a multi-step wizard:
+   - **Step 1: Staff selection** (skip if only 1 provider) — grid with "Any available" option
+   - **Step 2: Date picker** — date input with min (tomorrow) and max (30 days) constraints
+   - **Step 3: Time slots** — grid of available times from `queryAvailability`
+   - **Step 4: Confirmation** — review card with all booking details, then redirect to checkout
+
+### BookingFlow Progress Indicator
+
+Show dots/steps so users know where they are in the process:
+
+```tsx
+const steps = staffCount > 1 ? ['staff', 'date', 'time', 'confirm'] : ['date', 'time', 'confirm'];
+```
+
+### "Find Available Date" Feature
+
+When no slots are available for a selected date, offer a "Find next available" button that scans forward 30 days:
+
+```typescript
+async function findNextAvailable() {
+  for (let d = 1; d <= 30; d++) {
+    const date = addDays(new Date(), d);
+    const result = await availabilityCalendar.queryAvailability({
+      filter: { serviceId: [id], startDate: date.toISOString(), endDate: nextDay.toISOString() },
+    }, { timezone, slotsPerDay: 1 });
+    if (result.availabilityEntries?.some(e => e.bookable)) return date;
+  }
+  return null; // No availability in 30 days
+}
+```
+
+### Booking Checkout
+
+Pass the `SlotAvailability` object directly to `createRedirectSession` — do NOT manually construct slot objects:
+
+```typescript
+const redirect = await redirects.createRedirectSession({
+  bookingsCheckout: {
+    slotAvailability: selectedEntry, // pass SDK object directly
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  },
+  callbacks: {
+    postFlowUrl: window.location.origin + "/bookings",
+    thankYouPageUrl: window.location.origin + "/member#bookings",
+  },
+});
+```
+
 ## Tips & Gotchas
 
 1. **staffMemberIds = resource IDs** — Services reference staff by their `resourceId`, not their `staffMember.id`

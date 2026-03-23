@@ -232,6 +232,97 @@ No reliable client-side API to get visitor ID before interaction. `auth.getToken
 Approach: capture `visitorId` from `createComment` response (`comment.author.visitorId`), match against comments to show Edit/Delete only on own comments. Use `myVisitorId` in element keys to force re-render when identity changes.
 
 
+## Blog Engagement UI Guidelines
+
+### Engagement Component Architecture
+
+Build a single `BlogEngagement` React component (`client:load`) that handles all engagement features. Pass these props from the Astro page:
+
+```tsx
+<BlogEngagement
+  postId={post._id!}
+  referenceId={post.referenceId!}
+  commentingEnabled={post.commentingEnabled !== false}
+  memberName={currentMemberName}
+  memberPhoto={currentMemberPhoto}
+  client:load
+/>
+```
+
+### What the Engagement Component Must Include
+
+1. **Stats bar** — views, likes, comments counts displayed prominently
+2. **Like button** — toggles between liked/not-liked state, changes color (accent when liked)
+3. **Comment section** with:
+   - Comment form (name input for visitors, member identity display for logged-in users)
+   - Top-level comment list with author names, timestamps, content
+   - Nested reply threads (indent by depth, max ~72px indentation)
+   - Reply button on each comment
+   - Edit/delete for own comments
+   - Like button per comment
+   - "Commenting as [Name]" display for logged-in members
+   - Login prompt when `PERMISSION_DENIED`
+
+### Likes State Management
+
+- On mount, call `likes.queryLikes().limit(100).find()` to get ALL liked entity IDs (posts + comments)
+- Store in a `Set<string>` for O(1) lookup
+- Track post like and comment likes separately
+- `createLike` throws `ALREADY_EXISTS` — pre-populate state from query, don't just catch
+
+### Comment Threading
+
+The API groups replies under top-level comment ID. Build a proper thread tree:
+
+1. Collect all replies from `commentReplies` + flat list
+2. Deduplicate by ID
+3. Regroup by actual `parentComment._id`
+4. Render recursively with indentation
+
+### Member Profile Resolution
+
+For comments by members, fetch profiles to show real names:
+
+```typescript
+const memberIds = new Set(comments.filter(c => c.author?.memberId).map(c => c.author!.memberId!));
+const profiles = new Map();
+for (const id of memberIds) {
+  const m = await members.getMember(id, { fieldsets: ['FULL'] });
+  profiles.set(id, { nickname: m.profile?.nickname, photo: m.profile?.photo?.url, slug: m.profile?.slug });
+}
+```
+
+Link member names to their profile page (`/member/{slug}`).
+
+### Own-Comment Detection
+
+No reliable client-side API for visitor ID before interaction. Capture `visitorId` from `createComment` response and match against existing comments for edit/delete buttons.
+
+### Eventual Consistency
+
+After creating a comment, the API has eventual consistency. Load immediately but retry after 2 seconds if the new comment isn't in the response:
+
+```typescript
+const result = await listComments();
+if (result.comments.length < expectedCount) {
+  setTimeout(async () => {
+    const retry = await listComments();
+    setComments(retry.comments);
+  }, 2000);
+}
+```
+
+### Translation Keys
+
+All engagement text must be translated:
+- `blog.views`, `blog.likes`, `blog.comments` — metric labels
+- `blog.likePost`, `blog.liked` — like button states
+- `blog.leaveTransmission`, `blog.sendTransmission` — comment form
+- `blog.reply`, `blog.edit`, `blog.delete`, `blog.cancel` — comment actions
+- `blog.commentsDisabled`, `blog.loginRequired` — state messages
+- `blog.crew`, `blog.spaceVisitor` — user type badges
+- `blog.edited` — edited comment indicator
+
 ## Post Metrics
 
 ```typescript
