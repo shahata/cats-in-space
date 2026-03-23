@@ -16,7 +16,7 @@ const dir = ['he', 'ar'].includes(lang) ? 'rtl' : 'ltr';
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{t('home.title')}</title>
+  <title>{t('site.title')}</title>
   <!-- Font preloads -->
 </head>
 <body>
@@ -32,28 +32,26 @@ const dir = ['he', 'ar'].includes(lang) ? 'rtl' : 'ltr';
 
 1. **RTL support** — set `dir` attribute dynamically based on language
 2. **Locale on `<html>`** — use `i18n.getLocale()` for the `lang` attribute
-3. **CartSidebar** — rendered with `client:load` on every page, listens for global `"cart-updated"` events
-4. **Font loading** — preload custom fonts (title, heading, body families)
+3. **CartSidebar** — if the site has a store, render with `client:load` on every page; listens for global `"cart-updated"` events
+4. **Font loading** — preload custom fonts
 
-### CSS Variables (Dark Theme)
+### CSS Variables
 
-Define a consistent color system:
+Define a consistent design token system. Use CSS variables for colors, fonts, and spacing so the theme is easy to change:
 
 ```css
 :root {
-  --bg-primary: #0a0a0a;
-  --bg-card: #141414;
-  --border-card: #222;
-  --text-primary: #f5f5f5;
-  --text-secondary: #ccc;
-  --text-muted: #777;
-  --text-dark: #111;
-  --accent: #ff6600;
-  --accent-yellow: #ffcc00;
-  --accent-glow: rgba(255, 102, 0, 0.4);
-  --font-title: 'Black Ops One', cursive;
-  --font-heading: 'Bangers', cursive;
-  --font-body: 'Inter', sans-serif;
+  --bg-primary: /* site background */;
+  --bg-card: /* card/surface background */;
+  --border-card: /* card border color */;
+  --text-primary: /* main text color */;
+  --text-secondary: /* secondary text */;
+  --text-muted: /* muted/hint text */;
+  --accent: /* primary accent color */;
+  --accent-secondary: /* secondary accent */;
+  --font-title: /* display font */;
+  --font-heading: /* heading font */;
+  --font-body: /* body text font */;
 }
 ```
 
@@ -82,7 +80,7 @@ Define a consistent color system:
 
 ### Badge Classes
 
-Define reusable badge styles:
+Define reusable badge styles for statuses used across pages:
 
 ```css
 .badge { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
@@ -97,7 +95,7 @@ Define reusable badge styles:
 
 ### Structure
 
-Sticky top nav with: logo, main links, explore dropdown, member menu, language switcher.
+Sticky top nav with: logo, main links, optional dropdown for grouped pages, member menu, language switcher.
 
 ```css
 nav {
@@ -105,7 +103,7 @@ nav {
   top: 0;
   z-index: 100;
   backdrop-filter: blur(12px);
-  background: rgba(10, 10, 10, 0.85);
+  background: rgba(var(--bg-primary-rgb), 0.85);
   border-bottom: 1px solid var(--border-card);
 }
 ```
@@ -130,17 +128,16 @@ const currentPath = Astro.url.pathname;
 const isActive = currentPath === link.path || currentPath.startsWith(link.path + '/');
 ```
 
-### Explore Dropdown
+### Dropdown for Grouped Pages
 
-Group related pages (planets, crew, missions) under a dropdown menu:
+Group related pages under a dropdown menu when you have many nav items:
 
 ```html
 <div class="dropdown">
   <button class="nav-link">{t('nav.explore')} ▾</button>
   <div class="dropdown-menu">
-    <a href={getRelativeLocaleUrl('/planets')}>{t('nav.planets')}</a>
-    <a href={getRelativeLocaleUrl('/crew')}>{t('nav.crew')}</a>
-    <a href={getRelativeLocaleUrl('/missions')}>{t('nav.missions')}</a>
+    <a href={getRelativeLocaleUrl('/page-a')}>{t('nav.pageA')}</a>
+    <a href={getRelativeLocaleUrl('/page-b')}>{t('nav.pageB')}</a>
   </div>
 </div>
 ```
@@ -170,7 +167,7 @@ Detect login state server-side and show appropriate UI:
 
 ### Mobile Hamburger Menu
 
-Show at ≤960px with smooth animation:
+Show at a breakpoint (e.g., ≤960px) with smooth animation:
 
 ```css
 .hamburger { display: none; }
@@ -219,27 +216,28 @@ Include two variants: dropdown (desktop nav) and standalone (mobile nav).
 
 ### Data Fetching
 
-Pull featured content from multiple collections:
+Pull featured content from multiple sources (CMS collections, blog, products, etc.):
 
 ```astro
 ---
-const topPlanets = (await items.query('Planets').descending('habitabilityScore').limit(3).find()).items;
-const crew = (await items.query('CatExplorers').limit(6).find()).items;
-const missions = (await items.query('Missions').limit(4).find()).items;
+const featured = (await items.query('MainCollection').descending('score').limit(3).find()).items;
+const team = (await items.query('TeamMembers').limit(6).find()).items;
+const events = (await items.query('Events').limit(4).find()).items;
 ---
 ```
 
 ### Section Structure
 
-A good homepage has these sections in order:
+A good homepage combines sections that showcase the site's key content areas:
 
-1. **Ticker banner** — scrolling announcements (CSS animation, not JS)
-2. **Hero section** — large background image, title with text-shadow glow, subtitle, CTA buttons
-3. **Stats grid** — 4 key numbers (counts of entities) in a responsive grid
-4. **Featured content** — top items from main collection (alternating image/text layout)
-5. **Secondary collection** — grid of 6 items from another collection
-6. **Timeline/activity** — recent or upcoming events with visual timeline
-7. **Quote/testimonial** — closing inspirational section
+1. **Hero section** — large background image, headline, subtitle, CTA buttons
+2. **Stats grid** — key numbers at a glance (counts, metrics)
+3. **Featured content** — top items from a primary collection (alternating image/text layout works well)
+4. **Secondary collection** — grid of items from another collection
+5. **Timeline/activity** — recent or upcoming events, milestones
+6. **Social proof** — quote, testimonial, or trust badges
+
+Optional: **Scrolling ticker/banner** for announcements (CSS animation, not JS).
 
 ### Hero Section
 
@@ -259,8 +257,7 @@ A good homepage has these sections in order:
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.5);
 }
 ```
 
@@ -276,36 +273,14 @@ A good homepage has these sections in order:
 .stat-number { font-size: clamp(2rem, 5vw, 3.5rem); font-family: var(--font-heading); }
 ```
 
-### Alternating Story Cards
+### Alternating Feature Cards
 
 For featured items, alternate image left/right:
 
 ```css
-.story-card { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; }
-.story-card:nth-child(even) { direction: rtl; } /* flip layout */
-.story-card:nth-child(even) > * { direction: ltr; } /* reset text */
+.feature-card { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; }
+.feature-card:nth-child(even) .feature-image { order: 2; }
 ```
-
-**Better RTL approach:** Use `order` or flexbox `row-reverse` instead of `direction`:
-```css
-.story-card:nth-child(even) .story-image { order: 2; }
-```
-
-### Scrolling Ticker
-
-```css
-.ticker { overflow: hidden; white-space: nowrap; }
-.ticker-content {
-  display: inline-block;
-  animation: scroll 30s linear infinite;
-}
-@keyframes scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-```
-
-Duplicate the content so it loops seamlessly.
 
 ### Responsive Typography
 
@@ -317,6 +292,8 @@ Use `clamp()` for fluid sizing:
 ```
 
 ## Cart Sidebar
+
+Only needed when the site has a store. Renders globally in the layout.
 
 ### Global Event Pattern
 
@@ -336,7 +313,7 @@ useEffect(() => {
 
 ### Cart Badge
 
-Fixed bottom-right button showing item count:
+Fixed button showing item count:
 
 ```css
 .cart-badge {
@@ -351,7 +328,7 @@ Fixed bottom-right button showing item count:
 
 ### Sidebar Panel
 
-Slides in from the right (or left in RTL):
+Slides in from the inline-end side (right in LTR, left in RTL):
 
 ```css
 .cart-panel {
@@ -361,16 +338,14 @@ Slides in from the right (or left in RTL):
   width: 380px;
   height: 100vh;
   z-index: 1000;
-  transform: translateX(100%); /* use 'ltr:translateX(100%) rtl:translateX(-100%)' or JS */
   transition: transform 0.3s;
 }
-.cart-panel.open { transform: translateX(0); }
 ```
 
 ### Cart Item Display
 
 Each line item shows:
-- Product image (with emoji fallback if none)
+- Product image (with fallback if none)
 - Product name
 - Selected options (variant choices, custom text)
 - Quantity controls (+/− buttons, min 1)
@@ -390,8 +365,8 @@ const totals = await currentCart.estimateCurrentCartTotals({});
 
 Keep it simple:
 - Copyright with dynamic year: `t('footer.copyright', { year: new Date().getFullYear().toString() })`
-- Tagline
-- Centered, top border, branded font
+- Tagline or site description
+- Centered layout, top border
 
 ## General CSS Patterns
 
@@ -402,7 +377,7 @@ Consistent across the site:
 .card { transition: transform 0.2s, box-shadow 0.2s; }
 .card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 20px var(--accent-glow);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 ```
 
@@ -419,19 +394,8 @@ Consistent across the site:
 .card:hover { border-color: var(--accent); }
 ```
 
-### Section Titles
-
-```css
-.section-title {
-  font-family: var(--font-heading);
-  text-shadow: 0 0 10px var(--accent-glow);
-  letter-spacing: 0.04em;
-  color: var(--accent);
-}
-```
-
 ### Responsive Breakpoints
 
 - `960px` — nav switches to hamburger
 - `768px` — grids collapse to single column, 2-column layouts stack
-- `640px` — smaller grids (bookings) collapse
+- `640px` — smaller grids collapse

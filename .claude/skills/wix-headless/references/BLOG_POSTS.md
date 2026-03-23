@@ -204,7 +204,7 @@ A good blog listing page includes:
    - Excerpt (extracted from rich content or `post.excerpt`)
    - Stats row: views, likes, comments (from `post.metrics`)
    - "Read more" CTA
-   - Pinned badge (📌) for `post.pinned` posts
+   - Pinned indicator for `post.pinned` posts
 
 5. **Writer resolution** — batch-fetch member profiles for all unique `post.memberId` values to show names/photos instead of IDs
 

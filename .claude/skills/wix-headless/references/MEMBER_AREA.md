@@ -154,7 +154,7 @@ The profile tab is a React `client:load` component that manages:
 - **Cover photo** — 160px height, upload/remove actions via server API endpoint
 - **Profile photo** — circular 80px, upload/remove via server API endpoint
 - **Nickname** — text input
-- **Title** — text input (e.g., "Ship Captain")
+- **Title** — text input (e.g., role or tagline)
 - **Profile slug** — separate update action (`updateCurrentMemberSlug`)
 - **Privacy** — toggle between PUBLIC and PRIVATE
 

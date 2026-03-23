@@ -2,7 +2,7 @@
 
 ## Overview
 
-CMS data pages display content from Wix CMS collections (e.g., Planets, Crew, Missions). A good implementation follows a consistent pattern: listing page with cards + detail page with full content.
+CMS data pages display content from Wix CMS collections. A good implementation follows a consistent pattern: listing page with cards + detail page with full content. This applies to any custom collection (team members, locations, events, projects, etc.).
 
 ## Listing Page Guidelines
 
@@ -23,7 +23,7 @@ const allItems = result.items;
 ```
 
 - **Sort server-side** using `.descending()` or `.ascending()` — avoid client-side sorting when possible
-- **Use `.include()`** for referenced collections (e.g., `.include('planetRef', 'crew')` to fetch related items in one query)
+- **Use `.include()`** for referenced collections (e.g., `.include('locationRef', 'teamMembers')` to fetch related items in one query)
 - **No pagination needed** for small datasets — for large datasets, implement cursor-based paging
 
 ### Card Layout
@@ -44,12 +44,12 @@ Use a responsive auto-fill grid:
 
 ### What Every Listing Card Must Include
 
-1. **Visual element** — image from CMS or a styled fallback (gradient orb, emoji placeholder)
+1. **Visual element** — image from CMS or a styled fallback (gradient, icon, or placeholder)
 2. **Title** — item name, linked to detail page
 3. **Status badge** — color-coded indicator when items have status/state
-4. **Key metadata** — 2-3 important fields displayed compactly (e.g., distance, gravity, atmosphere)
+4. **Key metadata** — 2-3 important fields displayed compactly
 5. **Brief description** — truncated to ~120 characters
-6. **Distinguishing detail** — skill tag, role label, rank number — something that differentiates each card
+6. **Distinguishing detail** — tag, role label, rank number — something that differentiates each card
 
 ### Status Badge Pattern
 
@@ -61,7 +61,7 @@ function getStatusBadge(status: string): string {
     'Active': 'badge-green',
     'In Progress': 'badge-blue',
     'Completed': 'badge-gold',
-    'Planning': 'badge-purple',
+    'Pending': 'badge-purple',
   };
   return map[status] || 'badge-default';
 }
@@ -75,17 +75,11 @@ Always handle missing images — never show broken image icons:
 {imageUrl ? (
   <img src={imageUrl} alt={item.title} />
 ) : (
-  <div class="placeholder-orb">{emoji}</div>
+  <div class="placeholder">{fallbackIcon}</div>
 )}
 ```
 
-For items with categories/roles, map to emoji fallbacks:
-```typescript
-function getEmoji(role: string): string {
-  const map: Record<string, string> = { 'Captain': '🚀', 'Scientist': '🔬', 'Engineer': '🔧' };
-  return map[role] || '🐾';
-}
-```
+For items with categories/roles, map to contextual fallback icons or initials.
 
 ### Ranking Display
 
@@ -102,7 +96,7 @@ When items have a score/ranking, show rank badges:
 
 ### Score/Progress Bars
 
-For numeric scores, display as a visual progress bar:
+For numeric scores (ratings, completion %, etc.), display as a visual progress bar:
 
 ```html
 <div class="score-bar">
@@ -138,7 +132,7 @@ const result = await items.query('MyCollection').eq('slug', slug).find();
 if (result.items.length === 0) return Astro.redirect('/collection-name');
 const item = result.items[0];
 
-// Fetch related items
+// Fetch related items from other collections
 const related = await items.query('RelatedCollection').eq('parentField', item.title).find();
 ---
 ```
@@ -162,11 +156,11 @@ Use a two-column layout (main content + sidebar):
 
 ### What Every Detail Page Must Include
 
-1. **Back link** — navigation back to listing page (e.g., "← Back to all planets")
+1. **Back link** — navigation back to listing page
 2. **Hero section** — large image/visual, title, status badge
 3. **Full description** — untruncated content
 4. **Metadata card** — sidebar with structured key-value pairs (stats, dates, attributes)
-5. **Related items** — links to connected entities (e.g., missions for a planet, crew members for a mission)
+5. **Related items** — links to connected entities from other collections
 
 ### Back Navigation
 
@@ -182,7 +176,7 @@ Display structured data in labeled rows:
 
 ```html
 <div class="stats-card">
-  <h3>{t('item.stats')}</h3>
+  <h3>{t('item.details')}</h3>
   <div class="stat-row">
     <span class="stat-label">{t('item.field1')}</span>
     <span class="stat-value">{item.field1}</span>
@@ -198,7 +192,7 @@ Show related entities as clickable mini-cards:
 ```astro
 {relatedItems.length > 0 && (
   <section>
-    <h3>{t('item.relatedThings')}</h3>
+    <h3>{t('item.related')}</h3>
     {relatedItems.map(r => (
       <a href={getRelativeLocaleUrl(`/related/${r.slug}`)} class="related-card">
         <span class={getStatusBadge(r.status)}>{r.status}</span>
@@ -211,35 +205,34 @@ Show related entities as clickable mini-cards:
 
 ### Cross-Entity Linking
 
-When entities reference each other (e.g., missions reference planets and crew), create bidirectional links:
+When entities reference each other, create bidirectional links. For example:
+- **Event detail** links to venue detail AND speaker profiles
+- **Venue detail** links to upcoming events at that venue
+- **Speaker detail** links to events they're presenting at
 
-- **Mission detail** → links to planet detail AND crew member profiles
-- **Planet detail** → links to related missions
-- **Crew detail** → links to missions they're assigned to
+Display referenced entities with visual previews (small circular images, fallback icons).
 
-Display referenced entities with visual previews (small circular images, emoji fallbacks).
+### Avatar Stack Pattern (Overlapping Avatars)
 
-### Crew Stack Pattern (Overlapping Avatars)
-
-For showing multiple people compactly:
+For showing multiple people compactly (e.g., team members assigned to a project):
 
 ```css
-.crew-stack { display: flex; }
-.crew-stack a {
+.avatar-stack { display: flex; }
+.avatar-stack a {
   width: 30px; height: 30px;
   border-radius: 50%;
   margin-inline-end: -6px;
   border: 2px solid var(--bg-card);
   transition: transform 0.2s;
 }
-.crew-stack a:hover { transform: scale(1.3); z-index: 1; }
+.avatar-stack a:hover { transform: scale(1.3); z-index: 1; }
 ```
 
 ## Translations
 
 - **All user-visible text** must use `t()` — page titles, subtitles, labels, metadata labels, empty states
 - **Status values** from CMS are English strings — map them to translation keys rather than displaying raw values
-- **Units and abbreviations** (e.g., "ly" for light years, "min" for minutes) must be translation keys
+- **Units and abbreviations** must be translation keys, not hardcoded
 - **Back links** should use translated text with directional arrows in the translation string (flips for RTL)
 
 ## Common Patterns
@@ -256,7 +249,6 @@ For listing pages with categories/tags, implement client-side filtering:
       document.querySelectorAll('.card').forEach(card => {
         card.style.display = (!filter || card.dataset.category === filter) ? '' : 'none';
       });
-      // Update active button state
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
     });
@@ -271,13 +263,13 @@ Preserve filter state in URL query params so it survives page reload.
 When items have status/priority that doesn't sort alphabetically, define a custom order:
 
 ```typescript
-const statusOrder = ['In Progress', 'Launching Soon', 'Planned', 'Planning', 'Completed'];
+const statusOrder = ['In Progress', 'Upcoming', 'Planned', 'Completed'];
 items.sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status));
 ```
 
 ### Timeline Layout
 
-For chronological items (missions, events), use a vertical timeline:
+For chronological items (events, milestones), use a vertical timeline:
 
 ```css
 .timeline { position: relative; padding-inline-start: 2rem; }
@@ -287,7 +279,7 @@ For chronological items (missions, events), use a vertical timeline:
   inset-inline-start: 0;
   top: 0; bottom: 0;
   width: 2px;
-  background: var(--accent-glow);
+  background: var(--accent);
 }
 .timeline-item::before {
   content: '';

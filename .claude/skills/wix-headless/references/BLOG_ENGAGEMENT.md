@@ -317,10 +317,10 @@ if (result.comments.length < expectedCount) {
 All engagement text must be translated:
 - `blog.views`, `blog.likes`, `blog.comments` — metric labels
 - `blog.likePost`, `blog.liked` — like button states
-- `blog.leaveTransmission`, `blog.sendTransmission` — comment form
+- `blog.leaveComment`, `blog.sendComment` — comment form
 - `blog.reply`, `blog.edit`, `blog.delete`, `blog.cancel` — comment actions
 - `blog.commentsDisabled`, `blog.loginRequired` — state messages
-- `blog.crew`, `blog.spaceVisitor` — user type badges
+- `blog.member`, `blog.visitor` — user type badges
 - `blog.edited` — edited comment indicator
 
 ## Post Metrics
