@@ -1,5 +1,61 @@
 # Wix eCommerce Store
 
+## Store Building Guidelines
+
+When building a headless store, follow these guidelines to create a complete, production-quality experience:
+
+### Media is mandatory — not optional
+
+Every entity that supports media MUST have images. A store without images is not a store.
+
+- **Products**: Include multiple images per product at creation time (via `media.itemsInfo.items` with `url` or `id`). Aim for 3-5 images showing different angles. Include video when possible.
+- **Categories**: Every category should have a cover image. Import images and set them when creating categories.
+- **Variants**: Link variant-specific images where applicable (e.g., different colors show different photos).
+
+Always add media during product/category creation — not as a separate step. The V3 create API supports `"media": { "itemsInfo": { "items": [{ "url": "https://..." }] } }` inline.
+
+### Use all available product fields
+
+When seeding products via API, populate ALL rich fields — not just name and price:
+
+- **`plainDescription`** — detailed HTML product description
+- **`infoSections`** — additional tabs like "Specifications", "Size Guide", "Care Instructions", "Shipping Info". These appear as expandable sections on the product page.
+- **`modifiers`** — customization options like engraving text (`FREE_TEXT`), gift wrapping (`TEXT_CHOICES`), or color accents (`SWATCH_CHOICES`). These are separate from options/variants.
+- **`ribbon`** — badges like "BESTSELLER", "NEW", "SALE", "PRE-ORDER"
+- **`options`** with multiple choices — sizes, colors (with `colorCode` for swatches), materials
+- **`compareAtPriceRange`** — set original prices to show sale pricing
+- **`physicalProperties`** — weight, dimensions for shipping calculation
+
+### Set up inventory properly
+
+- Create inventory for every variant immediately after product creation
+- Set up pre-order for upcoming products: `trackQuantity: true`, `quantity: 0`, `preorderInfo: { enabled: true, limit: N, message: "..." }`
+- Mark some variants as out-of-stock to exercise the back-in-stock flow
+
+### Enable back-in-stock notifications
+
+- The product detail page MUST show a "Notify Me" form when a product/variant is out of stock (and not pre-orderable)
+- Collect email and call `backInStockNotifications.createBackInStockNotificationRequest`
+- Uses V1 appId even on V3 sites
+
+### Product detail page must support the full product model
+
+The product detail component should render ALL of:
+- Image gallery with thumbnails (images AND video)
+- Variant options (text choices and color swatches)
+- Modifiers (free text inputs, choice buttons, color swatches) with mandatory indicators
+- Quantity selector
+- Pre-order badge and button text when applicable
+- Sale pricing (compare-at price with strikethrough)
+- Ribbon badges
+- Info sections as expandable/tabbed content
+- Back-in-stock email form for out-of-stock items
+- Related products
+
+### Categories need images too
+
+When creating categories, import a representative image and set it on the category. Categories without images look broken in grid layouts. Use the media import API first, then create the category with the media reference.
+
 See the version-specific references for catalog queries and product data:
 
 - **[ECOMMERCE_V3.md](ECOMMERCE_V3.md)** — V3 catalog: `productsV3` namespace, categories, `215238eb-...` appId

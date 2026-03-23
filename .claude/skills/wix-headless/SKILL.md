@@ -23,6 +23,8 @@ When working on a specific feature area, read the relevant reference guide:
 
 ### Scaffolding
 
+**Before scaffolding**, list the working directory to check for existing folders and pick a `--project-name` that doesn't conflict.
+
 **Non-interactive (preferred):**
 ```bash
 npm create @wix/new@latest headless -- \
@@ -376,6 +378,9 @@ const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', cu
 - Use `as Function` (not `as any`) for SDK overload workarounds
 
 ### Translations
+- **Enable in astro config**: `wix({ essentials: true, translations: true })` — without this, `i18n.getTranslationFunction()` throws `"Host translation resources are not available"`
+- **Required files**: `src/translations.json` (flat key-value), `.wix/multilingual/metadata.json` (`{"primaryLanguageCode": "en"}`), and `.wix/multilingual/translations/` directory (can be empty). Build fails without these when `translations: true` is set.
+- **Git**: The scaffold gitignores `.wix/` entirely. Add `!.wix/multilingual/` to `.gitignore` so the metadata and translations directory are committed.
 - Use `i18n.getTranslationFunction()` from `@wix/essentials` for ALL user-visible text — works in both Astro pages and React components (`client:load`)
 - Never hardcode English text in pages or components — add keys to `src/translations.json` and use `t('group.key')`
 - In React components, call `const t = i18n.getTranslationFunction()` inside the component function (not at module level)

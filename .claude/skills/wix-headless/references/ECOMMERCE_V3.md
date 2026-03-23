@@ -157,6 +157,7 @@ Pre-order **requires** quantity tracking (not in-stock tracking). Without it, ca
 
 ## V3 Gotchas
 
+0. **Always include media at creation time**: Pass `media.itemsInfo.items` with image URLs when calling `createProduct`. Adding media later via PATCH requires sending the full `options` and `variantsInfo.variants` arrays (the PATCH validates variants against options even if you only want to update media). Avoid this pain by including images upfront.
 1. **Fields are opt-in**: Without `fields` param, queries return minimal data (no media, no prices, no categories).
 2. **Media strings**: `m.image` and `m.video` are Wix media strings (`wix:image://...`, `wix:video://...`). Use `getImageUrl()`/`getVideoUrl()` helpers to convert. `mediaType` is uppercase: `'IMAGE'`, `'VIDEO'`.
 3. **Variant matching via optionChoiceNames**: `variant.choices[].optionChoiceNames.optionName/choiceName` — match with `.some()`.

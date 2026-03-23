@@ -102,6 +102,27 @@ Update `astro.config.mjs` to enable translations:
 wix({ essentials: true, translations: true })
 ```
 
+Without these flags, `i18n.getTranslationFunction()` throws `"Host translation resources are not available"` at runtime.
+
+**Required files for build** (when `translations: true`):
+1. `src/translations.json` — flat key-value pairs (e.g. `{"nav.home": "Home"}`)
+2. `.wix/multilingual/metadata.json` — must contain `{"primaryLanguageCode": "en"}`
+3. `.wix/multilingual/translations/` — directory must exist (can be empty for single-language)
+
+Without all three, the build fails with misleading errors (`"Failed to load primary translation file"` or `"Failed to load translation file(s)"`).
+
+### Git: commit `.wix/multilingual/`
+
+The scaffold's `.gitignore` ignores all of `.wix/`. Add an exception so the multilingual metadata and pulled translations are committed:
+
+```gitignore
+# wix integration
+.wix/
+!.wix/multilingual/
+```
+
+Without this, collaborators and CI will get build failures after a fresh clone.
+
 ### Push & Pull
 
 - **Push keys to dashboard**: `npm run wix translation push` (interactive terminal only — requires TTY)
@@ -468,7 +489,7 @@ const links = [
 
 - **Dashboard install only**: Wix Multilingual app must be installed from the dashboard — no known `appDefId` for API-based installation.
 - **`wix translation push` needs TTY**: Requires an interactive terminal. It will not work in non-interactive scripts or CI pipelines.
-- **`.wix/` is gitignored**: Translation files in `.wix/multilingual/translations/` will not be committed to version control. Use `wix translation pull` to restore them locally.
+- **`.wix/` is gitignored by default**: The scaffold ignores all of `.wix/`. Add `!.wix/multilingual/` to `.gitignore` so metadata and translation files are committed. Without this, collaborators and CI get build failures.
 - **Paging may be ignored**: The Translation Content query API may return all entries regardless of the `limit` value. Use cursor-based paging for large datasets.
 - **RICH_CONTENT fields**: Some fields (e.g., rich text product descriptions) expect `richContent` format, not plain `textValue`. Bulk create returns `INVALID_ARGUMENT` if you send plain text for these fields. Skip or format them appropriately.
 - **`i18n.getTranslationFunction()`**: Works with the `src/translations.json` keys and the pulled translation files in `.wix/multilingual/translations/`.
