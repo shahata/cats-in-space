@@ -1,14 +1,9 @@
----
-name: wix-ecommerce-store
-description: Wix eCommerce Store Skill — cart, checkout, orders, back-in-stock, catalog version detection. Covers shared eCommerce patterns across Catalog V1 and V3. Trigger on Wix Stores, ecommerce, cart, checkout, add to cart, buy now, store products.
----
-
 # Wix eCommerce Store
 
-See the version-specific skills for catalog queries and product data:
+See the version-specific references for catalog queries and product data:
 
-- **[SKILL-V3.md](SKILL-V3.md)** — V3 catalog: `productsV3` namespace, categories, `215238eb-...` appId
-- **[SKILL-V1.md](SKILL-V1.md)** — V1 catalog (legacy): `products` namespace, collections, `1380b703-...` appId
+- **[ECOMMERCE_V3.md](ECOMMERCE_V3.md)** — V3 catalog: `productsV3` namespace, categories, `215238eb-...` appId
+- **[ECOMMERCE_V1.md](ECOMMERCE_V1.md)** — V1 catalog (legacy): `products` namespace, collections, `1380b703-...` appId
 
 ## How to check catalog version
 

@@ -1,8 +1,3 @@
----
-name: wix-multilingual
-description: "Wix Multilingual in Managed Headless Projects. Covers static translations (translations.json, i18next interpolation), dynamic content translation via Translation Content API, schema discovery, RTL support, currency formatting, and language switcher. Trigger on multilingual, translation, i18n, locale, language, RTL, right-to-left, Hebrew, translate."
----
-
 # Wix Multilingual in Managed Headless Projects
 
 ## Overview

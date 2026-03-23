@@ -1,8 +1,3 @@
----
-name: wix-blog-engagement
-description: Wix Blog engagement features - likes, comments, replies, views, metrics. Covers client-side React components for interactive blog features. Trigger on blog likes, blog comments, blog views, blog metrics, comment replies, blog engagement, wix comments API, wix likes API.
----
-
 # Wix Blog - Likes, Comments, Views & Metrics
 
 ## Likes (Client-Side React)
@@ -280,4 +275,3 @@ The Wix Comments system uses a layered permission model:
 2. **CommentsContextHost SPI** (internal): The blog implements `GetCommentContext` which resolves per-user boolean permissions (`create_comment: true/false`) based on the caller's identity. This is an internal service not accessible from headless SDK.
 
 3. **Best approach for headless**: Don't pre-check permissions. Let the user attempt the action and handle `PERMISSION_DENIED` errors gracefully by showing a login prompt.
-

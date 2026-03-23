@@ -1,8 +1,3 @@
----
-name: wix-blog-posts
-description: Wix Blog posts, tags, writers, rich content (ricos), and creating/updating posts. Trigger on Wix Blog, blog posts, ricos, rich content viewer, blog tags, blog writers, draft posts, blog categories.
----
-
 # Wix Blog - Posts, Tags, Writers & Rich Content
 
 ## Setup

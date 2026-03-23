@@ -1,8 +1,3 @@
----
-name: wix-pricing-plans
-description: Wix Pricing Plans - subscriptions, checkout flow, orders, member order management, cancellation, coupons, and redirect sessions. Covers plan listing, purchase flow for free and paid plans, and SDK types.
----
-
 # Wix Pricing Plans
 
 ## SDK Packages

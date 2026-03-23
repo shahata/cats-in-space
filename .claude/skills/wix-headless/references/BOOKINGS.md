@@ -1,8 +1,3 @@
----
-name: wix-bookings
-description: "Wix Bookings in Managed Headless Projects. Covers service setup, staff members, availability calendar, booking flow, cancellation, and SDK patterns for Astro + React. Trigger on Wix Bookings, appointments, services, staff, availability, booking flow, medical bay, book online."
----
-
 # Wix Bookings - Managed Headless Guide
 
 ## Overview
@@ -136,7 +131,7 @@ Service object key fields:
 - `service.staffMemberIds` — array of resource IDs
 - `service.schedule.availabilityConstraints.sessionDurations` — durations in minutes
 - `service.payment.rateType` — "NO_FEE", "FIXED", "VARIED", "CUSTOM"
-- `service.media.mainMedia.image` — `wix:image://` string (see `wix-media-handling` skill)
+- `service.media.mainMedia.image` — `wix:image://` string (see `references/MEDIA.md`)
 
 ## Booking Flow (Client-Side)
 
@@ -238,4 +233,4 @@ await bookings.cancelBooking(bookingId, {
 8. **Category required for visibility** — Services without a `category.id` won't appear on the live site
 9. **queryServices returns `{ services: [...] }`** — NOT `{ items: [...] }`
 10. **queryStaffMembers returns `{ staffMembers: [...] }`** — NOT `{ items: [...] }`
-11. **Media fields are `wix:image://` strings in SDK** — See the `wix-media-handling` skill
+11. **Media fields are `wix:image://` strings in SDK** — See `references/MEDIA.md`

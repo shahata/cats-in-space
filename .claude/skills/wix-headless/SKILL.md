@@ -1,9 +1,23 @@
 ---
 name: wix-headless
-description: Core Wix managed headless guide. Covers scaffolding, Astro + Wix SDK patterns, CMS collections, image handling, dynamic routes, deployment, authentication, members, media helpers, and general coding conventions. Trigger on Wix headless, headless site, Wix CMS, Wix Astro, wix managed, wix SDK data queries.
+description: "Use when building or working on Wix managed headless projects. Covers scaffolding, Astro + Wix SDK patterns, CMS collections, image handling, dynamic routes, deployment, authentication, members, media helpers, Wix Blog (posts, tags, likes, comments, rich content), Wix Stores (cart, checkout, orders), Wix Bookings (services, staff, availability), Wix Pricing Plans, Wix Multilingual (translations, RTL, i18n), and general coding conventions. Trigger on Wix headless, headless site, Wix CMS, Wix Astro, wix managed, wix SDK, Wix Blog, Wix Stores, Wix Bookings, Wix Pricing Plans, multilingual, translation, i18n, RTL."
 ---
 
 # Wix Managed Headless - Developer Guide
+
+## Reference Guides
+
+When working on a specific feature area, read the relevant reference guide:
+
+- **Bookings** (`references/BOOKINGS.md`) — Service setup, staff members, availability calendar, booking flow, cancellation
+- **Blog Posts** (`references/BLOG_POSTS.md`) — Posts, tags, writers, rich content (ricos), creating/updating posts
+- **Blog Engagement** (`references/BLOG_ENGAGEMENT.md`) — Likes, comments, replies, views, metrics
+- **eCommerce Store** (`references/ECOMMERCE.md`) — Cart, checkout, orders, back-in-stock, catalog version detection
+  - V1 Catalog details: `references/ECOMMERCE_V1.md`
+  - V3 Catalog details: `references/ECOMMERCE_V3.md`
+- **Media Handling** (`references/MEDIA.md`) — wix:image:// and wix:video:// formats, URL helpers, SDK vs REST differences
+- **Multilingual** (`references/MULTILINGUAL.md`) — Static translations, Translation Content API, RTL support, currency formatting
+- **Pricing Plans** (`references/PRICING_PLANS.md`) — Subscriptions, checkout flow, orders, cancellation
 
 ## Project Setup
 

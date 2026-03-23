@@ -58,7 +58,7 @@ Two-arg overload: first is `CategoryQuery` (paging/filter), second is `QueryCate
 - `description` — RichContent object (opt-in via `DESCRIPTION`). Render with RichContentViewer component.
 - `plainDescription` — HTML string (opt-in via `PLAIN_DESCRIPTION`, fallback)
 - `media.main` / `media.itemsInfo.items[]` — `ProductMedia { mediaType, image (string), video (string), thumbnail: { url } }`
-  - Use `extractMediaUrl(productMedia, w, h)` — returns `{ type, url, thumbnail? }` or null (see wix-headless skill for implementation)
+  - Use `extractMediaUrl(productMedia, w, h)` — returns `{ type, url, thumbnail? }` or null (see `references/MEDIA.md` for implementation)
   - `image` is a Wix media string (`wix:image://...`) — parsed by `getImageUrl()`
   - `video` is a Wix video string (`wix:video://...`) — parsed by `getVideoUrl()` → `{ url, thumbnail }`
 - `actualPriceRange` — `{ minValue: { amount, formattedAmount }, maxValue: ... }`
