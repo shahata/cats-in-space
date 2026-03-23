@@ -1,3 +1,8 @@
+---
+name: wix-bookings
+description: "Wix Bookings in Managed Headless Projects. Covers service setup, staff members, availability calendar, booking flow, cancellation, and SDK patterns for Astro + React. Trigger on Wix Bookings, appointments, services, staff, availability, booking flow, medical bay, book online."
+---
+
 # Wix Bookings - Managed Headless Guide
 
 ## Overview

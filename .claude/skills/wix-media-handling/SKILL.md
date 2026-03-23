@@ -1,3 +1,8 @@
+---
+name: wix-media-handling
+description: "Wix Media Handling in Managed Headless SDK. Covers wix:image:// and wix:video:// string formats, image/video URL helpers, SDK vs REST media field differences, and upload patterns. Trigger on wix:image, wix:video, media URL, image helper, getImageUrl, static.wixstatic.com, media handling, image upload."
+---
+
 # Wix Media Handling — Managed Headless SDK
 
 ## The Core Gotcha
