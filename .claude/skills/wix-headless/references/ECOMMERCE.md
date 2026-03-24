@@ -19,7 +19,7 @@ Always add media during product/category creation — not as a separate step. Th
 When seeding products via API, populate ALL rich fields — not just name and price:
 
 - **`plainDescription`** — detailed HTML product description
-- **`infoSections`** — additional tabs like "Specifications", "Size Guide", "Care Instructions", "Shipping Info". These appear as expandable sections on the product page.
+- **`infoSections`** — additional tabs like "Specifications", "Size Guide", "Care Instructions", "Shipping Info". These appear as expandable sections on the product page. **V3 IMPORTANT:** Info sections are separate entities — create them first via `/stores/v3/info-sections`, then assign to products via `/stores/v3/bulk/products/add-info-sections`. They CANNOT be inlined in the `createProduct` call.
 - **`modifiers`** — customization options like engraving text (`FREE_TEXT`), gift wrapping (`TEXT_CHOICES`), or color accents (`SWATCH_CHOICES`). These are separate from options/variants.
 - **`ribbon`** — badges like "BESTSELLER", "NEW", "SALE", "PRE-ORDER"
 - **`options`** with multiple choices — sizes, colors (with `colorCode` for swatches), materials
@@ -54,7 +54,7 @@ The product detail component should render ALL of:
 
 ### Categories need images too
 
-When creating categories, import a representative image and set it on the category. Categories without images look broken in grid layouts. Use the media import API first, then create the category with the media reference.
+When creating categories, import a representative image and set it on the category. Categories without images look broken in grid layouts. Use the media import API first, then create the category with the media reference. **IMPORTANT:** The category `image` field requires `{ "url": "https://..." }`, not `{ "id": "..." }`.
 
 ### Store listing page must support filtering and rich product cards
 

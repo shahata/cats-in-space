@@ -23,7 +23,8 @@ const allProducts = result.items || [];
 ```typescript
 const result = await productsV3.getProductBySlug(slug, {
   fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DESCRIPTION',
-    'INFO_SECTION', 'INFO_SECTION_DESCRIPTION',
+    'PLAIN_DESCRIPTION',
+    'INFO_SECTION', 'INFO_SECTION_DESCRIPTION', 'INFO_SECTION_PLAIN_DESCRIPTION',
     'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES']
 });
 const product = result.product;
@@ -46,8 +47,9 @@ Two-arg overload: first is `CategoryQuery` (paging/filter), second is `QueryCate
 - `CURRENCY` — currency code + formatted amounts
 - `DESCRIPTION` — RichContent description (render with RichContentViewer)
 - `PLAIN_DESCRIPTION` — HTML description (plain text fallback)
-- `INFO_SECTION` — info section titles
+- `INFO_SECTION` — info section titles and IDs
 - `INFO_SECTION_DESCRIPTION` — info section RichContent body (combine with `INFO_SECTION`)
+- `INFO_SECTION_PLAIN_DESCRIPTION` — info section HTML body as `plainDescription` string (combine with `INFO_SECTION`). **You must request this separately from `INFO_SECTION_DESCRIPTION`** — it is NOT included automatically.
 - `DIRECT_CATEGORIES_INFO` — category IDs
 - `VARIANT_OPTION_CHOICE_NAMES` — variant choice names (needed for cart)
 
@@ -73,7 +75,7 @@ Two-arg overload: first is `CategoryQuery` (paging/filter), second is `QueryCate
   - When preorder is enabled, item is purchasable even if out of stock
 - `directCategoriesInfo.categories[]` — `{ _id }` (opt-in)
 - `ribbon` — `{ _id, name }` (object, not string)
-- `infoSections[]` — `{ _id, title, description (RichContent), plainDescription }`. Use `INFO_SECTION` + `INFO_SECTION_DESCRIPTION` fields.
+- `infoSections[]` — `{ _id, uniqueName, title, description (RichContent), plainDescription }`. Use `INFO_SECTION` + `INFO_SECTION_DESCRIPTION` + `INFO_SECTION_PLAIN_DESCRIPTION` fields. All three must be requested to get the full shape.
 - `modifiers[]` — `ConnectedModifier`:
   - `modifierRenderType`: `"FREE_TEXT"` | `"TEXT_CHOICES"` | `"SWATCH_CHOICES"`
   - `FREE_TEXT`: `freeTextSettings: { key, title, maxCharCount }` — renders as text input with char counter
@@ -110,10 +112,6 @@ if (Object.keys(opts).length > 0) ref.options = opts;
 ### Products
 - Create: `POST https://www.wixapis.com/stores/v3/products`
 - Get: `GET https://www.wixapis.com/stores/v3/products/{id}`
-
-### Categories
-- Create: `POST https://www.wixapis.com/categories/v1/categories` with `treeReference: { appNamespace: "@wix/stores" }`
-- Add items: `POST https://www.wixapis.com/categories/v1/bulk/categories/{categoryId}/add-items` with `appId: "215238eb-22a5-4c36-9e7b-e7c08025e04e"`
 
 ### Inventory (V3 products start as OUT_OF_STOCK)
 - Bulk create: `POST https://www.wixapis.com/stores/v3/bulk/inventory-items/create`
@@ -155,6 +153,56 @@ Pre-order **requires** quantity tracking (not in-stock tracking). Without it, ca
 } }
 ```
 
+**CRITICAL choiceType values for options:**
+- `CHOICE_TEXT` — for `TEXT_CHOICES` options (sizes, materials, etc.)
+- `ONE_COLOR` — for `SWATCH_CHOICES` options (colors). Do NOT use `CHOICE_COLOR` — it does not exist and will return 400.
+- `MULTIPLE_COLORS` — for multi-color swatches
+- `IMAGE` — for image-based choices
+
+### Info Sections (separate entity — cannot be inlined in createProduct)
+
+Info sections are **separate entities** in V3. You cannot pass them inline during `createProduct` — this will fail with `INFO_SECTION_CREATION_FAILED`.
+
+**Step 1 — Create info sections:**
+```
+POST https://www.wixapis.com/stores/v3/info-sections
+{ "infoSection": {
+    "uniqueName": "care-instructions",
+    "title": "Care Instructions",
+    "description": {
+      "nodes": [{ "type": "PARAGRAPH", "id": "p1", "nodes": [
+        { "type": "TEXT", "textData": { "text": "Your description text here." } }
+      ]}],
+      "metadata": { "version": 1 }
+    }
+} }
+```
+
+**Step 2 — Assign to products:**
+```
+POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
+{ "infoSectionIds": ["info-section-id-1", "info-section-id-2"],
+  "products": [{ "productId": "...", "revision": "1" }],
+  "returnEntity": true }
+```
+
+### Categories REST API
+
+**Create:** `POST https://www.wixapis.com/categories/v1/categories`
+- Category `image` requires `url` (full URL string), NOT `id`. Using `id` alone returns 400.
+```json
+{ "category": { "name": "My Category", "description": "...",
+    "image": { "url": "https://static.wixstatic.com/media/..." }
+  }, "treeReference": { "appNamespace": "@wix/stores" } }
+```
+
+**Add items:** `POST https://www.wixapis.com/categories/v1/bulk/categories/{categoryId}/add-items`
+- Uses `catalogItemId` (NOT `itemId`) and requires `treeReference`
+```json
+{ "items": [{ "catalogItemId": "product-id", "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e" }],
+  "treeReference": { "appNamespace": "@wix/stores" } }
+```
+
 ## V3 Gotchas
 
 0. **Always include media at creation time**: Pass `media.itemsInfo.items` with image URLs when calling `createProduct`. Adding media later via PATCH requires sending the full `options` and `variantsInfo.variants` arrays (the PATCH validates variants against options even if you only want to update media). Avoid this pain by including images upfront.
@@ -166,6 +214,10 @@ Pre-order **requires** quantity tracking (not in-stock tracking). Without it, ca
 6. **Inventory must be created separately**: V3 `createProduct` does NOT create inventory. Use `POST /stores/v3/bulk/inventory-items/create` with `inStock: true` for each variant.
 7. **Ribbon is an object**: `product.ribbon.name`, not `product.ribbon` (string).
 8. **Back-in-stock uses V1 appId**: The back-in-stock settings/notifications API only accepts `1380b703-...` even on V3 sites. Use V1 appId for back-in-stock, V3 appId for cart/checkout.
-9. **RichContent rendering**: Use a RichContentViewer component for `description` and `infoSections[].description`. Request `DESCRIPTION` and `INFO_SECTION_DESCRIPTION` fields.
+9. **RichContent rendering**: Use a RichContentViewer component for `description` and `infoSections[].description`. Request `DESCRIPTION` and `INFO_SECTION_DESCRIPTION` fields. For plain HTML fallback, also request `PLAIN_DESCRIPTION` and `INFO_SECTION_PLAIN_DESCRIPTION` — these are separate field values, not automatically included.
+12. **Info sections are separate entities**: You CANNOT create info sections inline during `createProduct` — this fails with `INFO_SECTION_CREATION_FAILED`. Create them first via `POST /stores/v3/info-sections`, then assign via `POST /stores/v3/bulk/products/add-info-sections`.
+13. **Swatch choice type is ONE_COLOR**: When creating product options with `SWATCH_CHOICES`, use `choiceType: "ONE_COLOR"` (not `"CHOICE_COLOR"` which doesn't exist). Valid values: `CHOICE_TEXT`, `ONE_COLOR`, `MULTIPLE_COLORS`, `IMAGE`.
+14. **Category image needs url**: When creating categories via REST, the `image` field requires `{ "url": "https://..." }`, not `{ "id": "..." }`. Using `id` alone returns 400.
+15. **Category add-items uses catalogItemId**: The bulk add-items endpoint uses `catalogItemId` (not `itemId`) and also requires `treeReference` in the body.
 10. **Pre-order requires quantity tracking**: Inventory items must use `trackQuantity: true` with `quantity: 0` and `preorderInfo.limit` set. Using `inStock` tracking (no quantity) with preorder causes cart to cap quantity to 0.
 11. **Pre-order in cart**: Pass `preOrderRequested: true` in `catalogReference.options` so the cart allows adding quantity > 0 for preorder items.
