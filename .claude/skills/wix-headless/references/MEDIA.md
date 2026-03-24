@@ -50,8 +50,12 @@ const url = getImageUrl(
 | `@wix/blog` posts | `post.coverMedia.image` | image | `string` |
 | `@wix/members` | `member.profile.photo.url` | image | `string` (already a URL) |
 | `@wix/data` CMS IMAGE fields | `item.imageField` | image | `string` |
+| `@wix/ecom` cart line items | `lineItem.image` | image | `string` |
+| `@wix/ecom` orders | `order.lineItems[].image` | image | `string` |
 
 For Stores productsV3, `mediaType` is uppercase (`'IMAGE'` or `'VIDEO'`), check it to decide which helper to use.
+
+**CRITICAL RULE: Every place you display a media URL from ANY Wix SDK response, you MUST pass it through `getImageUrl()` or `getVideoUrl()`.** This includes cart line items, order line items, product images, blog cover images, member photos, CMS images, booking service images, etc. Raw `wix:image://` strings will NOT render in `<img>` tags — they must be converted to real URLs first. Never use a Wix media field directly as an `<img src>` without calling the helper.
 
 ## The Helpers in `src/utils/image.ts`
 

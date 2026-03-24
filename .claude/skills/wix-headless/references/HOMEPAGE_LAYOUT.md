@@ -140,7 +140,7 @@ The CartSidebar listens for this event to refresh its data.
 
 1. **Badge/trigger** — fixed button showing cart item count, always visible
 2. **Slide-out panel** with:
-   - Each line item: image (with fallback), name, selected options/variants, custom text, quantity controls (+/−, min 1), price, remove button
+   - Each line item: image (**MUST use `getImageUrl(item.image)` — `item.image` is a `wix:image://` string, not a direct URL**), name, selected options/variants, custom text, quantity controls (+/−, min 1), price, remove button
    - Totals: subtotal, discount (if any), estimated total via `estimateCurrentCartTotals()`
    - Checkout button → creates checkout session and redirects to Wix-hosted checkout
 3. **Empty state** — message + link to store when cart is empty

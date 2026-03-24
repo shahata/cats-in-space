@@ -145,6 +145,8 @@ npm install @wix/redirects  # createRedirectSession for checkout
 
 ### Cart
 
+**CRITICAL:** Cart line item `image` fields are `wix:image://` strings — they will NOT render in `<img>` tags directly. Always use `getImageUrl(item.image)` to convert to a displayable URL. This applies to ALL Wix SDK media fields (see `references/MEDIA.md`).
+
 ```typescript
 import { currentCart } from '@wix/ecom';
 import type { cart as cartTypes } from '@wix/ecom';
