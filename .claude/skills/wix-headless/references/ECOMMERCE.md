@@ -93,17 +93,31 @@ The store listing page should include:
 
 ```typescript
 import { productsV3 } from '@wix/stores';
+import type { productsV3 as productsV3Types } from '@wix/stores';
 import { categories } from '@wix/categories';
 
-const result = await productsV3.queryProducts({
+// Fetch all products with category info for client-side filtering
+const productResult = await productsV3.queryProducts({
   fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO']
 }).limit(100).find();
+const allProducts = productResult.items || [];
 
+// Fetch categories
 const catResult = await categories.queryCategories(
   { cursorPaging: { limit: 100 } },
   { treeReference: { appNamespace: '@wix/stores' } }
 );
+const allCollections = (catResult.categories || []).map(c => ({ _id: c._id!, name: c.name! }));
+
+// Build category lookup for mapping product → collection names
+const categoryMap = new Map<string, string>();
+for (const c of allCollections) categoryMap.set(c._id, c.name);
+
+// Client-side filtering: use data-collections attribute on product cards
+// and filter via JS (see ECOMMERCE_V3.md for full example with filter tabs)
 ```
+
+**Category filtering approach:** Fetch all products with `DIRECT_CATEGORIES_INFO`, then filter client-side using `data-collections` attributes on product cards and JavaScript. This avoids the complexity of server-side `searchProducts` calls and works well for stores with up to ~100 products.
 
 ### Price range display
 

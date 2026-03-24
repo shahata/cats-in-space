@@ -460,3 +460,16 @@ const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', cu
 - `httpClient.fetchWithAuth` from `@wix/essentials` — only use when no SDK method exists for the endpoint. Import from main module, NOT subpath
 - `media` from `@wix/sdk` for image/video URLs — `media.getImageUrl()`, `media.getScaledToFillImageUrl()`, `media.getVideoUrl()`
 - **ALL media fields from ALL Wix SDK responses are `wix:image://` or `wix:video://` strings** — they CANNOT be used directly as `<img src>` or `<video src>`. You MUST always pass them through `getImageUrl()` / `getVideoUrl()` helpers before rendering. This applies everywhere: product images, cart line item images (`lineItem.image`), order line item images, blog cover images, member photos, CMS image fields, booking service images, etc. Forgetting this is a common bug — if you're displaying any image from a Wix SDK response, use the helper.
+
+### Stores V3 SDK Gotchas (CRITICAL — read before building any store)
+- **V3 field paths differ from V1** — see `references/ECOMMERCE_V3.md` → "V3 SDK Field Access Cheat Sheet" for the complete mapping. Key differences:
+  - Image: `product.media?.main?.image` (string) — NOT `product.media?.mainMedia?.image?.url`
+  - Price: `product.actualPriceRange?.minValue?.amount` — NOT `product.priceRange?.minValue`
+  - Ribbon: `product.ribbon?.name` (object) — NOT `product.ribbon` (renders as [object Object])
+  - Variants: `product.variantsInfo?.variants` — NOT `product.variants`
+  - Option choices: `opt.choicesSettings?.choices?.map(c => c.name)` — NOT `opt.choices` or `c.value`
+- **Variant `_id` vs `id` mismatch**: TypeScript type shows `id` but runtime value is `_id`. Always use `(v as any)._id || v.id`
+- **Use `getProductBySlug` for detail pages**: `queryProducts().eq('slug', slug)` may not return options/variants
+- **Categories: use `searchCategories`**: `queryCategories` does NOT work in managed headless. Use `categories.searchCategories({}, { treeReference: { appNamespace: '@wix/stores' } })`
+- **Category filtering needs `$matchItems`**: Use `productsV3.searchProducts()` with `directCategoriesInfo.categories` and `$matchItems` operator — simple `categoryIds` filters do not work
+- **Create products with inventory**: Use `POST /stores/v3/products-with-inventory` endpoint to create products with inventory in one call
