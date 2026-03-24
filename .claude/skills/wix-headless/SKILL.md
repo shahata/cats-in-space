@@ -13,7 +13,7 @@ When working on a specific feature area, read the relevant reference guide:
 - **CMS Data Pages** (`references/CMS_DATA_PAGES.md`) — Listing and detail page patterns for CMS collections (planets, crew, missions)
 - **Blog Posts** (`references/BLOG_POSTS.md`) — Posts, tags, writers, rich content (ricos), blog listing/detail page guidelines
 - **Blog Engagement** (`references/BLOG_ENGAGEMENT.md`) — Likes, comments, replies, views, metrics, engagement UI guidelines
-- **eCommerce Store** (`references/ECOMMERCE.md`) — Store listing page, product detail, cart, checkout, orders, back-in-stock
+- **eCommerce Store** (`references/ECOMMERCE.md`) — Store listing page, product detail, cart, checkout, **member area with order history (required)**, back-in-stock
   - V1 Catalog details: `references/ECOMMERCE_V1.md`
   - V3 Catalog details: `references/ECOMMERCE_V3.md`
 - **Bookings** (`references/BOOKINGS.md`) — Bookings listing page, service cards, staff grid, booking flow wizard, availability

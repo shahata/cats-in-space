@@ -189,6 +189,17 @@ In Astro: `<RichContentViewer content={post.richContent} client:load />`
 
 ## Blog Page Implementation Guidelines
 
+### Required features for a complete blog
+
+A functional blog MUST include ALL of the following. Do not skip any:
+
+1. **Blog listing page** (`/blog`) — post grid with tag filtering, metrics, writer info
+2. **Blog detail page** (`/blog/[slug]`) — rich content, writer profile, metadata
+3. **Comments & replies** — full comment system with nested replies, member identity, visitor names, edit/delete own comments. See `references/BLOG_ENGAGEMENT.md` for implementation. Comments are NOT optional — a blog without comments is incomplete.
+4. **Likes** — like/unlike on posts and comments, pre-populated from `queryLikes()` on mount
+5. **View tracking** — report views on post load via `/blog/v3/posts/{postId}/view`
+6. **Premium/paid content** — if the site has pricing plans, support gating blog posts behind subscriptions. Posts with `post.preview === true` show truncated content for non-subscribers. Use a `PremiumContentResolver` component to re-fetch client-side for logged-in members. Show a paywall overlay with a link to the plans page for non-subscribers. See the "Premium/Paid Content" section above for the full pattern.
+
 ### Blog Listing Page
 
 A good blog listing page includes:

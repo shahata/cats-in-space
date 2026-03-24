@@ -4,6 +4,23 @@
 
 When building a headless store, follow these guidelines to create a complete, production-quality experience:
 
+### Required pages for a complete store
+
+A functional store MUST include ALL of the following pages. Do not skip any:
+
+1. **Store listing page** (`/store`) — product grid with category filtering
+2. **Product detail page** (`/store/[slug]`) — full product info, options, add-to-cart
+3. **Cart sidebar** — slide-out cart with line items, quantities, checkout
+4. **Thank you page** (`/store/thank-you`) — post-checkout confirmation
+5. **Member area** (`/member`) — **CRITICAL: this is NOT optional.** A store without a member area is incomplete. Customers need to see their order history. Must include:
+   - Authentication gate (redirect to login if not logged in)
+   - **My Orders tab** — order history with line items (images via `getImageUrl()`!), quantities, prices, payment/fulfillment status badges, totals
+   - **Profile tab** — member info display
+   - Logout functionality (POST form, not a link)
+6. **Navigation** — must show login/logout state and link to member area
+
+See `references/MEMBER_AREA.md` for full member area implementation details.
+
 ### Media is mandatory — not optional
 
 Every entity that supports media MUST have images. A store without images is not a store.
@@ -206,9 +223,11 @@ import { orders as ecomOrders } from '@wix/ecom';
 const order = await ecomOrders.getOrder(orderId);
 ```
 
-### My Orders (Member Area)
+### My Orders (Member Area) — REQUIRED
 
-The member area should include a Store Orders tab where users can view their order history. See `references/MEMBER_AREA.md` → "Store Orders Tab" for the full implementation guidelines — including what to display per order (header, line items, totals, delivery info), status badge colors, and empty states.
+**Do NOT skip this.** Every store MUST have a member area where customers can view their order history. A store without order history is incomplete — customers have no way to review past purchases.
+
+Build a `/member` page with authentication gating and an orders tab. See `references/MEMBER_AREA.md` → "Store Orders Tab" for the full implementation guidelines — including what to display per order (header, line items, totals, delivery info), status badge colors, and empty states. Remember: order line item images are `wix:image://` strings — always use `getImageUrl()` to render them.
 
 ### Back-in-Stock Notifications
 
