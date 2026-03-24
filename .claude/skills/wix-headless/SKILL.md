@@ -5,6 +5,44 @@ description: "Use when building or working on Wix managed headless projects. Cov
 
 # Wix Managed Headless - Developer Guide
 
+## MANDATORY FEATURE CHECKLISTS — READ BEFORE BUILDING
+
+**STOP. Before building ANY feature area, verify you will implement ALL required items from the relevant checklist below. Do NOT skip items — these are non-negotiable. Check each item off as you build.**
+
+### Store — ALL required:
+- [ ] Store listing page (`/store`) with category filtering and product cards
+- [ ] Product detail page (`/store/[slug]`) with options, variants, add-to-cart
+- [ ] Cart sidebar with line item images (**use `getImageUrl()`!**), quantities, checkout
+- [ ] Thank you page (`/store/thank-you`)
+- [ ] **Member area (`/member`) with order history** — customers MUST be able to see past orders
+- [ ] Navigation with login/logout state detection
+- [ ] Inventory set to in-stock for all variants
+
+### Blog — ALL required:
+- [ ] Blog listing page (`/blog`) with tag filtering, cover images, metrics
+- [ ] Blog detail page (`/blog/[slug]`) with rich content rendering
+- [ ] **Likes** — like/unlike toggle on posts AND comments, pre-populated from `queryLikes()` on mount
+- [ ] **Comments & replies** — full comment system: visitor name input, member identity, nested replies, edit/delete own, like per comment. Comments are NOT optional.
+- [ ] **View tracking** — report views on post load via `httpClient.fetchWithAuth` to `/blog/v3/posts/{postId}/view`
+- [ ] **Premium/paid content** — if pricing plans exist, support `post.preview` with paywall overlay and link to plans page
+
+### Pricing Plans / Monetization — ALL required when site has paid content:
+- [ ] Plans listing page (`/plans`) with plan cards, perks, pricing, subscribe button
+- [ ] Checkout via `redirects.createRedirectSession` (handles login, free, and paid)
+- [ ] Success state after checkout redirect
+- [ ] Blog post gating — set `pricingPlanIds` on premium posts, render paywall for non-subscribers
+
+### Media — applies to ALL features:
+- [ ] **EVERY image from ANY Wix SDK response** must go through `getImageUrl()` before rendering — this includes product images, cart line items, order line items, blog covers, member photos, CMS images. Raw `wix:image://` strings do NOT render.
+
+### Member Area — ALL required when site has a store or plans:
+- [ ] Authentication gate (redirect to login if not logged in)
+- [ ] Order history tab with line item images (via `getImageUrl()`!), status badges
+- [ ] Profile tab
+- [ ] Logout via POST form (not a link)
+
+---
+
 ## Reference Guides
 
 When working on a specific feature area, read the relevant reference guide:
