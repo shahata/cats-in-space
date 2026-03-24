@@ -304,13 +304,42 @@ const item = result.items[0];
 
 **Always generate images and videos using AI** — do not import pre-existing stock images or placeholder images unless the user explicitly provides URLs or asks to use specific existing images. AI-generated media ensures unique, on-brand visuals for every entity.
 
-### OpenAI API Key
+### Wix Runware API (Preferred for Image Generation)
 
-Image and video generation requires an **OpenAI API key**. If one is not already configured in the environment, ask the user to provide it before proceeding with media generation. Use OpenAI's image generation APIs for images and video generation APIs for video.
+Use the **Wix Runware API** to generate images. This requires a `WIX_API_KEY` environment variable (an IST token), plus the account ID and site ID for the target site.
+
+**Endpoint:** `POST https://www.wixapis.com/runwareschemaless/v1/request`
+
+**Headers:**
+- `Content-Type: application/json`
+- `Authorization: <WIX_API_KEY>`
+- `wix-account-id: <ACCOUNT_ID>` (extract from the IST token payload or use the known account ID)
+- `wix-site-id: <SITE_ID>` (use `ListWixSites` MCP tool or `wix.config.json` to find the site ID)
+
+**Request body:**
+```json
+[{
+  "taskType": "imageInference",
+  "taskUUID": "<generate-a-unique-uuid>",
+  "outputType": "URL",
+  "outputFormat": "jpg",
+  "positivePrompt": "descriptive prompt for the image",
+  "height": 1024,
+  "width": 1024,
+  "model": "runware:400@1",
+  "numberResults": 1
+}]
+```
+
+**Response:** Returns `data[].imageURL` — a publicly accessible URL that can be passed directly to the Wix Media Import endpoint.
+
+### OpenAI API (Fallback)
+
+If the Wix Runware API is unavailable or for video generation, use OpenAI's APIs. **You MUST ask the user to provide their OpenAI API key** — do not attempt to find, guess, or look for it in environment variables or files on your own.
 
 ### Workflow
 
-1. **Generate** the image/video via OpenAI API. Request a URL response format when available — URLs can be passed directly to the Wix import endpoint.
+1. **Generate** the image via the Wix Runware API (preferred) or OpenAI API (fallback). Both return URLs that can be passed directly to the Wix import endpoint.
 2. **Upload to Wix:** `POST https://www.wixapis.com/site-media/v1/files/import` with `{ "url": "...", "mimeType": "image/png", "displayName": "..." }`. The returned `file.url` is usable immediately even while `operationStatus` is `PENDING`.
 3. **Attach at creation time** — include media when creating entities, not as a separate step. For products, use `media.itemsInfo.items` inline. For CMS items, set IMAGE fields directly. For blog posts, set the `media.wixMedia.image` field.
 4. **Add images one at a time via MCP** (batching may silently drop).
