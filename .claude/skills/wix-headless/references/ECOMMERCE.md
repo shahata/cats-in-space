@@ -204,6 +204,10 @@ import { orders as ecomOrders } from '@wix/ecom';
 const order = await ecomOrders.getOrder(orderId);
 ```
 
+### My Orders (Member Area)
+
+The member area should include a Store Orders tab where users can view their order history. See `references/MEMBER_AREA.md` → "Store Orders Tab" for the full implementation guidelines — including what to display per order (header, line items, totals, delivery info), status badge colors, and empty states.
+
 ### Back-in-Stock Notifications
 
 ```typescript
