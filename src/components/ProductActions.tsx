@@ -211,6 +211,7 @@ export default function ProductActions({ product }: Props) {
           thankYouPageUrl: window.location.origin + "/store/thank-you",
           postFlowUrl: window.location.origin + "/store",
         },
+        preferences: { checkIfPublish: true },
       });
       if (redirectSession?.fullUrl) {
         window.location.href = redirectSession.fullUrl;

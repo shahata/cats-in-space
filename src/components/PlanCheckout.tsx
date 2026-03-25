@@ -19,6 +19,7 @@ export default function PlanCheckout({ planId }: Props) {
           thankYouPageUrl: window.location.origin + "/plans/thank-you",
           postFlowUrl: window.location.origin + "/plans",
         },
+        preferences: { checkIfPublish: true },
       });
       if (redirectSession?.fullUrl) {
         window.location.href = redirectSession.fullUrl;

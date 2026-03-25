@@ -178,6 +178,7 @@ const redirect = await redirects.createRedirectSession({
     postFlowUrl: window.location.origin + "/bookings",
     thankYouPageUrl: window.location.origin + "/member#bookings",
   },
+  preferences: { checkIfPublish: true },
 });
 
 window.location.href = redirect.redirectSession.fullUrl;
@@ -331,6 +332,7 @@ const redirect = await redirects.createRedirectSession({
     postFlowUrl: window.location.origin + "/bookings",
     thankYouPageUrl: window.location.origin + "/member#bookings",
   },
+  preferences: { checkIfPublish: true },
 });
 ```
 

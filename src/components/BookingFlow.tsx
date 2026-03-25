@@ -168,6 +168,7 @@ export default function BookingFlow({ serviceId, serviceName, duration, staff }:
           postFlowUrl: window.location.origin + "/bookings",
           thankYouPageUrl: window.location.origin + "/member#bookings",
         },
+        preferences: { checkIfPublish: true },
       });
 
       if (redirect.redirectSession?.fullUrl) {
