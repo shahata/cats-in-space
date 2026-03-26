@@ -137,7 +137,21 @@
     "qty": "数量",
     "continueShopping": "買い物を続ける",
     "viewOrders": "注文を見る",
-    "orderProcessing": "注文は処理中です。確認メールをご確認ください。"
+    "orderProcessing": "注文は処理中です。確認メールをご確認ください。",
+    "giftCards": "ギフトカード",
+    "gcSelectAmount": "金額を選択",
+    "gcCustomAmount": "カスタム",
+    "gcEnterAmount": "金額を入力",
+    "gcRecipientEmail": "受取人メールアドレス",
+    "gcRecipientEmailPlaceholder": "who@example.com",
+    "gcRecipientName": "受取人の名前",
+    "gcRecipientNamePlaceholder": "ラッキーな猫の名前",
+    "gcSenderName": "あなたの名前",
+    "gcSenderNamePlaceholder": "あなたの名前",
+    "gcMessage": "メッセージ",
+    "gcMessagePlaceholder": "受取人へのメッセージを書いてください...",
+    "gcBuyNow": "今すぐ購入",
+    "gcProcessing": "リダイレクト中..."
   },
   "plans": {
     "pageTitle": "クルーメンバーシッププラン",

@@ -137,7 +137,21 @@
     "qty": "Кол-во",
     "continueShopping": "Продолжить покупки",
     "viewOrders": "Мои заказы",
-    "orderProcessing": "Ваш заказ обрабатывается. Проверьте email для подтверждения."
+    "orderProcessing": "Ваш заказ обрабатывается. Проверьте email для подтверждения.",
+    "giftCards": "Подарочные карты",
+    "gcSelectAmount": "ВЫБЕРИТЕ СУММУ",
+    "gcCustomAmount": "Другая сумма",
+    "gcEnterAmount": "Введите сумму",
+    "gcRecipientEmail": "Email получателя",
+    "gcRecipientEmailPlaceholder": "who@example.com",
+    "gcRecipientName": "Имя получателя",
+    "gcRecipientNamePlaceholder": "Имя счастливого кота",
+    "gcSenderName": "Ваше имя",
+    "gcSenderNamePlaceholder": "Ваше имя",
+    "gcMessage": "Личное сообщение",
+    "gcMessagePlaceholder": "Напишите сообщение для получателя...",
+    "gcBuyNow": "Купить",
+    "gcProcessing": "Перенаправление..."
   },
   "plans": {
     "pageTitle": "Тарифы членства экипажа",

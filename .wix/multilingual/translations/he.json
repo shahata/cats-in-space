@@ -137,7 +137,21 @@
     "qty": "כמות",
     "continueShopping": "המשיכו לקנות",
     "viewOrders": "צפו בהזמנות",
-    "orderProcessing": "ההזמנה שלכם בעיבוד. בדקו את האימייל לאישור."
+    "orderProcessing": "ההזמנה שלכם בעיבוד. בדקו את האימייל לאישור.",
+    "giftCards": "כרטיסי מתנה",
+    "gcSelectAmount": "בחרו סכום",
+    "gcCustomAmount": "סכום מותאם",
+    "gcEnterAmount": "הזינו סכום",
+    "gcRecipientEmail": "אימייל המקבל/ת",
+    "gcRecipientEmailPlaceholder": "who@example.com",
+    "gcRecipientName": "שם המקבל/ת",
+    "gcRecipientNamePlaceholder": "שם של חתול/ה ברמזל",
+    "gcSenderName": "השם שלכם",
+    "gcSenderNamePlaceholder": "השם שלכם",
+    "gcMessage": "הודעה אישית",
+    "gcMessagePlaceholder": "כתבו הודעה למקבל/ת...",
+    "gcBuyNow": "קנו עכשיו",
+    "gcProcessing": "מפנה..."
   },
   "plans": {
     "pageTitle": "מסלולי חברות לצוות",
