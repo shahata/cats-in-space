@@ -24,6 +24,7 @@
     "@wix/data": "^1.0.419",
     "@wix/ecom": "^1.0.1969",
     "@wix/essentials": "^1.0.6",
+    "@wix/gift-vouchers": "^1.0.71",
     "@wix/members": "^1.0.432",
     "@wix/payments": "^1.0.191",
     "@wix/pricing-plans": "^1.0.290",

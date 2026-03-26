@@ -137,7 +137,21 @@
     "qty": "Qty",
     "continueShopping": "Continue Shopping",
     "viewOrders": "View Orders",
-    "orderProcessing": "Your order is being processed. Check your email for confirmation."
+    "orderProcessing": "Your order is being processed. Check your email for confirmation.",
+    "giftCards": "Gift Cards",
+    "gcSelectAmount": "SELECT AMOUNT",
+    "gcCustomAmount": "Custom",
+    "gcEnterAmount": "Enter amount",
+    "gcRecipientEmail": "Recipient Email",
+    "gcRecipientEmailPlaceholder": "who@example.com",
+    "gcRecipientName": "Recipient Name",
+    "gcRecipientNamePlaceholder": "Lucky cat's name",
+    "gcSenderName": "Your Name",
+    "gcSenderNamePlaceholder": "Your name",
+    "gcMessage": "Personal Message",
+    "gcMessagePlaceholder": "Write a message for the recipient...",
+    "gcBuyNow": "Buy Now",
+    "gcProcessing": "Redirecting..."
   },
   "plans": {
     "pageTitle": "Crew Membership Plans",

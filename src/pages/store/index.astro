@@ -5,11 +5,61 @@ import Footer from '../../components/Footer.astro';
 import { productsV3 } from '@wix/stores';
 import type { productsV3 as productsV3Types } from '@wix/stores';
 import { categories } from '@wix/categories';
-import { i18n } from '@wix/essentials';
-import { extractMediaUrl } from '../../utils/image';
+import { giftVoucherProducts } from '@wix/gift-vouchers';
+import { i18n, auth } from '@wix/essentials';
+import { extractMediaUrl, getImageUrl } from '../../utils/image';
+import GiftCardActions from '../../components/GiftCardActions';
 
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
+
+// Fetch gift card products
+interface GcVariantPrice { amount: string; formattedAmount: string }
+interface GcPresetVariant {
+	_id: string;
+	price: GcVariantPrice;
+	value: GcVariantPrice;
+	image: string | null;
+}
+interface GcCustomVariant { minValue?: GcVariantPrice; maxValue?: GcVariantPrice }
+interface GcProduct {
+	_id: string;
+	name: string;
+	description: string | null;
+	image: string | null;
+	presetVariants: GcPresetVariant[];
+	customVariant: GcCustomVariant | null;
+}
+let giftCardProductsList: GcProduct[] = [];
+try {
+	const elevatedQuery = auth.elevate(giftVoucherProducts.queryGiftCardProducts);
+	const gcResult = await elevatedQuery().limit(10).find();
+	giftCardProductsList = (gcResult.items || []).map(p => {
+		const cv: GcCustomVariant | null = p.customVariant ? {} : null;
+		if (cv && p.customVariant?.minValue) {
+			cv.minValue = { amount: p.customVariant.minValue.amount || '0', formattedAmount: p.customVariant.minValue.formattedAmount || '' };
+		}
+		if (cv && p.customVariant?.maxValue) {
+			cv.maxValue = { amount: p.customVariant.maxValue.amount || '0', formattedAmount: p.customVariant.maxValue.formattedAmount || '' };
+		}
+		return {
+			_id: p._id || '',
+			name: p.name || '',
+			description: p.description || null,
+			image: getImageUrl(p.image || undefined, 600, 340),
+			presetVariants: (p.presetVariants || []).map(v => ({
+				_id: v._id || '',
+				price: { amount: v.price?.amount || '0', formattedAmount: v.price?.formattedAmount || '' },
+				value: { amount: v.value?.amount || v.price?.amount || '0', formattedAmount: v.value?.formattedAmount || v.price?.formattedAmount || '' },
+				image: getImageUrl(v.image || undefined, 600, 340),
+			})),
+			customVariant: cv,
+		};
+	});
+} catch {
+	// Gift card products may not be configured yet
+}
+const hasGiftCards = giftCardProductsList.length > 0;
 const productResult = await productsV3.queryProducts({ fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO'] }).limit(100).find();
 const allProducts = productResult.items || [];
 
@@ -57,7 +107,28 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 				{allCollections.map((c, i: number) => (
 					<button class:list={['filter-tab', { active: i === 0 }]} data-collection={c._id}>{c.name}</button>
 				))}
+				{hasGiftCards && (
+					<button class="filter-tab" data-collection="gift-cards">{t('store.giftCards')}</button>
+				)}
 			</div>
+
+			{hasGiftCards && (
+				<div class="gift-card-section" id="gift-card-section" style="display:none;">
+					{giftCardProductsList.map((gcp) => (
+						<div class="gc-product">
+							<h2 class="gc-product-name">{gcp.name}</h2>
+							{gcp.description && <p class="gc-product-desc">{gcp.description}</p>}
+							<GiftCardActions
+								client:load
+								productId={gcp._id}
+								productImage={gcp.image}
+								presetVariants={gcp.presetVariants}
+								customVariant={gcp.customVariant}
+							/>
+						</div>
+					))}
+				</div>
+			)}
 
 			<div class="product-grid" id="product-grid">
 				{allProducts.map((product) => {
@@ -120,10 +191,23 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 		var activeTab = document.querySelector('.filter-tab[data-collection="' + collectionId + '"]');
 		if (activeTab) activeTab.classList.add('active');
 
-		document.querySelectorAll('.product-card').forEach(function(card) {
-			var ids = card.dataset.collections || '';
-			card.style.display = ids.indexOf(collectionId) !== -1 ? '' : 'none';
-		});
+		var productGrid = document.getElementById('product-grid');
+		var gcSection = document.getElementById('gift-card-section');
+		var emptyStore = document.querySelector('.empty-store');
+
+		if (collectionId === 'gift-cards') {
+			if (productGrid) productGrid.style.display = 'none';
+			if (gcSection) gcSection.style.display = '';
+			if (emptyStore) emptyStore.style.display = 'none';
+		} else {
+			if (productGrid) productGrid.style.display = '';
+			if (gcSection) gcSection.style.display = 'none';
+			if (emptyStore) emptyStore.style.display = '';
+			document.querySelectorAll('.product-card').forEach(function(card) {
+				var ids = card.dataset.collections || '';
+				card.style.display = ids.indexOf(collectionId) !== -1 ? '' : 'none';
+			});
+		}
 
 		var url = new URL(window.location);
 		url.searchParams.set('cat', collectionId);
@@ -360,5 +444,206 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 			font-size: 0.75rem;
 			padding: 8px 14px;
 		}
+	}
+</style>
+
+<style is:global>
+	.gift-card-section {
+		max-width: 600px;
+	}
+
+	.gc-product {
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+		padding: 32px;
+		margin-bottom: 24px;
+	}
+
+	.gc-product-name {
+		font-family: var(--font-heading);
+		font-size: 1.4rem;
+		color: var(--text-primary);
+		margin-bottom: 8px;
+	}
+
+	.gc-product-desc {
+		color: var(--text-muted);
+		font-size: 0.95rem;
+		margin-bottom: 24px;
+		line-height: 1.5;
+	}
+
+	.gc-label {
+		display: block;
+		font-family: var(--font-heading);
+		font-size: 0.85rem;
+		letter-spacing: 1px;
+		color: var(--text-secondary);
+		margin-bottom: 12px;
+	}
+
+	.gc-amount-options {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-bottom: 16px;
+	}
+
+	.gc-amount-btn {
+		padding: 12px 24px;
+		font-family: var(--font-heading);
+		font-size: 1rem;
+		letter-spacing: 0.5px;
+		color: var(--text-secondary);
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid var(--border-card);
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.gc-amount-btn:hover {
+		border-color: var(--accent);
+		color: var(--text-primary);
+	}
+
+	.gc-amount-btn.active {
+		background: var(--accent);
+		color: #000;
+		border-color: var(--accent);
+	}
+
+	.gc-custom-input-wrap {
+		margin-bottom: 16px;
+	}
+
+	.gc-custom-input {
+		width: 100%;
+		padding: 12px 16px;
+		font-size: 1rem;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid var(--border-card);
+		border-radius: 8px;
+		color: var(--text-primary);
+		font-family: inherit;
+	}
+
+	.gc-custom-input:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+
+	.gc-range-hint {
+		display: block;
+		font-size: 0.8rem;
+		color: var(--text-muted);
+		margin-top: 6px;
+	}
+
+	.gc-form {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		margin: 24px 0;
+	}
+
+	.gc-field label {
+		display: block;
+		font-family: var(--font-heading);
+		font-size: 0.8rem;
+		letter-spacing: 1px;
+		color: var(--text-muted);
+		margin-bottom: 6px;
+	}
+
+	.gc-input {
+		width: 100%;
+		padding: 12px 16px;
+		font-size: 0.95rem;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid var(--border-card);
+		border-radius: 8px;
+		color: var(--text-primary);
+		font-family: inherit;
+		resize: vertical;
+	}
+
+	.gc-input:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+
+	.gc-purchase-btn {
+		width: 100%;
+		padding: 14px;
+		font-family: var(--font-heading);
+		font-size: 1rem;
+		letter-spacing: 1px;
+		background: var(--accent);
+		color: #000;
+		border: none;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.2s;
+		font-weight: 700;
+	}
+
+	.gc-purchase-btn:hover:not(:disabled) {
+		background: var(--accent-yellow);
+		transform: translateY(-1px);
+	}
+
+	.gc-purchase-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	.gc-status {
+		margin-top: 12px;
+		padding: 12px 16px;
+		border-radius: 8px;
+		font-size: 0.9rem;
+		text-align: center;
+	}
+
+	.gc-status-error {
+		background: rgba(244, 67, 54, 0.15);
+		color: #f44336;
+		border: 1px solid rgba(244, 67, 54, 0.3);
+	}
+
+	.gc-image {
+		margin-bottom: 20px;
+		border-radius: 8px;
+		overflow: hidden;
+		aspect-ratio: 16 / 9;
+		background: #111;
+	}
+
+	.gc-image img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.gc-price-display {
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+		margin-bottom: 20px;
+		font-family: var(--font-heading);
+	}
+
+	.gc-price-original {
+		font-size: 1.1rem;
+		color: var(--text-muted);
+		text-decoration: line-through;
+	}
+
+	.gc-price-cost {
+		font-size: 1.4rem;
+		font-weight: 700;
+		color: var(--accent-yellow);
 	}
 </style>
