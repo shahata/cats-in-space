@@ -28,7 +28,7 @@ description: "Use when building or working on Wix managed headless projects. Cov
 
 ### Pricing Plans / Monetization — ALL required when site has paid content:
 - [ ] Plans listing page (`/plans`) with plan cards, perks, pricing, subscribe button
-- [ ] Checkout via `redirects.createRedirectSession` with `preferences: { checkIfPublish: true }` (handles login, free, and paid)
+- [ ] Checkout via `redirects.createRedirectSession` (handles login, free, and paid). NOTE: do NOT use `preferences: { checkIfPublish: true }` for plans — only for eCommerce checkout.
 - [ ] Success state after checkout redirect
 - [ ] Blog post gating — set `pricingPlanIds` on premium posts, render paywall for non-subscribers
 

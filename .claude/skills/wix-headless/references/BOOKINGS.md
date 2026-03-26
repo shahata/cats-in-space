@@ -178,8 +178,8 @@ const redirect = await redirects.createRedirectSession({
     postFlowUrl: window.location.origin + "/bookings",
     thankYouPageUrl: window.location.origin + "/member#bookings",
   },
-  preferences: { checkIfPublish: true },
 });
+// NOTE: do NOT use preferences.checkIfPublish for bookings — only for eCommerce checkout
 
 window.location.href = redirect.redirectSession.fullUrl;
 ```
@@ -332,8 +332,8 @@ const redirect = await redirects.createRedirectSession({
     postFlowUrl: window.location.origin + "/bookings",
     thankYouPageUrl: window.location.origin + "/member#bookings",
   },
-  preferences: { checkIfPublish: true },
 });
+// NOTE: do NOT use preferences.checkIfPublish for bookings — only for eCommerce checkout
 ```
 
 ## Tips & Gotchas

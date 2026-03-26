@@ -225,7 +225,7 @@ const { redirectSession } = await redirects.createRedirectSession({
     thankYouPageUrl: window.location.origin + '/store/thank-you',
     postFlowUrl: window.location.origin + '/store',
   },
-  preferences: { checkIfPublish: true },
+  preferences: { checkIfPublish: true }, // use checkIfPublish ONLY for ecomCheckout, NOT for bookings/plans
 });
 if (redirectSession?.fullUrl) window.location.href = redirectSession.fullUrl;
 ```

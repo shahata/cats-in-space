@@ -240,6 +240,26 @@ const result = await giftVouchers.giftVouchers.queryGiftCards().find();
 // giftVouchers.giftVouchers.countGiftCards(options)
 ```
 
+## Translations
+
+### Static UI Strings
+
+Gift card UI strings (labels, placeholders, buttons) must be added to:
+- `src/translations.json` — English keys under the `store` namespace (e.g. `store.giftCards`, `store.gcSelectAmount`, `store.gcBuyNow`)
+- `.wix/multilingual/translations/{lang}.json` — same keys translated for each secondary language
+
+These work at runtime because the Astro integration reads the JSON files directly.
+
+### Dynamic Content (Gift Card Product Names/Descriptions)
+
+The Wix Gift Cards (Rise) app **does NOT register a translation schema** in the Translation Content API. Querying `GET /translation-schema/v1/schemas/site?appId=d80111c5-a0f4-47a8-b63a-65b54d774a27` returns zero schemas.
+
+This means gift card product names and descriptions **cannot be translated via the Translation Content API**. They must be translated through the Wix dashboard Translation Manager if/when the app adds schema support.
+
+### `wix translation push`
+
+The `wix translation push` CLI command requires an interactive TTY terminal. It cannot be run programmatically. If it fails with "Invalid input", the user must run it manually via `! wix translation push` in their terminal.
+
 ## Gotchas
 
 1. **`queryGiftCardProducts` requires elevated permissions** — use `auth.elevate()` on the server
@@ -249,3 +269,5 @@ const result = await giftVouchers.giftVouchers.queryGiftCards().find();
 5. **Price ≠ Value** — a gift card can cost less than its face value; always handle both fields
 6. **The full gift card code is only returned on creation** — subsequent `getGiftCard` calls return an obfuscated code
 7. **Gift card products may not exist** — wrap the query in try/catch; only show the gift cards tab when products are available
+8. **No translation schema for gift card products** — the Rise app doesn't register schemas in the Translation Content API; product names/descriptions can't be translated via API
+9. **Do NOT use `checkout.createCheckout` with `customLineItems`** — gift cards are catalog items under the Rise app; use `currentCart.addToCurrentCart` with the proper `catalogReference` and `RISE_APP_ID`

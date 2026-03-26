@@ -488,9 +488,16 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
 
         {replyingTo === commentId && (
           <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid #222" }}>
-            <input type="text" placeholder={t('blog.yourName')} value={replyName}
-              onChange={(e) => setReplyName(e.target.value)}
-              style={{ ...inputStyle, marginBottom: "8px" }} />
+            {isLoggedIn ? (
+              <div style={{ ...memberIndicatorStyle, marginBottom: "8px" }}>
+                {memberPhoto && <img src={memberPhoto} alt={memberName} style={avatarStyle} referrerPolicy="no-referrer" />}
+                <span>{t('blog.replyingAs')} <strong style={{ color: "#ffcc00" }}>{memberName}</strong></span>
+              </div>
+            ) : (
+              <input type="text" placeholder={t('blog.yourName')} value={replyName}
+                onChange={(e) => setReplyName(e.target.value)}
+                style={{ ...inputStyle, marginBottom: "8px" }} />
+            )}
             <textarea placeholder={t('blog.writeReply')} value={replyText}
               onChange={(e) => setReplyText(e.target.value)} rows={2}
               style={{ ...inputStyle, marginBottom: "8px", resize: "vertical" as const }} />

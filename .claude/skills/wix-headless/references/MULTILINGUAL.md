@@ -255,6 +255,7 @@ Query schemas by known appId to get manageable responses. Key Wix appIds:
 - `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3` — **Wix Pricing Plans** (Plan names, descriptions, benefits)
 - `00000000-0000-0000-0000-000000000013` — **Wix Platform** (Site Pages, Menus, UI components: Text, Button, Image, etc.)
 - `14bca956-e09f-f4d6-14d7-466cb3f09103` — **Wix Payments** (Offline payment methods)
+- `d80111c5-a0f4-47a8-b63a-65b54d774a27` — **Wix Gift Cards (Rise)** — NOTE: as of March 2026, this app does NOT register any translation schemas. Gift card product names/descriptions cannot be translated via the Translation Content API. Use the Wix dashboard Translation Manager instead.
 - `14cc59bc-f0b7-15b8-e1c7-89ce41d0e0c9` — **Wix Contacts/CRM** (Custom Fields)
 - `14ce1214-b278-a7e4-1373-00cebd1bef7c` — **Wix Forms** (Booking form, contact form field labels)
 

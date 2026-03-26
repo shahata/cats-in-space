@@ -204,9 +204,11 @@ try {
 ```
 
 In the React component:
-- If `memberName` prop is set → show "Commenting as **Name**" with avatar, hide name input
+- If `memberName` prop is set → show "Commenting as **Name**" (or "Replying as **Name**") with avatar, hide name input
 - If not → show the name text input for visitors
 - When logged in, send empty `author: {}` — the server uses the member identity automatically
+
+**CRITICAL:** Apply the same logged-in/visitor pattern consistently to BOTH the top-level comment form AND all reply forms. Every reply form (including replies on top-level comments, not just nested replies) must check `isLoggedIn` and show the member indicator instead of the name input when true.
 
 ### Blog Post Commenting & Preview Flags
 

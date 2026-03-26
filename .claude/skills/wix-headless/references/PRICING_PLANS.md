@@ -74,7 +74,7 @@ const { redirectSession } = await redirects.createRedirectSession({
     postFlowUrl: window.location.origin + "/plans?success=true",
     // Optional: thankYouPageUrl for custom thank-you page
   },
-  preferences: { checkIfPublish: true },
+  // NOTE: do NOT use preferences.checkIfPublish for plans — only for eCommerce checkout
 });
 
 if (redirectSession?.fullUrl) {
@@ -223,7 +223,7 @@ function PlanCheckout({ planId }: { planId: string }) {
       const { redirectSession } = await redirects.createRedirectSession({
         paidPlansCheckout: { planId },
         callbacks: { postFlowUrl: window.location.origin + "/plans?success=true" },
-        preferences: { checkIfPublish: true },
+        // NOTE: do NOT use preferences.checkIfPublish for plans — only for eCommerce checkout
       });
       if (redirectSession?.fullUrl) window.location.href = redirectSession.fullUrl;
     } catch (e: any) {
