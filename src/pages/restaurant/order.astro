@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import MenuOrderView from '../../components/MenuOrderView';
-import { sections as sectionsApi, items as itemsApi, itemLabels } from '@wix/restaurants';
+import { sections as sectionsApi, items as itemsApi, itemLabels, itemVariants } from '@wix/restaurants';
 import { i18n, auth } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
@@ -40,6 +40,16 @@ function getItemImage(item: any): string | null {
 	return getImageUrl(img.url || img.id, 200, 200);
 }
 
+// Resolve variant IDs to names
+let variantMap = new Map<string, string>();
+try {
+	const elevatedListVariants = auth.elevate(itemVariants.listVariants);
+	const variantsResult = await elevatedListVariants();
+	for (const v of (variantsResult as any)?.variants || []) {
+		if (v._id && v.name) variantMap.set(v._id, v.name);
+	}
+} catch {}
+
 const menuData = allSections.map((section: any) => {
 	const sectionItemIds = section.itemIds || [];
 	const sectionItems = sectionItemIds
@@ -52,8 +62,8 @@ const menuData = allSections.map((section: any) => {
 			image: getItemImage(item),
 			price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency: 'USD' } : null,
 			priceVariants: item.priceVariants?.variants?.map((v: any) => ({
-				_id: v._id || '',
-				name: v.name || '',
+				_id: v.variantId || v._id || '',
+				name: variantMap.get(v.variantId || v._id || '') || v.name || '',
 				price: { amount: v.price || '0', currency: 'USD' },
 			})) || [],
 			labels: (item.labels || []).map((l: any) => labelMap.get(l.id) || '').filter(Boolean),

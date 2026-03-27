@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import DishCustomizer from '../../components/DishCustomizer';
-import { items as itemsApi, itemLabels } from '@wix/restaurants';
+import { items as itemsApi, itemLabels, itemVariants } from '@wix/restaurants';
 import { i18n, auth } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
@@ -39,6 +39,16 @@ try {
 } catch {}
 const labels = (item.labels || []).map((l: any) => labelMap.get(l.id) || '').filter(Boolean);
 
+// Resolve variant IDs to names
+let variantMap = new Map<string, string>();
+try {
+	const elevatedListVariants = auth.elevate(itemVariants.listVariants);
+	const variantsResult = await elevatedListVariants();
+	for (const v of (variantsResult as any)?.variants || []) {
+		if (v._id && v.name) variantMap.set(v._id, v.name);
+	}
+} catch {}
+
 function getItemPrice(item: any): string {
 	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
 	if (item.priceVariants?.variants?.length) {
@@ -58,8 +68,8 @@ const dishData = {
 	name: item.name || '',
 	price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency: 'USD' } : null,
 	priceVariants: item.priceVariants?.variants?.map((v: any) => ({
-		_id: v._id || '',
-		name: v.name || '',
+		_id: v.variantId || v._id || '',
+		name: variantMap.get(v.variantId || v._id || '') || v.name || '',
 		price: { amount: v.price || '0', currency: 'USD' },
 	})) || [],
 	modifierGroups: (item.modifierGroups || []).map((g: any) => ({
