@@ -211,7 +211,8 @@ await currentCart.addToCurrentCart({
 2. **Labels are IDs only** — `item.labels` contains `{ id }` objects; fetch names separately via `itemLabels.listLabels()`
 3. **Images are objects** — `item.image` is `{ id, url, height, width }`, not a URL string; pass `image.url` to `getImageUrl()`
 4. **Prices are strings** — `priceInfo.price` is `"14.99"`, not a number; parse with `parseFloat()`
-5. **Sections can duplicate** — `querySections()` returns from all menus/locations; deduplicate by name
+5. **Variant names are separate** — `item.priceVariants.variants` only has `variantId` and `price`, NOT `name`. Names live in variant definitions fetched via `itemVariants.listVariants()`. Build a `variantId → name` lookup map.
+6. **Sections can duplicate** — `querySections()` returns from all menus/locations; deduplicate by name
 6. **Apps must be installed** — calling any restaurant API without the app installed gives `APP_NOT_INSTALLED` error
 7. **Reservation location required** — table reservations need at least one reservation location configured
 8. **`reservations.createReservation()` works client-side without elevation** — visitor-level access is sufficient for creating reservations
