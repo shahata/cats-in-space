@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { ticketReservations, orders } from "@wix/events";
-import { auth } from "@wix/essentials";
 import { i18n } from "@wix/essentials";
 import type { SelectedSeat } from "./SeatMap";
 
@@ -71,8 +70,7 @@ export default function TicketCheckout({ eventId, ticketDefinitions }: TicketChe
         quantity,
       }));
 
-      const elevatedReserve = auth.elevate(ticketReservations.createTicketReservation);
-      const reservation = await elevatedReserve({ tickets } as any);
+      const reservation = await ticketReservations.createTicketReservation({ tickets } as any);
 
       if (!reservation?._id) {
         throw new Error("Failed to create reservation");
@@ -86,8 +84,7 @@ export default function TicketCheckout({ eventId, ticketDefinitions }: TicketChe
         };
       });
 
-      const elevatedCheckout = auth.elevate(orders.checkout);
-      const checkoutResult = await elevatedCheckout(eventId, {
+      const checkoutResult = await orders.checkout(eventId, {
         reservationId: reservation._id,
         guests: guestDetails.map((g) => ({
           form: {

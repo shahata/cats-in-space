@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { reservations } from "@wix/table-reservations";
-import { auth, i18n } from "@wix/essentials";
+import { i18n } from "@wix/essentials";
 
 interface Props {
   reservationLocationId: string;
@@ -46,8 +46,7 @@ export default function ReservationFlow({ reservationLocationId }: Props) {
     try {
       const startDate = new Date(`${selectedDate}T${selectedTime}:00`);
 
-      const elevatedCreate = auth.elevate(reservations.createReservation);
-      await elevatedCreate({
+      await reservations.createReservation({
         details: {
           reservationLocationId,
           startDate: startDate,
