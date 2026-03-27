@@ -159,7 +159,7 @@ export default function DishCustomizer({ item }: Props) {
                   color: selectedVariant === v._id ? "#ff6600" : "#aaa",
                 }}
               >
-                <span style={styles.variantName}>{v.name}</span>
+                {v.name && <span style={styles.variantName}>{v.name}</span>}
                 <span style={styles.variantPrice}>
                   {formatPrice(parseFloat(v.price.amount))}
                 </span>

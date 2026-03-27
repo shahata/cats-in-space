@@ -263,7 +263,7 @@ export default function MenuOrderView({ sections }: Props) {
                                       : "#aaa",
                                 }}
                               >
-                                {v.name} -{" "}
+                                {v.name ? `${v.name} - ` : ""}
                                 {formatPrice(v.price.amount, v.price.currency)}
                               </button>
                             ))}
