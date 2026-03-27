@@ -207,10 +207,11 @@ await currentCart.addToCurrentCart({
 
 ## Gotchas
 
-1. **All menu queries require `auth.elevate()`** — visitor-level access is insufficient
+1. **Menu queries require `auth.elevate()`** — but ONLY in server-side code (Astro frontmatter/API routes). **Never use `auth.elevate()` in React client components** — it throws "An elevated client is required to use elevated modules"
 2. **Labels are IDs only** — `item.labels` contains `{ id }` objects; fetch names separately via `itemLabels.listLabels()`
 3. **Images are objects** — `item.image` is `{ id, url, height, width }`, not a URL string; pass `image.url` to `getImageUrl()`
 4. **Prices are strings** — `priceInfo.price` is `"14.99"`, not a number; parse with `parseFloat()`
 5. **Sections can duplicate** — `querySections()` returns from all menus/locations; deduplicate by name
 6. **Apps must be installed** — calling any restaurant API without the app installed gives `APP_NOT_INSTALLED` error
 7. **Reservation location required** — table reservations need at least one reservation location configured
+8. **`reservations.createReservation()` works client-side without elevation** — visitor-level access is sufficient for creating reservations
