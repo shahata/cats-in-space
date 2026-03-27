@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import DishCustomizer from '../../components/DishCustomizer';
-import { items as itemsApi } from '@wix/restaurants';
+import { items as itemsApi, itemLabels } from '@wix/restaurants';
 import { i18n, auth } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
@@ -24,19 +24,31 @@ const allItems = itemsResult.items || [];
 const item = allItems.find((i: any) => slugify(i.name || '') === slug) as any;
 if (!item) return Astro.redirect('/restaurant');
 
-const img = getImageUrl(item.image, 800, 600);
-const labels = item.labels || [];
+// Resolve image (can be string URL or object)
+const rawImg = item.image;
+const img = rawImg ? getImageUrl(typeof rawImg === 'string' ? rawImg : (rawImg.url || rawImg.id), 800, 600) : null;
+
+// Resolve label names
+const elevatedListLabels = auth.elevate(itemLabels.listLabels);
+let labelMap = new Map<string, string>();
+try {
+	const labelsResult = await elevatedListLabels();
+	for (const label of (labelsResult as any)?.labels || []) {
+		if (label._id && label.name) labelMap.set(label._id, label.name);
+	}
+} catch {}
+const labels = (item.labels || []).map((l: any) => labelMap.get(l.id) || '').filter(Boolean);
 
 function getItemPrice(item: any): string {
+	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
 	if (item.priceVariants?.variants?.length) {
-		const prices = item.priceVariants.variants.map((v: any) => parseFloat(v.price?.amount || '0'));
+		const prices = item.priceVariants.variants.map((v: any) => parseFloat(v.price || '0'));
 		const min = Math.min(...prices);
 		const max = Math.max(...prices);
-		const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
 		return min === max ? fmt(min) : `${fmt(min)} - ${fmt(max)}`;
 	}
-	if (item.price?.amount) {
-		return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(parseFloat(item.price.amount));
+	if (item.priceInfo?.price) {
+		return fmt(parseFloat(item.priceInfo.price));
 	}
 	return '';
 }
@@ -44,11 +56,11 @@ function getItemPrice(item: any): string {
 const dishData = {
 	_id: item._id || '',
 	name: item.name || '',
-	price: item.price ? { amount: item.price.amount || '0', currency: item.price.currency || 'USD' } : null,
+	price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency: 'USD' } : null,
 	priceVariants: item.priceVariants?.variants?.map((v: any) => ({
 		_id: v._id || '',
 		name: v.name || '',
-		price: { amount: v.price?.amount || '0', currency: v.price?.currency || 'USD' },
+		price: { amount: v.price || '0', currency: 'USD' },
 	})) || [],
 	modifierGroups: (item.modifierGroups || []).map((g: any) => ({
 		_id: g._id || '',
@@ -58,7 +70,7 @@ const dishData = {
 		modifiers: (g.modifiers || []).map((m: any) => ({
 			_id: m._id || '',
 			name: m.name || '',
-			additionalPrice: m.additionalPrice ? { amount: m.additionalPrice.amount || '0' } : null,
+			additionalPrice: m.additionalPrice ? { amount: m.additionalPrice || '0' } : null,
 		})),
 	})),
 };
@@ -86,8 +98,8 @@ const dishData = {
 				<div class="dish-details">
 					{labels.length > 0 && (
 						<div class="dish-labels">
-							{labels.map((label: any) => (
-								<span class="dish-label">{label.name || label}</span>
+							{labels.map((label: string) => (
+								<span class="dish-label">{label}</span>
 							))}
 						</div>
 					)}
