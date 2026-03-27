@@ -14,7 +14,8 @@ try {
 	const result = await elevatedQuery();
 	const locations = result.reservationLocations || [];
 	if (locations.length > 0 && locations[0]) {
-		locationId = locations[0]._id || '';
+		const loc = locations[0] as any;
+		locationId = loc._id || loc.id || '';
 	}
 } catch {}
 ---
