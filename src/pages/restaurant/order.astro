@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import MenuOrderView from '../../components/MenuOrderView';
-import { sections as sectionsApi, items as itemsApi } from '@wix/restaurants';
+import { sections as sectionsApi, items as itemsApi, itemLabels } from '@wix/restaurants';
 import { i18n, auth } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
@@ -11,11 +11,34 @@ const t = i18n.getTranslationFunction();
 
 const elevatedQuerySections = auth.elevate(sectionsApi.querySections);
 const sectionsResult = await elevatedQuerySections().find();
-const allSections = sectionsResult.items || [];
+// Deduplicate sections by name
+const seenNames = new Set<string>();
+const allSections = (sectionsResult.items || []).filter(s => {
+	if (!s.name || seenNames.has(s.name)) return false;
+	seenNames.add(s.name);
+	return true;
+});
 
 const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
 const itemsResult = await elevatedQueryItems().limit(100).find();
 const allItems = itemsResult.items || [];
+
+// Resolve label IDs to names
+const elevatedListLabels = auth.elevate(itemLabels.listLabels);
+let labelMap = new Map<string, string>();
+try {
+	const labelsResult = await elevatedListLabels();
+	for (const label of (labelsResult as any)?.labels || []) {
+		if (label._id && label.name) labelMap.set(label._id, label.name);
+	}
+} catch {}
+
+function getItemImage(item: any): string | null {
+	const img = item.image;
+	if (!img) return null;
+	if (typeof img === 'string') return getImageUrl(img, 200, 200);
+	return getImageUrl(img.url || img.id, 200, 200);
+}
 
 const menuData = allSections.map((section: any) => {
 	const sectionItemIds = section.itemIds || [];
@@ -26,14 +49,14 @@ const menuData = allSections.map((section: any) => {
 			_id: item._id || '',
 			name: item.name || '',
 			description: item.description || '',
-			image: getImageUrl(item.image, 200, 200),
-			price: item.price ? { amount: item.price.amount || '0', currency: item.price.currency || 'USD' } : null,
+			image: getItemImage(item),
+			price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency: 'USD' } : null,
 			priceVariants: item.priceVariants?.variants?.map((v: any) => ({
 				_id: v._id || '',
 				name: v.name || '',
-				price: { amount: v.price?.amount || '0', currency: v.price?.currency || 'USD' },
+				price: { amount: v.price || '0', currency: 'USD' },
 			})) || [],
-			labels: (item.labels || []).map((l: any) => l.name || l),
+			labels: (item.labels || []).map((l: any) => labelMap.get(l.id) || '').filter(Boolean),
 			modifierGroups: (item.modifierGroups || []).map((g: any) => ({
 				_id: g._id || '',
 				name: g.name || '',
@@ -42,7 +65,7 @@ const menuData = allSections.map((section: any) => {
 				modifiers: (g.modifiers || []).map((m: any) => ({
 					_id: m._id || '',
 					name: m.name || '',
-					additionalPrice: m.additionalPrice ? { amount: m.additionalPrice.amount || '0' } : null,
+					additionalPrice: m.additionalPrice ? { amount: typeof m.additionalPrice === 'string' ? m.additionalPrice : (m.additionalPrice.amount || '0') } : null,
 				})),
 			})),
 		}));
