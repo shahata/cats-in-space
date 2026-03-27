@@ -40,6 +40,8 @@ function slugify(name: string): string {
 function getItemImage(item: any): string | null {
 	const img = item.image;
 	if (!img) return null;
+	// image can be a plain URL string or an object with { url, id }
+	if (typeof img === 'string') return getImageUrl(img, 400, 400);
 	return getImageUrl(img.url || img.id, 400, 400);
 }
 

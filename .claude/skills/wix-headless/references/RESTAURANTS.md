@@ -98,12 +98,13 @@ const itemLabelNames = (item.labels || [])
 
 ### Images
 
-Item `image` is an object `{ id, url, height, width }`, NOT a direct URL. Pass the `url` or `id` field to `getImageUrl()`:
+Item `image` can be EITHER a plain URL string OR an object `{ id, url, height, width }`. Handle both:
 
 ```typescript
 function getItemImage(item: any): string | null {
   const img = item.image;
   if (!img) return null;
+  if (typeof img === 'string') return getImageUrl(img, 400, 400);
   return getImageUrl(img.url || img.id, 400, 400);
 }
 ```
