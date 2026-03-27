@@ -11,7 +11,7 @@ Wix Restaurants in headless uses three separate systems:
 
 These must be installed on the site before the APIs work:
 - **Wix Restaurants Menus (New)** — appDefId: `b278a256-2757-4f19-9313-c05c783bec92`
-- **Wix Table Reservations** — appDefId: `1380b703-ce81-ff05-f115-39571d94dfcd`
+- **Wix Table Reservations** — appDefId: `f9c07de2-5341-40c6-b096-8eb39de391fb`
 - **Wix Restaurants Orders (New)** — appDefId: `9a5d83fd-8570-482e-81ab-cfa88942ee60`
 
 Install via: `POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install` with `{ tenant: { tenantType: "SITE", id: "<siteId>" }, appInstance: { appDefId: "<id>", enabled: true } }`
