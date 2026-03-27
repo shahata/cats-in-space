@@ -1,0 +1,55 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import ReservationFlow from '../../components/ReservationFlow';
+import { reservationLocations } from '@wix/table-reservations';
+import { i18n, auth } from '@wix/essentials';
+
+const t = i18n.getTranslationFunction();
+
+let locationId = '';
+try {
+	const elevatedQuery = auth.elevate(reservationLocations.listReservationLocations);
+	const result = await elevatedQuery();
+	const locations = result.reservationLocations || [];
+	if (locations.length > 0 && locations[0]) {
+		locationId = locations[0]._id || '';
+	}
+} catch {}
+---
+
+<Layout title={`${t('restaurant.reserveTitle')} - ${t('home.title')}`}>
+	<Nav />
+	<section class="page-header">
+		<div class="container">
+			<h1 class="section-title">{t('restaurant.reserveTitle')}</h1>
+			<p class="section-subtitle">{t('restaurant.reserveSubtitle')}</p>
+		</div>
+	</section>
+
+	<section class="reserve-content">
+		<div class="container">
+			<div class="reserve-wrapper">
+				<ReservationFlow reservationLocationId={locationId} client:load />
+			</div>
+		</div>
+	</section>
+	<Footer />
+</Layout>
+
+<style>
+	.page-header {
+		padding: 60px 0 30px;
+		text-align: center;
+	}
+
+	.reserve-content {
+		padding-bottom: 60px;
+	}
+
+	.reserve-wrapper {
+		max-width: 600px;
+		margin: 0 auto;
+	}
+</style>

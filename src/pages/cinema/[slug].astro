@@ -1,0 +1,283 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import ShowtimeSelector from '../../components/ShowtimeSelector';
+import SeatMap from '../../components/SeatMap';
+import TicketCheckout from '../../components/TicketCheckout';
+import { wixEventsV2 } from '@wix/events';
+import { auth, i18n } from '@wix/essentials';
+import { getImageUrl } from '../../utils/image';
+
+const t = i18n.getTranslationFunction();
+const { slug } = Astro.params;
+
+const elevatedQuery = auth.elevate(wixEventsV2.queryEvents);
+const eventsResult = await elevatedQuery().eq('slug', slug).limit(1).find();
+let event: Record<string, any> | null = eventsResult.items?.[0] || null;
+
+if (!event) {
+	const allResult = await elevatedQuery().ne('status', 'CANCELED').limit(50).find();
+	event = allResult.items?.find((e: Record<string, any>) => {
+		const derived = e.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+		return derived === slug;
+	}) || null;
+}
+
+if (!event) {
+	return Astro.redirect('/cinema');
+}
+
+const img = getImageUrl(event.mainImage?.url || event.mainImage, 600, 900);
+
+function extractGenres(ev: Record<string, any>): string[] {
+	const cats = ev.categories?.map((c: any) => c.name || c) || [];
+	if (cats.length > 0) return cats;
+	const desc: string = ev.description || '';
+	const genreMap = ['Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Fantasy', 'Thriller', 'Romance', 'Animation', 'Documentary'];
+	return genreMap.filter(g => desc.toLowerCase().includes(g.toLowerCase()));
+}
+
+function genreBadgeClass(genre: string): string {
+	const map: Record<string, string> = {
+		'action': 'genre-action', 'comedy': 'genre-comedy', 'drama': 'genre-drama',
+		'horror': 'genre-horror', 'sci-fi': 'genre-scifi', 'fantasy': 'genre-fantasy',
+	};
+	return map[genre.toLowerCase()] || 'genre-default';
+}
+
+const genres = extractGenres(event);
+
+const ticketDefs = (event.registration?.ticketDefinitions || event.ticketDefinitions || []).map((td: any) => ({
+	id: td._id || td.id,
+	name: td.name || 'Standard',
+	price: parseFloat(td.price?.amount || td.price?.value || '15'),
+	currency: td.price?.currency || 'USD',
+	limit: td.limitPerCheckout || td.limit || 10,
+}));
+
+const startDate = event.scheduling?.startDate || event.dateAndTimeSettings?.startDate;
+const showtimes: string[] = [];
+if (startDate) {
+	showtimes.push(startDate);
+	const base = new Date(startDate);
+	for (let d = 1; d <= 6; d++) {
+		const next = new Date(base);
+		next.setDate(next.getDate() + d);
+		showtimes.push(next.toISOString());
+	}
+}
+---
+
+<Layout title={`${event.title} - ${t('cinema.pageTitle')}`}>
+	<Nav />
+
+	<section class="movie-detail">
+		<div class="container">
+			<a href="/cinema" class="back-link">{t('cinema.backToMovies')}</a>
+
+			<div class="movie-hero">
+				<div class="movie-poster-wrap">
+					{img ? (
+						<img src={img} alt={event.title} class="movie-poster-img" />
+					) : (
+						<div class="poster-empty">
+							<span>&#9733;</span>
+						</div>
+					)}
+				</div>
+				<div class="movie-meta">
+					<h1 class="movie-title">{event.title}</h1>
+					<div class="movie-genres">
+						{genres.map(g => (
+							<span class={`genre-badge ${genreBadgeClass(g)}`}>{g}</span>
+						))}
+					</div>
+					{event.description && (
+						<p class="movie-desc">{event.description}</p>
+					)}
+					{startDate && (
+						<div class="movie-next-show">
+							<span class="show-label">{t('cinema.showtime')}:</span>
+							{new Date(startDate).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+						</div>
+					)}
+				</div>
+			</div>
+
+			<div class="booking-sections">
+				<div class="booking-section">
+					<h2 class="booking-section-title">{t('cinema.selectShowtime')}</h2>
+					<ShowtimeSelector
+						eventId={event._id!}
+						showtimes={showtimes}
+						client:load
+					/>
+				</div>
+
+				<div class="booking-section">
+					<h2 class="booking-section-title">{t('cinema.selectSeats')}</h2>
+					<SeatMap
+						eventId={event._id!}
+						ticketDefinitions={ticketDefs}
+						client:load
+					/>
+				</div>
+
+				<div class="booking-section">
+					<h2 class="booking-section-title">{t('cinema.buyTickets')}</h2>
+					<TicketCheckout
+						eventId={event._id!}
+						ticketDefinitions={ticketDefs}
+						client:load
+					/>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<Footer />
+</Layout>
+
+<style>
+	.movie-detail {
+		padding: 40px 20px 80px;
+	}
+
+	.back-link {
+		display: inline-block;
+		font-family: var(--font-heading);
+		font-size: 0.95rem;
+		letter-spacing: 1px;
+		color: var(--text-muted);
+		margin-bottom: 32px;
+		transition: color 0.2s;
+	}
+
+	.back-link:hover {
+		color: var(--accent);
+	}
+
+	.movie-hero {
+		display: flex;
+		gap: 40px;
+		margin-bottom: 60px;
+	}
+
+	.movie-poster-wrap {
+		flex-shrink: 0;
+		width: 300px;
+		border-radius: 12px;
+		overflow: hidden;
+		box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5), 0 0 60px rgba(255, 102, 0, 0.1);
+	}
+
+	.movie-poster-img {
+		width: 100%;
+		display: block;
+	}
+
+	.poster-empty {
+		width: 100%;
+		aspect-ratio: 2 / 3;
+		background: linear-gradient(135deg, #1a1a2e 0%, #0a0a0a 100%);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 4rem;
+		color: var(--accent);
+		opacity: 0.3;
+	}
+
+	.movie-meta {
+		flex: 1;
+		padding-top: 16px;
+	}
+
+	.movie-title {
+		font-family: var(--font-title);
+		font-size: clamp(1.8rem, 4vw, 3rem);
+		color: var(--accent);
+		text-shadow: 2px 2px 0 #000, 0 0 30px var(--accent-glow);
+		margin-bottom: 16px;
+		letter-spacing: 2px;
+	}
+
+	.movie-genres {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-bottom: 20px;
+	}
+
+	.genre-badge {
+		padding: 4px 12px;
+		border-radius: 4px;
+		font-size: 0.75rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.genre-action { background: #cc0000; color: #fff; }
+	.genre-comedy { background: #2e7d32; color: #fff; }
+	.genre-drama { background: #1565c0; color: #fff; }
+	.genre-horror { background: #6a1b9a; color: #fff; }
+	.genre-scifi { background: #00838f; color: #fff; }
+	.genre-fantasy { background: #c6a700; color: #000; }
+	.genre-default { background: #444; color: #e0e0e0; }
+
+	.movie-desc {
+		color: var(--text-secondary);
+		font-size: 1rem;
+		line-height: 1.8;
+		margin-bottom: 24px;
+		max-width: 600px;
+	}
+
+	.movie-next-show {
+		font-size: 0.95rem;
+		color: var(--text-secondary);
+	}
+
+	.show-label {
+		color: var(--accent);
+		font-weight: 700;
+	}
+
+	.booking-sections {
+		display: flex;
+		flex-direction: column;
+		gap: 48px;
+	}
+
+	.booking-section-title {
+		font-family: var(--font-heading);
+		font-size: 1.6rem;
+		color: var(--accent);
+		letter-spacing: 2px;
+		margin-bottom: 20px;
+		text-shadow: 0 0 15px var(--accent-glow);
+	}
+
+	@media (max-width: 768px) {
+		.movie-hero {
+			flex-direction: column;
+			align-items: center;
+			text-align: center;
+		}
+
+		.movie-poster-wrap {
+			width: 220px;
+		}
+
+		.movie-desc {
+			margin-left: auto;
+			margin-right: auto;
+		}
+
+		.movie-genres {
+			justify-content: center;
+		}
+	}
+</style>

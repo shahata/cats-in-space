@@ -1,0 +1,83 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import MenuOrderView from '../../components/MenuOrderView';
+import { sections as sectionsApi, items as itemsApi } from '@wix/restaurants';
+import { i18n, auth } from '@wix/essentials';
+import { getImageUrl } from '../../utils/image';
+
+const t = i18n.getTranslationFunction();
+
+const elevatedQuerySections = auth.elevate(sectionsApi.querySections);
+const sectionsResult = await elevatedQuerySections().find();
+const allSections = sectionsResult.items || [];
+
+const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
+const itemsResult = await elevatedQueryItems().limit(100).find();
+const allItems = itemsResult.items || [];
+
+const menuData = allSections.map((section: any) => {
+	const sectionItemIds = section.itemIds || [];
+	const sectionItems = sectionItemIds
+		.map((id: string) => allItems.find((item: any) => item._id === id))
+		.filter(Boolean)
+		.map((item: any) => ({
+			_id: item._id || '',
+			name: item.name || '',
+			description: item.description || '',
+			image: getImageUrl(item.image, 200, 200),
+			price: item.price ? { amount: item.price.amount || '0', currency: item.price.currency || 'USD' } : null,
+			priceVariants: item.priceVariants?.variants?.map((v: any) => ({
+				_id: v._id || '',
+				name: v.name || '',
+				price: { amount: v.price?.amount || '0', currency: v.price?.currency || 'USD' },
+			})) || [],
+			labels: (item.labels || []).map((l: any) => l.name || l),
+			modifierGroups: (item.modifierGroups || []).map((g: any) => ({
+				_id: g._id || '',
+				name: g.name || '',
+				minChoices: g.minChoices || 0,
+				maxChoices: g.maxChoices || 0,
+				modifiers: (g.modifiers || []).map((m: any) => ({
+					_id: m._id || '',
+					name: m.name || '',
+					additionalPrice: m.additionalPrice ? { amount: m.additionalPrice.amount || '0' } : null,
+				})),
+			})),
+		}));
+	return {
+		_id: section._id || '',
+		name: section.name || '',
+		items: sectionItems,
+	};
+});
+---
+
+<Layout title={`${t('restaurant.orderTitle')} - ${t('home.title')}`}>
+	<Nav />
+	<section class="page-header">
+		<div class="container">
+			<h1 class="section-title">{t('restaurant.orderTitle')}</h1>
+			<p class="section-subtitle">{t('restaurant.orderSubtitle')}</p>
+		</div>
+	</section>
+
+	<section class="order-content">
+		<div class="container">
+			<MenuOrderView sections={menuData} client:load />
+		</div>
+	</section>
+	<Footer />
+</Layout>
+
+<style>
+	.page-header {
+		padding: 60px 0 30px;
+		text-align: center;
+	}
+
+	.order-content {
+		padding-bottom: 120px;
+	}
+</style>

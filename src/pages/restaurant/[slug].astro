@@ -1,0 +1,213 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import DishCustomizer from '../../components/DishCustomizer';
+import { items as itemsApi } from '@wix/restaurants';
+import { i18n, auth } from '@wix/essentials';
+import { getImageUrl } from '../../utils/image';
+
+const locale = await i18n.getLocale();
+const t = i18n.getTranslationFunction();
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/restaurant');
+
+function slugify(name: string): string {
+	return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
+const itemsResult = await elevatedQueryItems().limit(100).find();
+const allItems = itemsResult.items || [];
+
+const item = allItems.find((i: any) => slugify(i.name || '') === slug) as any;
+if (!item) return Astro.redirect('/restaurant');
+
+const img = getImageUrl(item.image, 800, 600);
+const labels = item.labels || [];
+
+function getItemPrice(item: any): string {
+	if (item.priceVariants?.variants?.length) {
+		const prices = item.priceVariants.variants.map((v: any) => parseFloat(v.price?.amount || '0'));
+		const min = Math.min(...prices);
+		const max = Math.max(...prices);
+		const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
+		return min === max ? fmt(min) : `${fmt(min)} - ${fmt(max)}`;
+	}
+	if (item.price?.amount) {
+		return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(parseFloat(item.price.amount));
+	}
+	return '';
+}
+
+const dishData = {
+	_id: item._id || '',
+	name: item.name || '',
+	price: item.price ? { amount: item.price.amount || '0', currency: item.price.currency || 'USD' } : null,
+	priceVariants: item.priceVariants?.variants?.map((v: any) => ({
+		_id: v._id || '',
+		name: v.name || '',
+		price: { amount: v.price?.amount || '0', currency: v.price?.currency || 'USD' },
+	})) || [],
+	modifierGroups: (item.modifierGroups || []).map((g: any) => ({
+		_id: g._id || '',
+		name: g.name || '',
+		minChoices: g.minChoices || 0,
+		maxChoices: g.maxChoices || 0,
+		modifiers: (g.modifiers || []).map((m: any) => ({
+			_id: m._id || '',
+			name: m.name || '',
+			additionalPrice: m.additionalPrice ? { amount: m.additionalPrice.amount || '0' } : null,
+		})),
+	})),
+};
+---
+
+<Layout title={`${item.name} - ${t('restaurant.pageTitle')} - ${t('home.title')}`}>
+	<Nav />
+	<section class="dish-page">
+		<div class="container">
+			<a href="/restaurant" class="back-link">{t('restaurant.backToMenu')}</a>
+
+			<div class="dish-layout">
+				<div class="dish-gallery">
+					{img ? (
+						<div class="gallery-main">
+							<img src={img} alt={item.name} />
+						</div>
+					) : (
+						<div class="gallery-placeholder">
+							<span>&#127869;</span>
+						</div>
+					)}
+				</div>
+
+				<div class="dish-details">
+					{labels.length > 0 && (
+						<div class="dish-labels">
+							{labels.map((label: any) => (
+								<span class="dish-label">{label.name || label}</span>
+							))}
+						</div>
+					)}
+
+					<h1 class="dish-title">{item.name}</h1>
+					<div class="dish-price">{getItemPrice(item)}</div>
+
+					{item.description && (
+						<div class="dish-description">
+							<p>{item.description}</p>
+						</div>
+					)}
+
+					<DishCustomizer item={dishData} client:load />
+				</div>
+			</div>
+		</div>
+	</section>
+	<Footer />
+</Layout>
+
+<style>
+	.dish-page {
+		padding: 30px 0 60px;
+	}
+
+	.back-link {
+		display: inline-block;
+		margin-bottom: 24px;
+		font-family: var(--font-heading);
+		font-size: 0.85rem;
+		letter-spacing: 1px;
+		color: var(--text-muted);
+	}
+
+	.back-link:hover {
+		color: var(--accent);
+	}
+
+	.dish-layout {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 48px;
+		align-items: start;
+	}
+
+	.dish-gallery {
+		min-width: 0;
+		overflow: hidden;
+	}
+
+	.gallery-main {
+		border-radius: 12px;
+		background: #111;
+		overflow: hidden;
+		aspect-ratio: 4/3;
+	}
+
+	.gallery-main img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.gallery-placeholder {
+		border-radius: 12px;
+		background: linear-gradient(135deg, #1a1a2e, #16213e);
+		aspect-ratio: 4/3;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 6rem;
+		opacity: 0.7;
+	}
+
+	.dish-labels {
+		display: flex;
+		gap: 6px;
+		margin-bottom: 12px;
+		flex-wrap: wrap;
+	}
+
+	.dish-label {
+		background: var(--accent);
+		color: #000;
+		padding: 4px 10px;
+		border-radius: 6px;
+		font-family: var(--font-heading);
+		font-size: 0.7rem;
+		letter-spacing: 1px;
+	}
+
+	.dish-title {
+		font-family: var(--font-heading);
+		font-size: clamp(1.5rem, 3vw, 2.2rem);
+		color: var(--text-primary);
+		letter-spacing: 1px;
+		margin-bottom: 12px;
+	}
+
+	.dish-price {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--accent-yellow);
+		margin-bottom: 16px;
+	}
+
+	.dish-description {
+		color: var(--text-secondary);
+		font-size: 0.95rem;
+		line-height: 1.7;
+		margin-bottom: 24px;
+		padding-bottom: 24px;
+		border-bottom: 1px solid #222;
+	}
+
+	@media (max-width: 768px) {
+		.dish-layout {
+			grid-template-columns: 1fr;
+			gap: 24px;
+		}
+	}
+</style>
