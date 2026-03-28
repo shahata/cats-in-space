@@ -1,0 +1,10 @@
+# .config/wt.toml
+[post-start]
+server = "npm run dev -- --port {{ branch | hash_port }}"
+
+[list]
+url = "http://localhost:{{ branch | hash_port }}"
+
+[pre-remove]
+server = "lsof -ti :{{ branch | hash_port }} -sTCP:LISTEN | xargs kill 2>/dev/null || true"
+
