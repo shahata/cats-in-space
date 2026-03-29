@@ -329,9 +329,10 @@ POST https://www.wixapis.com/stores/v3/customizations
 ```
 
 **REQUIRED fields:**
-- `customizationType`: `"PRODUCT_OPTION"` or `"PRODUCT_MODIFIER"`
+- `customizationType`: `"PRODUCT_OPTION"` or `"MODIFIER"` (NOT `"PRODUCT_MODIFIER"` — that value is rejected by the API)
 - `customizationRenderType`: **REQUIRED** — `"TEXT_CHOICES"` or `"SWATCH_CHOICES"` or `"FREE_TEXT"`. Omitting causes: `customizationRenderType value is required`
 - `choicesSettings.choices[].choiceType`: `"CHOICE_TEXT"`, `"ONE_COLOR"`, `"MULTIPLE_COLORS"`, or `"IMAGE"`
+- For `FREE_TEXT` modifiers: use `freeTextInput` (NOT `freeTextSettings`) with required `title` field: `"freeTextInput": { "title": "Gift Message", "maxCharCount": 150 }`
 ```
 Response: `customization.id` — save this for attaching to products.
 
