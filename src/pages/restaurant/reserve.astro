@@ -4,6 +4,7 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import ReservationFlow from '../../components/ReservationFlow';
 import { reservationLocations } from '@wix/table-reservations';
+import { members } from '@wix/members';
 import { i18n, auth } from '@wix/essentials';
 
 const t = i18n.getTranslationFunction();
@@ -16,6 +17,20 @@ try {
 	if (locations.length > 0 && locations[0]) {
 		const loc = locations[0] as any;
 		locationId = loc._id || loc.id || '';
+	}
+} catch {}
+
+let memberName = '';
+let memberEmail = '';
+let memberPhone = '';
+try {
+	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+	if (res.member) {
+		const c = res.member.contact;
+		const p = res.member.profile;
+		memberName = [c?.firstName, c?.lastName].filter(Boolean).join(' ') || p?.nickname || '';
+		memberEmail = c?.emails?.[0] || res.member.loginEmail || '';
+		memberPhone = c?.phones?.[0] || '';
 	}
 } catch {}
 ---
@@ -32,7 +47,13 @@ try {
 	<section class="reserve-content">
 		<div class="container">
 			<div class="reserve-wrapper">
-				<ReservationFlow reservationLocationId={locationId} client:load />
+				<ReservationFlow
+					reservationLocationId={locationId}
+					{...(memberName ? { defaultName: memberName } : {})}
+					{...(memberEmail ? { defaultEmail: memberEmail } : {})}
+					{...(memberPhone ? { defaultPhone: memberPhone } : {})}
+					client:load
+				/>
 			</div>
 		</div>
 	</section>

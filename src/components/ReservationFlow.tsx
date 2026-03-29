@@ -5,6 +5,9 @@ import { i18n } from "@wix/essentials";
 
 interface Props {
   reservationLocationId: string;
+  defaultName?: string;
+  defaultEmail?: string;
+  defaultPhone?: string;
 }
 
 interface TimeSlotInfo {
@@ -15,7 +18,7 @@ interface TimeSlotInfo {
 
 type Step = "search" | "slots" | "details" | "confirm";
 
-export default function ReservationFlow({ reservationLocationId }: Props) {
+export default function ReservationFlow({ reservationLocationId, defaultName, defaultEmail, defaultPhone }: Props) {
   const t = i18n.getTranslationFunction();
   const locale = i18n.getLocale();
 
@@ -25,9 +28,9 @@ export default function ReservationFlow({ reservationLocationId }: Props) {
   const [selectedHour, setSelectedHour] = useState("19:00");
   const [availableSlots, setAvailableSlots] = useState<TimeSlotInfo[]>([]);
   const [chosenSlot, setChosenSlot] = useState<TimeSlotInfo | null>(null);
-  const [guestName, setGuestName] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
+  const [guestName, setGuestName] = useState(defaultName || "");
+  const [guestEmail, setGuestEmail] = useState(defaultEmail || "");
+  const [guestPhone, setGuestPhone] = useState(defaultPhone || "");
   const [specialRequests, setSpecialRequests] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
