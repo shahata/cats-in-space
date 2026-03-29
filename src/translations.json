@@ -268,7 +268,7 @@
     "passwordsDoNotMatch": "Passwords do not match",
     "incorrectPassword": "Current password is incorrect",
     "failedChangePassword": "Failed to change password",
-    "sendChangePasswordLink": "Send Change Password Link",
+    "sendChangePasswordLink": "Send Reset Password Link",
     "sending": "Sending...",
     "passwordResetSent": "Password reset email sent! Check your inbox.",
     "failedResetPassword": "Failed to send reset email",
