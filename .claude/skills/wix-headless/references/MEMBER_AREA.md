@@ -255,9 +255,46 @@ function getCardBrand(bin: string): string {
 
 1. **Change email** — `authentication.changeLoginEmail(memberId, newEmail)`
 2. **Reset password** — `authentication.sendSetPasswordEmail(email)` (sends link, user resets externally)
-3. Display: member since date, last login
+3. **Change password inline** — verify current password, then change via SDK client (see pattern below)
+4. Display: member since date, last login
 
-**CRITICAL:** Both require member identity — call from client-side. `auth.elevate()` strips member identity.
+**CRITICAL:** Both email change and password reset require member identity — call from client-side. `auth.elevate()` strips member identity.
+
+### Change Password Pattern
+
+The `changePassword` API from `@wix/identity` requires a member session with step-up auth. It does **NOT** work from server-side API routes — `auth.elevate()` switches to app identity (403), and without elevation it triggers step-up. The solution is to handle everything client-side using a separate SDK client:
+
+1. Create a new `WixClient` with `OAuthStrategy` (requires the app's `clientId` from `wix.config.json`)
+2. Call `loginV2` on the client with the member's email and current password — this verifies the password and returns a `sessionToken`
+3. Exchange the `sessionToken` for member tokens via `getMemberTokensForDirectLogin(sessionToken)` and apply with `setTokens(tokens)`
+4. Call `changePassword(newPassword)` on the now-authenticated client
+
+```typescript
+import { createClient, OAuthStrategy } from "@wix/sdk";
+import { authentication as identityAuth } from "@wix/identity";
+
+const wixClient = createClient({
+  modules: { authentication: identityAuth },
+  auth: OAuthStrategy({ clientId: "<APP_CLIENT_ID_FROM_WIX_CONFIG>" }),
+});
+
+// Verify current password and get session token
+const loginResponse = await wixClient.authentication.loginV2(
+  { email: memberEmail },
+  { password: currentPassword },
+);
+
+// Authenticate client as the member
+const tokens = await wixClient.auth.getMemberTokensForDirectLogin(loginResponse.sessionToken!);
+wixClient.auth.setTokens(tokens);
+
+// Change password
+await wixClient.authentication.changePassword(newPassword);
+```
+
+**CRITICAL:** `OAuthStrategy` and `getMemberTokensForDirectLogin` use browser APIs (`window`, iframes) — this MUST run client-side, never in server API routes or Astro frontmatter.
+
+**CRITICAL:** Do NOT use `auth.elevate()` for `loginV2` or `changePassword` from `@wix/identity`. Elevation switches to app identity which either gets 403 or loses the member session context needed for password operations.
 
 ## General Patterns
 

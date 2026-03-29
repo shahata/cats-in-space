@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { members, authentication, membersAbout } from "@wix/members";
 import type { members as membersTypes } from "@wix/members";
 import { getData as getCountries } from "country-list";
+import { createClient, OAuthStrategy } from "@wix/sdk";
+import { authentication as identityAuth } from "@wix/identity";
 import { i18n } from "@wix/essentials";
 
 function toE164(phone: string): string {
@@ -52,6 +54,10 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
   const [emailMsg, setEmailMsg] = useState("");
   const [passwordMsg, setPasswordMsg] = useState("");
   const [passwordSending, setPasswordSending] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordChanging, setPasswordChanging] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -213,6 +219,53 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
       setPasswordMsg(e instanceof Error ? e.message : t('profile.failedResetPassword'));
     }
     setPasswordSending(false);
+  }
+
+  async function handleChangePassword() {
+    if (!currentPassword.trim() || !newPassword.trim()) return;
+    if (newPassword !== confirmPassword) {
+      setPasswordMsg(t('profile.passwordsDoNotMatch'));
+      return;
+    }
+    setPasswordChanging(true);
+    setPasswordMsg("");
+    try {
+      const wixClient = createClient({
+        modules: { authentication: identityAuth },
+        auth: OAuthStrategy({ clientId: "2168e967-8e53-4561-b535-3fe367938245" }),
+      });
+
+      // Verify current password and get session token
+      const loginResponse = await wixClient.authentication.loginV2(
+        { email: member.loginEmail! },
+        { password: currentPassword },
+      );
+      if (!loginResponse.sessionToken) {
+        setPasswordMsg(t('profile.failedChangePassword'));
+        setPasswordChanging(false);
+        return;
+      }
+
+      // Authenticate client with the member's session
+      const tokens = await wixClient.auth.getMemberTokensForDirectLogin(loginResponse.sessionToken);
+      wixClient.auth.setTokens(tokens);
+
+      // Change password
+      await wixClient.authentication.changePassword(newPassword);
+
+      setPasswordMsg(t('profile.passwordChanged'));
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.toLowerCase().includes("password") || msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("credentials")) {
+        setPasswordMsg(t('profile.incorrectPassword'));
+      } else {
+        setPasswordMsg(msg || t('profile.failedChangePassword'));
+      }
+    }
+    setPasswordChanging(false);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -492,14 +545,34 @@ export default function MemberProfile({ member, aboutData, tab = "profile" }: Pr
 
             <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #222" }}>
               <label style={labelStyle}>{t('profile.changePassword')}</label>
-              <p style={{ color: "#888", fontSize: "0.8rem", marginBottom: "8px" }}>
-                {t('profile.changePasswordDesc', { email: member.loginEmail || '' })}
-              </p>
-              <button type="button" onClick={handleResetPassword} disabled={passwordSending}
-                style={smallButtonStyle}>
-                {passwordSending ? t('profile.sending') : t('profile.sendChangePasswordLink')}
-              </button>
-              {passwordMsg && <p style={{ fontSize: "0.8rem", color: passwordMsg.includes("sent") || passwordMsg.includes(t('profile.passwordResetSent').substring(0, 5)) ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{passwordMsg}</p>}
+
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ ...labelStyle, fontSize: "0.8rem", color: "#aaa" }}>{t('profile.currentPassword')}</label>
+                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder={t('profile.currentPasswordPlaceholder')} style={{ ...inputStyle, marginBottom: "8px" }} />
+                <label style={{ ...labelStyle, fontSize: "0.8rem", color: "#aaa" }}>{t('profile.newPassword')}</label>
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={t('profile.newPasswordPlaceholder')} style={{ ...inputStyle, marginBottom: "8px" }} />
+                <label style={{ ...labelStyle, fontSize: "0.8rem", color: "#aaa" }}>{t('profile.confirmPassword')}</label>
+                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder={t('profile.confirmPasswordPlaceholder')} style={{ ...inputStyle, marginBottom: "8px" }} />
+                <button type="button" onClick={handleChangePassword} disabled={passwordChanging || !currentPassword.trim() || !newPassword.trim()}
+                  style={smallButtonStyle}>
+                  {passwordChanging ? t('profile.sending') : t('profile.changePasswordButton')}
+                </button>
+              </div>
+
+              <div style={{ paddingTop: "12px", borderTop: "1px solid #222" }}>
+                <p style={{ color: "#888", fontSize: "0.8rem", marginBottom: "8px" }}>
+                  {t('profile.changePasswordDesc', { email: member.loginEmail || '' })}
+                </p>
+                <button type="button" onClick={handleResetPassword} disabled={passwordSending}
+                  style={smallButtonStyle}>
+                  {passwordSending ? t('profile.sending') : t('profile.sendChangePasswordLink')}
+                </button>
+              </div>
+
+              {passwordMsg && <p style={{ fontSize: "0.8rem", color: passwordMsg.includes("sent") || passwordMsg.includes(t('profile.passwordChanged')?.substring(0, 5)) || passwordMsg.includes(t('profile.passwordResetSent').substring(0, 5)) ? "#4caf50" : "#cc0000", marginTop: "8px" }}>{passwordMsg}</p>}
             </div>
           </div>
         </>
