@@ -81,7 +81,7 @@ When creating categories, import a representative image and set it on the catego
 
 The store listing page should include:
 
-1. **Category filter tabs** — "All" selected by default, client-side filtering
+1. **Category filter tabs** — show only real categories from the store (do NOT add a hardcoded "All" tab). All products are visible by default with no tab active. Clicking an active tab deselects it to show all products again. **CRITICAL:** The categories REST API returns `cat.id` (not `cat._id`) — always use `cat.id || cat._id` when reading category IDs.
 2. **Product grid** — responsive grid of product cards
 3. **Each product card must show:**
    - Product image (or video poster), with fallback if no media

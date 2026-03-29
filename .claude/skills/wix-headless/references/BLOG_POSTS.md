@@ -204,7 +204,7 @@ A functional blog MUST include ALL of the following. Do not skip any:
 
 A good blog listing page includes:
 
-1. **Tag filter bar** — horizontal scrollable pill buttons, "All" selected by default, client-side filtering
+1. **Tag filter bar** — horizontal scrollable pill buttons showing only real tags from the blog (do NOT add a hardcoded "All" tab). All posts visible by default with no tag active. Clicking an active tag deselects it to show all posts.
 2. **Featured post** — first visible card spans full width with image on one side, content on the other
 3. **Post cards in grid** — `repeat(auto-fill, minmax(340px, 1fr))` responsive grid
 4. **Each card must show:**

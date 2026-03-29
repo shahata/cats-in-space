@@ -9,14 +9,24 @@ description: "Use when building or working on Wix managed headless projects. Cov
 
 **STOP. Before building ANY feature area, verify you will implement ALL required items from the relevant checklist below. Do NOT skip items — these are non-negotiable. Check each item off as you build.**
 
+**CRITICAL — RECURRING FAILURE:** Agents repeatedly build only the obvious pages (listing, detail, cart) and skip backend data model work (variants/options, modifiers, info sections, pre-order inventory, out-of-stock setup, back-in-stock notifications). This forces the user to ask "why didn't you do what the skill said?" and wastes an entire round-trip. **You MUST create tasks for EVERY checklist item — including all data seeding steps — BEFORE writing any code.** After building, re-read this checklist line by line and verify every item is implemented. A feature is NOT done until every checkbox below is checked off.
+
 ### Store — ALL required:
-- [ ] Store listing page (`/store`) with category filtering and product cards
-- [ ] Product detail page (`/store/[slug]`) with options, variants, add-to-cart
+- [ ] Store listing page (`/store`) with category filtering, product cards, category badges, out-of-stock overlay, pre-order badge, price range display
+- [ ] Product detail page (`/store/[slug]`) with image gallery, options (text + swatch), modifiers (free text + text choices + swatch choices), variants, add-to-cart, back-in-stock form, info sections accordion, related products, pre-order badge
 - [ ] Cart sidebar with line item images (**use `getImageUrl()`!**), quantities, checkout
 - [ ] Thank you page (`/store/thank-you`)
 - [ ] **Member area (`/member`) with order history** — customers MUST be able to see past orders
 - [ ] Navigation with login/logout state detection
-- [ ] Inventory set to in-stock for all variants
+- [ ] **Data seeding — do NOT skip these:**
+  - [ ] Products with images, descriptions, ribbons, physicalProperties
+  - [ ] Categories with images, products assigned to categories
+  - [ ] **Options/variants** — at least one product with TEXT_CHOICES (e.g., Size) and one with SWATCH_CHOICES (e.g., Color), with multiple variants at different prices
+  - [ ] **Modifiers** — at least one FREE_TEXT (e.g., gift message), one TEXT_CHOICES (e.g., gift wrapping), one SWATCH_CHOICES (e.g., accent color), attached to products
+  - [ ] **Info sections** — create and assign to products (e.g., Care Instructions, Shipping, Certifications)
+  - [ ] **Pre-order** — at least one product set up with `trackQuantity: true`, `quantity: 0`, `preorderInfo`
+  - [ ] **Out-of-stock variant** — at least one variant marked out of stock to exercise back-in-stock notification flow
+  - [ ] Inventory explicitly created for all new variants after attaching options
 
 ### Blog — ALL required:
 - [ ] Blog listing page (`/blog`) with tag filtering, cover images, metrics
@@ -362,13 +372,20 @@ Key principles:
 
 ## Deployment
 
-**CRITICAL:** Always run `npm run build` before `npm run preview` or `npm run release`. The build step compiles the project and catches TypeScript and template errors. Deploying without building first will use stale build output or fail.
+**The deploy sequence is exactly these 3 commands, in this order. Do NOT skip step 1 or 2.**
 
-| Command | Purpose |
-|---------|---------|
-| `npm run build` | Production build — **run this first** |
-| `npm run preview` | Deploy preview (unique URL each time) |
-| `npm run release` | Deploy to production |
+```bash
+# Step 1: Type check — catches errors that build silently ignores (wrong field names, bad types from REST responses)
+npx astro check
+
+# Step 2: Build — compiles the project
+npm run build
+
+# Step 3: Deploy
+npm run preview   # or: npm run release
+```
+
+**Why all 3 steps are mandatory:** `npm run build` uses Vite which does NOT do strict type checking — it bundles `any`-typed code without complaint. `npx astro check` is the only thing that catches type errors in `.astro` files. Skipping it has repeatedly led to deploying broken code (e.g., accessing `cat._id` when the REST API returns `cat.id`). Install `@astrojs/check` if not present.
 
 ## Authentication (Login/Logout)
 
