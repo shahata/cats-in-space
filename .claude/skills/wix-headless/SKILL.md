@@ -306,30 +306,35 @@ const item = result.items[0];
 
 ### Wix Runware API (Preferred for Image Generation)
 
-Use the **Wix Runware API** to generate images. This requires a `WIX_API_KEY` environment variable (an IST token), plus the account ID and site ID for the target site.
+Use the **Wix Runware API** to generate images via `npx wix token` + curl. The MCP `CallWixSiteAPI` tool **cannot** be used for Runware because it rejects the required array body format.
 
-**Endpoint:** `POST https://www.wixapis.com/runwareschemaless/v1/request`
-
-**Headers:**
-- `Content-Type: application/json`
-- `Authorization: <WIX_API_KEY>`
-- `wix-account-id: <ACCOUNT_ID>` (extract from the IST token payload or use the known account ID)
-- `wix-site-id: <SITE_ID>` (use `ListWixSites` MCP tool or `wix.config.json` to find the site ID)
-
-**Request body:**
-```json
-[{
-  "taskType": "imageInference",
-  "taskUUID": "<generate-a-unique-uuid>",
-  "outputType": "URL",
-  "outputFormat": "jpg",
-  "positivePrompt": "descriptive prompt for the image",
-  "height": 1024,
-  "width": 1024,
-  "model": "runware:400@1",
-  "numberResults": 1
-}]
+**How to call:**
+```bash
+SITE_TOKEN=$(npx wix token -s <siteId>) && \
+curl -s -X POST "https://www.wixapis.com/runwareschemaless/v1/request" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $SITE_TOKEN" \
+  -H "wix-site-id: <siteId>" \
+  -H "wix-account-id: <accountId>" \
+  -d '[{
+    "taskType": "imageInference",
+    "taskUUID": "<generate-a-unique-uuid>",
+    "outputType": "URL",
+    "outputFormat": "jpg",
+    "positivePrompt": "descriptive prompt for the image",
+    "height": 1024,
+    "width": 1024,
+    "model": "google:4@2",
+    "numberResults": 1
+  }]'
 ```
+
+**IMPORTANT:**
+- `siteId`: from `wix.config.json` in the project
+- `accountId`: the `uid` or `siteOwnerId` from the token payload (decode the JWT middle segment)
+- Use `-s` (site-scoped) flag with `npx wix token` — the default account token returns "Permission denied"
+- The `wix-account-id` header is **required** — without it you get "Permission denied"
+- Generate a unique UUID for each request
 
 **Response:** Returns `data[].imageURL` — a publicly accessible URL that can be passed directly to the Wix Media Import endpoint.
 
@@ -344,6 +349,16 @@ If the Wix Runware API is unavailable or for video generation, use OpenAI's APIs
 3. **Attach at creation time** — include media when creating entities, not as a separate step. For products, use `media.itemsInfo.items` inline. For CMS items, set IMAGE fields directly. For blog posts, set the `media.wixMedia.image` field.
 4. **Add images one at a time via MCP** (batching may silently drop).
 5. For **video**: generate via OpenAI → temp host if needed → Wix Import File API → attach by media `id`.
+
+## Frontend Design
+
+**Use the `frontend-design` skill for all page styling.** When building any headless site pages (store, blog, homepage, member area, etc.), invoke the `frontend-design` skill to create production-grade, distinctive UI. Avoid generic layouts with system fonts and default colors.
+
+Key principles:
+- **Typography**: Use Google Fonts with distinctive choices — pair a display/serif font for headings with a clean sans-serif for body. Avoid system fonts, Inter, Roboto, Arial.
+- **CSS variables**: Define a design token system (`--font-display`, `--bg`, `--surface`, `--accent`, `--border`, etc.) in the Layout's global styles. All pages and components should reference these variables for consistency.
+- **React components**: Since React islands can't use Astro scoped styles, use inline style objects that reference the same token values (hardcoded as strings matching the CSS variables).
+- **Cohesive palette**: Pick a warm/cool direction and commit. Use border colors, muted text colors, and surface colors that all belong to the same temperature.
 
 ## Deployment
 
@@ -484,7 +499,9 @@ const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', cu
 ### Wix SDK Gotchas
 - **Always use SDK methods over manual REST calls** — SDK methods handle auth, types, and response shapes correctly. Don't use `httpClient.fetchWithAuth` with manual REST URLs when an SDK method exists. When one SDK method returns an object (e.g. `SlotAvailability`), pass it directly to the next SDK method that accepts it — don't reconstruct objects manually
 - `getCurrentCart` returns Cart directly, not `{ cart }`
-- `searchOrders` takes OrderSearch directly, not `{ search: OrderSearch }`
+- `searchOrders` takes OrderSearch directly, not `{ search: OrderSearch }` — wrapping in `{ search: {} }` causes a type error
+- `createCheckoutFromCurrentCart` returns `{ checkoutId }` — NOT a checkout object with `_id`. Use `const { checkoutId } = await currentCart.createCheckoutFromCurrentCart(...)`, NOT `c._id`
+- `createCheckoutFromCurrentCart` is on `currentCart`, NOT `checkout` — importing from `checkout` fails at build time
 - `estimateCurrentCartTotals` response: `priceSummary` at top level, not under `estimatedTotals`
 - `httpClient.fetchWithAuth` from `@wix/essentials` — only use when no SDK method exists for the endpoint. Import from main module, NOT subpath
 - `media` from `@wix/sdk` for image/video URLs — `media.getImageUrl()`, `media.getScaledToFillImageUrl()`, `media.getVideoUrl()`
@@ -499,6 +516,7 @@ const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', cu
   - Option choices: `opt.choicesSettings?.choices?.map(c => c.name)` — NOT `opt.choices` or `c.value`
 - **Variant `_id` vs `id` mismatch**: TypeScript type shows `id` but runtime value is `_id`. Always use `(v as any)._id || v.id`
 - **Use `getProductBySlug` for detail pages**: `queryProducts().eq('slug', slug)` may not return options/variants
-- **Categories: use `searchCategories`**: `queryCategories` does NOT work in managed headless. Use `categories.searchCategories({}, { treeReference: { appNamespace: '@wix/stores' } })`
-- **Category filtering needs `$matchItems`**: Use `productsV3.searchProducts()` with `directCategoriesInfo.categories` and `$matchItems` operator — simple `categoryIds` filters do not work
-- **Create products with inventory**: Use `POST /stores/v3/products-with-inventory` endpoint to create products with inventory in one call
+- **Categories: `@wix/stores` does NOT export `categories`** — use `httpClient.fetchWithAuth` from `@wix/essentials` to call `POST https://www.wixapis.com/categories/v1/categories/search` with `{ treeReference: { appNamespace: "@wix/stores" } }`. The `collections` export is V1-only.
+- **Category filtering**: Fetch all products with `DIRECT_CATEGORIES_INFO` field, then filter client-side via `directCategoriesInfo.categories`
+- **Product seeding workflow**: Create simple products first, then add options/variants/info sections/categories as separate steps. See `references/ECOMMERCE_V3.md` → "Recommended Product Seeding Workflow" for the full 9-step process.
+- **Image generation**: See "Media Generation" section below for the Runware workflow.
