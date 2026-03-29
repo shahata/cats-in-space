@@ -5,7 +5,35 @@ appId: `215238eb-22a5-4c36-9e7b-e7c08025e04e`
 ## SDK Packages
 
 - `@wix/stores` → `productsV3` namespace: `queryProducts`, `getProduct`, `getProductBySlug`, `createProduct`, `updateProduct`, `deleteProduct`, `searchProducts`
-- `@wix/categories` → `categories` namespace: `queryCategories`, `getCategory`, `createCategory`
+
+### Categories SDK — `@wix/categories` is NOT always available
+
+**WARNING:** The `@wix/categories` package may not be installed or may not export `categories` in all managed headless projects. The `@wix/stores` package does NOT export `categories` — only `collections` (V1).
+
+**Preferred approach for categories — use `httpClient.fetchWithAuth`:**
+```typescript
+import { httpClient } from '@wix/essentials';
+
+// Search categories
+const res = await httpClient.fetchWithAuth('https://www.wixapis.com/categories/v1/categories/search', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ treeReference: { appNamespace: '@wix/stores' } }),
+});
+const data = await res.json();
+const allCategories = data.categories ?? [];
+// Each category has: id, name, slug, visible, image, etc.
+```
+
+**If `@wix/categories` IS installed and working:**
+```typescript
+import { categories } from '@wix/categories';
+const catResult = await categories.queryCategories(
+  { cursorPaging: { limit: 100 } },
+  { treeReference: { appNamespace: '@wix/stores' } }
+);
+const cats = catResult.categories || [];
+```
 
 ## V3 SDK Field Access Cheat Sheet
 
@@ -63,6 +91,20 @@ This returns full data including `variantsInfo.variants[]` in one call — no tw
 
 ### Query categories
 
+**Preferred — via httpClient (always works, no extra package needed):**
+```typescript
+import { httpClient } from '@wix/essentials';
+
+const res = await httpClient.fetchWithAuth('https://www.wixapis.com/categories/v1/categories/search', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ treeReference: { appNamespace: '@wix/stores' } }),
+});
+const data = await res.json();
+const cats = data.categories ?? []; // each has: id, name, slug, visible, image
+```
+
+**Alternative — via @wix/categories (if installed):**
 ```typescript
 import { categories } from '@wix/categories';
 const catResult = await categories.queryCategories(
@@ -171,9 +213,241 @@ if (Object.keys(opts).length > 0) ref.options = opts;
 
 ### Products
 - Create: `POST https://www.wixapis.com/stores/v3/products`
+- **Create with inventory (preferred):** `POST https://www.wixapis.com/stores/v3/products-with-inventory`
 - Get: `GET https://www.wixapis.com/stores/v3/products/{id}`
 
-### Inventory (V3 products start as OUT_OF_STOCK)
+### Create Product With Inventory — COMPLETE working example
+
+**Endpoint:** `POST https://www.wixapis.com/stores/v3/products-with-inventory`
+**Docs:** https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/create-product-with-inventory
+
+This is the **preferred** endpoint — it creates the product AND its inventory in a single call.
+
+**Simple product (no options, single default variant):**
+```json
+{
+  "product": {
+    "name": "Coffee Mug",
+    "slug": "coffee-mug",
+    "productType": "PHYSICAL",
+    "physicalProperties": {},
+    "plainDescription": "A ceramic coffee mug. Dishwasher safe.",
+    "visible": true,
+    "variantsInfo": {
+      "variants": [{
+        "price": { "actualPrice": { "amount": "14.99" } },
+        "inventoryItem": { "inStock": true }
+      }]
+    }
+  }
+}
+```
+
+**REQUIRED fields:**
+- `productType`: `"PHYSICAL"` or `"DIGITAL"` (UPPERCASE)
+- `physicalProperties`: `{}` — **required** when `productType` is `"PHYSICAL"`, even if empty. Omitting it causes: `productType and the corresponding physical_properties field must be passed together`
+- `variantsInfo.variants`: at least one variant is **required**. Omitting causes: `variantsInfo must not be empty`
+- `variants[].price.actualPrice.amount`: **required** on each variant. Note the nested structure — `price: { actualPrice: { amount: "29.99" } }`, NOT `price: { amount: "29.99" }`. Omitting `actualPrice` causes: `actualPrice must not be empty`
+- `variants[].inventoryItem.inStock`: set to `true` for in-stock items. Without this, variants default to OUT_OF_STOCK.
+
+## Recommended Product Seeding Workflow (via MCP)
+
+Creating a complete product catalog requires multiple sequential steps. Do NOT try to do everything in one API call — the `create-product-with-inventory` endpoint handles basic product + inventory, but options, info sections, images, and categories must be added separately.
+
+### Step-by-step workflow:
+
+1. **Generate images** via Wix Runware API (MCP `CallWixSiteAPI`)
+2. **Import images** to Wix Media (`POST /site-media/v1/files/import`)
+3. **Create categories** with images (`POST /categories/v1/categories`)
+4. **Create simple products** with media and inventory (`POST /stores/v3/products-with-inventory`) — single default variant, no options yet
+5. **Create customizations** (options like Size, Color) (`POST /stores/v3/customizations`)
+6. **Update products** to attach options → this auto-generates variants (`POST /stores/v3/products/{id}/update-with-inventory`)
+7. **Create info sections** (`POST /stores/v3/info-sections`)
+8. **Assign info sections** to products (`POST /stores/v3/bulk/products/add-info-sections`)
+9. **Assign products to categories** (`POST /categories/v1/bulk/categories/{id}/add-items`)
+
+### Step 1-2: Generate and import images
+
+**Generate via Runware using `npx wix token` + curl:**
+
+The Runware API requires an **array** body, which the MCP `CallWixSiteAPI` tool cannot send (it rejects arrays). Use `npx wix token` to get an auth token and call via curl instead:
+
+```bash
+SITE_TOKEN=$(npx wix token -s <siteId>) && \
+curl -s -X POST "https://www.wixapis.com/runwareschemaless/v1/request" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $SITE_TOKEN" \
+  -H "wix-site-id: <siteId>" \
+  -H "wix-account-id: <accountId>" \
+  -d '[{
+    "taskType": "imageInference",
+    "taskUUID": "<unique-uuid>",
+    "outputType": "URL",
+    "outputFormat": "jpg",
+    "positivePrompt": "professional product photo of a classic cotton t-shirt on white background",
+    "height": 1024,
+    "width": 1024,
+    "model": "google:4@2",
+    "numberResults": 1
+  }]'
+```
+
+- `siteId`: from `wix.config.json`
+- `accountId`: the `uid`/`siteOwnerId` from the token payload (decode the JWT middle segment)
+- Response: `data[].imageURL` — a public URL
+
+**Import to Wix Media (use MCP — this works with object bodies):**
+```
+POST https://www.wixapis.com/site-media/v1/files/import
+```
+```json
+{ "url": "<imageURL from Runware>", "mimeType": "image/jpeg", "displayName": "classic-tshirt.jpg" }
+```
+Response: `file.url` (wixstatic.com URL) — usable immediately. Save this URL for the product `media` field.
+
+### Step 5: Create customizations (options)
+
+```
+POST https://www.wixapis.com/stores/v3/customizations
+```
+```json
+{
+  "customization": {
+    "name": "Size",
+    "customizationType": "PRODUCT_OPTION",
+    "customizationRenderType": "TEXT_CHOICES",
+    "choicesSettings": {
+      "choices": [
+        { "name": "S", "choiceType": "CHOICE_TEXT" },
+        { "name": "M", "choiceType": "CHOICE_TEXT" },
+        { "name": "L", "choiceType": "CHOICE_TEXT" },
+        { "name": "XL", "choiceType": "CHOICE_TEXT" }
+      ]
+    }
+  }
+}
+```
+
+**REQUIRED fields:**
+- `customizationType`: `"PRODUCT_OPTION"` or `"PRODUCT_MODIFIER"`
+- `customizationRenderType`: **REQUIRED** — `"TEXT_CHOICES"` or `"SWATCH_CHOICES"` or `"FREE_TEXT"`. Omitting causes: `customizationRenderType value is required`
+- `choicesSettings.choices[].choiceType`: `"CHOICE_TEXT"`, `"ONE_COLOR"`, `"MULTIPLE_COLORS"`, or `"IMAGE"`
+```
+Response: `customization.id` — save this for attaching to products.
+
+For color swatches:
+```json
+{
+  "customization": {
+    "name": "Color",
+    "customizationType": "PRODUCT_OPTION",
+    "choicesSettings": {
+      "choices": [
+        { "name": "Black", "choiceType": "ONE_COLOR", "colorCode": "#000000" },
+        { "name": "White", "choiceType": "ONE_COLOR", "colorCode": "#FFFFFF" }
+      ]
+    }
+  }
+}
+```
+
+### Step 6: Update product to attach options and create variants
+
+**Endpoint:** `PATCH https://www.wixapis.com/stores/v3/products-with-inventory/{productId}`
+**Docs:** https://dev.wix.com/docs/api-reference/business-solutions/stores/catalog-v3/products-v3/update-product-with-inventory
+
+You must pass the FULL option definition (not just an ID reference) AND explicit variants with `optionChoiceIds`. The `options` and `variantsInfo` fields are mutually dependent — you must pass both together.
+
+```json
+{
+  "product": {
+    "revision": "1",
+    "options": [{
+      "id": "<customization-id>",
+      "name": "Size",
+      "optionRenderType": "TEXT_CHOICES",
+      "choicesSettings": {
+        "choices": [
+          { "id": "<choice-id-S>", "name": "S", "choiceType": "CHOICE_TEXT" },
+          { "id": "<choice-id-M>", "name": "M", "choiceType": "CHOICE_TEXT" },
+          { "id": "<choice-id-L>", "name": "L", "choiceType": "CHOICE_TEXT" }
+        ]
+      }
+    }],
+    "variantsInfo": {
+      "variants": [
+        {
+          "choices": [{ "optionChoiceIds": { "optionId": "<customization-id>", "choiceId": "<choice-id-S>" } }],
+          "price": { "actualPrice": { "amount": "29.99" } },
+          "inventoryItem": { "inStock": true }
+        },
+        {
+          "choices": [{ "optionChoiceIds": { "optionId": "<customization-id>", "choiceId": "<choice-id-M>" } }],
+          "price": { "actualPrice": { "amount": "29.99" } },
+          "inventoryItem": { "inStock": true }
+        },
+        {
+          "choices": [{ "optionChoiceIds": { "optionId": "<customization-id>", "choiceId": "<choice-id-L>" } }],
+          "price": { "actualPrice": { "amount": "29.99" } },
+          "inventoryItem": { "inStock": true }
+        }
+      ]
+    }
+  }
+}
+```
+
+**IMPORTANT:**
+- Pass full option definition with `name`, `optionRenderType`, `choicesSettings` — not just `{ "id": "..." }`. Omitting `choicesSettings` causes: `choicesSettings must not be empty`
+- Each choice needs `id`, `name`, and `choiceType` — get these from the customization query response
+- Variants reference choices via `optionChoiceIds` (with `optionId` + `choiceId`), NOT via name strings
+- `inventoryItem.inStock` on the update may NOT create inventory — you often need to follow up with `POST /stores/v3/bulk/inventory-items/create` separately (Step 6b below)
+- The response includes new `variantsInfo.variants[].id` values
+
+### Step 6b: Create inventory for new variants
+
+After updating a product with options, the new variants may be OUT_OF_STOCK even if `inventoryItem.inStock` was passed. Create inventory explicitly:
+
+```
+POST https://www.wixapis.com/stores/v3/bulk/inventory-items/create
+```
+```json
+{
+  "inventoryItems": [
+    { "variantId": "<variant-id-from-step-6>", "productId": "<product-id>", "inStock": true },
+    { "variantId": "<variant-id-2>", "productId": "<product-id>", "inStock": true }
+  ]
+}
+```
+
+**Product with media (Step 4):**
+```json
+{
+  "product": {
+    "name": "Classic T-Shirt",
+    "slug": "classic-t-shirt",
+    "productType": "PHYSICAL",
+    "physicalProperties": {},
+    "plainDescription": "A comfortable classic t-shirt made from premium cotton.",
+    "media": {
+      "itemsInfo": {
+        "items": [{ "url": "https://example.com/image.jpg" }]
+      }
+    },
+    "ribbon": { "name": "NEW" },
+    "variantsInfo": {
+      "variants": [{
+        "price": { "actualPrice": { "amount": "29.99" } },
+        "inventoryItem": { "inStock": true }
+      }]
+    }
+  }
+}
+```
+
+**Response** includes `product` (with generated `id`, `variantsInfo.variants[].id`) and `inventoryResults` confirming inventory creation.
+
+### Inventory (standalone — if not using create-product-with-inventory)
 - Bulk create: `POST https://www.wixapis.com/stores/v3/bulk/inventory-items/create`
   ```json
   { "inventoryItems": [{ "variantId": "...", "productId": "...", "inStock": true }] }
@@ -195,25 +469,7 @@ Pre-order **requires** quantity tracking (not in-stock tracking). Without it, ca
 - `preorderInfo.limit` required for cart to accept quantity > 0
 - `inStock: true` (without quantity tracking) does NOT support preorder limits
 
-### Create Product body
-```json
-{ "product": {
-    "name": "...", "productType": "PHYSICAL", "visible": true,
-    "plainDescription": "<p>...</p>",
-    "physicalProperties": {},
-    "media": { "itemsInfo": { "items": [{ "url": "https://..." }, { "id": "wix-media-id" }] } },
-    "options": [{ "name": "Size", "optionRenderType": "TEXT_CHOICES",
-      "choicesSettings": { "choices": [{ "choiceType": "CHOICE_TEXT", "name": "S" }] } }],
-    "modifiers": [{ "name": "Engraving", "modifierRenderType": "FREE_TEXT", "mandatory": false,
-      "freeTextSettings": { "title": "...", "maxCharCount": 20 } }],
-    "ribbon": { "name": "SALE" },
-    "variantsInfo": { "variants": [{ "visible": true,
-      "choices": [{ "optionChoiceNames": { "optionName": "Size", "choiceName": "S", "renderType": "TEXT_CHOICES" } }],
-      "price": { "actualPrice": { "amount": "49.99" } }, "physicalProperties": {} }] }
-} }
-```
-
-**CRITICAL choiceType values for options:**
+**CRITICAL choiceType values for options (if creating options via REST):**
 - `CHOICE_TEXT` — for `TEXT_CHOICES` options (sizes, materials, etc.)
 - `ONE_COLOR` — for `SWATCH_CHOICES` options (colors). Do NOT use `CHOICE_COLOR` — it does not exist and will return 400.
 - `MULTIPLE_COLORS` — for multi-color swatches
@@ -248,45 +504,75 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 
 ### Categories REST API
 
+**CRITICAL:** The categories endpoint is at `categories/v1/`, NOT `stores/v1/`. Using `stores/v1/categories` returns 404.
+
 **Create:** `POST https://www.wixapis.com/categories/v1/categories`
+- `treeReference` is **REQUIRED** — omitting it causes: `treeReference must not be empty`
 - Category `image` requires `url` (full URL string), NOT `id`. Using `id` alone returns 400.
 ```json
-{ "category": { "name": "My Category", "description": "...",
+{
+  "category": {
+    "name": "My Category",
+    "description": "...",
     "image": { "url": "https://static.wixstatic.com/media/..." }
-  }, "treeReference": { "appNamespace": "@wix/stores" } }
+  },
+  "treeReference": { "appNamespace": "@wix/stores" }
+}
 ```
 
-**Add items:** `POST https://www.wixapis.com/categories/v1/bulk/categories/{categoryId}/add-items`
-- Uses `catalogItemId` (NOT `itemId`) and requires `treeReference`
+**Search:** `POST https://www.wixapis.com/categories/v1/categories/search`
+- Also requires `treeReference`
 ```json
-{ "items": [{ "catalogItemId": "product-id", "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e" }],
-  "treeReference": { "appNamespace": "@wix/stores" } }
+{ "treeReference": { "appNamespace": "@wix/stores" } }
 ```
+
+**Add items to category:** `POST https://www.wixapis.com/categories/v1/bulk/categories/{categoryId}/add-items`
+- Uses `catalogItemId` (NOT `itemId`) and requires `treeReference`
+- `appId` must be the V3 stores appId
+```json
+{
+  "items": [
+    { "catalogItemId": "product-id", "appId": "215238eb-22a5-4c36-9e7b-e7c08025e04e" }
+  ],
+  "treeReference": { "appNamespace": "@wix/stores" }
+}
+```
+
+**Product → Category workflow:**
+1. Create categories first (save `category.id` from response)
+2. Create products (save `product.id` from response)
+3. Assign products to categories via bulk add-items endpoint
+- Categories are NOT assigned inline during product creation — there is no `directCategoryIds` field on the create request
 
 ## V3 Gotchas
 
-0. **Always include media at creation time**: Pass `media.itemsInfo.items` with image URLs when calling `createProduct`. Adding media later via PATCH requires sending the full `options` and `variantsInfo.variants` arrays (the PATCH validates variants against options even if you only want to update media). Avoid this pain by including images upfront.
+0. **Include media at creation time when possible**: Pass `media.itemsInfo.items` with image URLs when calling `createProduct`. Generate images first (Runware via `npx wix token` + curl → media import via MCP), then include the `file.url` in the create call. If adding media later via PATCH to a product that HAS options, you MUST re-send the full `options` and `variantsInfo.variants` arrays (including all variant IDs) — the PATCH validates variants against options even if you only want to update media. Products WITHOUT options can be updated with just `media` in the PATCH body.
 1. **Fields are opt-in**: Without `fields` param, queries return minimal data (no media, no prices, no categories).
 2. **Media strings**: `m.image` and `m.video` are Wix media strings (`wix:image://...`, `wix:video://...`). Use `getImageUrl()`/`getVideoUrl()` helpers to convert. `mediaType` is uppercase: `'IMAGE'`, `'VIDEO'`.
 3. **Variant matching via optionChoiceNames**: `variant.choices[].optionChoiceNames.optionName/choiceName` — match with `.some()`.
 4. **Modifiers replace customTextFields**: V3 uses `modifiers` with three render types: `FREE_TEXT` (text input, keyed by `freeTextSettings.key` in `catalogReference.options.customTextFields`), `TEXT_CHOICES` (button selection, keyed by `mod.key` in `catalogReference.options.options`), `SWATCH_CHOICES` (color circles with `colorCode`, same as TEXT_CHOICES in catalogReference).
-5. **Categories use queryCategories**: Use `@wix/categories` with `queryCategories({ cursorPaging: { limit: 100 } }, { treeReference: { appNamespace: '@wix/stores' } })`. `collections` namespace is V1-only and fails on V3 with 428.
-6. **Inventory must be created separately**: V3 `createProduct` does NOT create inventory. Use `POST /stores/v3/bulk/inventory-items/create` with `inStock: true` for each variant.
+5. **Categories SDK import**: `@wix/categories` may NOT be available in all managed headless projects, and `@wix/stores` does NOT export `categories` (only `collections` which is V1-only). **Preferred approach:** use `httpClient.fetchWithAuth` from `@wix/essentials` to call `POST https://www.wixapis.com/categories/v1/categories/search` with `{ treeReference: { appNamespace: "@wix/stores" } }`. If `@wix/categories` IS installed, use `categories.queryCategories(...)`. The `collections` namespace is V1-only and fails on V3 with 428.
+6. **Inventory — use create-product-with-inventory**: The `POST /stores/v3/products-with-inventory` endpoint creates both product AND inventory in one call. Pass `inventoryItem: { inStock: true }` inside each variant. If using `createProduct` alone, inventory must be created separately via `POST /stores/v3/bulk/inventory-items/create`.
 7. **Ribbon is an object**: `product.ribbon.name`, not `product.ribbon` (string).
 8. **Back-in-stock uses V1 appId**: The back-in-stock settings/notifications API only accepts `1380b703-...` even on V3 sites. Use V1 appId for back-in-stock, V3 appId for cart/checkout.
 9. **RichContent rendering**: Use a RichContentViewer component for `description` and `infoSections[].description`. Request `DESCRIPTION` and `INFO_SECTION_DESCRIPTION` fields. For plain HTML fallback, also request `PLAIN_DESCRIPTION` and `INFO_SECTION_PLAIN_DESCRIPTION` — these are separate field values, not automatically included.
-12. **Info sections are separate entities**: You CANNOT create info sections inline during `createProduct` — this fails with `INFO_SECTION_CREATION_FAILED`. Create them first via `POST /stores/v3/info-sections`, then assign via `POST /stores/v3/bulk/products/add-info-sections`.
+12. **Info sections are separate entities — create AFTER products**: You CANNOT create info sections inline during `createProduct` — this fails with `INFO_SECTION_CREATION_FAILED`. Create them first via `POST /stores/v3/info-sections`, then assign via `POST /stores/v3/bulk/products/add-info-sections`. See "Recommended Product Seeding Workflow" Steps 7-8.
 13. **Swatch choice type is ONE_COLOR**: When creating product options with `SWATCH_CHOICES`, use `choiceType: "ONE_COLOR"` (not `"CHOICE_COLOR"` which doesn't exist). Valid values: `CHOICE_TEXT`, `ONE_COLOR`, `MULTIPLE_COLORS`, `IMAGE`.
 14. **Category image needs url**: When creating categories via REST, the `image` field requires `{ "url": "https://..." }`, not `{ "id": "..." }`. Using `id` alone returns 400.
 15. **Category add-items uses catalogItemId**: The bulk add-items endpoint uses `catalogItemId` (not `itemId`) and also requires `treeReference` in the body.
 10. **Pre-order requires quantity tracking**: Inventory items must use `trackQuantity: true` with `quantity: 0` and `preorderInfo.limit` set. Using `inStock` tracking (no quantity) with preorder causes cart to cap quantity to 0.
 11. **Pre-order in cart**: Pass `preOrderRequested: true` in `catalogReference.options` so the cart allows adding quantity > 0 for preorder items.
 16. **Variant `_id` vs `id`**: The TypeScript type shows `id` but the runtime value is on `_id`. Always use `(v as any)._id || v.id` or variant matching will silently fail.
-17. **Use `queryCategories` with `treeReference`**: `queryCategories({ cursorPaging: { limit: 100 } }, { treeReference: { appNamespace: '@wix/stores' } })`. Result is `catResult.categories`, not `.items`.
+17. **Categories always need `treeReference`**: Whether using SDK (`queryCategories`) or REST (`POST /categories/v1/categories/search`, `POST /categories/v1/categories`), you MUST include `treeReference: { appNamespace: "@wix/stores" }`. Omitting it causes 400. REST search result is `data.categories`, SDK result is `catResult.categories` — neither uses `.items`.
 18. **Category filtering — use client-side**: Fetch all products with `DIRECT_CATEGORIES_INFO` field, then filter client-side via `directCategoriesInfo.categories`. Use data attributes on product cards for JS-based filtering without re-fetching.
 19. **Use `getProductBySlug` for detail pages**: `queryProducts().eq('slug', slug)` may not return options/variants. Always use `getProductBySlug(slug, { fields: [...] })` for full product data.
 20. **`media.main` not `media.mainMedia`**: V3 uses `product.media?.main?.image` (a string). NOT `product.media?.mainMedia?.image?.url` (V1 pattern).
 21. **Price amounts need `.amount`**: `actualPriceRange.minValue` is a `FixedMonetaryAmount` object with `.amount`. Write `product.actualPriceRange?.minValue?.amount`, NOT `product.priceRange?.minValue`.
+22. **Runware image generation needs curl, not MCP**: The Runware API (`POST /runwareschemaless/v1/request`) requires an array body `[{...}]`. The MCP `CallWixSiteAPI` tool rejects array bodies. Use `npx wix token -s <siteId>` + curl instead. Must use site-scoped token (`-s` flag) and include `wix-account-id` header or you get "Permission denied".
+23. **`createCheckoutFromCurrentCart` is on `currentCart`, NOT `checkout`**: Import from `@wix/ecom`'s `currentCart` module. The `checkout` module does NOT export this method. Using `checkout.createCheckoutFromCurrentCart` fails at build time.
+24. **Customization `customizationRenderType` is required**: When creating customizations via `POST /stores/v3/customizations`, you MUST include `customizationRenderType` (`"TEXT_CHOICES"`, `"SWATCH_CHOICES"`, or `"FREE_TEXT"`). Omitting causes: `customizationRenderType value is required`.
+25. **Attaching options to existing products requires full definitions**: When PATCHing a product to add options, pass the full option definition (`id`, `name`, `optionRenderType`, `choicesSettings` with choice `id`, `name`, `choiceType`) — not just `{ "id": "customization-id" }`. Omitting `choicesSettings` causes: `choicesSettings must not be empty`. You must also pass `variantsInfo.variants` with explicit `optionChoiceIds` for each variant.
+26. **Inventory after adding options**: When updating a product to add options (Step 6), new variants are created but may be OUT_OF_STOCK even if `inventoryItem.inStock` was passed. Always follow up with `POST /stores/v3/bulk/inventory-items/create` to explicitly set inventory for the new variant IDs.
 
 ## Complete V3 Code Examples
 
@@ -296,7 +582,7 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 ---
 import { productsV3 } from '@wix/stores';
 import type { productsV3 as productsV3Types } from '@wix/stores';
-import { categories } from '@wix/categories';
+import { httpClient } from '@wix/essentials';
 import { extractMediaUrl } from '../../utils/image';
 
 // Fetch all products with category info for client-side filtering
@@ -305,12 +591,17 @@ const productResult = await productsV3.queryProducts({
 }).limit(100).find();
 const allProducts = productResult.items || [];
 
-// Fetch categories
-const catResult = await categories.queryCategories(
-  { cursorPaging: { limit: 100 } },
-  { treeReference: { appNamespace: '@wix/stores' } }
-);
-const allCollections = (catResult.categories || []).map(c => ({ _id: c._id!, name: c.name! }));
+// Fetch categories via REST (preferred — @wix/stores does NOT export categories)
+let allCollections: Array<{ _id: string; name: string }> = [];
+try {
+  const res = await httpClient.fetchWithAuth('https://www.wixapis.com/categories/v1/categories/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ treeReference: { appNamespace: '@wix/stores' } }),
+  });
+  const data = await res.json();
+  allCollections = (data.categories ?? []).map((c: any) => ({ _id: c.id, name: c.name }));
+} catch {}
 
 // Build category lookup
 const categoryMap = new Map<string, string>();

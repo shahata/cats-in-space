@@ -465,7 +465,7 @@ const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', cu
 
 ### TypeScript
 - Use `astro/tsconfigs/strictest` — use `?? null` (not `|| undefined`) for optional properties typed as `string | null`
-- Type check with `npx astro check` (not `tsc --noEmit`) — `tsc` does NOT check `.astro` files
+- **ALWAYS run `npx astro check` before deploying** (not `tsc --noEmit`) — `tsc` does NOT check `.astro` files. This catches type errors like wrong return shapes (e.g., `createCheckoutFromCurrentCart` returns `{ checkoutId }` not `{ _id }`), wrong method signatures (e.g., `searchOrders` takes `OrderSearch` directly, not `{ search: OrderSearch }`), and missing properties. Install `@astrojs/check` if not present.
 - Use `as Function` (not `as any`) for SDK overload workarounds
 
 ### Translations

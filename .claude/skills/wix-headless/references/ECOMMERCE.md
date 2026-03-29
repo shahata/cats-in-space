@@ -25,27 +25,31 @@ See `references/MEMBER_AREA.md` for full member area implementation details.
 
 Every entity that supports media MUST have images. A store without images is not a store.
 
-- **Products**: Include multiple images per product at creation time (via `media.itemsInfo.items` with `url` or `id`). Aim for 3-5 images showing different angles. Include video when possible.
-- **Categories**: Every category should have a cover image. Import images and set them when creating categories.
+- **Products**: Include images per product at creation time (via `media.itemsInfo.items` with `url`). Aim for 1-3 images.
+- **Categories**: Every category should have a cover image.
 - **Variants**: Link variant-specific images where applicable (e.g., different colors show different photos).
 
-Always add media during product/category creation — not as a separate step. The V3 create API supports `"media": { "itemsInfo": { "items": [{ "url": "https://..." }] } }` inline.
+**Image workflow:** Generate images via Wix Runware API (`POST /runwareschemaless/v1/request` through MCP), import to Wix Media (`POST /site-media/v1/files/import`), then include the `file.url` in the product's `media.itemsInfo.items` during creation. See `ECOMMERCE_V3.md` → "Recommended Product Seeding Workflow" for the full step-by-step.
 
 ### Use all available product fields
 
 When seeding products via API, populate ALL rich fields — not just name and price:
 
 - **`plainDescription`** — detailed HTML product description
-- **`infoSections`** — additional tabs like "Specifications", "Size Guide", "Care Instructions", "Shipping Info". These appear as expandable sections on the product page. **V3 IMPORTANT:** Info sections are separate entities — create them first via `/stores/v3/info-sections`, then assign to products via `/stores/v3/bulk/products/add-info-sections`. They CANNOT be inlined in the `createProduct` call.
-- **`modifiers`** — customization options like engraving text (`FREE_TEXT`), gift wrapping (`TEXT_CHOICES`), or color accents (`SWATCH_CHOICES`). These are separate from options/variants.
-- **`ribbon`** — badges like "BESTSELLER", "NEW", "SALE", "PRE-ORDER"
-- **`options`** with multiple choices — sizes, colors (with `colorCode` for swatches), materials
-- **`compareAtPriceRange`** — set original prices to show sale pricing
-- **`physicalProperties`** — weight, dimensions for shipping calculation
+- **`ribbon`** — badges like "BESTSELLER", "NEW", "SALE", "PRE-ORDER" (can be set inline during product creation)
+- **`physicalProperties`** — weight, dimensions for shipping calculation (can be set inline)
+
+**These must be added AFTER product creation (separate API calls):**
+
+- **Options/Variants** — Create customizations first (`POST /stores/v3/customizations`), then update the product to attach them (`POST /stores/v3/products/{id}/update-with-inventory`). This auto-generates variants. See `ECOMMERCE_V3.md` → "Recommended Product Seeding Workflow" Steps 5-6.
+- **`infoSections`** — Create info sections (`POST /stores/v3/info-sections`), then assign to products (`POST /stores/v3/bulk/products/add-info-sections`). They CANNOT be inlined in `createProduct`. See `ECOMMERCE_V3.md` → Steps 7-8.
+- **`modifiers`** — customization options like engraving text (`FREE_TEXT`), gift wrapping (`TEXT_CHOICES`), or color accents (`SWATCH_CHOICES`). Create as customizations, then attach to products.
+- **Categories** — Create categories, create products, then assign products to categories via `POST /categories/v1/bulk/categories/{id}/add-items`. See `ECOMMERCE_V3.md` → Step 9.
 
 ### Set up inventory properly
 
-- Create inventory for every variant immediately after product creation
+- Use `create-product-with-inventory` to create products with initial inventory in one call
+- When adding options (Step 6), variants are auto-generated — update their inventory via `POST /stores/v3/bulk/inventory-items/create` with `inStock: true`
 - Set up pre-order for upcoming products: `trackQuantity: true`, `quantity: 0`, `preorderInfo: { enabled: true, limit: N, message: "..." }`
 - Mark some variants as out-of-stock to exercise the back-in-stock flow
 
@@ -91,10 +95,11 @@ The store listing page should include:
 
 ### Store listing data fetching
 
+**IMPORTANT:** `@wix/stores` does NOT export `categories`. Use `httpClient` from `@wix/essentials` to fetch categories via REST. If `@wix/categories` is installed, you can use its SDK methods instead — see `ECOMMERCE_V3.md` for both approaches.
+
 ```typescript
 import { productsV3 } from '@wix/stores';
-import type { productsV3 as productsV3Types } from '@wix/stores';
-import { categories } from '@wix/categories';
+import { httpClient } from '@wix/essentials';
 
 // Fetch all products with category info for client-side filtering
 const productResult = await productsV3.queryProducts({
@@ -102,16 +107,21 @@ const productResult = await productsV3.queryProducts({
 }).limit(100).find();
 const allProducts = productResult.items || [];
 
-// Fetch categories
-const catResult = await categories.queryCategories(
-  { cursorPaging: { limit: 100 } },
-  { treeReference: { appNamespace: '@wix/stores' } }
-);
-const allCollections = (catResult.categories || []).map(c => ({ _id: c._id!, name: c.name! }));
+// Fetch categories via REST (preferred — always works)
+let allCategories: Array<{ id: string; name: string }> = [];
+try {
+  const res = await httpClient.fetchWithAuth('https://www.wixapis.com/categories/v1/categories/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ treeReference: { appNamespace: '@wix/stores' } }),
+  });
+  const data = await res.json();
+  allCategories = (data.categories ?? []).map((c: any) => ({ id: c.id, name: c.name }));
+} catch {}
 
 // Build category lookup for mapping product → collection names
 const categoryMap = new Map<string, string>();
-for (const c of allCollections) categoryMap.set(c._id, c.name);
+for (const c of allCategories) categoryMap.set(c.id, c.name);
 
 // Client-side filtering: use data-collections attribute on product cards
 // and filter via JS (see ECOMMERCE_V3.md for full example with filter tabs)
@@ -211,11 +221,15 @@ A site-wide cart sidebar can listen for this event to refresh.
 
 ### Checkout Flow
 
+**CRITICAL:** `createCheckoutFromCurrentCart` is on the `currentCart` module, NOT on `checkout`. Importing from `checkout` will fail at build time.
+
+**CRITICAL:** `createCheckoutFromCurrentCart` returns `{ checkoutId }` — NOT a checkout object with `_id`. Use `const { checkoutId } = await currentCart.createCheckoutFromCurrentCart(...)`, NOT `c._id`. Using `_id` passes `undefined` to `createRedirectSession` which fails with `"is not a valid GUID"`.
+
 ```typescript
 import { currentCart } from '@wix/ecom';
 import { redirects } from '@wix/redirects';
 
-// Create checkout from cart
+// Create checkout from cart — NOTE: this is on currentCart, NOT checkout
 const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({ channelType: 'WEB' });
 
 // Redirect to Wix-hosted checkout
