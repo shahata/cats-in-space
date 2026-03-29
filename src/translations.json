@@ -518,6 +518,8 @@
     "back": "Back",
     "change": "Change",
     "at": "at",
+    "findAvailability": "Find Available Times",
+    "noSlotsAvailable": "No available time slots for this date and party size. Try a different date or time.",
     "thankYouTitle": "Bon Appétit!",
     "thankYouSubtitle": "Your order is being prepared by our cosmic chefs."
   },

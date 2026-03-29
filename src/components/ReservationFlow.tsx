@@ -1,20 +1,30 @@
 "use client";
 import React, { useState } from "react";
-import { reservations } from "@wix/table-reservations";
+import { reservations, timeSlots } from "@wix/table-reservations";
 import { i18n } from "@wix/essentials";
 
 interface Props {
   reservationLocationId: string;
 }
 
-type Step = "date" | "time" | "party" | "details" | "confirm";
+interface TimeSlotInfo {
+  startDate: string;
+  status: string;
+  duration: number;
+}
+
+type Step = "search" | "slots" | "details" | "confirm";
 
 export default function ReservationFlow({ reservationLocationId }: Props) {
   const t = i18n.getTranslationFunction();
-  const [step, setStep] = useState<Step>("date");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
+  const locale = i18n.getLocale();
+
+  const [step, setStep] = useState<Step>("search");
   const [partySize, setPartySize] = useState(2);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedHour, setSelectedHour] = useState("19:00");
+  const [availableSlots, setAvailableSlots] = useState<TimeSlotInfo[]>([]);
+  const [chosenSlot, setChosenSlot] = useState<TimeSlotInfo | null>(null);
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -23,9 +33,9 @@ export default function ReservationFlow({ reservationLocationId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const timeSlots = Array.from({ length: 11 }, (_, i) => {
-    const hour = 11 + i;
-    return `${hour.toString().padStart(2, "0")}:00`;
+  const hours = Array.from({ length: 13 }, (_, i) => {
+    const h = 11 + i;
+    return `${h.toString().padStart(2, "0")}:00`;
   });
 
   function getMinDate() {
@@ -40,16 +50,56 @@ export default function ReservationFlow({ reservationLocationId }: Props) {
     return d.toISOString().split("T")[0];
   }
 
-  async function handleConfirm() {
+  function formatDate(dateStr: string) {
+    return new Date(dateStr + "T12:00:00").toLocaleDateString(locale, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
+  function formatSlotTime(isoDate: string) {
+    return new Date(isoDate).toLocaleTimeString(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  async function handleFindSlots() {
+    if (!selectedDate || !selectedHour) return;
     setLoading(true);
     setError(null);
     try {
-      const startDate = new Date(`${selectedDate}T${selectedTime}:00`);
+      const requestDate = new Date(`${selectedDate}T${selectedHour}:00`);
+      const result = await timeSlots.getTimeSlots(
+        reservationLocationId,
+        requestDate,
+        partySize,
+        { slotsBefore: 3, slotsAfter: 6 },
+      );
+      const slots: TimeSlotInfo[] = (result.timeSlots || []).map((s: any) => ({
+        startDate: typeof s.startDate === "string" ? s.startDate : new Date(s.startDate).toISOString(),
+        status: s.status || "UNAVAILABLE",
+        duration: s.duration || 90,
+      }));
+      setAvailableSlots(slots);
+      setStep("slots");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to fetch time slots");
+    } finally {
+      setLoading(false);
+    }
+  }
 
+  async function handleConfirm() {
+    if (!chosenSlot) return;
+    setLoading(true);
+    setError(null);
+    try {
       await reservations.createReservation({
         details: {
           reservationLocationId,
-          startDate: startDate,
+          startDate: new Date(chosenSlot.startDate),
           partySize,
         },
         reservee: {
@@ -58,71 +108,38 @@ export default function ReservationFlow({ reservationLocationId }: Props) {
           email: guestEmail,
           phone: guestPhone,
         },
-        teamMessage: specialRequests || null,
-      });
+        teamMessage: specialRequests || undefined,
+      } as any);
       setSuccess(true);
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : t("restaurant.reservationFailed")
-      );
+      setError(e instanceof Error ? e.message : t("restaurant.reservationFailed"));
     } finally {
       setLoading(false);
     }
   }
 
-  const steps: Step[] = ["date", "time", "party", "details", "confirm"];
   const stepLabels: Record<Step, string> = {
-    date: t("restaurant.reserveDate"),
-    time: t("restaurant.reserveTime"),
-    party: t("restaurant.reserveParty"),
+    search: t("restaurant.selectDate"),
+    slots: t("restaurant.selectTime"),
     details: t("restaurant.reserveDetails"),
     confirm: t("restaurant.reserveConfirm"),
   };
+
+  const allSteps: Step[] = ["search", "slots", "details", "confirm"];
 
   if (success) {
     return (
       <div style={styles.container}>
         <div style={styles.successBox}>
-          <div style={{ fontSize: "3rem", marginBottom: 16 }}>&#127881;</div>
-          <h3 style={styles.successTitle}>
-            {t("restaurant.reservationConfirmed")}
-          </h3>
-          <p style={styles.successText}>
-            {t("restaurant.reservationConfirmedText")}
-          </p>
+          <h3 style={styles.successTitle}>{t("restaurant.reservationConfirmed")}</h3>
+          <p style={styles.successText}>{t("restaurant.reservationConfirmedText")}</p>
           <div style={styles.summaryCard}>
-            <div style={styles.summaryRow}>
-              <span style={styles.summaryLabel}>
-                {t("restaurant.reserveDate")}
-              </span>
-              <span style={styles.summaryValue}>
-                {selectedDate &&
-                  new Date(selectedDate + "T12:00:00").toLocaleDateString(
-                    i18n.getLocale(),
-                    { weekday: "long", month: "long", day: "numeric" }
-                  )}
-              </span>
-            </div>
-            <div style={styles.summaryRow}>
-              <span style={styles.summaryLabel}>
-                {t("restaurant.reserveTime")}
-              </span>
-              <span style={styles.summaryValue}>{selectedTime}</span>
-            </div>
-            <div style={styles.summaryRow}>
-              <span style={styles.summaryLabel}>
-                {t("restaurant.reserveParty")}
-              </span>
-              <span style={styles.summaryValue}>
-                {partySize} {t("restaurant.guests")}
-              </span>
-            </div>
+            <SummaryRow label={t("restaurant.reserveDate")} value={chosenSlot ? formatDate(selectedDate) : ""} />
+            <SummaryRow label={t("restaurant.reserveTime")} value={chosenSlot ? formatSlotTime(chosenSlot.startDate) : ""} />
+            <SummaryRow label={t("restaurant.reserveParty")} value={`${partySize} ${t("restaurant.guests")}`} />
+            <SummaryRow label={t("restaurant.guestName")} value={guestName} />
           </div>
-          <a href="/restaurant" style={styles.backLink}>
-            {t("restaurant.backToMenu")}
-          </a>
+          <a href="/restaurant" style={styles.backLink}>{t("restaurant.backToMenu")}</a>
         </div>
       </div>
     );
@@ -133,20 +150,12 @@ export default function ReservationFlow({ reservationLocationId }: Props) {
       <h3 style={styles.title}>{t("restaurant.reserveTitle")}</h3>
 
       <div style={styles.progress}>
-        {steps.map((s, i) => {
-          const currentIdx = steps.indexOf(step);
+        {allSteps.map((s, i) => {
+          const currentIdx = allSteps.indexOf(step);
           const isActive = i <= currentIdx;
           return (
-            <div
-              key={s}
-              style={{ ...styles.progressStep, opacity: isActive ? 1 : 0.3 }}
-            >
-              <div
-                style={{
-                  ...styles.progressDot,
-                  background: isActive ? "#ff6600" : "#333",
-                }}
-              />
+            <div key={s} style={{ ...styles.progressStep, opacity: isActive ? 1 : 0.3 }}>
+              <div style={{ ...styles.progressDot, background: isActive ? "#ff6600" : "#333" }} />
               <span style={styles.progressLabel}>{stepLabels[s]}</span>
             </div>
           );
@@ -155,9 +164,27 @@ export default function ReservationFlow({ reservationLocationId }: Props) {
 
       {error && <div style={styles.error}>{error}</div>}
 
-      {step === "date" && (
+      {step === "search" && (
         <div>
-          <p style={styles.stepLabel}>{t("restaurant.selectDate")}</p>
+          <p style={styles.stepLabel}>{t("restaurant.partySize")}</p>
+          <div style={styles.partySizeGrid}>
+            {Array.from({ length: 8 }, (_, i) => i + 1).map((size) => (
+              <button
+                key={size}
+                onClick={() => setPartySize(size)}
+                style={{
+                  ...styles.partySizeBtn,
+                  borderColor: partySize === size ? "#ff6600" : "#333",
+                  background: partySize === size ? "rgba(255, 102, 0, 0.15)" : "#1a1a1a",
+                  color: partySize === size ? "#ff6600" : "#e0e0e0",
+                }}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
+
+          <p style={{ ...styles.stepLabel, marginTop: 16 }}>{t("restaurant.selectDate")}</p>
           <input
             type="date"
             value={selectedDate}
@@ -166,98 +193,93 @@ export default function ReservationFlow({ reservationLocationId }: Props) {
             onChange={(e) => setSelectedDate(e.target.value)}
             style={styles.dateInput}
           />
+
+          <p style={styles.stepLabel}>{t("restaurant.selectTime")}</p>
+          <div style={styles.hoursGrid}>
+            {hours.map((h) => (
+              <button
+                key={h}
+                onClick={() => setSelectedHour(h)}
+                style={{
+                  ...styles.slotBtn,
+                  borderColor: selectedHour === h ? "#ff6600" : "#333",
+                  background: selectedHour === h ? "rgba(255, 102, 0, 0.15)" : "#1a1a1a",
+                }}
+              >
+                {h}
+              </button>
+            ))}
+          </div>
+
           <button
-            onClick={() => setStep("time")}
-            disabled={!selectedDate}
-            style={{
-              ...styles.primaryBtn,
-              opacity: selectedDate ? 1 : 0.5,
-            }}
+            onClick={handleFindSlots}
+            disabled={!selectedDate || loading}
+            style={{ ...styles.primaryBtn, marginTop: 16, opacity: selectedDate ? 1 : 0.5 }}
           >
-            {t("restaurant.next")}
+            {loading ? t("restaurant.processing") : t("restaurant.findAvailability")}
           </button>
         </div>
       )}
 
-      {step === "time" && (
+      {step === "slots" && (
         <div>
           <p style={styles.stepLabel}>
-            {selectedDate &&
-              new Date(selectedDate + "T12:00:00").toLocaleDateString(
-                i18n.getLocale(),
-                { weekday: "long", month: "long", day: "numeric" }
-              )}
-            <button onClick={() => setStep("date")} style={styles.changeBtn}>
-              {t("restaurant.change")}
-            </button>
+            {formatDate(selectedDate)} &middot; {partySize} {t("restaurant.guests")}
+            <button onClick={() => setStep("search")} style={styles.changeBtn}>{t("restaurant.change")}</button>
           </p>
-          <p style={styles.stepLabel}>{t("restaurant.selectTime")}</p>
-          <div style={styles.slotsGrid}>
-            {timeSlots.map((time) => (
-              <button
-                key={time}
-                onClick={() => {
-                  setSelectedTime(time);
-                  setStep("party");
-                }}
-                style={{
-                  ...styles.slotBtn,
-                  borderColor: selectedTime === time ? "#ff6600" : "#333",
-                  background:
-                    selectedTime === time
-                      ? "rgba(255, 102, 0, 0.15)"
-                      : "#1a1a1a",
-                }}
-              >
-                {time}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+          <p style={{ ...styles.stepLabel, fontWeight: 600 }}>{t("restaurant.selectTime")}</p>
 
-      {step === "party" && (
-        <div>
-          <p style={styles.stepLabel}>
-            {selectedDate &&
-              new Date(selectedDate + "T12:00:00").toLocaleDateString(
-                i18n.getLocale(),
-                { weekday: "long", month: "long", day: "numeric" }
-              )}{" "}
-            {t("restaurant.at")} {selectedTime}
-            <button onClick={() => setStep("time")} style={styles.changeBtn}>
-              {t("restaurant.change")}
+          {availableSlots.length === 0 ? (
+            <p style={{ color: "#999", fontSize: "0.85rem" }}>{t("restaurant.noSlotsAvailable")}</p>
+          ) : (
+            <div style={styles.slotsGrid}>
+              {availableSlots.map((slot) => {
+                const isAvailable = slot.status === "AVAILABLE";
+                const isSelected = chosenSlot?.startDate === slot.startDate;
+                return (
+                  <button
+                    key={slot.startDate}
+                    disabled={!isAvailable}
+                    onClick={() => setChosenSlot(slot)}
+                    style={{
+                      ...styles.slotBtn,
+                      borderColor: isSelected ? "#ff6600" : isAvailable ? "#333" : "#222",
+                      background: isSelected
+                        ? "rgba(255, 102, 0, 0.2)"
+                        : isAvailable
+                          ? "#1a1a1a"
+                          : "#111",
+                      color: isAvailable ? "#e0e0e0" : "#444",
+                      cursor: isAvailable ? "pointer" : "not-allowed",
+                      opacity: isAvailable ? 1 : 0.4,
+                    }}
+                  >
+                    {formatSlotTime(slot.startDate)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ ...styles.formActions, marginTop: 16 }}>
+            <button onClick={() => setStep("search")} style={styles.secondaryBtn}>{t("restaurant.back")}</button>
+            <button
+              onClick={() => setStep("details")}
+              disabled={!chosenSlot}
+              style={{ ...styles.primaryBtn, flex: 1, opacity: chosenSlot ? 1 : 0.5 }}
+            >
+              {t("restaurant.next")}
             </button>
-          </p>
-          <p style={styles.stepLabel}>{t("restaurant.selectPartySize")}</p>
-          <div style={styles.partySizeGrid}>
-            {Array.from({ length: 8 }, (_, i) => i + 1).map((size) => (
-              <button
-                key={size}
-                onClick={() => {
-                  setPartySize(size);
-                  setStep("details");
-                }}
-                style={{
-                  ...styles.partySizeBtn,
-                  borderColor: partySize === size ? "#ff6600" : "#333",
-                  background:
-                    partySize === size
-                      ? "rgba(255, 102, 0, 0.15)"
-                      : "#1a1a1a",
-                  color: partySize === size ? "#ff6600" : "#e0e0e0",
-                }}
-              >
-                {size}
-              </button>
-            ))}
           </div>
         </div>
       )}
 
       {step === "details" && (
         <div>
-          <p style={styles.stepLabel}>{t("restaurant.guestDetails")}</p>
+          <p style={styles.stepLabel}>
+            {formatDate(selectedDate)} &middot; {chosenSlot ? formatSlotTime(chosenSlot.startDate) : ""} &middot; {partySize} {t("restaurant.guests")}
+          </p>
+          <p style={{ ...styles.stepLabel, fontWeight: 600 }}>{t("restaurant.guestDetails")}</p>
           <div style={styles.form}>
             <input
               type="text"
@@ -289,19 +311,13 @@ export default function ReservationFlow({ reservationLocationId }: Props) {
             />
           </div>
           <div style={styles.formActions}>
-            <button onClick={() => setStep("party")} style={styles.secondaryBtn}>
-              {t("restaurant.back")}
-            </button>
+            <button onClick={() => setStep("slots")} style={styles.secondaryBtn}>{t("restaurant.back")}</button>
             <button
               onClick={() => setStep("confirm")}
               disabled={!guestName || !guestEmail}
-              style={{
-                ...styles.primaryBtn,
-                flex: 1,
-                opacity: guestName && guestEmail ? 1 : 0.5,
-              }}
+              style={{ ...styles.primaryBtn, flex: 1, opacity: guestName && guestEmail ? 1 : 0.5 }}
             >
-              {t("restaurant.reviewReservation")}
+              {t("restaurant.next")}
             </button>
           </div>
         </div>
@@ -309,88 +325,37 @@ export default function ReservationFlow({ reservationLocationId }: Props) {
 
       {step === "confirm" && (
         <div>
-          <p style={styles.stepLabel}>{t("restaurant.confirmReservation")}</p>
+          <p style={{ ...styles.stepLabel, fontWeight: 600 }}>{t("restaurant.confirmReservation")}</p>
           <div style={styles.summaryCard}>
-            <div style={styles.summaryRow}>
-              <span style={styles.summaryLabel}>
-                {t("restaurant.reserveDate")}
-              </span>
-              <span style={styles.summaryValue}>
-                {selectedDate &&
-                  new Date(selectedDate + "T12:00:00").toLocaleDateString(
-                    i18n.getLocale(),
-                    {
-                      weekday: "long",
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    }
-                  )}
-              </span>
-            </div>
-            <div style={styles.summaryRow}>
-              <span style={styles.summaryLabel}>
-                {t("restaurant.reserveTime")}
-              </span>
-              <span style={styles.summaryValue}>{selectedTime}</span>
-            </div>
-            <div style={styles.summaryRow}>
-              <span style={styles.summaryLabel}>
-                {t("restaurant.reserveParty")}
-              </span>
-              <span style={styles.summaryValue}>
-                {partySize} {t("restaurant.guests")}
-              </span>
-            </div>
-            <div style={styles.summaryRow}>
-              <span style={styles.summaryLabel}>
-                {t("restaurant.guestName")}
-              </span>
-              <span style={styles.summaryValue}>{guestName}</span>
-            </div>
-            <div style={styles.summaryRow}>
-              <span style={styles.summaryLabel}>
-                {t("restaurant.guestEmail")}
-              </span>
-              <span style={styles.summaryValue}>{guestEmail}</span>
-            </div>
-            {guestPhone && (
-              <div style={styles.summaryRow}>
-                <span style={styles.summaryLabel}>
-                  {t("restaurant.guestPhone")}
-                </span>
-                <span style={styles.summaryValue}>{guestPhone}</span>
-              </div>
-            )}
-            {specialRequests && (
-              <div style={styles.summaryRow}>
-                <span style={styles.summaryLabel}>
-                  {t("restaurant.specialRequests")}
-                </span>
-                <span style={styles.summaryValue}>{specialRequests}</span>
-              </div>
-            )}
+            <SummaryRow label={t("restaurant.reserveDate")} value={formatDate(selectedDate)} />
+            <SummaryRow label={t("restaurant.reserveTime")} value={chosenSlot ? formatSlotTime(chosenSlot.startDate) : ""} />
+            <SummaryRow label={t("restaurant.reserveParty")} value={`${partySize} ${t("restaurant.guests")}`} />
+            <SummaryRow label={t("restaurant.guestName")} value={guestName} />
+            <SummaryRow label={t("restaurant.guestEmail")} value={guestEmail} />
+            {guestPhone && <SummaryRow label={t("restaurant.guestPhone")} value={guestPhone} />}
+            {specialRequests && <SummaryRow label={t("restaurant.specialRequests")} value={specialRequests} />}
           </div>
-
           <div style={styles.formActions}>
-            <button
-              onClick={() => setStep("details")}
-              style={styles.secondaryBtn}
-            >
-              {t("restaurant.back")}
-            </button>
+            <button onClick={() => setStep("details")} style={styles.secondaryBtn}>{t("restaurant.back")}</button>
             <button
               onClick={handleConfirm}
               disabled={loading}
               style={{ ...styles.primaryBtn, flex: 1 }}
             >
-              {loading
-                ? t("restaurant.processing")
-                : t("restaurant.confirmReservation")}
+              {loading ? t("restaurant.processing") : t("restaurant.confirmReservation")}
             </button>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={styles.summaryRow}>
+      <span style={styles.summaryLabel}>{label}</span>
+      <span style={styles.summaryValue}>{value}</span>
     </div>
   );
 }
@@ -417,16 +382,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: "1px solid #222",
     flexWrap: "wrap",
   },
-  progressStep: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-  },
-  progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: "50%",
-  },
+  progressStep: { display: "flex", alignItems: "center", gap: 6 },
+  progressDot: { width: 8, height: 8, borderRadius: "50%" },
   progressLabel: {
     fontSize: "0.7rem",
     color: "#999",
@@ -463,6 +420,30 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: "border-box" as const,
     colorScheme: "dark",
   },
+  partySizeGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 },
+  partySizeBtn: {
+    padding: "14px 8px",
+    borderRadius: 8,
+    border: "1px solid #333",
+    cursor: "pointer",
+    fontSize: "1.1rem",
+    fontWeight: 700,
+    transition: "all 0.2s",
+    textAlign: "center" as const,
+  },
+  hoursGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 },
+  slotsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 },
+  slotBtn: {
+    padding: "10px 8px",
+    background: "#1a1a1a",
+    border: "1px solid #333",
+    borderRadius: 8,
+    color: "#e0e0e0",
+    fontSize: "0.85rem",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    fontWeight: 600,
+  },
   primaryBtn: {
     width: "100%",
     padding: "12px 24px",
@@ -474,7 +455,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "1rem",
     letterSpacing: 1,
     cursor: "pointer",
-    transition: "background 0.2s",
   },
   secondaryBtn: {
     padding: "10px 20px",
@@ -496,43 +476,7 @@ const styles: Record<string, React.CSSProperties> = {
     textDecoration: "underline",
     padding: 0,
   },
-  slotsGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-    gap: 8,
-  },
-  slotBtn: {
-    padding: "10px 8px",
-    background: "#1a1a1a",
-    border: "1px solid #333",
-    borderRadius: 8,
-    color: "#e0e0e0",
-    fontSize: "0.85rem",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    fontWeight: 600,
-  },
-  partySizeGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: 8,
-  },
-  partySizeBtn: {
-    padding: "14px 8px",
-    borderRadius: 8,
-    border: "1px solid #333",
-    cursor: "pointer",
-    fontSize: "1.1rem",
-    fontWeight: 700,
-    transition: "all 0.2s",
-    textAlign: "center" as const,
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: 12,
-    marginBottom: 16,
-  },
+  form: { display: "flex", flexDirection: "column" as const, gap: 12, marginBottom: 16 },
   input: {
     width: "100%",
     padding: "12px 16px",
@@ -544,16 +488,8 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: "border-box" as const,
     fontFamily: "inherit",
   },
-  formActions: {
-    display: "flex",
-    gap: 8,
-  },
-  summaryCard: {
-    background: "#1a1a1a",
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-  },
+  formActions: { display: "flex", gap: 8 },
+  summaryCard: { background: "#1a1a1a", borderRadius: 8, padding: 16, marginBottom: 16 },
   summaryRow: {
     display: "flex",
     justifyContent: "space-between",
@@ -573,10 +509,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: "right" as const,
     maxWidth: "60%",
   },
-  successBox: {
-    textAlign: "center" as const,
-    padding: 24,
-  },
+  successBox: { textAlign: "center" as const, padding: 24 },
   successTitle: {
     fontFamily: "'Bangers', cursive",
     fontSize: "1.5rem",
@@ -584,11 +517,7 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: 1,
     marginBottom: 8,
   },
-  successText: {
-    fontSize: "0.9rem",
-    color: "#999",
-    marginBottom: 20,
-  },
+  successText: { fontSize: "0.9rem", color: "#999", marginBottom: 20 },
   backLink: {
     display: "inline-block",
     marginTop: 16,
