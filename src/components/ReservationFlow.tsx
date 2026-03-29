@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { reservations, timeSlots } from "@wix/table-reservations";
+import { redirects } from "@wix/redirects";
 import { i18n } from "@wix/essentials";
 
 interface Props {
@@ -99,7 +100,7 @@ export default function ReservationFlow({ reservationLocationId, defaultName, de
     setLoading(true);
     setError(null);
     try {
-      await reservations.createReservation({
+      const result = await reservations.createReservation({
         details: {
           reservationLocationId,
           startDate: new Date(chosenSlot.startDate),
@@ -113,6 +114,27 @@ export default function ReservationFlow({ reservationLocationId, defaultName, de
         },
         teamMessage: specialRequests || undefined,
       } as any);
+
+      const res = result as any;
+      const paymentStatus = res?.paymentStatus || res?.reservation?.paymentStatus;
+
+      if (paymentStatus === "NOT_PAID") {
+        const reservationId = res?._id || res?.reservation?._id;
+        if (reservationId) {
+          const { redirectSession } = await redirects.createRedirectSession({
+            ecomCheckout: { checkoutId: reservationId },
+            callbacks: {
+              thankYouPageUrl: window.location.origin + "/restaurant/thank-you",
+              postFlowUrl: window.location.origin + "/restaurant/reserve",
+            },
+          });
+          if (redirectSession?.fullUrl) {
+            window.location.href = redirectSession.fullUrl;
+            return;
+          }
+        }
+      }
+
       setSuccess(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("restaurant.reservationFailed"));
@@ -169,49 +191,44 @@ export default function ReservationFlow({ reservationLocationId, defaultName, de
 
       {step === "search" && (
         <div>
-          <p style={styles.stepLabel}>{t("restaurant.partySize")}</p>
-          <div style={styles.partySizeGrid}>
-            {Array.from({ length: 8 }, (_, i) => i + 1).map((size) => (
-              <button
-                key={size}
-                onClick={() => setPartySize(size)}
-                style={{
-                  ...styles.partySizeBtn,
-                  borderColor: partySize === size ? "#ff6600" : "#333",
-                  background: partySize === size ? "rgba(255, 102, 0, 0.15)" : "#1a1a1a",
-                  color: partySize === size ? "#ff6600" : "#e0e0e0",
-                }}
+          <div style={styles.searchRow}>
+            <div style={styles.searchField}>
+              <label style={styles.fieldLabel}>{t("restaurant.partySize")}</label>
+              <select
+                value={partySize}
+                onChange={(e) => setPartySize(Number(e.target.value))}
+                style={styles.select}
               >
-                {size}
-              </button>
-            ))}
-          </div>
+                {Array.from({ length: 8 }, (_, i) => i + 1).map((size) => (
+                  <option key={size} value={size}>{size} {t("restaurant.guests")}</option>
+                ))}
+              </select>
+            </div>
 
-          <p style={{ ...styles.stepLabel, marginTop: 16 }}>{t("restaurant.selectDate")}</p>
-          <input
-            type="date"
-            value={selectedDate}
-            min={getMinDate()}
-            max={getMaxDate()}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            style={styles.dateInput}
-          />
+            <div style={styles.searchField}>
+              <label style={styles.fieldLabel}>{t("restaurant.selectDate")}</label>
+              <input
+                type="date"
+                value={selectedDate}
+                min={getMinDate()}
+                max={getMaxDate()}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                style={styles.select}
+              />
+            </div>
 
-          <p style={styles.stepLabel}>{t("restaurant.selectTime")}</p>
-          <div style={styles.hoursGrid}>
-            {hours.map((h) => (
-              <button
-                key={h}
-                onClick={() => setSelectedHour(h)}
-                style={{
-                  ...styles.slotBtn,
-                  borderColor: selectedHour === h ? "#ff6600" : "#333",
-                  background: selectedHour === h ? "rgba(255, 102, 0, 0.15)" : "#1a1a1a",
-                }}
+            <div style={styles.searchField}>
+              <label style={styles.fieldLabel}>{t("restaurant.selectTime")}</label>
+              <select
+                value={selectedHour}
+                onChange={(e) => setSelectedHour(e.target.value)}
+                style={styles.select}
               >
-                {h}
-              </button>
-            ))}
+                {hours.map((h) => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <button
@@ -423,18 +440,34 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: "border-box" as const,
     colorScheme: "dark",
   },
-  partySizeGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 },
-  partySizeBtn: {
-    padding: "14px 8px",
-    borderRadius: 8,
-    border: "1px solid #333",
-    cursor: "pointer",
-    fontSize: "1.1rem",
-    fontWeight: 700,
-    transition: "all 0.2s",
-    textAlign: "center" as const,
+  searchRow: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 1fr",
+    gap: 12,
   },
-  hoursGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 },
+  searchField: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: "0.75rem",
+    color: "#888",
+    fontFamily: "'Bangers', cursive",
+    letterSpacing: 1,
+  },
+  select: {
+    width: "100%",
+    padding: "12px 16px",
+    background: "#1a1a1a",
+    border: "1px solid #333",
+    borderRadius: 8,
+    color: "#e0e0e0",
+    fontSize: "0.9rem",
+    boxSizing: "border-box" as const,
+    colorScheme: "dark",
+    appearance: "auto" as const,
+  },
   slotsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 },
   slotBtn: {
     padding: "10px 8px",
