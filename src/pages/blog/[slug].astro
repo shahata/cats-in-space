@@ -7,7 +7,7 @@ import PremiumContentResolver from '../../components/PremiumContentResolver';
 import BlogEngagement from '../../components/BlogEngagement';
 import { posts, tags as tagsApi } from '@wix/blog';
 import { members } from '@wix/members';
-import { i18n } from '@wix/essentials';
+import { auth, i18n } from '@wix/essentials';
 const t = i18n.getTranslationFunction();
 
 type Post = posts.Post;
@@ -40,6 +40,14 @@ try {
 		currentMemberName = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
 		currentMemberPhoto = res.member.profile?.photo?.url ?? undefined;
 	}
+} catch {}
+
+// Get current visitor/member identity for comment ownership
+let currentIdentityId: string | undefined;
+try {
+	const elevatedGetTokenInfo = auth.elevate(auth.getTokenInfo);
+	const tokenInfo = await elevatedGetTokenInfo();
+	currentIdentityId = tokenInfo.subjectId;
 } catch {}
 
 // Fetch tags
@@ -123,7 +131,7 @@ const writerSlug = writer?.profile?.slug;
 				</div>
 			</div>
 
-			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} {...(currentMemberName ? { memberName: currentMemberName } : {})} {...(currentMemberPhoto ? { memberPhoto: currentMemberPhoto } : {})} commentingEnabled={post.commentingEnabled !== false} client:load />
+			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} {...(currentMemberName ? { memberName: currentMemberName } : {})} {...(currentMemberPhoto ? { memberPhoto: currentMemberPhoto } : {})} {...(currentIdentityId ? { identityId: currentIdentityId } : {})} commentingEnabled={post.commentingEnabled !== false} client:load />
 
 			<footer class="post-footer">
 				<a href="/blog" class="btn btn-outline">{t('blog.moreTransmissions')}</a>

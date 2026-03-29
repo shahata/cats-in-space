@@ -15,10 +15,11 @@ interface Props {
   referenceId: string;
   memberName?: string;
   memberPhoto?: string;
+  identityId?: string;
   commentingEnabled?: boolean;
 }
 
-export default function BlogEngagement({ postId, referenceId, memberName, memberPhoto, commentingEnabled = true }: Props) {
+export default function BlogEngagement({ postId, referenceId, memberName, memberPhoto, identityId, commentingEnabled = true }: Props) {
   const isLoggedIn = !!memberName;
   const t = i18n.getTranslationFunction();
   const [metrics, setMetrics] = useState({ views: 0, likes: 0, comments: 0 });
@@ -35,7 +36,7 @@ export default function BlogEngagement({ postId, referenceId, memberName, member
   const [replyName, setReplyName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const [myVisitorId, setMyVisitorId] = useState<string | null>(null);
+  const [myVisitorId, setMyVisitorId] = useState<string | null>(identityId || null);
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
   const [memberProfiles, setMemberProfiles] = useState<Map<string, { nickname: string; title?: string; photo?: string; slug?: string }>>(new Map());
   const [loginRequired, setLoginRequired] = useState(false);

@@ -229,9 +229,32 @@ In the React component:
 
 ### Visitor Identity for Own-Comment Detection
 
-No reliable client-side API to get visitor ID before interaction. `auth.getTokenInfo()` is backend-only, `members.getCurrentMember()` is members-only.
+Use `auth.getTokenInfo()` with elevation in the Astro frontmatter to get the current visitor/member `subjectId`. Pass it to the engagement component so own comments are recognized on page load (not just after creating a new comment).
 
-Approach: capture `visitorId` from `createComment` response (`comment.author.visitorId`), match against comments to show Edit/Delete only on own comments. Use `myVisitorId` in element keys to force re-render when identity changes.
+```astro
+---
+import { auth } from '@wix/essentials';
+
+let currentIdentityId: string | undefined;
+try {
+  const elevatedGetTokenInfo = auth.elevate(auth.getTokenInfo);
+  const tokenInfo = await elevatedGetTokenInfo();
+  currentIdentityId = tokenInfo.subjectId;
+} catch {}
+---
+
+<BlogEngagement identityId={currentIdentityId} ... client:load />
+```
+
+In the component, initialize the identity state with the prop:
+
+```typescript
+const [myVisitorId, setMyVisitorId] = useState<string | null>(identityId || null);
+```
+
+The `subjectId` from `getTokenInfo` matches `comment.author.visitorId` or `comment.author.memberId`, so `isOwnComment()` works immediately on page load. Still capture identity from `createComment` responses as a fallback for visitors who haven't been identified yet.
+
+**CRITICAL:** `auth.getTokenInfo()` requires elevation (`auth.elevate(auth.getTokenInfo)`) — without elevation it returns app-level identity, not the visitor/member identity.
 
 
 ## Blog Engagement UI Guidelines
@@ -247,6 +270,7 @@ Build a single `BlogEngagement` React component (`client:load`) that handles all
   commentingEnabled={post.commentingEnabled !== false}
   memberName={currentMemberName}
   memberPhoto={currentMemberPhoto}
+  identityId={currentIdentityId}
   client:load
 />
 ```
