@@ -22,7 +22,7 @@ const dir = ['he', 'ar'].includes(lang) ? 'rtl' : 'ltr';
 
 ### CSS Logical Properties
 
-**CRITICAL for RTL:** Always use logical properties instead of physical:
+⛔ **Breaks at runtime** — Physical CSS properties produce mirrored/broken layouts in RTL locales. Always use logical properties:
 
 | Physical (breaks RTL) | Logical (correct) |
 |---|---|
@@ -60,14 +60,16 @@ const links = [
 ];
 ```
 
-**CRITICAL:** `Astro.url.pathname` does NOT include the locale prefix. For active link detection, compare against the raw path, not the localized href:
+⚠️ **Common mistake** — `Astro.url.pathname` does NOT include the locale prefix, so comparing it to localized hrefs will never match. → Compare against the raw path for active link detection:
 ```typescript
 const isActive = currentPath === link.path || currentPath.startsWith(link.path + '/');
 ```
 
 ### Member Menu
 
-**CRITICAL:** Logout is a POST endpoint — always use a `<form>` with `method="POST"`, never an `<a>` link.
+See [AUTHENTICATION.md](AUTHENTICATION.md) for login/logout endpoints, `getCurrentMember` usage, and member profile fields.
+
+⚠️ **Common mistake** — Logout is a POST endpoint; using an `<a>` link sends a GET which silently does nothing. → Use `<form method="POST" action="/api/auth/logout">` with a submit button.
 
 ### Dropdown Behavior
 
@@ -140,7 +142,7 @@ The CartSidebar listens for this event to refresh its data.
 
 1. **Badge/trigger** — fixed button showing cart item count, always visible
 2. **Slide-out panel** with:
-   - Each line item: image (**MUST use `getImageUrl(item.image)` — `item.image` is a `wix:image://` string, not a direct URL**), name, selected options/variants, custom text, quantity controls (+/−, min 1), price, remove button
+   - Each line item: image (⛔ **Breaks at runtime** — `item.image` is a `wix:image://` string, not a URL; use `getImageUrl(item.image)` to get a renderable src), name, selected options/variants, custom text, quantity controls (+/−, min 1), price, remove button
    - Totals: subtotal, discount (if any), estimated total via `estimateCurrentCartTotals()`
    - Checkout button → creates checkout session and redirects to Wix-hosted checkout
 3. **Empty state** — message + link to store when cart is empty

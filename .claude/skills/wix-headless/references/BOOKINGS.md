@@ -77,7 +77,7 @@ Body: {
 }
 ```
 
-**CRITICAL:** Save `resourceId` from the response — this is used as the staff member's identifier in services and time slots.
+⛔ **Breaks at runtime:** Save `resourceId` from the response — this is used as the staff member's identifier in services and time slots. Using `staffMember.id` instead silently fails. → Always use `staffMember.resourceId` when referencing staff in services and slots.
 
 The response includes:
 - `staffMember.id` — staff member GUID
@@ -104,9 +104,9 @@ Body: {
 }
 ```
 
-**CRITICAL:** `staffMemberIds` takes **resource IDs** (from `staffMember.resourceId`), NOT staff member IDs.
+⛔ **Breaks at runtime:** `staffMemberIds` takes **resource IDs** (from `staffMember.resourceId`), NOT staff member IDs.
 
-**CRITICAL:** `payment.options` must specify either `online: true` or `inPerson: true`. Omitting both causes a validation error even for NO_FEE services.
+⛔ **Breaks at runtime:** `payment.options` must specify either `online: true` or `inPerson: true`. Omitting both causes a validation error even for NO_FEE services. → Always include `payment: { options: { inPerson: true } }` (or `online: true`) on every service.
 
 ## Querying Services & Staff (Server-Side)
 

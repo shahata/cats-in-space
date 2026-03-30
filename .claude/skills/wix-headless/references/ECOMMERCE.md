@@ -12,7 +12,7 @@ A functional store MUST include ALL of the following pages. Do not skip any:
 2. **Product detail page** (`/store/[slug]`) — full product info, options, add-to-cart
 3. **Cart sidebar** — slide-out cart with line items, quantities, checkout
 4. **Thank you page** (`/store/thank-you`) — post-checkout confirmation
-5. **Member area** (`/member`) — **CRITICAL: this is NOT optional.** A store without a member area is incomplete. Customers need to see their order history. Must include:
+5. **Member area** (`/member`) — ⚠️ **Common mistake** — skipping the member area leaves customers with no way to review past purchases. A store without a member area is incomplete. Customers need to see their order history. Must include:
    - Authentication gate (redirect to login if not logged in)
    - **My Orders tab** — order history with line items (images via `getImageUrl()`!), quantities, prices, payment/fulfillment status badges, totals
    - **Profile tab** — member info display
@@ -75,13 +75,13 @@ The product detail component should render ALL of:
 
 ### Categories need images too
 
-When creating categories, import a representative image and set it on the category. Categories without images look broken in grid layouts. Use the media import API first, then create the category with the media reference. **IMPORTANT:** The category `image` field requires `{ "url": "https://..." }`, not `{ "id": "..." }`.
+When creating categories, import a representative image and set it on the category. Categories without images look broken in grid layouts. Use the media import API first, then create the category with the media reference. ⛔ **Breaks at runtime** — The category `image` field requires `{ "url": "https://..." }`, not `{ "id": "..." }`. Using the wrong shape silently drops the image. → Always use `{ "url": "https://..." }` format for category images.
 
 ### Store listing page must support filtering and rich product cards
 
 The store listing page should include:
 
-1. **Category filter tabs** — show only real categories from the store (do NOT add a hardcoded "All" tab). All products are visible by default with no tab active. Clicking an active tab deselects it to show all products again. **CRITICAL:** The categories REST API returns `cat.id` (not `cat._id`) — always use `cat.id || cat._id` when reading category IDs.
+1. **Category filter tabs** — show only real categories from the store (do NOT add a hardcoded "All" tab). All products are visible by default with no tab active. Clicking an active tab deselects it to show all products again. ⛔ **Breaks at runtime** — The categories REST API returns `cat.id` (not `cat._id`). Using `cat._id` yields `undefined`, breaking filtering. Always use `cat.id || cat._id`.
 2. **Product grid** — responsive grid of product cards
 3. **Each product card must show:**
    - Product image (or video poster), with fallback if no media
@@ -95,7 +95,7 @@ The store listing page should include:
 
 ### Store listing data fetching
 
-**IMPORTANT:** `@wix/stores` does NOT export `categories`. Use `httpClient` from `@wix/essentials` to fetch categories via REST. If `@wix/categories` is installed, you can use its SDK methods instead — see `ECOMMERCE_V3.md` for both approaches.
+⛔ **Breaks at runtime** — `@wix/stores` does NOT export `categories`. Importing it causes a build-time error. Use `httpClient` from `@wix/essentials` to fetch categories via REST. If `@wix/categories` is installed, you can use its SDK methods instead — see `ECOMMERCE_V3.md` for both approaches.
 
 ```typescript
 import { productsV3 } from '@wix/stores';
@@ -186,7 +186,7 @@ npm install @wix/redirects  # createRedirectSession for checkout
 
 ### Cart
 
-**CRITICAL:** Cart line item `image` fields are `wix:image://` strings — they will NOT render in `<img>` tags directly. Always use `getImageUrl(item.image)` to convert to a displayable URL. This applies to ALL Wix SDK media fields (see `references/MEDIA.md`).
+⛔ **Breaks at runtime** — Cart line item `image` fields are `wix:image://` strings — they will NOT render in `<img>` tags directly. Always use `getImageUrl(item.image)` to convert to a displayable URL. This applies to ALL Wix SDK media fields (see `references/MEDIA.md`).
 
 ```typescript
 import { currentCart } from '@wix/ecom';
@@ -221,9 +221,9 @@ A site-wide cart sidebar can listen for this event to refresh.
 
 ### Checkout Flow
 
-**CRITICAL:** `createCheckoutFromCurrentCart` is on the `currentCart` module, NOT on `checkout`. Importing from `checkout` will fail at build time.
+⛔ **Breaks at runtime** — `createCheckoutFromCurrentCart` is on the `currentCart` module, NOT on `checkout`. Importing from `checkout` will fail at build time.
 
-**CRITICAL:** `createCheckoutFromCurrentCart` returns `{ checkoutId }` — NOT a checkout object with `_id`. Use `const { checkoutId } = await currentCart.createCheckoutFromCurrentCart(...)`, NOT `c._id`. Using `_id` passes `undefined` to `createRedirectSession` which fails with `"is not a valid GUID"`.
+⛔ **Breaks at runtime** — `createCheckoutFromCurrentCart` returns `{ checkoutId }` — NOT a checkout object with `_id`. Use `const { checkoutId } = await currentCart.createCheckoutFromCurrentCart(...)`, NOT `c._id`. Using `_id` passes `undefined` to `createRedirectSession` which fails with `"is not a valid GUID"`.
 
 ```typescript
 import { currentCart } from '@wix/ecom';
@@ -270,8 +270,8 @@ await (backInStockNotifications.createBackInStockNotificationRequest as Function
 );
 ```
 
-**CRITICAL:** Back-in-stock uses the V1 appId (`1380b703-ce81-ff05-f115-39571d94dfcd`) even on V3 sites. Use the V1 appId for back-in-stock, V3 appId for cart/checkout.
+⚠️ **Common mistake** — Back-in-stock uses the V1 appId (`1380b703-ce81-ff05-f115-39571d94dfcd`) even on V3 sites. Using the V3 appId silently fails to register the notification request. → Always use V1 appId `1380b703-ce81-ff05-f115-39571d94dfcd` for back-in-stock.
 
 ### Media Generation
 
-See the general media generation guidelines in the main `SKILL.md` → "Media Generation" section. Always AI-generate product images, category images, and product videos — do not use stock or placeholder images unless the user explicitly provides them.
+See [MEDIA.md](MEDIA.md) for the full image/video generation and upload workflow (Runware API, Wix Media Import, end-to-end steps). Always AI-generate product images, category images, and product videos.

@@ -51,7 +51,7 @@ const events = result.items || [];
 
 ## Creating Events
 
-**CRITICAL: SDK `createEvent()` fails with "System error" in Astro API routes.** Use the REST API via MCP instead:
+⛔ **Breaks at runtime: SDK `createEvent()` fails with "System error" in Astro API routes.** → Use the REST API via MCP instead:
 
 ```
 POST https://www.wixapis.com/events/v3/events

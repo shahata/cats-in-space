@@ -24,11 +24,11 @@ await likes.deleteLikeByFqdnAndEntityId({ fqdn: FQDN, entityId: entityId });
 const res = await likes.getLikeByFqdnAndEntityId({ fqdn: FQDN, entityId: entityId });
 ```
 
-**CRITICAL:** `getLikeByFqdnAndEntityId` and `deleteLikeByFqdnAndEntityId` take a single **object** `{ fqdn, entityId }`, NOT positional arguments.
+⛔ **Breaks at runtime:** `getLikeByFqdnAndEntityId` and `deleteLikeByFqdnAndEntityId` take a single **object** `{ fqdn, entityId }`, NOT positional arguments. Passing positional args throws a TypeError. → Pass `{ fqdn: FQDN, entityId: id }` as a single object argument.
 
-**CRITICAL:** `createLike` will throw `ALREADY_EXISTS` if already liked. Use `queryLikes()` on mount to pre-populate liked state, then track locally.
+⛔ **Breaks at runtime:** `createLike` throws `ALREADY_EXISTS` if already liked. Use `queryLikes()` on mount to pre-populate liked state, then track locally.
 
-**CRITICAL:** `queryLikes()` only returns likes created via the API, NOT likes from the Wix Blog UI.
+⚠️ **Common mistake:** `queryLikes()` only returns likes created via the API, NOT likes from the Wix Blog UI.
 
 ## Comments
 
@@ -41,8 +41,8 @@ const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
 
 ```typescript
 const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
-  contextId: post.referenceId,   // CRITICAL: referenceId, not _id
-  resourceId: post.referenceId,  // CRITICAL: referenceId, not _id
+  contextId: post.referenceId,   // ⛔ must be referenceId, not _id
+  resourceId: post.referenceId,  // ⛔ must be referenceId, not _id
   commentSort: { order: "OLDEST_FIRST" },
   replySort: { order: "OLDEST_FIRST" },
   cursorPaging: { limit: 50, repliesLimit: 20 },
@@ -50,9 +50,9 @@ const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
 const topLevelComments = res.comments || [];
 ```
 
-**CRITICAL:** `cursorPaging.repliesLimit` is **required** to get replies. Without it, only top-level comments are returned and `commentReplies` is empty.
+⛔ **Breaks at runtime:** `cursorPaging.repliesLimit` is **required** to get replies. Without it, only top-level comments are returned and `commentReplies` is empty. → Always include `repliesLimit: 20` (or desired count) in `cursorPaging`.
 
-**CRITICAL:** Use `referenceId` (NOT `_id`) for `contextId`/`resourceId`. Get it via `REFERENCE_ID` fieldset on `getPostBySlug`/`listPosts`.
+⛔ **Breaks at runtime:** Use `referenceId` (NOT `_id`) for `contextId`/`resourceId`. Using `_id` returns zero comments. → Pass `post.referenceId` (from `REFERENCE_ID` fieldset on `getPostBySlug`) for both `contextId` and `resourceId`.
 
 ### Reply Threading
 
@@ -85,7 +85,7 @@ for (const r of unique) {
 // Render recursively: repliesMap[commentId] → direct replies
 ```
 
-**CRITICAL:** `parentComment.author.authorName` has the actual parent author name for "replying to" labels.
+💡 **Best practice:** `parentComment.author.authorName` has the actual parent author name for "replying to" labels.
 
 ### Creating Comments & Replies
 
@@ -110,9 +110,9 @@ const reply = await commentsApi.createComment({
 });
 ```
 
-**CRITICAL:** Guest display names use `author: { authorName: "Name" }`. SDK types don't include it — cast with `as commentsApi.CommentAuthor`.
+⛔ **Breaks at runtime:** Guest display names use `author: { authorName: "Name" }`. SDK types don't include it — cast with `as commentsApi.CommentAuthor`.
 
-**CRITICAL:** When logged in, send empty `author: {}` — the server uses the member identity automatically.
+💡 **Best practice:** When logged in, send empty `author: {}` — the server uses the member identity automatically.
 
 ### Permission Denied (403) Handling
 
@@ -134,7 +134,7 @@ try {
 }
 ```
 
-**CRITICAL:** The SDK error has `details.applicationError.code === 'PERMISSION_DENIED'`, NOT an HTTP status code. The error message is `"Permission denied: UNKNOWN"`.
+⚠️ **Common mistake:** The SDK error has `details.applicationError.code === 'PERMISSION_DENIED'`, NOT an HTTP status code. Checking for status 403 will miss it. → Check `e?.details?.applicationError?.code === 'PERMISSION_DENIED'`.
 
 **Background:** Comment permissions are controlled by the Comments Category service (`wix.comments.v1.category`) which has `permissionsSettings.createComment.role` set to `ALL`, `MEMBER`, or `ADMIN`. The blog implements a `CommentsContextHost` SPI that resolves these into per-user boolean permissions. This SPI is internal and not accessible from headless — so the best approach is to handle the error at the point of failure rather than pre-checking permissions.
 
@@ -151,9 +151,9 @@ await commentsApi.deleteComment(commentId);
 
 ### Key Gotchas
 
-**CRITICAL:** After creating, the API has **eventual consistency**. Load comments immediately but retry after 2 seconds if the new comment isn't in the response.
+⚠️ **Common mistake:** After creating, the API has **eventual consistency**. Load comments immediately but retry after 2 seconds if the new comment isn't in the response.
 
-**CRITICAL:** The `rating` field on comments is **NOT controllable** through the public API. Always set to system default (3). Do NOT build rating input UI.
+⚠️ **Common mistake:** The `rating` field on comments is **NOT controllable** through the public API. Always set to system default (3). Building a rating input UI will have no effect. → Do not build a rating UI for comments; omit the field entirely.
 
 **Comment author info:** `comment.author.authorName`
 **Comment text:** `comment.content.richContent.nodes` (extract TEXT from PARAGRAPH nodes)
@@ -208,7 +208,7 @@ In the React component:
 - If not → show the name text input for visitors
 - When logged in, send empty `author: {}` — the server uses the member identity automatically
 
-**CRITICAL:** Apply the same logged-in/visitor pattern consistently to BOTH the top-level comment form AND all reply forms. Every reply form (including replies on top-level comments, not just nested replies) must check `isLoggedIn` and show the member indicator instead of the name input when true.
+💡 **Best practice:** Apply the same logged-in/visitor pattern consistently to BOTH the top-level comment form AND all reply forms. Every reply form must check `isLoggedIn` and show the member indicator instead of the name input when true.
 
 ### Blog Post Commenting & Preview Flags
 
@@ -254,7 +254,7 @@ const [myVisitorId, setMyVisitorId] = useState<string | null>(identityId || null
 
 The `subjectId` from `getTokenInfo` matches `comment.author.visitorId` or `comment.author.memberId`, so `isOwnComment()` works immediately on page load. Still capture identity from `createComment` responses as a fallback for visitors who haven't been identified yet.
 
-**CRITICAL:** `auth.getTokenInfo()` requires elevation (`auth.elevate(auth.getTokenInfo)`) — without elevation it returns app-level identity, not the visitor/member identity.
+⛔ **Breaks at runtime:** `auth.getTokenInfo()` requires elevation (`auth.elevate(auth.getTokenInfo)`) — without elevation it returns app-level identity, not the visitor/member identity. → Call `const elevatedGetTokenInfo = auth.elevate(auth.getTokenInfo)` then `await elevatedGetTokenInfo()`.
 
 
 ## Blog Engagement UI Guidelines
@@ -357,7 +357,7 @@ const res = await posts.getPostMetrics(postId);
 // res.metrics = { views: number, likes: number, comments: number }
 ```
 
-**CRITICAL:** `METRICS` fieldset on `listPosts` returns **zeros** in managed headless. Use `queryPosts` instead — it returns real metrics including comments:
+⛔ **Breaks at runtime:** `METRICS` fieldset on `listPosts` returns **zeros** in managed headless. Use `queryPosts` instead — it returns real metrics including comments:
 
 ```typescript
 // queryPosts returns real metrics (views, likes, comments), listPosts returns zeros
@@ -381,7 +381,7 @@ await httpClient.fetchWithAuth(
 // Returns: { "views": <new_count> }
 ```
 
-**CRITICAL:** Import `httpClient` from `"@wix/essentials"` (main module), NOT from `"@wix/essentials/http-client"` (subpath fails Vite build).
+⛔ **Breaks at runtime:** Import `httpClient` from `"@wix/essentials"` (main module), NOT from `"@wix/essentials/http-client"` — the subpath fails the Vite build. → Use `import { httpClient } from "@wix/essentials"`.
 
 ## Comment Permissions Architecture
 

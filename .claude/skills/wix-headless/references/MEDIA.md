@@ -1,95 +1,92 @@
-# Wix Media Handling — Managed Headless SDK
+# Media Handling — Images, Videos & Generation
 
-## The Core Gotcha
+## The Core Rule
 
-**The Wix managed headless SDK transforms media fields from REST API objects into `wix:image://` or `wix:video://` strings.**
+⛔ **Every image/video from ANY Wix SDK response is a `wix:image://` or `wix:video://` string.** These do not render in `<img>` or `<video>` tags. You must always convert them through `getImageUrl()` / `getVideoUrl()` helpers before rendering.
+
+This applies everywhere: product images, cart line items, order line items, blog covers, member photos, CMS images, booking service images, staff photos — no exceptions.
+
+## SDK vs REST: Different Formats
 
 The REST API returns media as objects:
 ```json
 { "image": { "id": "abc~mv2.png", "url": "https://static.wixstatic.com/media/abc~mv2.png", "width": 1024, "height": 1024 } }
 ```
 
-But the SDK (used in Astro server-side code) returns them as **plain strings**:
+The SDK (Astro server-side) returns **plain strings**:
 ```
 "wix:image://v1/abc~mv2.png/filename.png#originWidth=1024&originHeight=1024"
 "wix:video://v1/abc~mv2/filename.mp4#posterUri=poster&posterWidth=W&posterHeight=H"
 ```
 
-This applies to ALL Wix SDK modules that return media — Bookings, Stores, Blog, Members, CMS, etc.
-
-## Safe Media Access Pattern
+## Safe Access Pattern
 
 Always check the type before accessing sub-properties:
 
 ```typescript
-import { getImageUrl } from '../utils/image';
+// ❌ WRONG — field is a string, not an object
+const url = getImageUrl(item.mainMedia?.image?.id);
 
-// WRONG — will fail silently, field is a string not an object
-const url = getImageUrl(item.mainMedia?.image?.id);  // ❌ undefined
-
-// CORRECT — handle both SDK string and REST object formats
+// ✅ CORRECT — handle both SDK string and REST object formats
 const img = item.mainMedia?.image;
 const url = getImageUrl(
   typeof img === 'string' ? img : (img?.id || img?.url),
-  width,
-  height
+  width, height
 );
 ```
 
 ## Where This Applies
 
-| SDK Module | Field Path | Media Type | Runtime Type |
-|---|---|---|---|
-| `@wix/bookings` staffMembers | `staff.mainMedia.image` | image | `string` |
-| `@wix/bookings` services | `service.media.mainMedia.image` | image | `string` |
-| `@wix/bookings` services | `service.media.items[].image` | image | `string` |
-| `@wix/stores` productsV3 | `product.media.main.image` | image | `string` |
-| `@wix/stores` productsV3 | `product.media.main.video` | video | `string` |
-| `@wix/stores` productsV3 | `product.media.itemsInfo.items[].image` | image | `string` |
-| `@wix/stores` productsV3 | `product.media.itemsInfo.items[].video` | video | `string` |
-| `@wix/blog` posts | `post.coverMedia.image` | image | `string` |
-| `@wix/members` | `member.profile.photo.url` | image | `string` (already a URL) |
-| `@wix/data` CMS IMAGE fields | `item.imageField` | image | `string` |
-| `@wix/ecom` cart line items | `lineItem.image` | image | `string` |
-| `@wix/ecom` orders | `order.lineItems[].image` | image | `string` |
+| SDK Module | Field Path | Runtime Type |
+|---|---|---|
+| `@wix/stores` productsV3 | `product.media.main.image` | `string` |
+| `@wix/stores` productsV3 | `product.media.main.video` | `string` |
+| `@wix/stores` productsV3 | `product.media.itemsInfo.items[].image` | `string` |
+| `@wix/ecom` cart | `lineItem.image` | `string` |
+| `@wix/ecom` orders | `order.lineItems[].image` | `string` |
+| `@wix/blog` posts | `post.coverMedia.image` | `string` |
+| `@wix/bookings` services | `service.media.mainMedia.image` | `string` |
+| `@wix/bookings` staff | `staff.mainMedia.image` | `string` |
+| `@wix/members` | `member.profile.photo.url` | `string` (already a URL) |
+| `@wix/data` CMS IMAGE fields | `item.imageField` | `string` |
 
-For Stores productsV3, `mediaType` is uppercase (`'IMAGE'` or `'VIDEO'`), check it to decide which helper to use.
+For Stores productsV3, `mediaType` is uppercase (`'IMAGE'` or `'VIDEO'`).
 
-**CRITICAL RULE: Every place you display a media URL from ANY Wix SDK response, you MUST pass it through `getImageUrl()` or `getVideoUrl()`.** This includes cart line items, order line items, product images, blog cover images, member photos, CMS images, booking service images, etc. Raw `wix:image://` strings will NOT render in `<img>` tags — they must be converted to real URLs first. Never use a Wix media field directly as an `<img src>` without calling the helper.
+## Media Helper Functions
 
-## The Helpers in `src/utils/image.ts`
+Place in `src/utils/image.ts`. These handle all Wix media formats:
 
 ### `getImageUrl(wixImage, width, height)` — Images
 
-Handles all image formats:
-- `wix:image://v1/{mediaId}/{filename}#originWidth=W&originHeight=H` — SDK format
-- `https://static.wixstatic.com/media/...` — direct URL
-- `{mediaId}~mv2.png` — plain media ID
-
 ```typescript
-import { getImageUrl } from '../utils/image';
+import { media } from '@wix/sdk';
 
-// All of these work:
-getImageUrl("wix:image://v1/abc~mv2.png/file.png#originWidth=1024&originHeight=1024", 400, 400);
-getImageUrl("https://static.wixstatic.com/media/abc~mv2.png", 400, 400);
-getImageUrl("abc~mv2.png", 400, 400);
+function getImageUrl(wixImage: string | undefined, width = 800, height = 800): string | null {
+  if (!wixImage) return null;
+  if (wixImage.startsWith('http')) return wixImage;
+  if (wixImage.startsWith('wix:image://')) {
+    try { return media.getScaledToFillImageUrl(wixImage, width, height, {}); } catch {}
+    const parsed = media.getImageUrl(wixImage);
+    return parsed?.url || null;
+  }
+  return `https://static.wixstatic.com/media/${wixImage}`;
+}
 ```
 
 ### `getVideoUrl(wixVideo, thumbW, thumbH)` — Videos
 
-Returns `{ url: string, thumbnail: string | null }` or `null`.
-
-Handles:
-- `wix:video://v1/{videoId}/{filename}#posterUri=...` — SDK format
-- `https://video.wixstatic.com/video/...` — direct URL
-- `{videoId}` — plain video ID
+Returns `{ url: string; thumbnail: string | null }` or `null`.
 
 ```typescript
-import { getVideoUrl } from '../utils/image';
-
-const video = getVideoUrl("wix:video://v1/abc~mv2/file.mp4#posterUri=poster&posterWidth=1920&posterHeight=1080");
-// video.url → playable video URL
-// video.thumbnail → poster image URL (or null)
+function getVideoUrl(wixVideo: string | undefined, thumbW = 800, thumbH = 800): { url: string; thumbnail: string | null } | null {
+  if (!wixVideo) return null;
+  if (wixVideo.startsWith('http')) return { url: wixVideo, thumbnail: null };
+  if (wixVideo.startsWith('wix:video://')) {
+    const result = media.getVideoUrl(wixVideo);
+    return { url: result.url, thumbnail: result.thumbnail ? getImageUrl(result.thumbnail, thumbW, thumbH) : null };
+  }
+  return { url: `https://video.wixstatic.com/video/${wixVideo}/file`, thumbnail: null };
+}
 ```
 
 ### `extractMediaUrl(productMedia, w, h)` — Stores Products
@@ -97,44 +94,81 @@ const video = getVideoUrl("wix:video://v1/abc~mv2/file.mp4#posterUri=poster&post
 Detects type and calls the right helper:
 
 ```typescript
-import { extractMediaUrl } from '../utils/image';
+import type { productsV3 } from '@wix/stores';
 
-const media = extractMediaUrl(product.media?.main);
-if (media?.type === 'video') {
-  // media.url → video URL, media.thumbnail → poster
-} else if (media?.type === 'image') {
-  // media.url → image URL
+function extractMediaUrl(m: productsV3.ProductMedia | undefined, w = 800, h = 800): { type: 'image' | 'video'; url: string; thumbnail?: string } | null {
+  if (!m) return null;
+  if (m.mediaType === 'VIDEO' && m.video) {
+    const video = getVideoUrl(m.video, w, h);
+    if (video) return { type: 'video', url: video.url, ...(video.thumbnail ? { thumbnail: video.thumbnail } : {}) };
+    return null;
+  }
+  if (m.image) {
+    const imageUrl = getImageUrl(m.image, w, h);
+    if (imageUrl) return { type: 'image', url: imageUrl };
+  }
+  return null;
 }
 ```
 
-## SDK Response Shape Differences
+## Uploading Images to Wix
 
-The SDK also wraps query responses differently from the REST API:
-
-| SDK Call | REST returns | SDK returns |
-|---|---|---|
-| `services.queryServices({})` | `{ services: [...] }` | `{ services: [...] }` |
-| `staffMembers.queryStaffMembers({})` | `{ staffMembers: [...] }` | `{ staffMembers: [...] }` |
-| `items.query('Collection').find()` | `{ items: [...] }` | `{ items: [...] }` |
-| `posts.listPosts({})` | `{ posts: [...] }` | `{ posts: [...] }` |
-| `productsV3.queryProducts({})` | `{ products: [...] }` | varies by version |
-
-When unsure, cast to `any` and check with `|| []`:
-```typescript
-const result = await someApi.querySomething({}) as any;
-const items = (result.items || result.services || result.staffMembers || []) as any[];
+`POST https://www.wixapis.com/site-media/v1/files/import`
+```json
+{ "url": "https://example.com/image.png", "mimeType": "image/png", "displayName": "my-image.png" }
 ```
 
-## Uploading Images
+Returns `file.url` (wixstatic.com) — usable immediately even while `operationStatus` is `PENDING`.
 
-Upload via REST API, then the SDK will return the result as `wix:image://` strings:
+When setting images on entities via REST API, use the object format (`{ id, url, width, height }`). When reading them back via SDK, expect `wix:image://` strings.
 
+---
+
+## Image & Video Generation
+
+**Every entity that supports an image should have one.** Pages without images look incomplete. Always generate images using AI — do not import stock or placeholder images unless the user explicitly provides URLs.
+
+### Wix Runware API (Preferred)
+
+Use `npx wix token` + curl. The MCP `CallWixSiteAPI` tool cannot be used for Runware because it rejects the required array body format.
+
+```bash
+SITE_TOKEN=$(npx wix token -s <siteId>) && \
+curl -s -X POST "https://www.wixapis.com/runwareschemaless/v1/request" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $SITE_TOKEN" \
+  -H "wix-site-id: <siteId>" \
+  -H "wix-account-id: <accountId>" \
+  -d '[{
+    "taskType": "imageInference",
+    "taskUUID": "<generate-a-unique-uuid>",
+    "outputType": "URL",
+    "outputFormat": "jpg",
+    "positivePrompt": "descriptive prompt for the image",
+    "height": 1024,
+    "width": 1024,
+    "model": "google:4@2",
+    "numberResults": 1
+  }]'
 ```
-POST https://www.wixapis.com/site-media/v1/files/import
-Body: { "url": "https://example.com/photo.png", "mimeType": "image/png", "displayName": "photo.png" }
-```
 
-Returns `file.url` (usable immediately) and `file.id` (the media ID).
+**Key details:**
+- `siteId`: from `wix.config.json`
+- `accountId`: the `uid` or `siteOwnerId` from the token payload (decode the JWT middle segment)
+- Use `-s` (site-scoped) flag with `npx wix token` — the default account token returns "Permission denied"
+- The `wix-account-id` header is required — without it you get "Permission denied"
+- Generate a unique UUID for each request
 
-When setting images on entities via REST API, use the object format (`{ id, url, width, height }`).
-When reading them back via SDK, expect `wix:image://` strings.
+**Response:** `data[].imageURL` — publicly accessible, pass directly to Wix Media Import.
+
+### OpenAI API (Fallback)
+
+If Runware is unavailable or for video generation, use OpenAI's APIs. You must ask the user to provide their OpenAI API key — do not attempt to find or guess it.
+
+### End-to-End Workflow
+
+1. **Generate** via Runware (preferred) or OpenAI (fallback)
+2. **Upload to Wix:** `POST /site-media/v1/files/import` with `{ "url": "...", "mimeType": "image/png", "displayName": "..." }`
+3. **Attach at creation time** — include media when creating entities, not as a separate step. For products, use `media.itemsInfo.items` inline. For CMS items, set IMAGE fields directly. For blog posts, set `media.wixMedia.image`.
+4. **Add images one at a time via MCP** (batching may silently drop)
+5. For **video**: generate via OpenAI → temp host if needed → Wix Import File API → attach by media `id`

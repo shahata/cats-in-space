@@ -24,9 +24,9 @@ if (!member) {
 ---
 ```
 
-**CRITICAL:** `getCurrentMember()` returns `{ member?: Member }` — unwrap before using.
+⛔ **Breaks at runtime:** `getCurrentMember()` returns `{ member?: Member }` — unwrap before using, or you'll get TypeErrors accessing properties on `undefined`. → Destructure with `const res = await members.getCurrentMember(...); member = res.member;`.
 
-**CRITICAL:** Redirect to login with `returnToUrl` so the user returns to the member page after authenticating.
+⚠️ **Common mistake:** Redirect to login with `returnToUrl` so the user returns to the member page after authenticating. Without it, the user lands on the homepage after login. → Use `Astro.redirect('/api/auth/login?returnToUrl=/member')`.
 
 ### Fetch All Member Data Server-Side
 
@@ -59,7 +59,7 @@ try {
 ---
 ```
 
-**CRITICAL:** Wrap each data fetch in its own try-catch — one failure shouldn't break the entire page.
+💡 **Best practice:** Wrap each data fetch in its own try-catch — one failure shouldn't break the entire page.
 
 ### Filter Orders
 
@@ -110,9 +110,9 @@ Build as a React `client:load` component.
 - **Privacy** — toggle between PUBLIC and PRIVATE
 - **About/bio** — text area, saved as rich content
 
-**CRITICAL:** `updateMember` silently ignores `privacyStatus`. Use `members.joinCommunity()` for PUBLIC and `members.leaveCommunity()` for PRIVATE.
+⛔ **Breaks at runtime:** `updateMember` silently ignores `privacyStatus`. Use `members.joinCommunity()` for PUBLIC and `members.leaveCommunity()` for PRIVATE — the field is accepted without error but never persisted.
 
-**CRITICAL:** To remove a profile photo, send `{ url: "" }` — not `null`.
+⛔ **Breaks at runtime:** To remove a profile photo, send `{ url: "" }` — not `null`. Passing `null` silently leaves the old photo in place. → Use `profile: { photo: { url: "" } }` in the update call.
 
 ### Photo Upload Pattern
 
@@ -224,7 +224,7 @@ For each pricing plan subscription show:
 - Confirm before cancelling
 - Try `NEXT_PAYMENT_DATE` first, fall back to `IMMEDIATELY` (single-payment plans)
 - Show success state after cancellation
-- **CRITICAL:** `requestCancellation` requires member authentication — call from client-side
+- ⛔ **Breaks at runtime:** `requestCancellation` requires member authentication — call from client-side, or you'll get a 403 from the server context. → Use a React `client:load` component for cancellation.
 
 ## Payment Tab (SavedPaymentMethods Component)
 
@@ -258,7 +258,7 @@ function getCardBrand(bin: string): string {
 3. **Change password inline** — verify current password, then change via SDK client (see pattern below)
 4. Display: member since date, last login
 
-**CRITICAL:** Both email change and password reset require member identity — call from client-side. `auth.elevate()` strips member identity.
+⛔ **Breaks at runtime:** Both email change and password reset require member identity — call from client-side. `auth.elevate()` strips member identity, causing 403 errors. → Handle these operations in a React `client:load` component, never from server-side or elevated context.
 
 ### Change Password Pattern
 
@@ -292,9 +292,9 @@ wixClient.auth.setTokens(tokens);
 await wixClient.authentication.changePassword(newPassword);
 ```
 
-**CRITICAL:** `OAuthStrategy` and `getMemberTokensForDirectLogin` use browser APIs (`window`, iframes) — this MUST run client-side, never in server API routes or Astro frontmatter.
+⛔ **Breaks at runtime:** `OAuthStrategy` and `getMemberTokensForDirectLogin` use browser APIs (`window`, iframes) — this MUST run client-side. Server-side calls crash with `window is not defined`. → Put all `OAuthStrategy`/`changePassword` logic in a React `client:load` component.
 
-**CRITICAL:** Do NOT use `auth.elevate()` for `loginV2` or `changePassword` from `@wix/identity`. Elevation switches to app identity which either gets 403 or loses the member session context needed for password operations.
+⛔ **Breaks at runtime:** Do NOT use `auth.elevate()` for `loginV2` or `changePassword` from `@wix/identity`. Elevation switches to app identity which either gets 403 or loses the member session context needed for password operations. → Create a standalone `WixClient` with `OAuthStrategy` client-side instead (see pattern below).
 
 ## General Patterns
 

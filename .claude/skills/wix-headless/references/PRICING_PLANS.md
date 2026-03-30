@@ -44,11 +44,11 @@ interface Recurrence {
 }
 ```
 
-**CRITICAL:** Perks are `plan.perks?.values` (string array), NOT `plan.perks` directly. `StringList` has a `values` property.
+⛔ **Breaks at runtime:** Perks are `plan.perks?.values` (string array), NOT `plan.perks` directly. `StringList` has a `values` property, so accessing it directly renders `[object Object]`. → Access `plan.perks?.values` to get the string array.
 
-**CRITICAL:** Price is at `plan.pricing?.price?.value` (string), currency at `plan.pricing?.price?.currency`.
+⛔ **Breaks at runtime:** Price is at `plan.pricing?.price?.value` (string), currency at `plan.pricing?.price?.currency`.
 
-**CRITICAL:** There is NO `pricingVariants` on PublicPlan. That's a different API version.
+⚠️ **Common mistake:** There is NO `pricingVariants` on PublicPlan. That's a different API version. → Use `plan.pricing?.price?.value` and `plan.pricing?.subscription` for all pricing info.
 
 ### Displaying Price
 
@@ -82,9 +82,9 @@ if (redirectSession?.fullUrl) {
 }
 ```
 
-**CRITICAL:** Do NOT check login state or free/paid before redirecting. The redirect page handles all cases: prompts login if needed, processes free plans directly, and shows payment for paid plans.
+⚠️ **Common mistake:** Do NOT check login state or free/paid before redirecting. The redirect page handles all cases: prompts login if needed, processes free plans directly, and shows payment for paid plans.
 
-**CRITICAL:** `createRedirectSession` works even for visitors who are not logged in — the redirect page will prompt login first.
+💡 **Best practice:** `createRedirectSession` works even for visitors who are not logged in — the redirect page will prompt login first.
 
 ### Callback Parameters
 
@@ -107,9 +107,9 @@ const myOrders = (result.orders || []).filter((o: any) =>
 );
 ```
 
-**CRITICAL:** `memberListOrders()` uses the logged-in member's session automatically — no need to pass a member ID.
+💡 **Best practice:** `memberListOrders()` uses the logged-in member's session automatically — no need to pass a member ID.
 
-**CRITICAL:** Filter out `DRAFT` orders (incomplete purchases) and expired orders (endDate before today). Compare dates using date-only strings (YYYY-MM-DD) to avoid timezone issues.
+⚠️ **Common mistake:** Filter out `DRAFT` orders (incomplete purchases) and expired orders (endDate before today). Compare dates using date-only strings (YYYY-MM-DD) to avoid timezone issues.
 
 ### Order Shape
 
@@ -152,7 +152,7 @@ await orders.requestCancellation(orderId, "IMMEDIATELY");
 
 **Pattern:** Try `NEXT_PAYMENT_DATE` first, fall back to `IMMEDIATELY` if it fails (single-payment plans only support immediate cancellation).
 
-**CRITICAL:** `requestCancellation` requires member authentication — call from client-side.
+⛔ **Breaks at runtime:** `requestCancellation` requires member authentication — calling from server-side throws a permission error. → Call from a client-side React component where the member session is active.
 
 ### Other Order Operations
 
@@ -311,13 +311,13 @@ function getPeriodKey(unit?: string): string {
 }
 ```
 
-**CRITICAL:** Never manually construct currency strings like `'$' + price`. Use `Intl.NumberFormat` — it handles symbol placement, decimal separators, and locale differences.
+💡 **Best practice:** Never manually construct currency strings like `'$' + price`. Use `Intl.NumberFormat` — it handles symbol placement, decimal separators, and locale differences.
 
 ### Perks List
 
 Display perks as a bulleted list with checkmarks. Access them at `plan.perks?.values` (string array).
 
-**CRITICAL:** Perks are `plan.perks?.values` (not `plan.perks` directly).
+⛔ **Breaks at runtime:** Perks are `plan.perks?.values` (not `plan.perks` directly).
 
 ### Free Trial Display
 
@@ -336,7 +336,7 @@ Use a `PlanCheckout` React component with `client:load`:
 
 The component calls `redirects.createRedirectSession({ paidPlansCheckout: { planId } })` for ALL plans (free and paid). The Wix checkout page handles login, free enrollment, and payment.
 
-**CRITICAL:** Do NOT check login state or free/paid before redirecting. The redirect page handles all cases.
+⚠️ **Common mistake:** Do NOT check login state or free/paid before redirecting. The redirect page handles all cases.
 
 ### Thank You Page
 

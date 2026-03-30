@@ -37,7 +37,7 @@ const cats = catResult.categories || [];
 
 ## V3 SDK Field Access Cheat Sheet
 
-**CRITICAL — the V3 SDK field paths differ from V1. These are the CORRECT paths:**
+⛔ **Breaks at runtime — the V3 SDK field paths differ from V1. These are the CORRECT paths:**
 
 | What you want | CORRECT V3 SDK path | WRONG (V1 or common mistake) |
 |---|---|---|
@@ -87,7 +87,7 @@ const product = result.product;
 ```
 This returns full data including `variantsInfo.variants[]` in one call — no two-step like V1.
 
-**IMPORTANT:** Use `getProductBySlug` for product detail pages — NOT `queryProducts().eq('slug', slug)`. The query method may not return options/variants data even with field params.
+⚠️ **Common mistake:** Use `getProductBySlug` for product detail pages — NOT `queryProducts().eq('slug', slug)`. The query method may not return options/variants data even with field params. → Always use `productsV3.getProductBySlug(slug, { fields: [...] })` for detail pages.
 
 ### Query categories
 
@@ -250,60 +250,15 @@ This is the **preferred** endpoint — it creates the product AND its inventory 
 - `variants[].price.actualPrice.amount`: **required** on each variant. Note the nested structure — `price: { actualPrice: { amount: "29.99" } }`, NOT `price: { amount: "29.99" }`. Omitting `actualPrice` causes: `actualPrice must not be empty`
 - `variants[].inventoryItem.inStock`: set to `true` for in-stock items. Without this, variants default to OUT_OF_STOCK.
 
-## Recommended Product Seeding Workflow (via MCP)
+## Product Seeding Workflow
 
-Creating a complete product catalog requires multiple sequential steps. Do NOT try to do everything in one API call — the `create-product-with-inventory` endpoint handles basic product + inventory, but options, info sections, images, and categories must be added separately.
+The full 9-step product seeding workflow (images → categories → products → options → variants → inventory → info sections → category assignment) is documented in [PRODUCT_SEEDING.md](PRODUCT_SEEDING.md). Read that file when creating product data via API.
 
-### Step-by-step workflow:
-
-1. **Generate images** via Wix Runware API (MCP `CallWixSiteAPI`)
-2. **Import images** to Wix Media (`POST /site-media/v1/files/import`)
-3. **Create categories** with images (`POST /categories/v1/categories`)
-4. **Create simple products** with media and inventory (`POST /stores/v3/products-with-inventory`) — single default variant, no options yet
-5. **Create customizations** (options like Size, Color) (`POST /stores/v3/customizations`)
-6. **Update products** to attach options → this auto-generates variants (`POST /stores/v3/products/{id}/update-with-inventory`)
-7. **Create info sections** (`POST /stores/v3/info-sections`)
-8. **Assign info sections** to products (`POST /stores/v3/bulk/products/add-info-sections`)
-9. **Assign products to categories** (`POST /categories/v1/bulk/categories/{id}/add-items`)
+### Quick reference of the steps:
 
 ### Step 1-2: Generate and import images
 
-**Generate via Runware using `npx wix token` + curl:**
-
-The Runware API requires an **array** body, which the MCP `CallWixSiteAPI` tool cannot send (it rejects arrays). Use `npx wix token` to get an auth token and call via curl instead:
-
-```bash
-SITE_TOKEN=$(npx wix token -s <siteId>) && \
-curl -s -X POST "https://www.wixapis.com/runwareschemaless/v1/request" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: $SITE_TOKEN" \
-  -H "wix-site-id: <siteId>" \
-  -H "wix-account-id: <accountId>" \
-  -d '[{
-    "taskType": "imageInference",
-    "taskUUID": "<unique-uuid>",
-    "outputType": "URL",
-    "outputFormat": "jpg",
-    "positivePrompt": "professional product photo of a classic cotton t-shirt on white background",
-    "height": 1024,
-    "width": 1024,
-    "model": "google:4@2",
-    "numberResults": 1
-  }]'
-```
-
-- `siteId`: from `wix.config.json`
-- `accountId`: the `uid`/`siteOwnerId` from the token payload (decode the JWT middle segment)
-- Response: `data[].imageURL` — a public URL
-
-**Import to Wix Media (use MCP — this works with object bodies):**
-```
-POST https://www.wixapis.com/site-media/v1/files/import
-```
-```json
-{ "url": "<imageURL from Runware>", "mimeType": "image/jpeg", "displayName": "classic-tshirt.jpg" }
-```
-Response: `file.url` (wixstatic.com URL) — usable immediately. Save this URL for the product `media` field.
+See [MEDIA.md](MEDIA.md) for the full Runware generation workflow (`npx wix token` + curl) and Wix Media Import (`POST /site-media/v1/files/import`). Save the resulting `file.url` for the product `media` field in Step 4.
 
 ### Step 5: Create customizations (options)
 
@@ -398,7 +353,7 @@ You must pass the FULL option definition (not just an ID reference) AND explicit
 }
 ```
 
-**IMPORTANT:**
+⚠️ **Common mistake:**
 - Pass full option definition with `name`, `optionRenderType`, `choicesSettings` — not just `{ "id": "..." }`. Omitting `choicesSettings` causes: `choicesSettings must not be empty`
 - Each choice needs `id`, `name`, and `choiceType` — get these from the customization query response
 - Variants reference choices via `optionChoiceIds` (with `optionId` + `choiceId`), NOT via name strings
@@ -470,7 +425,7 @@ Pre-order **requires** quantity tracking (not in-stock tracking). Without it, ca
 - `preorderInfo.limit` required for cart to accept quantity > 0
 - `inStock: true` (without quantity tracking) does NOT support preorder limits
 
-**CRITICAL choiceType values for options (if creating options via REST):**
+⛔ **Breaks at runtime — choiceType values for options (if creating options via REST):**
 - `CHOICE_TEXT` — for `TEXT_CHOICES` options (sizes, materials, etc.)
 - `ONE_COLOR` — for `SWATCH_CHOICES` options (colors). Do NOT use `CHOICE_COLOR` — it does not exist and will return 400.
 - `MULTIPLE_COLORS` — for multi-color swatches
@@ -505,7 +460,7 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 
 ### Categories REST API
 
-**CRITICAL:** The categories endpoint is at `categories/v1/`, NOT `stores/v1/`. Using `stores/v1/categories` returns 404.
+⛔ **Breaks at runtime:** The categories endpoint is at `categories/v1/`, NOT `stores/v1/`. Using `stores/v1/categories` returns 404. → Use `https://www.wixapis.com/categories/v1/categories/...` for all category REST calls.
 
 **Create:** `POST https://www.wixapis.com/categories/v1/categories`
 - `treeReference` is **REQUIRED** — omitting it causes: `treeReference must not be empty`
@@ -547,9 +502,9 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 
 ## V3 Gotchas
 
-0. **Include media at creation time when possible**: Pass `media.itemsInfo.items` with image URLs when calling `createProduct`. Generate images first (Runware via `npx wix token` + curl → media import via MCP), then include the `file.url` in the create call. If adding media later via PATCH to a product that HAS options, you MUST re-send the full `options` and `variantsInfo.variants` arrays (including all variant IDs) — the PATCH validates variants against options even if you only want to update media. Products WITHOUT options can be updated with just `media` in the PATCH body.
+0. **Include media at creation time when possible**: Pass `media.itemsInfo.items` with image URLs when calling `createProduct`. Generate and import images first (see [MEDIA.md](MEDIA.md)), then include the `file.url` in the create call. If adding media later via PATCH to a product that HAS options, you MUST re-send the full `options` and `variantsInfo.variants` arrays (including all variant IDs) — the PATCH validates variants against options even if you only want to update media. Products WITHOUT options can be updated with just `media` in the PATCH body.
 1. **Fields are opt-in**: Without `fields` param, queries return minimal data (no media, no prices, no categories).
-2. **Media strings**: `m.image` and `m.video` are Wix media strings (`wix:image://...`, `wix:video://...`). Use `getImageUrl()`/`getVideoUrl()` helpers to convert. `mediaType` is uppercase: `'IMAGE'`, `'VIDEO'`.
+2. **Media strings**: `m.image` and `m.video` are `wix:image://`/`wix:video://` strings — use `getImageUrl()`/`getVideoUrl()` to convert (see [MEDIA.md](MEDIA.md)). `mediaType` is uppercase: `'IMAGE'`, `'VIDEO'`.
 3. **Variant matching via optionChoiceNames**: `variant.choices[].optionChoiceNames.optionName/choiceName` — match with `.some()`.
 4. **Modifiers replace customTextFields**: V3 uses `modifiers` with three render types: `FREE_TEXT` (text input, keyed by `freeTextSettings.key` in `catalogReference.options.customTextFields`), `TEXT_CHOICES` (button selection, keyed by `mod.key` in `catalogReference.options.options`), `SWATCH_CHOICES` (color circles with `colorCode`, same as TEXT_CHOICES in catalogReference).
 5. **Categories SDK import**: `@wix/categories` may NOT be available in all managed headless projects, and `@wix/stores` does NOT export `categories` (only `collections` which is V1-only). **Preferred approach:** use `httpClient.fetchWithAuth` from `@wix/essentials` to call `POST https://www.wixapis.com/categories/v1/categories/search` with `{ treeReference: { appNamespace: "@wix/stores" } }`. If `@wix/categories` IS installed, use `categories.queryCategories(...)`. The `collections` namespace is V1-only and fails on V3 with 428.
@@ -570,7 +525,7 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 19. **Use `getProductBySlug` for detail pages**: `queryProducts().eq('slug', slug)` may not return options/variants. Always use `getProductBySlug(slug, { fields: [...] })` for full product data.
 20. **`media.main` not `media.mainMedia`**: V3 uses `product.media?.main?.image` (a string). NOT `product.media?.mainMedia?.image?.url` (V1 pattern).
 21. **Price amounts need `.amount`**: `actualPriceRange.minValue` is a `FixedMonetaryAmount` object with `.amount`. Write `product.actualPriceRange?.minValue?.amount`, NOT `product.priceRange?.minValue`.
-22. **Runware image generation needs curl, not MCP**: The Runware API (`POST /runwareschemaless/v1/request`) requires an array body `[{...}]`. The MCP `CallWixSiteAPI` tool rejects array bodies. Use `npx wix token -s <siteId>` + curl instead. Must use site-scoped token (`-s` flag) and include `wix-account-id` header or you get "Permission denied".
+22. **Runware image generation needs curl, not MCP**: See [MEDIA.md](MEDIA.md) for the full Runware workflow. Key point: the Runware API requires an array body which MCP rejects — use `npx wix token -s <siteId>` + curl instead.
 23. **`createCheckoutFromCurrentCart` is on `currentCart`, NOT `checkout`**: Import from `@wix/ecom`'s `currentCart` module. The `checkout` module does NOT export this method. Using `checkout.createCheckoutFromCurrentCart` fails at build time.
 24. **Customization `customizationRenderType` is required**: When creating customizations via `POST /stores/v3/customizations`, you MUST include `customizationRenderType` (`"TEXT_CHOICES"`, `"SWATCH_CHOICES"`, or `"FREE_TEXT"`). Omitting causes: `customizationRenderType value is required`.
 25. **Attaching options to existing products requires full definitions**: When PATCHing a product to add options, pass the full option definition (`id`, `name`, `optionRenderType`, `choicesSettings` with choice `id`, `name`, `choiceType`) — not just `{ "id": "customization-id" }`. Omitting `choicesSettings` causes: `choicesSettings must not be empty`. You must also pass `variantsInfo.variants` with explicit `optionChoiceIds` for each variant.
