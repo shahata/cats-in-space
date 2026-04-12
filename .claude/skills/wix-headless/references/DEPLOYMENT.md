@@ -41,3 +41,9 @@ Install `@astrojs/check` if not present.
 - Wrong return shapes (e.g., `createCheckoutFromCurrentCart` returns `{ checkoutId }`, not `{ _id }`)
 - Missing properties on types
 - Type mismatches in Astro template expressions
+
+## What `npm run check` Does NOT Catch
+
+⚠️ **Rendering SDK objects in Astro templates.** Astro allows `{expr}` where `expr` is any value — including objects. It silently calls `.toString()` producing `[object Object]`. Neither `astro check`, `tsc`, nor ESLint flags this. React JSX would reject objects as children, but Astro does not.
+
+**You must manually ensure** that every `{expr}` in Astro templates resolves to a string or number — never an SDK object. Always access the primitive field: `{product.ribbon.name}` not `{product.ribbon}`, `{price.amount}` not `{price}`. See [SDK_CORE.md](SDK_CORE.md) → "Never render SDK objects directly in Astro templates" for the full list of common object fields.

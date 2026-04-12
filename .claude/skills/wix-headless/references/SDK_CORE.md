@@ -152,6 +152,21 @@ These are the most common runtime failures. Each is explained because understand
 - ⛔ **Never use `any`, `any[]`, `as any`, `as unknown as`, or `Record<string, any>`** — the ESLint `no-explicit-any` rule enforces this at build time. If a type error appears, fix the field access to match the SDK type — don't suppress the error. A type error means the code will crash at runtime.
 - Use `as Function` (not `as any`) for SDK overload workarounds
 
+### Never render SDK objects directly in Astro templates
+
+⛔ **Breaks at runtime (silently)** — Astro templates accept any expression in `{expr}` and call `.toString()` at runtime. Rendering an SDK object (e.g., `{product.ribbon}`, `{variant.price}`) produces `[object Object]` instead of the expected text. **No compiler or linter catches this** — `astro check`, `tsc`, and ESLint all pass. React JSX rejects objects as children at the type level, but Astro templates do not.
+
+**Rule:** Never pass an SDK object into `{}` — always access the specific primitive field first:
+- `{product.ribbon.name}` not `{product.ribbon}`
+- `{price.amount}` not `{price}`
+- `{variant._id}` not `{variant}`
+
+Common V3 fields that are objects, not strings:
+- `product.ribbon` → `{ _id, name }` — use `.name`
+- `product.actualPriceRange.minValue` → `FixedMonetaryAmount { amount, formattedAmount }` — use `.amount` or `.formattedAmount`
+- `product.media.main` → `ProductMedia { image, video, mediaType }` — use helpers like `extractMediaUrl()`
+- `order.priceSummary.total` → `Price { amount, formattedAmount }` — use `.amount`
+
 ### React Islands in Astro
 
 ⛔ **Breaks at runtime** — Don't use inline `<style>{...}` in React components — causes hydration mismatch due to HTML entity encoding. Put styles in Astro `<style>` with `:global()`.
