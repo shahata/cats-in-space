@@ -127,6 +127,7 @@ These are the most common runtime failures. Each is explained because understand
 
 | Gotcha | Why it breaks |
 |--------|---------------|
+| `categories.queryCategories(options).find()` → `INVALID_FILTER` | The builder form sends an empty condition the API rejects. Use the two-argument form instead: `queryCategories({}, options)` which returns a Promise directly (no builder) |
 | `getCurrentCart()` returns `Cart` directly, not `{ cart }` | SDK unwraps the response envelope |
 | `searchOrders` takes `OrderSearch` directly, not `{ search: OrderSearch }` | Wrapping adds an extra nesting level the SDK doesn't expect |
 | `createCheckoutFromCurrentCart` returns `{ checkoutId }`, not a checkout object with `_id` | It's a creation shortcut, not a full GET |
@@ -141,12 +142,14 @@ These are the most common runtime failures. Each is explained because understand
 
 💡 **Best practice** — Use `httpClient.fetchWithAuth` from `@wix/essentials` only when no SDK method exists. Import from the main module, not a subpath.
 
+💡 **Best practice** — Many SDK query methods support two calling styles: a **builder form** `queryFoo(options).eq(...).find()` and a **two-argument form** `queryFoo(query, options)` that returns a `Promise` directly. **Prefer the two-argument form** — it avoids builder bugs (e.g., the categories builder sends an empty filter that causes `INVALID_FILTER`) and returns proper types without chaining. The response field is typically plural (`.categories`, `.orders`) not `.items`.
+
 ## TypeScript Conventions
 
 - Use `astro/tsconfigs/strictest` — use `?? null` (not `|| undefined`) for optional properties typed as `string | null`
 - Always prefer SDK types (`cart.LineItem`, `productsV3.ProductMedia`, etc.) over `Record<string, unknown>`
 - Import types: `import type { cart as cartTypes } from '@wix/ecom'`
-- Never use `as any`, `as unknown as`, or `Record<string, any>` to cast SDK objects — if the type doesn't match, fix the code
+- ⛔ **Never use `any`, `any[]`, `as any`, `as unknown as`, or `Record<string, any>`** — the ESLint `no-explicit-any` rule enforces this at build time. If a type error appears, fix the field access to match the SDK type — don't suppress the error. A type error means the code will crash at runtime.
 - Use `as Function` (not `as any`) for SDK overload workarounds
 
 ### React Islands in Astro

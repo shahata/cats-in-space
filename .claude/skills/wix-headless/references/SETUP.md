@@ -36,6 +36,66 @@ npm install --save-dev @types/node
 
 You must upgrade to >= 1.0.6 before using translations. Install `@types/node` because the scaffold's `astro.config.mjs` uses `process.env.NODE_ENV` — without it, `npx astro check` reports a type error.
 
+## Post-Scaffold: Set Up ESLint no-explicit-any Rule
+
+⛔ **Do this immediately after scaffolding every new project.** This prevents using `any` types anywhere in the codebase, which is the #1 source of silent runtime bugs when using Wix SDK types.
+
+**Install:**
+```bash
+npm install --save-dev eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-plugin-astro
+```
+
+**Create `eslint.config.mjs`:**
+```js
+import eslintPluginAstro from 'eslint-plugin-astro';
+import tseslint from '@typescript-eslint/eslint-plugin';
+import tsparser from '@typescript-eslint/parser';
+
+export default [
+  {
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    languageOptions: {
+      parser: tsparser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tseslint,
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+  ...eslintPluginAstro.configs.recommended.map(config => ({
+    ...config,
+    ...(config.files?.[0]?.includes('astro') ? {
+      plugins: {
+        ...config.plugins,
+        '@typescript-eslint': tseslint,
+      },
+      rules: {
+        ...config.rules,
+        '@typescript-eslint/no-explicit-any': 'error',
+      },
+    } : {}),
+  })),
+];
+```
+
+**Add scripts to `package.json`:**
+```json
+{
+  "scripts": {
+    "lint": "eslint src/",
+    "check": "npx astro check && eslint src/"
+  }
+}
+```
+
+Now `npm run check` is the single command that catches both type errors AND explicit `any` usage.
+
 ## Key Files
 
 | File | Purpose |

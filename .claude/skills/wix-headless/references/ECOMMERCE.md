@@ -108,13 +108,15 @@ const productResult = await productsV3.queryProducts({
 }).limit(100).find();
 const allProducts = productResult.items || [];
 
-// Fetch categories via SDK
+// Fetch categories via SDK — use the two-argument form (query, options) which returns a Promise directly
+// The builder form (single arg + .find()) sends an empty filter condition that the API rejects with INVALID_FILTER
 let allCategories: categoriesTypes.Category[] = [];
 try {
   const catResult = await categories.queryCategories(
+    {},
     { treeReference: { appNamespace: '@wix/stores' } }
-  ).find();
-  allCategories = catResult.items || [];
+  );
+  allCategories = catResult.categories || [];
 } catch {}
 
 // Build category lookup for mapping product → collection names

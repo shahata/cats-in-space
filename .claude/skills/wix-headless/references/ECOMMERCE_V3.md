@@ -18,10 +18,13 @@ npm install @wix/categories
 import { categories } from '@wix/categories';
 import type { categories as categoriesTypes } from '@wix/categories';
 
+// Use the two-argument form (query, options) — returns a Promise directly
+// The builder form (single arg + .find()) throws INVALID_FILTER at runtime
 const catResult = await categories.queryCategories(
+  {},
   { treeReference: { appNamespace: '@wix/stores' } }
-).find();
-const allCategories: categoriesTypes.Category[] = catResult.items || [];
+);
+const allCategories: categoriesTypes.Category[] = catResult.categories || [];
 // Each category has: _id, name, slug, visible, image, etc.
 ```
 
@@ -86,10 +89,12 @@ This returns full data including `variantsInfo.variants[]` in one call — no tw
 import { categories } from '@wix/categories';
 import type { categories as categoriesTypes } from '@wix/categories';
 
+// Two-argument form: (query, options) → Promise (no builder)
 const catResult = await categories.queryCategories(
+  {},
   { treeReference: { appNamespace: '@wix/stores' } }
-).find();
-const allCategories: categoriesTypes.Category[] = catResult.items || [];
+);
+const allCategories: categoriesTypes.Category[] = catResult.categories || [];
 ```
 
 ### Filter products by category
@@ -497,7 +502,7 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 10. **Pre-order requires quantity tracking**: Inventory items must use `trackQuantity: true` with `quantity: 0` and `preorderInfo.limit` set. Using `inStock` tracking (no quantity) with preorder causes cart to cap quantity to 0.
 11. **Pre-order in cart**: Pass `preOrderRequested: true` in `catalogReference.options` so the cart allows adding quantity > 0 for preorder items.
 16. **Variant and Option `_id`**: Both `ConnectedOption` and variant types use `_id` (not `id`). Use `v._id` and `opt._id` directly — do NOT use `as any` casts. The `id` field does not exist on these types.
-17. **Categories always need `treeReference`**: Whether using SDK (`queryCategories`) or REST (`POST /categories/v1/categories/search`, `POST /categories/v1/categories`), you MUST include `treeReference: { appNamespace: "@wix/stores" }`. Omitting it causes 400. REST search result is `data.categories`, SDK result is `catResult.categories` — neither uses `.items`.
+17. **Categories: use two-argument `queryCategories` form**: ⛔ The builder form `queryCategories(options).find()` sends an empty filter that the API rejects with `INVALID_FILTER`. Always use the two-argument form: `queryCategories({}, { treeReference: { appNamespace: "@wix/stores" } })` — this returns a `Promise` directly (no builder chain). The result uses `catResult.categories` (not `.items`). `treeReference` is always required — omitting it causes 400.
 18. **Category filtering — use client-side**: Fetch all products with `DIRECT_CATEGORIES_INFO` field, then filter client-side via `directCategoriesInfo.categories`. Use data attributes on product cards for JS-based filtering without re-fetching. Do NOT add a hardcoded "All" filter tab — only show real categories from the store. Show all products by default with no filter active; clicking an active tab deselects it.
 27. **Category `_id` consistency**: When using `@wix/categories` SDK, categories use `cat._id` — consistent with product `directCategoriesInfo.categories[].\_id`.
 19. **Use `getProductBySlug` for detail pages**: `queryProducts().eq('slug', slug)` may not return options/variants. Always use `getProductBySlug(slug, { fields: [...] })` for full product data.
@@ -527,13 +532,14 @@ const productResult = await productsV3.queryProducts({
 }).limit(100).find();
 const allProducts = productResult.items || [];
 
-// Fetch categories via SDK
+// Fetch categories via SDK — two-argument form (query, options) returns Promise directly
 let allCollections: categoriesTypes.Category[] = [];
 try {
   const catResult = await categories.queryCategories(
+    {},
     { treeReference: { appNamespace: '@wix/stores' } }
-  ).find();
-  allCollections = catResult.items || [];
+  );
+  allCollections = catResult.categories || [];
 } catch {}
 
 // Build category lookup

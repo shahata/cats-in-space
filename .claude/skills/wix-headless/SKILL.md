@@ -81,6 +81,7 @@ Before building any feature area, verify you will implement ALL items from the r
 - [ ] Product detail page (`/store/[slug]`) — image gallery, options (text + swatch), modifiers (free text + text choices + swatch choices), variants, add-to-cart, back-in-stock form, info sections accordion, related products, pre-order badge
 - [ ] Cart sidebar — line item images (via `getImageUrl()`), quantities, checkout
 - [ ] Thank you page (`/store/thank-you`)
+- [ ] Gift cards page (`/store/gift-cards`) — display gift card products with preset amount buttons, custom amount input (if `customVariant` exists), variant images, recipient form (name, email, message), buy now flow via Rise app catalog reference. See [GIFT_CARDS.md](references/GIFT_CARDS.md)
 - [ ] Member area (`/member`) with order history — customers must be able to see past orders
 - [ ] Navigation with login/logout state detection
 - [ ] **Data seeding (do not skip) — build an elaborate, realistic catalog:**

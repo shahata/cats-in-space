@@ -5,8 +5,8 @@
 All four steps are mandatory, in this order. Do not skip any.
 
 ```bash
-# Step 1: Type check
-npx astro check
+# Step 1: Type check + lint (catches type errors AND explicit `any` usage)
+npm run check
 
 # Step 2: Build
 npm run build
@@ -18,11 +18,17 @@ git add <files> && git commit -m "description of changes"
 npm run preview   # or: npm run release
 ```
 
-### Why all 3 steps matter
+### Why all steps matter
 
-`npm run build` uses Vite which does **not** do strict type checking — it bundles `any`-typed code without complaint. `npx astro check` is the only tool that catches type errors in `.astro` files.
+`npm run build` uses Vite which does **not** do strict type checking — it bundles `any`-typed code without complaint.
 
-Skipping step 1 has repeatedly led to deploying broken code — for example, accessing `cat._id` when the REST API returns `cat.id`, or passing wrong argument shapes to SDK methods. These errors are invisible to Vite but crash at runtime.
+`npm run check` runs two tools:
+1. `npx astro check` — catches type errors in `.astro` files (wrong field names, wrong method signatures, missing properties)
+2. `eslint src/` — catches explicit `any` usage via the `@typescript-eslint/no-explicit-any` rule
+
+⛔ **Never use `any` to silence type errors.** When `astro check` reports a type error, fix the code to match the SDK types — don't cast to `any`, `any[]`, or `as any`. A type error is a bug report: the code is accessing a field that doesn't exist, which will crash at runtime. See [SETUP.md](SETUP.md) → "Post-Scaffold: Set Up ESLint no-explicit-any Rule" for the ESLint configuration.
+
+Skipping step 1 has repeatedly led to deploying broken code — for example, accessing `cat._id` when the REST API returns `cat.id`, or using V1 field paths on a V3 catalog. These errors are invisible to Vite but crash at runtime.
 
 Install `@astrojs/check` if not present.
 
