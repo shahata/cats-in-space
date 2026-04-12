@@ -34,23 +34,31 @@ SUBDIRECTORY by default: `/ja/...`, `/fr/...`. Primary language has no prefix.
 
 ## File Structure
 
-- **English keys**: `src/translations.json` — flat or nested key-value pairs
+- **English keys**: `src/translations.json` — flat dot-notation key-value pairs
 - **Secondary translations**: `.wix/multilingual/translations/ja.json` (same structure)
 - **Metadata**: `.wix/multilingual/metadata.json` — `{"primaryLanguageCode": "en"}`
+
+⛔ **Breaks at runtime** — Translations MUST use flat dot-notation keys. Nested objects like `{ "nav": { "home": "Home" } }` silently fail — i18next treats top-level keys as namespaces instead of key groups, so `t('nav.home')` returns the raw key string with no error.
 
 Example `src/translations.json`:
 ```json
 {
-  "nav": { "home": "Home", "shop": "Shop", "missions": "Missions" },
-  "common": { "addToCart": "Add to Cart", "bookNow": "Book Now" }
+  "nav.home": "Home",
+  "nav.shop": "Shop",
+  "nav.missions": "Missions",
+  "common.addToCart": "Add to Cart",
+  "common.bookNow": "Book Now"
 }
 ```
 
 Example `.wix/multilingual/translations/ja.json`:
 ```json
 {
-  "nav": { "home": "ホーム", "shop": "ショップ", "missions": "ミッション" },
-  "common": { "addToCart": "カートに追加", "bookNow": "今すぐ予約" }
+  "nav.home": "ホーム",
+  "nav.shop": "ショップ",
+  "nav.missions": "ミッション",
+  "common.addToCart": "カートに追加",
+  "common.bookNow": "今すぐ予約"
 }
 ```
 

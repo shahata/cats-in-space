@@ -25,7 +25,7 @@ See `references/MEMBER_AREA.md` for full member area implementation details.
 
 Every entity that supports media MUST have images. A store without images is not a store.
 
-- **Products**: Include images per product at creation time (via `media.itemsInfo.items` with `url`). Aim for 1-3 images.
+- **Products**: Every product MUST have **3 images** (not just 1). Include at creation time via `media.itemsInfo.items` with `url`. Add extra images via PATCH after creation if needed.
 - **Categories**: Every category should have a cover image.
 - **Variants**: Link variant-specific images where applicable (e.g., different colors show different photos).
 
@@ -41,7 +41,7 @@ When seeding products via API, populate ALL rich fields — not just name and pr
 
 **These must be added AFTER product creation (separate API calls):**
 
-- **Options/Variants** — Create customizations first (`POST /stores/v3/customizations`), then update the product to attach them (`POST /stores/v3/products/{id}/update-with-inventory`). This auto-generates variants. See `ECOMMERCE_V3.md` → "Recommended Product Seeding Workflow" Steps 5-6.
+- **Options/Variants** — Create customizations first (`POST /stores/v3/customizations`), then update the product to attach them (`POST /stores/v3/products/{id}/update-with-inventory`). This auto-generates variants. At least one product should have **multiple option types combined** (e.g., Color swatch + Size text → many variants at different prices). See `ECOMMERCE_V3.md` → "Recommended Product Seeding Workflow" Steps 5-6.
 - **`infoSections`** — Create info sections (`POST /stores/v3/info-sections`), then assign to products (`POST /stores/v3/bulk/products/add-info-sections`). They CANNOT be inlined in `createProduct`. See `ECOMMERCE_V3.md` → Steps 7-8.
 - **`modifiers`** — customization options like engraving text (`FREE_TEXT`), gift wrapping (`TEXT_CHOICES`), or color accents (`SWATCH_CHOICES`). Create as customizations, then attach to products.
 - **Categories** — Create categories, create products, then assign products to categories via `POST /categories/v1/bulk/categories/{id}/add-items`. See `ECOMMERCE_V3.md` → Step 9.
@@ -51,7 +51,7 @@ When seeding products via API, populate ALL rich fields — not just name and pr
 - Use `create-product-with-inventory` to create products with initial inventory in one call
 - When adding options (Step 6), variants are auto-generated — update their inventory via `POST /stores/v3/bulk/inventory-items/create` with `inStock: true`
 - Set up pre-order for upcoming products: `trackQuantity: true`, `quantity: 0`, `preorderInfo: { enabled: true, limit: N, message: "..." }`
-- Mark some variants as out-of-stock to exercise the back-in-stock flow
+- Mark at least one **entire product** as fully out-of-stock (not just a variant) to exercise the back-in-stock notification form on the product detail page
 
 ### Enable back-in-stock notifications
 
@@ -95,11 +95,12 @@ The store listing page should include:
 
 ### Store listing data fetching
 
-⛔ **Breaks at runtime** — `@wix/stores` does NOT export `categories`. Importing it causes a build-time error. Use `httpClient` from `@wix/essentials` to fetch categories via REST. If `@wix/categories` is installed, you can use its SDK methods instead — see `ECOMMERCE_V3.md` for both approaches.
+⛔ **Breaks at runtime** — `@wix/stores` does NOT export `categories`. Install `@wix/categories` for the categories SDK. Do NOT use `httpClient.fetchWithAuth` — always prefer the SDK for proper types.
 
 ```typescript
 import { productsV3 } from '@wix/stores';
-import { httpClient } from '@wix/essentials';
+import { categories } from '@wix/categories';
+import type { categories as categoriesTypes } from '@wix/categories';
 
 // Fetch all products with category info for client-side filtering
 const productResult = await productsV3.queryProducts({
@@ -107,21 +108,18 @@ const productResult = await productsV3.queryProducts({
 }).limit(100).find();
 const allProducts = productResult.items || [];
 
-// Fetch categories via REST (preferred — always works)
-let allCategories: Array<{ id: string; name: string }> = [];
+// Fetch categories via SDK
+let allCategories: categoriesTypes.Category[] = [];
 try {
-  const res = await httpClient.fetchWithAuth('https://www.wixapis.com/categories/v1/categories/search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ treeReference: { appNamespace: '@wix/stores' } }),
-  });
-  const data = await res.json();
-  allCategories = (data.categories ?? []).map((c: any) => ({ id: c.id, name: c.name }));
+  const catResult = await categories.queryCategories(
+    { treeReference: { appNamespace: '@wix/stores' } }
+  ).find();
+  allCategories = catResult.items || [];
 } catch {}
 
 // Build category lookup for mapping product → collection names
 const categoryMap = new Map<string, string>();
-for (const c of allCategories) categoryMap.set(c.id, c.name);
+for (const c of allCategories) if (c._id && c.name) categoryMap.set(c._id, c.name);
 
 // Client-side filtering: use data-collections attribute on product cards
 // and filter via JS (see ECOMMERCE_V3.md for full example with filter tabs)
@@ -259,6 +257,23 @@ const order = await ecomOrders.getOrder(orderId);
 Build a `/member` page with authentication gating and an orders tab. See `references/MEMBER_AREA.md` → "Store Orders Tab" for the full implementation guidelines — including what to display per order (header, line items, totals, delivery info), status badge colors, and empty states. Remember: order line item images are `wix:image://` strings — always use `getImageUrl()` to render them.
 
 ### Back-in-Stock Notifications
+
+⛔ **Breaks at runtime** — Back-in-stock requires two setup steps before the API works. Without both, `createBackInStockNotificationRequest` throws `TPA not installed` or `REQUEST_COLLECTION_DISABLED` errors:
+
+1. **Install the back-in-stock app** via REST:
+   ```
+   POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+   Body: { "tenant": { "id": "<siteId>", "tenantType": "SITE" }, "appInstance": { "appDefId": "16be6c71-d061-4f56-8cda-c6aa911d1832" } }
+   ```
+   This is an account-level API — use the ManageWixSite MCP tool, not CallWixSiteAPI.
+
+2. **Enable notification collection**:
+   ```
+   POST https://www.wixapis.com/back-in-stock-service/v1/back-in-stock-notification-requests/settings/start-collecting
+   Body: { "appId": "1380b703-ce81-ff05-f115-39571d94dfcd" }
+   ```
+
+Once enabled, use the SDK:
 
 ```typescript
 import { backInStockNotifications } from '@wix/ecom';

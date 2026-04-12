@@ -16,6 +16,7 @@ A complete product catalog requires multiple sequential API calls. Do NOT try to
 7. **Create info sections** (`POST /stores/v3/info-sections`)
 8. **Assign info sections** to products (`POST /stores/v3/bulk/products/add-info-sections`)
 9. **Assign products to categories** (`POST /categories/v1/bulk/categories/{id}/add-items`)
+10. **Enable back-in-stock notifications** (if catalog has out-of-stock products) — install app + enable collection
 
 ---
 
@@ -268,3 +269,21 @@ Body: {
 
 ⚠️ — Uses `catalogItemId` (NOT `itemId`) and requires `treeReference`.
 ⚠️ — Categories are NOT assigned inline during product creation — there is no `directCategoryIds` field on the create request.
+
+---
+
+## Step 10: Enable Back-in-Stock Notifications
+
+If your catalog includes out-of-stock products for the back-in-stock flow, you MUST complete these two setup steps or `createBackInStockNotificationRequest` will fail at runtime:
+
+1. **Install the back-in-stock app** (account-level API — use ManageWixSite MCP tool):
+   ```http
+   POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+   Body: { "tenant": { "id": "<siteId>", "tenantType": "SITE" }, "appInstance": { "appDefId": "16be6c71-d061-4f56-8cda-c6aa911d1832" } }
+   ```
+
+2. **Enable notification collection** (site-level API):
+   ```http
+   POST https://www.wixapis.com/back-in-stock-service/v1/back-in-stock-notification-requests/settings/start-collecting
+   Body: { "appId": "1380b703-ce81-ff05-f115-39571d94dfcd" }
+   ```

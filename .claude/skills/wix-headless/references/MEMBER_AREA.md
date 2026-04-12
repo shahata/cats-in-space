@@ -39,14 +39,16 @@ import { orders as ecomOrders } from '@wix/ecom';
 import { membersAbout } from '@wix/members';
 import { savedPaymentMethods } from '@wix/payments';
 
-let planOrders: any[] = [];
-let storeOrders: any[] = [];
+import type { orders as orderTypes } from '@wix/ecom';
+
+let planOrders: orderTypes.Order[] = [];
+let storeOrders: orderTypes.Order[] = [];
 let aboutText = '';
 let paymentMethods: any[] = [];
 
 try { planOrders = (await orders.memberListOrders()).orders || []; } catch {}
 try {
-  const res = await ecomOrders.searchOrders({ search: {} });
+  const res = await ecomOrders.searchOrders({});
   storeOrders = res.orders || [];
 } catch {}
 try {

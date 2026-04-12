@@ -1,8 +1,8 @@
 # Deployment
 
-## The 3-Step Deploy Sequence
+## The 4-Step Deploy Sequence
 
-All three steps are mandatory, in this order. Do not skip step 1 or 2.
+All four steps are mandatory, in this order. Do not skip any.
 
 ```bash
 # Step 1: Type check
@@ -11,7 +11,10 @@ npx astro check
 # Step 2: Build
 npm run build
 
-# Step 3: Deploy
+# Step 3: Commit
+git add <files> && git commit -m "description of changes"
+
+# Step 4: Deploy
 npm run preview   # or: npm run release
 ```
 

@@ -83,14 +83,15 @@ Before building any feature area, verify you will implement ALL items from the r
 - [ ] Thank you page (`/store/thank-you`)
 - [ ] Member area (`/member`) with order history — customers must be able to see past orders
 - [ ] Navigation with login/logout state detection
-- [ ] **Data seeding (do not skip):**
-  - [ ] Products with images, descriptions, ribbons, physicalProperties
+- [ ] **Data seeding (do not skip) — build an elaborate, realistic catalog:**
+  - [ ] Products with **3 images each** (not just 1), descriptions, ribbons, physicalProperties
   - [ ] Categories with images, products assigned
-  - [ ] Options/variants — at least one TEXT_CHOICES and one SWATCH_CHOICES product, multiple variants at different prices
-  - [ ] Modifiers — at least one FREE_TEXT, one TEXT_CHOICES, one SWATCH_CHOICES, attached to products
+  - [ ] Options/variants — at least one product with **multiple option types combined** (e.g., Color swatch + Size text = many variants at different prices), not just single-option products
+  - [ ] Modifiers — at least one FREE_TEXT modifier attached to a product
   - [ ] Info sections — created and assigned to products
   - [ ] Pre-order — at least one product with `trackQuantity: true`, `quantity: 0`, `preorderInfo`
-  - [ ] Out-of-stock variant — at least one variant marked out-of-stock for back-in-stock flow
+  - [ ] **Fully out-of-stock product** — at least one entire product marked out-of-stock (not just a variant) to exercise the back-in-stock notification flow on the product detail page
+  - [ ] Back-in-stock app installed + collection enabled (see [ECOMMERCE.md](references/ECOMMERCE.md) → Back-in-Stock Notifications)
   - [ ] Inventory created for all new variants after attaching options
 
 ### Blog
@@ -130,8 +131,8 @@ V3 field paths differ significantly. Read [ECOMMERCE_V3.md](references/ECOMMERCE
 | Variants | `product.variantsInfo?.variants` | `product.variants` |
 | Option choices | `opt.choicesSettings?.choices?.map(c => c.name)` | `opt.choices`, `c.value` |
 
-⚠️ Variant `_id` vs `id` mismatch: TypeScript shows `id` but runtime value is `_id`. Use `(v as any)._id || v.id`.
+⚠️ Both variants and options use `_id` (not `id`). Use `v._id` and `opt._id` directly — no `as any` needed.
 
 ⚠️ Use `getProductBySlug` for detail pages — `queryProducts().eq('slug', slug)` may not return options/variants.
 
-⚠️ `@wix/stores` does NOT export `categories` — use `httpClient.fetchWithAuth` to call `POST /categories/v1/categories/search`.
+⚠️ `@wix/stores` does NOT export `categories` — install and use `@wix/categories` package instead.

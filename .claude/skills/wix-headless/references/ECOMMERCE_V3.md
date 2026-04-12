@@ -6,33 +6,23 @@ appId: `215238eb-22a5-4c36-9e7b-e7c08025e04e`
 
 - `@wix/stores` → `productsV3` namespace: `queryProducts`, `getProduct`, `getProductBySlug`, `createProduct`, `updateProduct`, `deleteProduct`, `searchProducts`
 
-### Categories SDK — `@wix/categories` is NOT always available
+### Categories SDK — use `@wix/categories`
 
-**WARNING:** The `@wix/categories` package may not be installed or may not export `categories` in all managed headless projects. The `@wix/stores` package does NOT export `categories` — only `collections` (V1).
+The `@wix/stores` package does NOT export `categories` — only `collections` (V1). Install and use `@wix/categories`:
 
-**Preferred approach for categories — use `httpClient.fetchWithAuth`:**
-```typescript
-import { httpClient } from '@wix/essentials';
-
-// Search categories
-const res = await httpClient.fetchWithAuth('https://www.wixapis.com/categories/v1/categories/search', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ treeReference: { appNamespace: '@wix/stores' } }),
-});
-const data = await res.json();
-const allCategories = data.categories ?? [];
-// Each category has: id, name, slug, visible, image, etc.
+```bash
+npm install @wix/categories
 ```
 
-**If `@wix/categories` IS installed and working:**
 ```typescript
 import { categories } from '@wix/categories';
+import type { categories as categoriesTypes } from '@wix/categories';
+
 const catResult = await categories.queryCategories(
-  { cursorPaging: { limit: 100 } },
   { treeReference: { appNamespace: '@wix/stores' } }
-);
-const cats = catResult.categories || [];
+).find();
+const allCategories: categoriesTypes.Category[] = catResult.items || [];
+// Each category has: _id, name, slug, visible, image, etc.
 ```
 
 ## V3 SDK Field Access Cheat Sheet
@@ -47,21 +37,22 @@ const cats = catResult.categories || [];
 | Price range max | `product.actualPriceRange?.maxValue?.amount` | ~~`product.priceRange?.maxValue`~~ |
 | Ribbon text | `product.ribbon?.name` (ribbon is an object) | ~~`product.ribbon`~~ (renders as [object Object]) |
 | Variants array | `product.variantsInfo?.variants` | ~~`product.variants`~~ |
-| Variant ID | `(v as any)._id` (see gotcha below) | ~~`v.id`~~ (undefined at runtime!) |
+| Variant ID | `v._id` | ~~`v.id`~~ (undefined at runtime!) |
 | Option choices | `opt.choicesSettings?.choices` with `.name` | ~~`opt.choices`~~ with ~~`.value`~~ |
 | Category IDs | `product.directCategoriesInfo?.categories` | ~~`product.categoryIds`~~ |
 | Product ID | `product._id` | same |
 | Product type | `"PHYSICAL"` / `"DIGITAL"` (UPPERCASE) | ~~`"physical"`~~ |
 
-### Variant ID Gotcha
+### `_id` on Variants and Options
 
-**The V3 SDK has a critical `_id` vs `id` mismatch for variants.** The TypeScript type exposes `id` but the runtime value is on `_id`. Always read both:
+V3 entities use `_id` (not `id`) as the identifier field. This applies to both variants and options:
 
 ```typescript
-const variantId = (variant as Record<string, unknown>)._id || (variant as Record<string, unknown>).id || '';
+const variantId = variant._id || '';
+const optionId = option._id || '';
 ```
 
-If you use `variant.id` directly, it will be `undefined` and add-to-cart will silently fail.
+Do NOT use `variant.id` or `option.id` — these are `undefined`.
 
 ## Query Patterns
 
@@ -91,27 +82,14 @@ This returns full data including `variantsInfo.variants[]` in one call — no tw
 
 ### Query categories
 
-**Preferred — via httpClient (always works, no extra package needed):**
-```typescript
-import { httpClient } from '@wix/essentials';
-
-const res = await httpClient.fetchWithAuth('https://www.wixapis.com/categories/v1/categories/search', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ treeReference: { appNamespace: '@wix/stores' } }),
-});
-const data = await res.json();
-const cats = data.categories ?? []; // each has: id, name, slug, visible, image
-```
-
-**Alternative — via @wix/categories (if installed):**
 ```typescript
 import { categories } from '@wix/categories';
+import type { categories as categoriesTypes } from '@wix/categories';
+
 const catResult = await categories.queryCategories(
-  { cursorPaging: { limit: 100 } },
   { treeReference: { appNamespace: '@wix/stores' } }
-);
-const cats = catResult.categories || [];
+).find();
+const allCategories: categoriesTypes.Category[] = catResult.items || [];
 ```
 
 ### Filter products by category
@@ -166,11 +144,11 @@ Use data attributes on product cards for JS-based filtering without re-fetching:
 - `actualPriceRange` — `{ minValue: { amount, formattedAmount }, maxValue: ... }`
 - `compareAtPriceRange` — same shape (for sale pricing)
 - `currency` — string (opt-in via `CURRENCY`)
-- `options[]` — `ConnectedOption { id, name, key, optionRenderType: "TEXT_CHOICES"|"SWATCH_CHOICES", choicesSettings: { choices: [{ choiceId, name, key, colorCode?, inStock }] } }`
+- `options[]` — `ConnectedOption { _id, name, key, optionRenderType: "TEXT_CHOICES"|"SWATCH_CHOICES", choicesSettings: { choices: [{ choiceId, name, key, colorCode?, inStock }] } }`
   - Access choice names via `opt.choicesSettings?.choices?.map(c => c.name)` — NOT `opt.choices` or `c.value`
-  - The `id` and `choiceId` fields are used for variant matching (build ID-to-name lookup maps)
+  - The `_id` and `choiceId` fields are used for variant matching (build ID-to-name lookup maps)
   - `SWATCH_CHOICES` options have `colorCode` on choices — render as color circles
-- `variantsInfo.variants[]` — `{ _id (RUNTIME) / id (TYPE — see gotcha #16), choices: [{ optionChoiceIds: { optionId, choiceId }, optionChoiceNames?: { optionName, choiceName } }], price: { actualPrice, compareAtPrice }, inventoryStatus: { inStock } }`. **The `optionChoiceNames` sub-field is only populated when `VARIANT_OPTION_CHOICE_NAMES` is requested.** Always build an ID-to-name lookup from the `options` array as fallback.
+- `variantsInfo.variants[]` — `{ _id, choices: [{ optionChoiceIds: { optionId, choiceId }, optionChoiceNames?: { optionName, choiceName } }], price: { actualPrice, compareAtPrice }, inventoryStatus: { inStock } }`. **The `optionChoiceNames` sub-field is only populated when `VARIANT_OPTION_CHOICE_NAMES` is requested.** Always build an ID-to-name lookup from the `options` array as fallback.
 - `inventory` — `{ availabilityStatus: "IN_STOCK"|"OUT_OF_STOCK"|"PARTIALLY_OUT_OF_STOCK", preorderStatus: "ENABLED"|"DISABLED", preorderAvailability }`
   - Pre-order detection: `product.inventory?.preorderStatus === "ENABLED"`
   - Variant-level: `variant.inventoryStatus?.preorderEnabled`
@@ -507,7 +485,7 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 2. **Media strings**: `m.image` and `m.video` are `wix:image://`/`wix:video://` strings — use `getImageUrl()`/`getVideoUrl()` to convert (see [MEDIA.md](MEDIA.md)). `mediaType` is uppercase: `'IMAGE'`, `'VIDEO'`.
 3. **Variant matching via optionChoiceNames**: `variant.choices[].optionChoiceNames.optionName/choiceName` — match with `.some()`.
 4. **Modifiers replace customTextFields**: V3 uses `modifiers` with three render types: `FREE_TEXT` (text input, keyed by `freeTextSettings.key` in `catalogReference.options.customTextFields`), `TEXT_CHOICES` (button selection, keyed by `mod.key` in `catalogReference.options.options`), `SWATCH_CHOICES` (color circles with `colorCode`, same as TEXT_CHOICES in catalogReference).
-5. **Categories SDK import**: `@wix/categories` may NOT be available in all managed headless projects, and `@wix/stores` does NOT export `categories` (only `collections` which is V1-only). **Preferred approach:** use `httpClient.fetchWithAuth` from `@wix/essentials` to call `POST https://www.wixapis.com/categories/v1/categories/search` with `{ treeReference: { appNamespace: "@wix/stores" } }`. If `@wix/categories` IS installed, use `categories.queryCategories(...)`. The `collections` namespace is V1-only and fails on V3 with 428.
+5. **Categories SDK import**: `@wix/stores` does NOT export `categories` (only `collections` which is V1-only). Install and use `@wix/categories` package — it provides `queryCategories` with proper types. The `collections` namespace is V1-only and fails on V3 with 428. Do NOT use `httpClient.fetchWithAuth` for categories — always prefer the SDK.
 6. **Inventory — use create-product-with-inventory**: The `POST /stores/v3/products-with-inventory` endpoint creates both product AND inventory in one call. Pass `inventoryItem: { inStock: true }` inside each variant. If using `createProduct` alone, inventory must be created separately via `POST /stores/v3/bulk/inventory-items/create`.
 7. **Ribbon is an object**: `product.ribbon.name`, not `product.ribbon` (string).
 8. **Back-in-stock uses V1 appId**: The back-in-stock settings/notifications API only accepts `1380b703-...` even on V3 sites. Use V1 appId for back-in-stock, V3 appId for cart/checkout.
@@ -518,10 +496,10 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 15. **Category add-items uses catalogItemId**: The bulk add-items endpoint uses `catalogItemId` (not `itemId`) and also requires `treeReference` in the body.
 10. **Pre-order requires quantity tracking**: Inventory items must use `trackQuantity: true` with `quantity: 0` and `preorderInfo.limit` set. Using `inStock` tracking (no quantity) with preorder causes cart to cap quantity to 0.
 11. **Pre-order in cart**: Pass `preOrderRequested: true` in `catalogReference.options` so the cart allows adding quantity > 0 for preorder items.
-16. **Variant `_id` vs `id`**: The TypeScript type shows `id` but the runtime value is on `_id`. Always use `(v as any)._id || v.id` or variant matching will silently fail.
+16. **Variant and Option `_id`**: Both `ConnectedOption` and variant types use `_id` (not `id`). Use `v._id` and `opt._id` directly — do NOT use `as any` casts. The `id` field does not exist on these types.
 17. **Categories always need `treeReference`**: Whether using SDK (`queryCategories`) or REST (`POST /categories/v1/categories/search`, `POST /categories/v1/categories`), you MUST include `treeReference: { appNamespace: "@wix/stores" }`. Omitting it causes 400. REST search result is `data.categories`, SDK result is `catResult.categories` — neither uses `.items`.
 18. **Category filtering — use client-side**: Fetch all products with `DIRECT_CATEGORIES_INFO` field, then filter client-side via `directCategoriesInfo.categories`. Use data attributes on product cards for JS-based filtering without re-fetching. Do NOT add a hardcoded "All" filter tab — only show real categories from the store. Show all products by default with no filter active; clicking an active tab deselects it.
-27. **Category REST API returns `id`, not `_id`**: When fetching categories via `httpClient.fetchWithAuth`, the response uses `cat.id`. But product `directCategoriesInfo.categories` uses `cat._id`. Always use `cat.id || cat._id` when reading category IDs from REST responses, and build the categoryMap to handle both.
+27. **Category `_id` consistency**: When using `@wix/categories` SDK, categories use `cat._id` — consistent with product `directCategoriesInfo.categories[].\_id`.
 19. **Use `getProductBySlug` for detail pages**: `queryProducts().eq('slug', slug)` may not return options/variants. Always use `getProductBySlug(slug, { fields: [...] })` for full product data.
 20. **`media.main` not `media.mainMedia`**: V3 uses `product.media?.main?.image` (a string). NOT `product.media?.mainMedia?.image?.url` (V1 pattern).
 21. **Price amounts need `.amount`**: `actualPriceRange.minValue` is a `FixedMonetaryAmount` object with `.amount`. Write `product.actualPriceRange?.minValue?.amount`, NOT `product.priceRange?.minValue`.
@@ -539,7 +517,8 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 ---
 import { productsV3 } from '@wix/stores';
 import type { productsV3 as productsV3Types } from '@wix/stores';
-import { httpClient } from '@wix/essentials';
+import { categories } from '@wix/categories';
+import type { categories as categoriesTypes } from '@wix/categories';
 import { extractMediaUrl } from '../../utils/image';
 
 // Fetch all products with category info for client-side filtering
@@ -548,21 +527,18 @@ const productResult = await productsV3.queryProducts({
 }).limit(100).find();
 const allProducts = productResult.items || [];
 
-// Fetch categories via REST (preferred — @wix/stores does NOT export categories)
-let allCollections: Array<{ _id: string; name: string }> = [];
+// Fetch categories via SDK
+let allCollections: categoriesTypes.Category[] = [];
 try {
-  const res = await httpClient.fetchWithAuth('https://www.wixapis.com/categories/v1/categories/search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ treeReference: { appNamespace: '@wix/stores' } }),
-  });
-  const data = await res.json();
-  allCollections = (data.categories ?? []).map((c: any) => ({ _id: c.id, name: c.name }));
+  const catResult = await categories.queryCategories(
+    { treeReference: { appNamespace: '@wix/stores' } }
+  ).find();
+  allCollections = catResult.items || [];
 } catch {}
 
 // Build category lookup
 const categoryMap = new Map<string, string>();
-for (const c of allCollections) categoryMap.set(c._id, c.name);
+for (const c of allCollections) if (c._id && c.name) categoryMap.set(c._id, c.name);
 
 function getCollections(product: productsV3Types.V3Product) {
   return (product.directCategoriesInfo?.categories || [])
@@ -651,11 +627,11 @@ const sizeOption = productOptions.find((o) => o.name?.toLowerCase() === 'size') 
 const optionName = sizeOption?.name || 'Size';
 const optionChoices = sizeOption?.choicesSettings?.choices?.map((c) => c.name || '') || [];
 
-// Variants — CRITICAL: build ID-to-name lookup, handle _id vs id
+// Variants — build ID-to-name lookup using _id
 const optionIdToName: Record<string, string> = {};
 const choiceIdToName: Record<string, string> = {};
 for (const opt of productOptions) {
-  if (opt.id && opt.name) optionIdToName[opt.id] = opt.name;
+  if (opt._id && opt.name) optionIdToName[opt._id] = opt.name;
   for (const ch of opt.choicesSettings?.choices || []) {
     if (ch.choiceId && ch.name) choiceIdToName[ch.choiceId] = ch.name;
   }
@@ -665,19 +641,15 @@ const variants = (product.variantsInfo?.variants || []).map((v) => {
   const choiceMap: Record<string, string> = {};
   for (const c of v.choices || []) {
     // Try optionChoiceNames first, fall back to ID lookup
-    const names = (c as any).optionChoiceNames;
-    const ids = (c as any).optionChoiceIds;
-    if (names?.optionName && names?.choiceName) {
-      choiceMap[names.optionName] = names.choiceName;
-    } else if (ids?.optionId && ids?.choiceId) {
-      const optName = optionIdToName[ids.optionId];
-      const chName = choiceIdToName[ids.choiceId];
+    if (c.optionChoiceNames?.optionName && c.optionChoiceNames?.choiceName) {
+      choiceMap[c.optionChoiceNames.optionName] = c.optionChoiceNames.choiceName;
+    } else if (c.optionChoiceIds?.optionId && c.optionChoiceIds?.choiceId) {
+      const optName = optionIdToName[c.optionChoiceIds.optionId];
+      const chName = choiceIdToName[c.optionChoiceIds.choiceId];
       if (optName && chName) choiceMap[optName] = chName;
     }
   }
-  // CRITICAL: variant ID is on _id at runtime, not id
-  const vid = (v as any)._id || (v as any).id || '';
-  return { _id: String(vid), choices: choiceMap };
+  return { _id: v._id || '', choices: choiceMap };
 });
 
 // Description — use plainDescription (HTML), not description (RichContent)

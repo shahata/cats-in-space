@@ -31,9 +31,10 @@ The scaffold creates an **Astro** project with Wix integrations pre-configured.
 
 ```bash
 npm install @wix/essentials@latest
+npm install --save-dev @types/node
 ```
 
-You must upgrade to >= 1.0.6 before using translations.
+You must upgrade to >= 1.0.6 before using translations. Install `@types/node` because the scaffold's `astro.config.mjs` uses `process.env.NODE_ENV` — without it, `npx astro check` reports a type error.
 
 ## Key Files
 
@@ -59,13 +60,14 @@ npm run generate   # wix generate — code generation
 Install only what you need:
 
 ```bash
-npm install @wix/data       # CMS data operations
-npm install @wix/members    # Members API
-npm install @wix/stores     # Stores API
-npm install @wix/blog       # Blog API
-npm install @wix/comments   # Comments API
-npm install @wix/ecom       # Cart, checkout, orders
-npm install @wix/redirects  # Redirect sessions (checkout, plans)
+npm install @wix/data        # CMS data operations
+npm install @wix/members     # Members API
+npm install @wix/stores      # Stores API (products, NOT categories)
+npm install @wix/categories  # Categories API (for store categories)
+npm install @wix/blog        # Blog API
+npm install @wix/comments    # Comments API
+npm install @wix/ecom        # Cart, checkout, orders
+npm install @wix/redirects   # Redirect sessions (checkout, plans)
 ```
 
 ## Translations Setup
