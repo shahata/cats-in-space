@@ -17,7 +17,7 @@ type Member = members.Member;
 const { slug } = Astro.params;
 let post: Post | undefined;
 try {
-	const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] });
+	const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID', 'SEO'] });
 	post = result.post;
 } catch {}
 
@@ -71,9 +71,11 @@ const writerName = writer?.profile?.nickname || writer?.contact?.firstName || 'A
 const writerTitle = writer?.profile?.title || '';
 const writerPhoto = writer?.profile?.photo?.url;
 const writerSlug = writer?.profile?.slug;
+
+const seoTags = post.seoData?.tags || [];
 ---
 
-<Layout title={`${post.title} - ${t('blog.pageTitle')}`}>
+<Layout title={`${post.title} - ${t('blog.pageTitle')}`} seoTags={seoTags}>
 	<Nav />
 	<article class="blog-post">
 		<div class="container">

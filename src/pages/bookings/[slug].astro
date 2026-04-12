@@ -5,6 +5,7 @@ import Footer from '../../components/Footer.astro';
 import BookingFlow from '../../components/BookingFlow';
 import { services, staffMembers } from '@wix/bookings';
 import { members } from '@wix/members';
+import { seoTags as seoTagsApi } from '@wix/seo';
 import { getImageUrl } from '../../utils/image';
 import { formatCurrency } from '../../utils/format';
 import { i18n } from '@wix/essentials';
@@ -62,9 +63,13 @@ const staffForClient = serviceStaff.map((s: any) => {
 		imageUrl: getImageUrl(typeof sMediaImg === 'string' ? sMediaImg : (sMediaImg?.id || sMediaImg?.url), 100, 100) || '',
 	};
 });
+
+const pageUrl = new URL(`/bookings/${slug}`, Astro.url).href;
+const seoResult = await seoTagsApi.resolveItemSeoTags({ pageUrl, itemType: 'BOOKINGS_SERVICE', slug: slug! });
+const seoTags = seoResult.seoTags?.tags || [];
 ---
 
-<Layout title={`${service.name} - ${t('bookings.pageTitle')} - ${t('home.title')}`}>
+<Layout title={`${service.name} - ${t('bookings.pageTitle')} - ${t('home.title')}`} seoTags={seoTags}>
 	<Nav />
 	<section class="page-header">
 		<div class="container">

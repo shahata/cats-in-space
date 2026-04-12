@@ -1,17 +1,34 @@
 ---
 import CartSidebar from '../components/CartSidebar';
 import { i18n } from '@wix/essentials';
+import type { seoTags as seoTagsNs } from '@wix/seo';
+
+type Tag = seoTagsNs.Tag;
 
 interface Props {
 	title?: string;
 	description?: string;
+	seoTags?: Tag[];
 }
 
 const t = i18n.getTranslationFunction();
 const locale = i18n.getLocale();
 const lang = i18n.getLanguage();
 const dir = ['he', 'ar'].includes(lang) ? 'rtl' : 'ltr';
-const { title = t('home.title'), description = t('home.subtitle') } = Astro.props;
+const { title = t('home.title'), description = t('home.subtitle'), seoTags = [] } = Astro.props;
+
+const activeSeoTags = seoTags.filter(tag => !tag.disabled && tag.type);
+const hasSeoTitle = activeSeoTags.some(tag => tag.type === 'title');
+const hasSeoDescription = activeSeoTags.some(tag => tag.type === 'meta' && tag.props?.name === 'description');
+
+function renderSeoTag(tag: Tag): string {
+	const attrs = Object.entries(tag.props || {})
+		.map(([k, v]) => `${k}="${String(v).replace(/"/g, '&quot;')}"`)
+		.join(' ');
+	const attrStr = attrs ? ` ${attrs}` : '';
+	if (tag.children) return `<${tag.type}${attrStr}>${tag.children}</${tag.type}>`;
+	return `<${tag.type}${attrStr} />`;
+}
 ---
 
 <!doctype html>
@@ -20,12 +37,13 @@ const { title = t('home.title'), description = t('home.subtitle') } = Astro.prop
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="description" content={description} />
+		{!hasSeoDescription && <meta name="description" content={description} />}
+		{!hasSeoTitle && <title>{title}</title>}
 		<meta name="generator" content={Astro.generator} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Bangers&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-		<title>{title}</title>
+		{activeSeoTags.map(tag => <Fragment set:html={renderSeoTag(tag)} />)}
 	</head>
 	<body>
 		<slot />

@@ -34,6 +34,7 @@
     "@wix/restaurants": "^1.0.481",
     "@wix/ricos": "^10.164.5",
     "@wix/sdk": "^1.15.23",
+    "@wix/seo": "^1.0.44",
     "@wix/stores": "^1.0.714",
     "@wix/table-reservations": "^1.0.347",
     "ai": "^6.0.140",

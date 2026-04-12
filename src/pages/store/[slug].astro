@@ -6,6 +6,7 @@ import ProductActions from '../../components/ProductActions';
 import RichContentViewer from '../../components/RichContentViewer';
 import { productsV3 } from '@wix/stores';
 import { categories } from '@wix/categories';
+import { seoTags as seoTagsApi } from '@wix/seo';
 import { extractMediaUrl } from '../../utils/image';
 import { i18n } from '@wix/essentials';
 const t = i18n.getTranslationFunction();
@@ -68,10 +69,14 @@ const productData: ProductActionsProps = {
 const infoSections = product.infoSections || [];
 const ribbon = product.ribbon?.name;
 
+const pageUrl = new URL(`/store/${slug}`, Astro.url).href;
+const seoResult = await seoTagsApi.resolveItemSeoTags({ pageUrl, itemType: 'STORES_PRODUCT', slug });
+const seoTags = seoResult.seoTags?.tags || [];
+
 type ProductActionsProps = import('../../components/ProductActions').ProductData;
 ---
 
-<Layout title={`${product.name} - ${t('home.title')}`}>
+<Layout title={`${product.name} - ${t('home.title')}`} seoTags={seoTags}>
 	<Nav />
 	<section class="product-page">
 		<div class="container">
