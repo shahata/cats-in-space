@@ -72,21 +72,35 @@ These apply to every feature area. Violating any of them produces silent failure
 
 7. **Add SEO tags to every dynamic page** — Use `resolveItemSeoTags()` from `@wix/seo` for supported item types (`STORES_PRODUCT`, `BOOKINGS_SERVICE`, `STORES_CATEGORY`). For blog posts, request the `'SEO'` fieldset and pass `post.seoData.tags`. Pass the `seoTags` array to the Layout component. Import the `Tag` type from `@wix/seo` — never define custom SEO tag interfaces. See [SEO.md](references/SEO.md).
 
+8. **Release on initial generation, preview on iterations** — The deploy strategy depends on where you are in the project lifecycle:
+    - **Initial generation (first-time build of a site):** run `npm run release` to publish the site live. Do NOT stop at preview — the user expects a working live URL at the end of the first build.
+    - **Subsequent iterations (edits, fixes, additions after the initial build):** run `npm run preview` by default. Only run `npm run release` when the user explicitly asks to "release", "publish", or "deploy live". You may proactively *suggest* releasing, but wait for confirmation.
+    See [DEPLOYMENT.md](references/DEPLOYMENT.md).
+
+9. **Report view URL + dashboard URL on first-time generation** — When finishing the initial build of a site, surface exactly two URLs: (a) the **live site URL** from `npm run release` (not a preview URL — initial generation always releases per rule 8); and (b) the dashboard URL (`https://manage.wix.com/dashboard/<siteId>`). On subsequent iterations, report the new **preview URL** only (and the dashboard URL only if it's useful for the current change). See [DEPLOYMENT.md](references/DEPLOYMENT.md).
+
 ---
 
 ## Feature Checklists
 
 Before building any feature area, verify you will implement ALL items from the relevant checklist. Create tasks for every item — including data seeding — before writing code.
 
+### Foundation (applies to every site)
+
+- [ ] `Layout.astro` accepts an optional `seoTags` prop and renders it into `<head>` — required infrastructure for all dynamic-page SEO below. Set up BEFORE building any dynamic page. See [SEO.md](references/SEO.md) → "Rendering SEO Tags in the Layout"
+- [ ] **Member Area (`/member`)** — required for every site that has members (which is every Wix headless site). See the [Member Area checklist](#member-area) below for the full list of required tabs and behaviors. Do not skip this, even for non-store sites: visitors register as members to comment on the blog, book services, subscribe to plans, etc., and they need a self-service dashboard to manage their account.
+
 ### Store
 
 - [ ] Store listing page (`/store`) — category filtering, product cards, category badges, out-of-stock overlay, pre-order badge, price range display
 - [ ] Product detail page (`/store/[slug]`) — image gallery, options (text + swatch), modifiers (free text + text choices + swatch choices), variants, add-to-cart, back-in-stock form, info sections accordion, related products, pre-order badge
+- [ ] **SEO on `/store/[slug]`** — call `resolveItemSeoTags({ itemType: 'STORES_PRODUCT', slug, pageUrl })` and pass result to `<Layout seoTags={...}>`. See [SEO.md](references/SEO.md)
+- [ ] **SEO on category pages** (if built) — call `resolveItemSeoTags({ itemType: 'STORES_CATEGORY', slug, pageUrl })`
 - [ ] Cart sidebar — line item images (via `getImageUrl()`), quantities, checkout
 - [ ] Thank you page (`/store/thank-you`)
-- [ ] Gift cards page (`/store/gift-cards`) — display gift card products with preset amount buttons, custom amount input (if `customVariant` exists), variant images, recipient form (name, email, message), buy now flow via Rise app catalog reference. See [GIFT_CARDS.md](references/GIFT_CARDS.md)
-- [ ] Member area (`/member`) with order history — customers must be able to see past orders
+- [ ] Gift cards page (`/store/gift-cards`) — display gift card products with preset amount buttons, custom amount input (if `customVariant` exists), variant images, recipient form (name, email, message), buy now flow via Rise app catalog reference. The page itself is always built, but the nav link to it MUST be conditionally rendered — query `giftVoucherProducts.queryGiftCardProducts` (elevated) in `Layout.astro` and only include the nav entry when at least one gift card product exists. This way the link auto-hides when none exist and auto-shows once any are defined, without code changes. See [GIFT_CARDS.md](references/GIFT_CARDS.md)
 - [ ] Navigation with login/logout state detection
+- [ ] Member area Orders tab populated — order history with line item images is a required sub-item of the Member Area checklist for any site that has a store
 - [ ] **Data seeding (do not skip) — build an elaborate, realistic catalog:**
   - [ ] Products with **3 images each** (not just 1), descriptions, ribbons, physicalProperties
   - [ ] Categories with images, products assigned
@@ -102,6 +116,7 @@ Before building any feature area, verify you will implement ALL items from the r
 
 - [ ] Blog listing page (`/blog`) — tag filtering, cover images, metrics
 - [ ] Blog detail page (`/blog/[slug]`) — rich content rendering
+- [ ] **SEO on `/blog/[slug]`** — request `'SEO'` fieldset from `posts.getPostBySlug(slug, { fieldsets: [..., 'SEO'] })` and pass `post.seoData?.tags` to `<Layout seoTags={...}>`. Without the fieldset, `seoData` is empty. See [SEO.md](references/SEO.md)
 - [ ] Likes — like/unlike toggle on posts AND comments, pre-populated from `queryLikes()` on mount
 - [ ] Comments & replies — visitor name input, member identity, nested replies, edit/delete own, like per comment
 - [ ] View tracking — report views on post load via `httpClient.fetchWithAuth` to `/blog/v3/posts/{postId}/view`
@@ -116,10 +131,17 @@ Before building any feature area, verify you will implement ALL items from the r
 
 ### Member Area
 
-- [ ] Authentication gate (redirect to login if not logged in)
-- [ ] Order history tab with line item images (via `getImageUrl()`)
-- [ ] Profile tab
-- [ ] Logout via POST form (not a link)
+**Required for EVERY site, not just stores.** The member area is the site's self-service dashboard — any Wix headless site supports members, and those members need somewhere to manage their own account regardless of whether the site sells products, publishes posts, takes bookings, or just offers a community. Build it even if the site is "just a blog" or "just bookings." A site without a member area leaves its members with no way to update their own profile, change email, or reset password.
+
+Customers must be able to **view AND edit** their own data — a read-only profile is not enough. A complete member area has four tabs:
+
+- [ ] Authentication gate (redirect to `/api/auth/login?returnToUrl=/member` if not logged in)
+- [ ] Logout via POST form (not a link — POST endpoint)
+- [ ] Hash-based tab state (`/member#profile`, `#personal`, `#orders`, `#account`) so tabs are deep-linkable and survive reload
+- [ ] **Profile tab (editable, `client:load` React)** — nickname, title/tagline, profile photo (upload + remove via `/api/profile-photo` server endpoint using `auth.elevate(files.generateFileUploadUrl)`), about/bio (saved as rich content via `membersAbout.updateMemberAbout` / `createMemberAbout`), privacy toggle (use `members.joinCommunity()` / `leaveCommunity()` — `updateMember` silently ignores `privacyStatus`)
+- [ ] **Personal Info tab (editable, `client:load` React)** — first/last name, company, job title, birthdate, phone (normalize to E.164 before save), full address (street, line 2, city, state/province, country, postal code)
+- [ ] **Orders tab (conditional — only if site has a store)** — order history with line item images (via `getImageUrl()`), quantities, prices, status badges (color-coded), totals. Server-rendered. Omit the tab entirely on non-store sites. Other feature-specific tabs follow the same pattern: Bookings tab if site has bookings, Subscriptions tab if site has pricing plans, etc.
+- [ ] **Account tab (`client:load` React)** — change login email (`authentication.changeLoginEmail`), send password reset email (`authentication.sendSetPasswordEmail`), change password inline (OAuthStrategy + loginV2 + getMemberTokensForDirectLogin + changePassword pattern). See [MEMBER_AREA.md](references/MEMBER_AREA.md) → "Change Password Pattern"
 
 ---
 

@@ -85,6 +85,36 @@ const result = await elevatedQuery().limit(10).find();
 const products = result.items; // GiftCardProduct[]
 ```
 
+## Conditional Gift Cards Nav Link (REQUIRED)
+
+⛔ **Do NOT render the Gift Cards nav link unconditionally.** Gift card products are managed separately in the Wix dashboard — if none are defined, the Gift Cards page renders an empty state and creates a dead-end link.
+
+**Always** build the Gift Cards page (so it's available once products are added), but gate its **nav link** on a live check in `Layout.astro`. This way the link auto-hides when no gift cards exist and auto-shows the moment any are defined — no code changes needed when the site owner adds/removes gift card products.
+
+```astro
+---
+// Layout.astro
+import { auth } from '@wix/essentials';
+import { giftVoucherProducts } from '@wix/gift-vouchers';
+
+let hasGiftCards = false;
+try {
+  const elevatedQuery = auth.elevate(giftVoucherProducts.queryGiftCardProducts);
+  const result = await elevatedQuery().limit(1).find();
+  hasGiftCards = (result.items?.length || 0) > 0;
+} catch {}
+
+const navLinks = [
+  { href: getRelativeLocaleUrl('/'), path: '/', label: t('nav.home') },
+  { href: getRelativeLocaleUrl('/store'), path: '/store', label: t('nav.store') },
+  ...(hasGiftCards ? [{ href: getRelativeLocaleUrl('/store/gift-cards'), path: '/store/gift-cards', label: t('nav.giftCards') }] : []),
+];
+---
+```
+
+⚠️ Use `limit(1)` — you only need to know if any exist, not fetch them all.
+⚠️ Wrap in try/catch so a failed query (e.g., Rise app not installed) doesn't break the entire layout.
+
 ## Adding to Cart & Checkout (eCommerce Flow)
 
 Gift cards are catalog items under the Rise app. Use `currentCart` exactly like regular products — **do NOT use `checkout.createCheckout` with custom line items**.

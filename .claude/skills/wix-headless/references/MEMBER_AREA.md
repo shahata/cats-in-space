@@ -285,9 +285,14 @@ const loginResponse = await wixClient.authentication.loginV2(
   { email: memberEmail },
   { password: currentPassword },
 );
+if (!loginResponse.sessionToken) {
+  // Wrong password — show a user-friendly message and stop.
+  setMessage("The current password you entered is incorrect.");
+  return;
+}
 
 // Authenticate client as the member
-const tokens = await wixClient.auth.getMemberTokensForDirectLogin(loginResponse.sessionToken!);
+const tokens = await wixClient.auth.getMemberTokensForDirectLogin(loginResponse.sessionToken);
 wixClient.auth.setTokens(tokens);
 
 // Change password
@@ -296,7 +301,27 @@ await wixClient.authentication.changePassword(newPassword);
 
 ⛔ **Breaks at runtime:** `OAuthStrategy` and `getMemberTokensForDirectLogin` use browser APIs (`window`, iframes) — this MUST run client-side. Server-side calls crash with `window is not defined`. → Put all `OAuthStrategy`/`changePassword` logic in a React `client:load` component.
 
-⛔ **Breaks at runtime:** Do NOT use `auth.elevate()` for `loginV2` or `changePassword` from `@wix/identity`. Elevation switches to app identity which either gets 403 or loses the member session context needed for password operations. → Create a standalone `WixClient` with `OAuthStrategy` client-side instead (see pattern below).
+⛔ **Breaks at runtime:** Do NOT use `auth.elevate()` for `loginV2` or `changePassword` from `@wix/identity`. Elevation switches to app identity which either gets 403 or loses the member session context needed for password operations. → Create a standalone `WixClient` with `OAuthStrategy` client-side instead.
+
+⚠️ **`loginV2` error messages are deliberately generic to prevent email enumeration.** On wrong password, the SDK throws with error code `UNKNOWN` (not `WRONG_LOGIN_ID_OR_PASSWORD`) — do NOT map on the code. Instead:
+1. Check `!loginResponse.sessionToken` first — if missing, show a "wrong password" message.
+2. In the catch block, string-match on `err.message` for `"password"`, `"invalid"`, or `"credentials"` and map any match to the same user-friendly message.
+3. Fall back to `err.message` for other failures, not to the code.
+
+```typescript
+catch (e) {
+  const msg = e instanceof Error ? e.message : "";
+  if (msg.toLowerCase().includes("password") ||
+      msg.toLowerCase().includes("invalid") ||
+      msg.toLowerCase().includes("credentials")) {
+    setMessage("The current password you entered is incorrect.");
+  } else {
+    setMessage(msg || "Something went wrong.");
+  }
+}
+```
+
+⚠️ **Do NOT add a timeout race / fallback "success" around `changePassword`.** Faking success on a hang shows "password updated" to the user while the password never actually changes — always surface the real error instead.
 
 ## General Patterns
 

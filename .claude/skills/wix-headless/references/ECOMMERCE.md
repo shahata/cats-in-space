@@ -41,7 +41,7 @@ When seeding products via API, populate ALL rich fields — not just name and pr
 
 **These must be added AFTER product creation (separate API calls):**
 
-- **Options/Variants** — Create customizations first (`POST /stores/v3/customizations`), then update the product to attach them (`POST /stores/v3/products/{id}/update-with-inventory`). This auto-generates variants. At least one product should have **multiple option types combined** (e.g., Color swatch + Size text → many variants at different prices). See `ECOMMERCE_V3.md` → "Recommended Product Seeding Workflow" Steps 5-6.
+- **Options/Variants** — Create customizations first (`POST /stores/v3/customizations`), then update the product to attach them (`PATCH /stores/v3/products-with-inventory/{id}`). This auto-generates variants. At least one product should have **multiple option types combined** (e.g., Color swatch + Size text → many variants at different prices). See `ECOMMERCE_V3.md` → "Recommended Product Seeding Workflow" Steps 5-6.
 - **`infoSections`** — Create info sections (`POST /stores/v3/info-sections`), then assign to products (`POST /stores/v3/bulk/products/add-info-sections`). They CANNOT be inlined in `createProduct`. See `ECOMMERCE_V3.md` → Steps 7-8.
 - **`modifiers`** — customization options like engraving text (`FREE_TEXT`), gift wrapping (`TEXT_CHOICES`), or color accents (`SWATCH_CHOICES`). Create as customizations, then attach to products.
 - **Categories** — Create categories, create products, then assign products to categories via `POST /categories/v1/bulk/categories/{id}/add-items`. See `ECOMMERCE_V3.md` → Step 9.

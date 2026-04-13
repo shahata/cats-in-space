@@ -1,5 +1,46 @@
 # Deployment
 
+## Preview vs Release — When to Use Each
+
+The right command depends on where you are in the project lifecycle.
+
+| Command | When | Effect |
+|---------|------|--------|
+| `npm run release` | **Initial generation only** — the first build that ships the user's requested pages | Publishes to the public site URL. Visible to all visitors. Required for features bound to the published origin (change-password, change-email via `loginV2`). |
+| `npm run preview` | **All iterations after initial generation** — edits, fixes, feature additions, content updates | Deploys to a unique preview URL (new URL each run). Safe — does not touch the public site. |
+| `npm run release` (iteration) | **Only when the user explicitly asks to "release", "publish", or "deploy live"** during iteration | Republishes to the public site URL. |
+
+### Initial generation
+
+When you finish the first build of a new site, run `npm run release` directly — do not stop at preview. The user expects a working live URL at the end of the first build.
+
+### Iterations
+
+For any change after the initial generation, default to `npm run preview`. A preview URL is reversible, free, and lets the user inspect before committing. Only run `npm run release` when the user explicitly asks to release/publish/deploy live.
+
+💡 **You may proactively suggest releasing** once an iteration is complete and tested — e.g., "The changes look good in preview. Want me to release them?" — but wait for a yes before running `npm run release` during iteration.
+
+## First-Time Generation: Release + Report Live URL + Dashboard URL
+
+When you complete the **initial generation** of a Wix headless site (the first build that ships all the user's requested pages):
+
+1. Run `npm run release` — not `npm run preview`. See the "Preview vs Release" table above for why.
+2. Surface exactly two URLs to the user:
+    - **Live site URL** — from the `release` output (or `.wix/topology.json` / `wix.config.json`). This is the public URL visitors see.
+    - **Dashboard URL** — `https://manage.wix.com/dashboard/<siteId>` (siteId from `wix.config.json`). Where the user manages products, bookings, members, content, etc.
+
+Do NOT report a preview URL on initial generation — it supersedes the live URL and confuses the handoff.
+
+**Why both URLs:** The user needs the live URL to inspect the site, and the dashboard URL to manage business data (add products, approve comments, etc.).
+
+## Subsequent Updates
+
+For every change after the initial generation:
+
+1. Default to `npm run preview` — emits a fresh preview URL; share that.
+2. Do not repeat the dashboard URL unless the user asks — they already have it from the first handoff.
+3. Only run `npm run release` on explicit user request. When release runs, share the live URL (not the preview URL).
+
 ## The 4-Step Deploy Sequence
 
 All four steps are mandatory, in this order. Do not skip any.
@@ -15,7 +56,9 @@ npm run build
 git add <files> && git commit -m "description of changes"
 
 # Step 4: Deploy
-npm run preview   # or: npm run release
+# - Initial generation of a new site: npm run release  (publish live)
+# - Iterations after initial generation: npm run preview  (unless user explicitly asks to release)
+npm run release   # OR: npm run preview — see "Preview vs Release" above for which one
 ```
 
 ### Why all steps matter
