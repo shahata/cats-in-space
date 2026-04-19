@@ -4,9 +4,7 @@ import type { cart as cartTypes } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 import type { productsV3 } from "@wix/stores";
 import { i18n } from "@wix/essentials";
-
-const STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
-const ECOM_PLATFORM_APP_ID = "1380b703-ce81-ff05-f115-39571d94dfcd";
+import { STORES_APP_ID, ECOM_PLATFORM_APP_ID } from "../utils/appIds";
 
 export interface ProductData {
   _id: string;

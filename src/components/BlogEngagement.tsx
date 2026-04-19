@@ -4,10 +4,10 @@ import { likes, posts } from "@wix/blog";
 import { comments as commentsApi } from "@wix/comments";
 import { members } from "@wix/members";
 import { httpClient, i18n } from "@wix/essentials";
+import { BLOG_APP_ID } from "../utils/appIds";
 
 type Comment = commentsApi.Comment;
 
-const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
 const BLOG_POST_FQDN = "wix.blog.v3.post";
 
 interface Props {

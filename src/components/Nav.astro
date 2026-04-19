@@ -17,23 +17,22 @@ try {
 	}
 } catch {}
 
-const links = [
-	{ href: getRelativeLocaleUrl('/'), path: '/', label: t('nav.home') },
-	{ href: getRelativeLocaleUrl('/blog'), path: '/blog', label: t('nav.blog') },
-	{ href: getRelativeLocaleUrl('/store'), path: '/store', label: t('nav.store') },
-	{ href: getRelativeLocaleUrl('/bookings'), path: '/bookings', label: t('nav.bookings') },
-	{ href: getRelativeLocaleUrl('/restaurant'), path: '/restaurant', label: t('nav.restaurant') },
-	{ href: getRelativeLocaleUrl('/cinema'), path: '/cinema', label: t('nav.cinema') },
-	{ href: getRelativeLocaleUrl('/plans'), path: '/plans', label: t('nav.plans') },
-];
-
 const exploreLinks = [
 	{ href: getRelativeLocaleUrl('/planets'), path: '/planets', label: t('nav.planets') },
 	{ href: getRelativeLocaleUrl('/crew'), path: '/crew', label: t('nav.crew') },
 	{ href: getRelativeLocaleUrl('/missions'), path: '/missions', label: t('nav.missions') },
 ];
 
-const isExploreActive = ['/planets', '/crew', '/missions'].some(p => currentPath === p || currentPath.startsWith(p + '/'));
+const facilitiesLinks = [
+	{ href: getRelativeLocaleUrl('/store'), path: '/store', label: t('nav.store') },
+	{ href: getRelativeLocaleUrl('/bookings'), path: '/bookings', label: t('nav.bookings') },
+	{ href: getRelativeLocaleUrl('/restaurant'), path: '/restaurant', label: t('nav.restaurant') },
+	{ href: getRelativeLocaleUrl('/cinema'), path: '/cinema', label: t('nav.cinema') },
+];
+
+const isPathActive = (path: string) => currentPath === path || currentPath.startsWith(path + '/');
+const isExploreActive = exploreLinks.some(l => isPathActive(l.path));
+const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 ---
 
 <nav class="nav">
@@ -60,7 +59,7 @@ const isExploreActive = ['/planets', '/crew', '/missions'].some(p => currentPath
 						{exploreLinks.map(link => (
 							<a
 								href={link.href}
-								class:list={['dropdown-item', { active: currentPath === link.path || currentPath.startsWith(link.path + '/') }]}
+								class:list={['dropdown-item', { active: isPathActive(link.path) }]}
 							>
 								{link.label}
 							</a>
@@ -68,14 +67,41 @@ const isExploreActive = ['/planets', '/crew', '/missions'].some(p => currentPath
 					</div>
 				</div>
 			</div>
-			{links.slice(1).map(link => (
-				<a
-					href={link.href}
-					class:list={['nav-link', { active: currentPath === link.path || (link.path !== '/' && currentPath.startsWith(link.path)) }]}
-				>
-					{link.label}
-				</a>
-			))}
+			<a
+				href={getRelativeLocaleUrl('/blog')}
+				class:list={['nav-link', { active: isPathActive('/blog') }]}
+			>
+				{t('nav.blog')}
+			</a>
+			<div class="nav-dropdown">
+				<button class:list={['nav-link nav-dropdown-trigger', { active: isFacilitiesActive }]} type="button">
+					{t('nav.facilities')} <span class="nav-caret">&#9662;</span>
+				</button>
+				<div class="nav-dropdown-menu">
+					<div class="nav-dropdown-menu-inner">
+						{facilitiesLinks.map(link => (
+							<a
+								href={link.href}
+								class:list={['dropdown-item', { active: isPathActive(link.path) }]}
+							>
+								{link.label}
+							</a>
+						))}
+					</div>
+				</div>
+			</div>
+			<a
+				href={getRelativeLocaleUrl('/plans')}
+				class:list={['nav-link', { active: isPathActive('/plans') }]}
+			>
+				{t('nav.plans')}
+			</a>
+			<a
+				href={getRelativeLocaleUrl('/research')}
+				class:list={['nav-link', { active: isPathActive('/research') }]}
+			>
+				{t('nav.research')}
+			</a>
 			<div class="auth-section">
 				{loggedInMember ? (
 					<div class="member-menu">
@@ -118,19 +144,26 @@ const isExploreActive = ['/planets', '/crew', '/missions'].some(p => currentPath
 		dropdown?.classList.toggle('member-dropdown-open');
 	});
 
-	const exploreDropdown = document.querySelector('.nav-dropdown');
-	const exploreMenu = document.querySelector('.nav-dropdown-menu');
-	let closeTimer: ReturnType<typeof setTimeout>;
-	exploreDropdown?.addEventListener('mouseenter', () => { clearTimeout(closeTimer); exploreMenu?.classList.add('nav-dropdown-open'); });
-	exploreDropdown?.addEventListener('mouseleave', () => { closeTimer = setTimeout(() => exploreMenu?.classList.remove('nav-dropdown-open'), 150); });
-	exploreDropdown?.querySelector('.nav-dropdown-trigger')?.addEventListener('click', (e) => {
-		e.stopPropagation();
-		exploreMenu?.classList.toggle('nav-dropdown-open');
+	const navDropdowns = document.querySelectorAll('.nav-dropdown');
+	const closeAllNavMenus = () => {
+		navDropdowns.forEach(d => d.querySelector('.nav-dropdown-menu')?.classList.remove('nav-dropdown-open'));
+	};
+	navDropdowns.forEach(d => {
+		const menu = d.querySelector('.nav-dropdown-menu');
+		let closeTimer: ReturnType<typeof setTimeout>;
+		d.addEventListener('mouseenter', () => { clearTimeout(closeTimer); closeAllNavMenus(); menu?.classList.add('nav-dropdown-open'); });
+		d.addEventListener('mouseleave', () => { closeTimer = setTimeout(() => menu?.classList.remove('nav-dropdown-open'), 150); });
+		d.querySelector('.nav-dropdown-trigger')?.addEventListener('click', (e) => {
+			e.stopPropagation();
+			const wasOpen = menu?.classList.contains('nav-dropdown-open');
+			closeAllNavMenus();
+			if (!wasOpen) menu?.classList.add('nav-dropdown-open');
+		});
 	});
 
 	document.addEventListener('click', () => {
 		dropdown?.classList.remove('member-dropdown-open');
-		exploreMenu?.classList.remove('nav-dropdown-open');
+		closeAllNavMenus();
 	});
 </script>
 

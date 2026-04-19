@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { currentCart } from "@wix/ecom";
 import { i18n } from "@wix/essentials";
-
-const RESTAURANTS_APP_ID = "9a5d83fd-8570-482e-81ab-cfa88942ee60";
+import { RESTAURANTS_APP_ID } from "../utils/appIds";
 
 interface Modifier {
   _id: string;

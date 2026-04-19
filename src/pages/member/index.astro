@@ -16,6 +16,16 @@ import type { members as membersTypes } from '@wix/members';
 import { orders } from '@wix/pricing-plans';
 import { orders as ecomOrders } from '@wix/ecom';
 import { getImageUrl } from '../../utils/image';
+import {
+	DONATIONS_APP_ID,
+	STORES_APP_ID,
+	ECOM_PLATFORM_APP_ID,
+	RESTAURANTS_APP_ID,
+	RISE_GIFT_CARDS_APP_ID,
+	EVENTS_APP_ID,
+	BOOKING_APP_ID,
+	PRICING_PLANS_APP_ID,
+} from '../../utils/appIds';
 
 let member: membersTypes.Member | null = null;
 try {
@@ -70,6 +80,19 @@ const ts = (status: string) => {
 };
 const statusColors = { APPROVED: '#4caf50', FULFILLED: '#4caf50', CANCELED: '#f44336', PARTIALLY_FULFILLED: '#ff9800', PENDING: '#2196f3' } as const;
 type StatusKey = keyof typeof statusColors;
+
+const itemTypes: Record<string, { key: string; color: string }> = {
+	[DONATIONS_APP_ID]: { key: 'member.itemTypeDonation', color: '#e91e63' },
+	[STORES_APP_ID]: { key: 'member.itemTypeStore', color: '#2196f3' },
+	[ECOM_PLATFORM_APP_ID]: { key: 'member.itemTypeStore', color: '#2196f3' },
+	[RESTAURANTS_APP_ID]: { key: 'member.itemTypeRestaurant', color: '#ff9800' },
+	[RISE_GIFT_CARDS_APP_ID]: { key: 'member.itemTypeGiftCard', color: '#9c27b0' },
+	[BOOKING_APP_ID]: { key: 'member.itemTypeMedicalBay', color: '#4caf50' },
+	[EVENTS_APP_ID]: { key: 'member.itemTypeCinema', color: '#673ab7' },
+	[PRICING_PLANS_APP_ID]: { key: 'member.itemTypePlan', color: '#00bcd4' },
+};
+const getItemType = (appId: string | undefined) =>
+	appId ? itemTypes[appId] ?? null : null;
 
 const tabs = [
 	{ id: 'profile', label: t('member.tabProfile'), icon: '&#9734;' },
@@ -147,22 +170,30 @@ const tabs = [
 									</div>
 
 									<div class="order-items">
-										{(sOrder.lineItems || []).map((li) => (
-											<div class="order-item">
-												<div class="order-item-img">
-													{getImageUrl(li.image, 80, 80) ? (
-														<img src={getImageUrl(li.image, 80, 80)!} alt={li.productName?.translated || li.productName?.original} />
-													) : (
-														<span class="order-item-emoji">&#128049;</span>
-													)}
+										{(sOrder.lineItems || []).map((li) => {
+											const type = getItemType(li.catalogReference?.appId);
+											return (
+												<div class="order-item">
+													<div class="order-item-img">
+														{getImageUrl(li.image, 80, 80) ? (
+															<img src={getImageUrl(li.image, 80, 80)!} alt={li.productName?.translated || li.productName?.original} />
+														) : (
+															<span class="order-item-emoji">&#128049;</span>
+														)}
+													</div>
+													<div class="order-item-info">
+														<div class="order-item-name-row">
+															<span class="order-item-name">{li.productName?.translated || li.productName?.original || 'Item'}</span>
+															{type && (
+																<span class="item-type-badge" style={`background: ${type.color}`}>{t(type.key)}</span>
+															)}
+														</div>
+														<span class="order-item-qty">x{li.quantity}</span>
+													</div>
+													<div class="order-item-price">{li.totalPriceAfterTax?.formattedAmount || li.price?.formattedAmount || ''}</div>
 												</div>
-												<div class="order-item-info">
-													<span class="order-item-name">{li.productName?.translated || li.productName?.original || 'Item'}</span>
-													<span class="order-item-qty">x{li.quantity}</span>
-												</div>
-												<div class="order-item-price">{li.totalPriceAfterTax?.formattedAmount || li.price?.formattedAmount || ''}</div>
-											</div>
-										))}
+											);
+										})}
 									</div>
 
 									<div class="sub-details">
@@ -613,6 +644,24 @@ const tabs = [
 		color: var(--accent-yellow);
 		font-weight: 600;
 		flex-shrink: 0;
+	}
+
+	.order-item-name-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.item-type-badge {
+		font-family: var(--font-heading);
+		font-size: 0.6rem;
+		letter-spacing: 1px;
+		padding: 2px 8px;
+		border-radius: 10px;
+		color: #fff;
+		text-transform: uppercase;
+		white-space: nowrap;
 	}
 
 	@media (max-width: 640px) {
