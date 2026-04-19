@@ -128,7 +128,35 @@ npm install @wix/blog        # Blog API
 npm install @wix/comments    # Comments API
 npm install @wix/ecom        # Cart, checkout, orders
 npm install @wix/redirects   # Redirect sessions (checkout, plans)
+npm install @wix/donations   # Donation campaigns
 ```
+
+## Dev Workflow Tips
+
+### Viewing the dev server on a phone / remote device
+
+`wix dev` binds to `localhost` only, so LAN access and tunnels are not available out of the box. Two things are needed:
+
+1. **Run a tunnel.** Quickest option with no signup:
+   ```bash
+   brew install cloudflared
+   cloudflared tunnel --url http://localhost:4321
+   ```
+   Prints a random `https://<slug>.trycloudflare.com` URL that forwards to your dev server.
+
+2. **Allow the tunnel host in Vite.** The Astro/Vite dev server rejects requests with `Blocked request. This host ("<slug>.trycloudflare.com") is not allowed.` Add the hostname to `vite.server.allowedHosts` in `astro.config.mjs`:
+   ```js
+   vite: {
+     server: {
+       allowedHosts: [".trycloudflare.com"],
+     },
+   },
+   ```
+   A leading dot matches any subdomain, so the config survives new tunnel URLs. Restart the dev server after editing `astro.config.mjs` for the change to take effect.
+
+### Excluding a file from Astro routing
+
+Files whose name starts with `_` under `src/pages/` are **not** routed — useful for shared components or ad-hoc helpers. If a temporary seeding/admin endpoint needs to be reachable, don't prefix it with `_`. Conversely, prefix one-off dev endpoints with `_` to keep them out of the route table without deleting the file.
 
 ## Translations Setup
 

@@ -46,6 +46,7 @@ Read the guide that matches your current task. Each guide is self-contained with
 | [BOOKINGS.md](references/BOOKINGS.md) | Services, staff, availability, booking flow |
 | [PRICING_PLANS.md](references/PRICING_PLANS.md) | Plans listing, checkout flow, subscriptions |
 | [GIFT_CARDS.md](references/GIFT_CARDS.md) | Gift card products, purchase flow, checkout integration |
+| [DONATIONS.md](references/DONATIONS.md) | Donation campaigns, cover image import, cart/checkout with `catalogReference`, donor notes via `buyerNote` |
 | [EVENTS_CINEMA.md](references/EVENTS_CINEMA.md) | Ticketed events, ticket definitions, cinema/seat selection |
 | [RESTAURANTS.md](references/RESTAURANTS.md) | Menus, items, modifiers, table reservations, online ordering |
 | [MEMBER_AREA.md](references/MEMBER_AREA.md) | Protected routes, tabbed dashboard, profile, orders, subscriptions, payment |
@@ -129,6 +130,19 @@ Before building any feature area, verify you will implement ALL items from the r
 - [ ] Success state after checkout redirect
 - [ ] Blog post gating — set `pricingPlanIds` on premium posts, render paywall for non-subscribers
 
+### Donations / Research Funding
+
+See [DONATIONS.md](references/DONATIONS.md) for the full flow — the Donations app is NOT installed by default and must be installed via `apps-installer-service` before any campaign API call will work.
+
+- [ ] Install Wix Donations app (one-time) and `npm install @wix/donations`
+- [ ] Seed campaigns with name, `donationFrequencies`, `campaignGoal.targetAmount`, at least one of `customAmountEnabled` / `predefinedDonationAmounts`, plus `commentsEnabled`, `askDonorCoverFee` as appropriate
+- [ ] Generate AI cover images, import via `/site-media/v1/files/import`, attach via REST PATCH with `fieldMask.paths: ["coverImage"]` (SDK `coverImage: string` disagrees with runtime object shape)
+- [ ] Listing page (e.g. `/research`) — card per campaign with progress bar (via `getDonationCampaignMetrics`), donor count, and inline donate UI
+- [ ] Donate component — preset/custom amount, frequency (if >1), donor-fee opt-in (if `askDonorCoverFee`), note textarea (if `commentsEnabled`); submit adds to cart with donation `catalogReference` → creates checkout → attaches note via `checkout.updateCheckout(id, { buyerNote })` if present → `createRedirectSession` with `preferences: { checkIfPublish: true }`
+- [ ] Thank-you page (e.g. `/research/thank-you`)
+- [ ] Graceful "no goal" UI: hide progress bar when `campaignGoal.targetAmount` is missing/0
+- [ ] Render-time compatibility: treat `coverImage` as `string | { id, url, ... } | undefined`
+
 ### Member Area
 
 **Required for EVERY site, not just stores.** The member area is the site's self-service dashboard — any Wix headless site supports members, and those members need somewhere to manage their own account regardless of whether the site sells products, publishes posts, takes bookings, or just offers a community. Build it even if the site is "just a blog" or "just bookings." A site without a member area leaves its members with no way to update their own profile, change email, or reset password.
@@ -140,7 +154,9 @@ Customers must be able to **view AND edit** their own data — a read-only profi
 - [ ] Hash-based tab state (`/member#profile`, `#personal`, `#orders`, `#account`) so tabs are deep-linkable and survive reload
 - [ ] **Profile tab (editable, `client:load` React)** — nickname, title/tagline, profile photo (upload + remove via `/api/profile-photo` server endpoint using `auth.elevate(files.generateFileUploadUrl)`), about/bio (saved as rich content via `membersAbout.updateMemberAbout` / `createMemberAbout`), privacy toggle (use `members.joinCommunity()` / `leaveCommunity()` — `updateMember` silently ignores `privacyStatus`)
 - [ ] **Personal Info tab (editable, `client:load` React)** — first/last name, company, job title, birthdate, phone (normalize to E.164 before save), full address (street, line 2, city, state/province, country, postal code)
-- [ ] **Orders tab (conditional — only if site has a store)** — order history with line item images (via `getImageUrl()`), quantities, prices, status badges (color-coded), totals. Server-rendered. Omit the tab entirely on non-store sites. Other feature-specific tabs follow the same pattern: Bookings tab if site has bookings, Subscriptions tab if site has pricing plans, etc.
+- [ ] **Orders tab (conditional — only if site has a store, donations, gift cards, or any eCom purchases)** — order history with line item images (via `getImageUrl()`), quantities, prices, status badges (color-coded), totals. Server-rendered. Omit only if NO eCom-backed features exist. Other feature-specific tabs follow the same pattern: Bookings tab if site has bookings, Subscriptions tab if site has pricing plans, etc.
+  - **Classify each line item** by `catalogReference.appId` — donations, store, restaurant, gift cards, bookings, events, pricing plans, and blog all flow through `ecomOrders.searchOrders`. Render a color-coded type badge per line item so members can tell donations apart from purchases. Centralize app IDs in `src/utils/appIds.ts` — see [SDK_CORE.md](references/SDK_CORE.md).
+  - **Pricing Plan subscriptions appear here too** because they go through eCom checkout. They're visible in both the Orders and Subscriptions tabs (intentionally) — badge them so users aren't confused.
 - [ ] **Account tab (`client:load` React)** — change login email (`authentication.changeLoginEmail`), send password reset email (`authentication.sendSetPasswordEmail`), change password inline (OAuthStrategy + loginV2 + getMemberTokensForDirectLogin + changePassword pattern). See [MEMBER_AREA.md](references/MEMBER_AREA.md) → "Change Password Pattern"
 
 ---

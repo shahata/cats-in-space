@@ -118,9 +118,9 @@ function extractMediaUrl(m: productsV3.ProductMedia | undefined, w = 800, h = 80
 { "url": "https://example.com/image.png", "mimeType": "image/png", "displayName": "my-image.png" }
 ```
 
-Returns `file.url` (wixstatic.com) — usable immediately even while `operationStatus` is `PENDING`.
+Returns `file.url` (wixstatic.com) — usable immediately even while `operationStatus` is `PENDING`. The response also gives you a WixMedia `file.id` like `4975b6_<hash>~mv2.png`.
 
-When setting images on entities via REST API, use the object format (`{ id, url, width, height }`). When reading them back via SDK, expect `wix:image://` strings.
+When setting images on entities via REST API, use the object format (`{ id, url, width, height, altText }`). When reading them back via SDK, expect `wix:image://` strings — but some entities (notably Donation campaigns) return the same `Image` **object** shape at runtime even though the SDK types call `coverImage: string`. Always verify the runtime shape of a new entity type before rendering. See [DONATIONS.md](DONATIONS.md) for an end-to-end example that imports a DALL-E URL and attaches it to a campaign.
 
 ---
 
@@ -163,7 +163,25 @@ curl -s -X POST "https://www.wixapis.com/runwareschemaless/v1/request" \
 
 ### OpenAI API (Fallback)
 
-If Runware is unavailable or for video generation, use OpenAI's APIs. You must ask the user to provide their OpenAI API key — do not attempt to find or guess it.
+If Runware is unavailable or for video generation, use OpenAI's APIs. You must ask the user to provide their OpenAI API key — do not attempt to find or guess it. Check for `OPENAI_API_KEY` in the shell environment first before prompting.
+
+**DALL-E 3 example** (returns short-lived public URLs — feed directly into `site-media/v1/files/import`):
+
+```bash
+curl -s -X POST https://api.openai.com/v1/images/generations \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "dall-e-3",
+    "prompt": "<cinematic concept-art prompt>",
+    "n": 1,
+    "size": "1792x1024",
+    "quality": "hd",
+    "response_format": "url"
+  }'
+```
+
+Response has `data[0].url` — a temporary (~1h) public URL on `oaidalleapiprodscus.blob.core.windows.net`. Import it into Wix Media immediately; don't persist.
 
 ### End-to-End Workflow
 

@@ -137,12 +137,36 @@ These are the most common runtime failures. Each is explained because understand
 | `getMember(id)` returns `Member` directly | Inconsistent with `getCurrentMember` — no wrapping |
 | `getMyMemberAbout()` returns `{ memberAbout }` (wrapped) | Wrapped |
 | `getMemberAbout(id)` returns `MemberAbout` directly | Not wrapped |
+| `getDonationCampaign` / `updateDonationCampaign` / `queryDonationCampaigns().find()` return the entity (or `items`) directly, not `{ donationCampaign }` | SDK unwraps even though REST wraps |
+| `updateDonationCampaign(id, partial)` — two positional args | Not a single `{ id, ... }` object like many other SDK updates |
+| `coverImage` on a `DonationCampaign` is typed as `string` but returns as `Image` object `{ id, url, width, height, altText }` at runtime | SDK types and runtime disagree. Handle both shapes when rendering; write via REST with object form |
+| REST PATCH fails with `INVALID_PATCH: missing hierarchies` when updating a nested field (e.g., `coverImage`) | The body MUST include `fieldMask: { paths: ["coverImage"] }` even though docs say "partial updates supported". The SDK sets this automatically; manual REST calls must include it |
+| `DONATIONS_APP_ID` not exported from `@wix/donations` | No SDK const — hardcode `"333b456e-dd48-4d6b-b32b-9fd48d74e163"` in `src/utils/appIds.ts` |
 
-💡 **Best practice** — Always use SDK methods over manual REST calls. SDK methods handle auth, types, and response shapes correctly. When one SDK method returns an object (e.g., `SlotAvailability`), pass it directly to the next method — don't reconstruct objects manually.
+💡 **Best practice** — Always use SDK methods over manual REST calls. SDK methods handle auth, types, and response shapes correctly. When one SDK method returns an object (e.g., `SlotAvailability`), pass it directly to the next method — don't reconstruct objects manually. Caveat: SDK types sometimes disagree with runtime shapes (see `coverImage` in the gotchas table) — if rendering breaks, log the actual shape and handle both.
 
 💡 **Best practice** — Use `httpClient.fetchWithAuth` from `@wix/essentials` only when no SDK method exists. Import from the main module, not a subpath.
 
 💡 **Best practice** — Many SDK query methods support two calling styles: a **builder form** `queryFoo(options).eq(...).find()` and a **two-argument form** `queryFoo(query, options)` that returns a `Promise` directly. **Prefer the two-argument form** — it avoids builder bugs (e.g., the categories builder sends an empty filter that causes `INVALID_FILTER`) and returns proper types without chaining. The response field is typically plural (`.categories`, `.orders`) not `.items`.
+
+💡 **Best practice — centralize app IDs in one file.** Every business app (Stores, Donations, Restaurants, Bookings, Events, Gift Cards, Pricing Plans, Blog) has an `appId` used in `catalogReference.appId` for cart/checkout and to classify order line items. Only a few are exposed via SDK imports — most are either hardcoded `const`s in private subpaths or not defined at all. Put them all in `src/utils/appIds.ts`:
+
+```ts
+// Only one is currently re-exported cleanly
+export { PRICING_PLANS_APP_ID } from '@wix/headless-pricing-plans/services';
+
+// The rest are not exported or live behind subpaths blocked by package `exports` maps
+export const DONATIONS_APP_ID = '333b456e-dd48-4d6b-b32b-9fd48d74e163';
+export const STORES_APP_ID = '215238eb-22a5-4c36-9e7b-e7c08025e04e';
+export const ECOM_PLATFORM_APP_ID = '1380b703-ce81-ff05-f115-39571d94dfcd';
+export const RESTAURANTS_APP_ID = '9a5d83fd-8570-482e-81ab-cfa88942ee60';
+export const RISE_GIFT_CARDS_APP_ID = 'd80111c5-a0f4-47a8-b63a-65b54d774a27';
+export const EVENTS_APP_ID = '140603ad-af8d-84a5-2c80-a0f60cb47351';
+export const BOOKING_APP_ID = '13d21c63-b5ec-5912-8397-c3a5ddb27a97';
+export const BLOG_APP_ID = '14bcded7-0066-7c35-14d7-466cb3f09103';
+```
+
+This is also how the member Orders tab can badge each line item by type — classify `lineItem.catalogReference.appId` against this map.
 
 ## TypeScript Conventions
 
