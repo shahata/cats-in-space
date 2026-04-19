@@ -67,12 +67,6 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 					</div>
 				</div>
 			</div>
-			<a
-				href={getRelativeLocaleUrl('/blog')}
-				class:list={['nav-link', { active: isPathActive('/blog') }]}
-			>
-				{t('nav.blog')}
-			</a>
 			<div class="nav-dropdown">
 				<button class:list={['nav-link nav-dropdown-trigger', { active: isFacilitiesActive }]} type="button">
 					{t('nav.facilities')} <span class="nav-caret">&#9662;</span>
@@ -91,16 +85,22 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 				</div>
 			</div>
 			<a
-				href={getRelativeLocaleUrl('/plans')}
-				class:list={['nav-link', { active: isPathActive('/plans') }]}
+				href={getRelativeLocaleUrl('/blog')}
+				class:list={['nav-link', { active: isPathActive('/blog') }]}
 			>
-				{t('nav.plans')}
+				{t('nav.blog')}
 			</a>
 			<a
 				href={getRelativeLocaleUrl('/research')}
 				class:list={['nav-link', { active: isPathActive('/research') }]}
 			>
 				{t('nav.research')}
+			</a>
+			<a
+				href={getRelativeLocaleUrl('/plans')}
+				class:list={['nav-link', { active: isPathActive('/plans') }]}
+			>
+				{t('nav.plans')}
 			</a>
 			<div class="auth-section">
 				{loggedInMember ? (
@@ -435,7 +435,8 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 			right: 0;
 			background: rgba(10, 10, 10, 0.98);
 			flex-direction: column;
-			padding: 12px 20px 20px;
+			align-items: stretch;
+			padding: 12px 12px 20px;
 			gap: 2px;
 			border-bottom: 1px solid #222;
 		}
@@ -447,6 +448,61 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 		.nav-link {
 			width: 100%;
 			padding: 12px 16px;
+			text-align: start;
+			border-radius: 6px;
+		}
+
+		.nav-link.active {
+			background: rgba(255, 102, 0, 0.1);
+			color: var(--accent);
+			border-inline-start: 3px solid var(--accent);
+			padding-inline-start: 13px;
+		}
+
+		.nav-dropdown {
+			width: 100%;
+		}
+
+		.nav-dropdown-trigger {
+			width: 100%;
+			justify-content: space-between;
+			cursor: default;
+		}
+
+		.nav-dropdown-trigger.active {
+			background: transparent;
+			color: var(--text-secondary);
+			border-inline-start: none;
+			padding-inline-start: 16px;
+		}
+
+		.nav-caret {
+			display: none;
+		}
+
+		.nav-dropdown-menu {
+			display: block;
+			position: static;
+			transform: none;
+			padding-top: 0;
+			min-width: 0;
+		}
+
+		.nav-dropdown-menu-inner {
+			background: transparent;
+			border: none;
+			padding: 0;
+			box-shadow: none;
+		}
+
+		.nav-dropdown-menu .dropdown-item {
+			padding: 10px 16px 10px 32px;
+			font-size: 0.8rem;
+		}
+
+		.nav-dropdown-menu .dropdown-item.active {
+			color: var(--accent);
+			background: rgba(255, 102, 0, 0.08);
 		}
 
 		.auth-section {
