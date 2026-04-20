@@ -2,82 +2,117 @@
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
-import { sections as sectionsApi, items as itemsApi, itemLabels } from '@wix/restaurants';
+import { sections as sectionsApi, items as itemsApi, itemLabels, menus as menusApi } from '@wix/restaurants';
 import { i18n, auth } from '@wix/essentials';
-import { getImageUrl } from '../../utils/image';
+import { getShapeUrl } from '../../utils/image';
 
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
+const elevatedQueryMenus = auth.elevate(menusApi.queryMenus);
+const menusResult = await elevatedQueryMenus().find();
+const allMenus = (menusResult.items || []).filter(m => m.visible !== false);
+
 const elevatedQuerySections = auth.elevate(sectionsApi.querySections);
 const sectionsResult = await elevatedQuerySections().find();
-// Deduplicate sections by name (may appear in multiple menus/locations)
-const seenNames = new Set<string>();
-const allSections = (sectionsResult.items || []).filter(s => {
-	if (!s.name || seenNames.has(s.name)) return false;
-	seenNames.add(s.name);
-	return true;
-});
+const allSections = sectionsResult.items || [];
+const sectionById = new Map(allSections.map(s => [s._id!, s]));
 
 const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
-const itemsResult = await elevatedQueryItems().limit(100).find();
+const itemsResult = await elevatedQueryItems().limit(200).find();
 const allItems = itemsResult.items || [];
+const itemById = new Map(allItems.map(i => [i._id!, i]));
 
-// Fetch label names by ID
+interface LabelInfo { name: string; icon: string | null }
 const elevatedListLabels = auth.elevate(itemLabels.listLabels);
-let labelMap = new Map<string, string>();
+const labelMap = new Map<string, LabelInfo>();
 try {
 	const labelsResult = await elevatedListLabels();
-	for (const label of (labelsResult as any)?.labels || []) {
-		if (label._id && label.name) labelMap.set(label._id, label.name);
+	for (const label of (labelsResult as { labels?: Array<{ _id?: string; name?: string; icon?: unknown }> })?.labels || []) {
+		if (label._id && label.name) {
+			labelMap.set(label._id, { name: label.name, icon: getShapeUrl(label.icon) });
+		}
 	}
 } catch {}
 
-function slugify(name: string): string {
-	return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+interface ItemDisplay {
+	_id: string;
+	name: string;
+	description: string;
+	price: string;
+	labels: LabelInfo[];
+}
+interface SectionDisplay {
+	_id: string;
+	name: string;
+	description: string;
+	items: ItemDisplay[];
+}
+interface MenuDisplay {
+	_id: string;
+	name: string;
+	description: string;
+	sections: SectionDisplay[];
 }
 
-function getItemImage(item: any): string | null {
-	const img = item.image;
-	if (!img) return null;
-	// image can be a plain URL string or an object with { url, id }
-	if (typeof img === 'string') return getImageUrl(img, 400, 400);
-	return getImageUrl(img.url || img.id, 400, 400);
+interface PriceSource {
+	priceVariants?: { variants?: Array<{ price?: string | null }> | null } | null;
+	priceInfo?: { price?: string | null } | null;
 }
+interface LabelSource { labels?: Array<{ id?: string | null; _id?: string | null }> | null }
 
-function getItemPrice(item: any): string {
+function formatPrice(item: PriceSource): string {
 	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
 	if (item.priceVariants?.variants?.length) {
-		const prices = item.priceVariants.variants.map((v: any) => parseFloat(v.price || '0'));
+		const prices = item.priceVariants.variants.map(v => parseFloat(v.price || '0'));
 		const min = Math.min(...prices);
 		const max = Math.max(...prices);
-		return min === max ? fmt(min) : `${fmt(min)} - ${fmt(max)}`;
+		return min === max ? fmt(min) : `${fmt(min)} – ${fmt(max)}`;
 	}
-	if (item.priceInfo?.price) {
-		return fmt(parseFloat(item.priceInfo.price));
-	}
+	if (item.priceInfo?.price) return fmt(parseFloat(item.priceInfo.price));
 	return '';
 }
 
-function getItemLabels(item: any): string[] {
-	return (item.labels || []).map((l: any) => labelMap.get(l.id) || '').filter(Boolean);
+function getItemLabels(item: LabelSource): LabelInfo[] {
+	return (item.labels || [])
+		.map(l => {
+			const id = l?.id || l?._id;
+			return id ? labelMap.get(id) : null;
+		})
+		.filter((l): l is LabelInfo => !!l);
 }
 
-function truncate(text: string | undefined | null, maxLen: number): string {
-	if (!text) return '';
-	return text.length > maxLen ? text.slice(0, maxLen) + '...' : text;
-}
-
-const sectionItemMap = new Map<string, any[]>();
-for (const section of allSections) {
-	const sectionId = section._id;
-	if (!sectionId) continue;
-	const sectionItemIds = section.itemIds || [];
-	const sectionItems = sectionItemIds
-		.map((id: string) => allItems.find((item: any) => item._id === id))
-		.filter(Boolean);
-	sectionItemMap.set(sectionId, sectionItems);
-}
+const menuDisplays: MenuDisplay[] = allMenus.map(menu => {
+	const sectionIds = menu.sectionIds || [];
+	const sections: SectionDisplay[] = sectionIds
+		.map(id => sectionById.get(id))
+		.filter((s): s is NonNullable<typeof s> => !!s && s.visible !== false)
+		.map(section => {
+			const items: ItemDisplay[] = (section.itemIds || [])
+				.map(id => itemById.get(id))
+				.filter((i): i is NonNullable<typeof i> => !!i && i.visible !== false)
+				.map(item => ({
+					_id: item._id!,
+					name: item.name || '',
+					description: item.description || '',
+					price: formatPrice(item as PriceSource),
+					labels: getItemLabels(item as LabelSource),
+				}));
+			return {
+				_id: section._id!,
+				name: section.name || '',
+				description: section.description || '',
+				items,
+			};
+		})
+		.filter(s => s.items.length > 0);
+	return {
+		_id: menu._id!,
+		name: menu.name || '',
+		description: menu.description || '',
+		sections,
+	};
+}).filter(m => m.sections.length > 0);
 ---
 
 <Layout title={`${t('restaurant.pageTitle')} - ${t('home.title')}`}>
@@ -86,110 +121,58 @@ for (const section of allSections) {
 		<div class="container">
 			<h1 class="section-title">{t('restaurant.pageTitle')}</h1>
 			<p class="section-subtitle">{t('restaurant.pageSubtitle')}</p>
-			<div class="hero-actions">
-				<a href="#menu" class="hero-btn hero-btn-primary">{t('restaurant.viewMenu')}</a>
-				<a href="/restaurant/reserve" class="hero-btn hero-btn-secondary">{t('restaurant.reserve')}</a>
-				<a href="/restaurant/order" class="hero-btn hero-btn-secondary">{t('restaurant.order')}</a>
-			</div>
 		</div>
 	</section>
 
-	<section class="menu-content" id="menu">
-		<div class="container">
-			{allSections.length > 0 && (
-				<div class="filter-tabs" id="filter-tabs">
-					{allSections.map((section, i: number) => (
-						<button class:list={['filter-tab', { active: i === 0 }]} data-section={section._id}>
-							{section.name}
-						</button>
-					))}
-				</div>
-			)}
-
-			<div class="menu-grid" id="menu-grid">
-				{allItems.map((item: any) => {
-					const img = getItemImage(item);
-					const sectionIds = allSections
-						.filter(s => (s.itemIds || []).includes(item._id))
-						.map(s => s._id)
-						.join(',');
-					const labels = getItemLabels(item);
-					const slug = slugify(item.name || '');
-
-					return (
-						<a href={`/restaurant/${slug}`} class="menu-card" data-sections={sectionIds}>
-							<div class="menu-card-image">
-								{img ? (
-									<img src={img} alt={item.name} loading="lazy" />
-								) : (
-									<div class="menu-card-placeholder">
-										<span>&#127869;</span>
-									</div>
-								)}
-								{labels.length > 0 && (
-									<div class="menu-card-labels">
-										{labels.map((label: string) => (
-											<span class="menu-label">{label}</span>
-										))}
-									</div>
-								)}
-							</div>
-							<div class="menu-card-info">
-								<h3 class="menu-card-name">{item.name}</h3>
-								<p class="menu-card-desc">{truncate(item.description, 80)}</p>
-								<div class="menu-card-price">{getItemPrice(item)}</div>
-							</div>
-						</a>
-					);
-				})}
-			</div>
-
-			{allItems.length === 0 && (
+	<section class="menu-content">
+		<div class="container menu-container">
+			{menuDisplays.length === 0 && (
 				<div class="empty-menu">
 					<p>{t('restaurant.noItems')}</p>
 				</div>
 			)}
+
+			{menuDisplays.map(menu => (
+				<article class="menu">
+					<header class="menu-header">
+						<h2 class="menu-name">{menu.name}</h2>
+						{menu.description && <p class="menu-desc">{menu.description}</p>}
+					</header>
+
+					{menu.sections.map(section => (
+						<section class="menu-section">
+							<h3 class="menu-section-name">{section.name}</h3>
+							{section.description && <p class="menu-section-desc">{section.description}</p>}
+							<ul class="dish-list">
+								{section.items.map(item => (
+									<li class="dish">
+										<div class="dish-head">
+											<h4 class="dish-name">{item.name}</h4>
+											<span class="dish-dots" aria-hidden="true"></span>
+											<span class="dish-price">{item.price}</span>
+										</div>
+										{item.description && <p class="dish-desc">{item.description}</p>}
+										{item.labels.length > 0 && (
+											<div class="dish-labels">
+												{item.labels.map(label => (
+													<span class="dish-label" title={label.name}>
+														{label.icon && <span class="dish-label-icon" style={`-webkit-mask-image:url(${label.icon});mask-image:url(${label.icon})`}></span>}
+														<span>{label.name}</span>
+													</span>
+												))}
+											</div>
+										)}
+									</li>
+								))}
+							</ul>
+						</section>
+					))}
+				</article>
+			))}
 		</div>
 	</section>
 	<Footer />
 </Layout>
-
-<script is:inline>
-	function filterBySection(sectionId) {
-		document.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
-		var activeTab = document.querySelector('.filter-tab[data-section="' + sectionId + '"]');
-		if (activeTab) activeTab.classList.add('active');
-
-		document.querySelectorAll('.menu-card').forEach(function(card) {
-			var ids = card.dataset.sections || '';
-			card.style.display = ids.indexOf(sectionId) !== -1 ? '' : 'none';
-		});
-
-		var url = new URL(window.location);
-		url.searchParams.set('section', sectionId);
-		history.replaceState(null, '', url);
-	}
-
-	document.addEventListener('click', function(e) {
-		var tab = e.target.closest('.filter-tab');
-		if (tab) {
-			filterBySection(tab.dataset.section);
-			return;
-		}
-	});
-
-	(function() {
-		var params = new URLSearchParams(window.location.search);
-		var section = params.get('section');
-		var target = section && document.querySelector('.filter-tab[data-section="' + section + '"]');
-		if (target) {
-			filterBySection(section);
-		} else {
-			var first = document.querySelector('.filter-tab');
-			if (first) filterBySection(first.dataset.section);
-		}
-	})();
-</script>
 
 <style>
 	.page-header {
@@ -197,173 +180,142 @@ for (const section of allSections) {
 		text-align: center;
 	}
 
-	.hero-actions {
-		display: flex;
-		gap: 12px;
-		justify-content: center;
-		margin-top: 24px;
-		flex-wrap: wrap;
-	}
-
-	.hero-btn {
-		padding: 12px 28px;
-		border-radius: 8px;
-		font-family: var(--font-heading);
-		font-size: 0.95rem;
-		letter-spacing: 1.5px;
-		text-decoration: none;
-		transition: all 0.2s;
-	}
-
-	.hero-btn-primary {
-		background: var(--accent);
-		color: #000;
-	}
-
-	.hero-btn-primary:hover {
-		background: #ff8533;
-		color: #000;
-	}
-
-	.hero-btn-secondary {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		color: var(--text-secondary);
-	}
-
-	.hero-btn-secondary:hover {
-		border-color: var(--accent);
-		color: var(--accent);
-	}
-
 	.menu-content {
-		padding-bottom: 60px;
+		padding-bottom: 80px;
 	}
 
-	.filter-tabs {
-		display: flex;
-		gap: 4px;
-		margin-bottom: 32px;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		padding: 6px;
-		width: fit-content;
+	.menu-container {
+		max-width: 800px;
 	}
 
-	.filter-tab {
-		padding: 10px 20px;
-		font-family: var(--font-heading);
-		font-size: 0.85rem;
-		letter-spacing: 1px;
-		color: var(--text-muted);
-		background: none;
-		border: none;
-		border-radius: 8px;
-		cursor: pointer;
-		transition: all 0.2s;
+	.menu {
+		margin-bottom: 72px;
 	}
 
-	.filter-tab:hover {
+	.menu-header {
+		text-align: center;
+		margin-bottom: 40px;
+		padding-bottom: 24px;
+		border-bottom: 2px solid var(--accent);
+	}
+
+	.menu-name {
+		font-family: var(--font-title);
+		font-size: 2.2rem;
+		color: var(--accent);
+		letter-spacing: 3px;
+		text-transform: uppercase;
+		text-shadow: 0 0 20px var(--accent-glow);
+	}
+
+	.menu-desc {
 		color: var(--text-secondary);
-		background: rgba(255, 255, 255, 0.03);
+		font-style: italic;
+		margin-top: 8px;
+		line-height: 1.5;
 	}
 
-	.filter-tab.active {
-		color: #000;
-		background: var(--accent);
+	.menu-section {
+		margin-bottom: 48px;
 	}
 
-	.menu-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-		gap: 24px;
-	}
-
-	.menu-card {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		overflow: hidden;
-		transition: all 0.2s;
-		text-decoration: none;
-		color: inherit;
-	}
-
-	.menu-card:hover {
-		border-color: var(--accent);
-		transform: translateY(-2px);
-		box-shadow: 0 8px 24px rgba(255, 102, 0, 0.1);
-		color: inherit;
-	}
-
-	.menu-card-image {
-		position: relative;
-		aspect-ratio: 4/3;
-		background: #111;
-		overflow: hidden;
-	}
-
-	.menu-card-image img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-
-	.menu-card-placeholder {
-		width: 100%;
-		height: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 3rem;
-		background: linear-gradient(135deg, #1a1a2e, #16213e);
-		opacity: 0.7;
-	}
-
-	.menu-card-labels {
-		position: absolute;
-		top: 10px;
-		inset-inline-start: 10px;
-		display: flex;
-		gap: 4px;
-		flex-wrap: wrap;
-		z-index: 1;
-	}
-
-	.menu-label {
-		background: var(--accent);
-		color: #000;
-		padding: 4px 10px;
-		border-radius: 6px;
+	.menu-section-name {
 		font-family: var(--font-heading);
-		font-size: 0.7rem;
-		letter-spacing: 1px;
+		font-size: 1.3rem;
+		color: var(--accent-yellow);
+		letter-spacing: 2px;
+		text-transform: uppercase;
+		margin-bottom: 4px;
 	}
 
-	.menu-card-info {
-		padding: 16px;
+	.menu-section-desc {
+		color: var(--text-muted);
+		font-size: 0.85rem;
+		font-style: italic;
+		margin-bottom: 20px;
 	}
 
-	.menu-card-name {
+	.dish-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 22px;
+	}
+
+	.dish {
+		color: var(--text-primary);
+	}
+
+	.dish-head {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+	}
+
+	.dish-name {
 		font-family: var(--font-heading);
-		font-size: 1.05rem;
+		font-size: 1rem;
 		color: var(--text-primary);
 		letter-spacing: 0.5px;
-		margin-bottom: 6px;
+		flex-shrink: 0;
 	}
 
-	.menu-card-desc {
-		font-size: 0.8rem;
-		color: var(--text-muted);
-		line-height: 1.4;
-		margin-bottom: 8px;
+	.dish-dots {
+		flex: 1;
+		border-bottom: 1px dotted #444;
+		margin: 0 6px 4px;
+		min-width: 20px;
 	}
 
-	.menu-card-price {
-		font-size: 1.1rem;
-		font-weight: 700;
+	.dish-price {
+		font-family: var(--font-heading);
+		font-size: 1rem;
 		color: var(--accent-yellow);
+		letter-spacing: 0.5px;
+		flex-shrink: 0;
+	}
+
+	.dish-desc {
+		color: var(--text-muted);
+		font-size: 0.85rem;
+		line-height: 1.5;
+		margin-top: 4px;
+		padding-inline-end: 48px;
+	}
+
+	.dish-labels {
+		display: flex;
+		gap: 6px;
+		flex-wrap: wrap;
+		margin-top: 6px;
+	}
+
+	.dish-label {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-family: var(--font-heading);
+		font-size: 0.65rem;
+		padding: 2px 8px;
+		background: rgba(255, 102, 0, 0.1);
+		color: var(--accent);
+		border-radius: 999px;
+		letter-spacing: 1px;
+	}
+
+	.dish-label-icon {
+		display: inline-block;
+		width: 14px;
+		height: 14px;
+		background-color: var(--accent);
+		-webkit-mask-repeat: no-repeat;
+		mask-repeat: no-repeat;
+		-webkit-mask-size: contain;
+		mask-size: contain;
+		-webkit-mask-position: center;
+		mask-position: center;
 	}
 
 	.empty-menu {
@@ -373,25 +325,12 @@ for (const section of allSections) {
 	}
 
 	@media (max-width: 640px) {
-		.menu-grid {
-			grid-template-columns: repeat(2, 1fr);
-			gap: 12px;
+		.menu-name {
+			font-size: 1.7rem;
 		}
 
-		.filter-tabs {
-			overflow-x: auto;
-			width: 100%;
-		}
-
-		.filter-tab {
-			white-space: nowrap;
-			font-size: 0.75rem;
-			padding: 8px 14px;
-		}
-
-		.hero-actions {
-			flex-direction: column;
-			align-items: center;
+		.dish-desc {
+			padding-inline-end: 0;
 		}
 	}
 </style>

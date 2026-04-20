@@ -7,16 +7,25 @@ import { reservationLocations } from '@wix/table-reservations';
 import { members } from '@wix/members';
 import { i18n, auth } from '@wix/essentials';
 
+type ReservationLocation = reservationLocations.ReservationLocation;
+type TimePeriod = NonNullable<NonNullable<NonNullable<ReservationLocation['configuration']>['onlineReservations']>['businessSchedule']>['periods'] extends (infer P)[] | null | undefined ? P : never;
+
 const t = i18n.getTranslationFunction();
 
 let locationId = '';
+let businessSchedule: TimePeriod[] = [];
+let timeSlotInterval = 15;
 try {
-	const elevatedQuery = auth.elevate(reservationLocations.listReservationLocations);
-	const result = await elevatedQuery();
-	const locations = result.reservationLocations || [];
-	if (locations.length > 0 && locations[0]) {
-		const loc = locations[0] as any;
-		locationId = loc._id || loc.id || '';
+	const elevatedList = auth.elevate(reservationLocations.listReservationLocations);
+	const list = await elevatedList();
+	const first = (list.reservationLocations || [])[0];
+	if (first?._id) {
+		locationId = first._id;
+		const elevatedGet = auth.elevate(reservationLocations.getReservationLocation);
+		const location = await elevatedGet(first._id);
+		const onlineRes = location.configuration?.onlineReservations;
+		businessSchedule = onlineRes?.businessSchedule?.periods || [];
+		timeSlotInterval = onlineRes?.timeSlotInterval || 15;
 	}
 } catch {}
 
@@ -49,6 +58,8 @@ try {
 			<div class="reserve-wrapper">
 				<ReservationFlow
 					reservationLocationId={locationId}
+					businessSchedule={businessSchedule}
+					timeSlotInterval={timeSlotInterval}
 					{...(memberName ? { defaultName: memberName } : {})}
 					{...(memberEmail ? { defaultEmail: memberEmail } : {})}
 					{...(memberPhone ? { defaultPhone: memberPhone } : {})}

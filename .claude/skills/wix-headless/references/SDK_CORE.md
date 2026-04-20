@@ -149,13 +149,10 @@ These are the most common runtime failures. Each is explained because understand
 
 💡 **Best practice** — Many SDK query methods support two calling styles: a **builder form** `queryFoo(options).eq(...).find()` and a **two-argument form** `queryFoo(query, options)` that returns a `Promise` directly. **Prefer the two-argument form** — it avoids builder bugs (e.g., the categories builder sends an empty filter that causes `INVALID_FILTER`) and returns proper types without chaining. The response field is typically plural (`.categories`, `.orders`) not `.items`.
 
-💡 **Best practice — centralize app IDs in one file.** Every business app (Stores, Donations, Restaurants, Bookings, Events, Gift Cards, Pricing Plans, Blog) has an `appId` used in `catalogReference.appId` for cart/checkout and to classify order line items. Only a few are exposed via SDK imports — most are either hardcoded `const`s in private subpaths or not defined at all. Put them all in `src/utils/appIds.ts`:
+💡 **Best practice — centralize app IDs in one file.** Every business app (Stores, Donations, Restaurants, Bookings, Events, Gift Cards, Pricing Plans, Blog) has an `appId` used in `catalogReference.appId` for cart/checkout and to classify order line items. None of these are cleanly re-exported from a public SDK entry point — they're either hardcoded `const`s inside private subpaths blocked by `exports` maps, or not defined at all. Put them all in `src/utils/appIds.ts`:
 
 ```ts
-// Only one is currently re-exported cleanly
-export { PRICING_PLANS_APP_ID } from '@wix/headless-pricing-plans/services';
-
-// The rest are not exported or live behind subpaths blocked by package `exports` maps
+export const PRICING_PLANS_APP_ID = '1522827f-c56c-a5c9-2ac9-00f9e6ae12d3';
 export const DONATIONS_APP_ID = '333b456e-dd48-4d6b-b32b-9fd48d74e163';
 export const STORES_APP_ID = '215238eb-22a5-4c36-9e7b-e7c08025e04e';
 export const ECOM_PLATFORM_APP_ID = '1380b703-ce81-ff05-f115-39571d94dfcd';
@@ -172,9 +169,72 @@ This is also how the member Orders tab can badge each line item by type — clas
 
 - Use `astro/tsconfigs/strictest` — use `?? null` (not `|| undefined`) for optional properties typed as `string | null`
 - Always prefer SDK types (`cart.LineItem`, `productsV3.ProductMedia`, etc.) over `Record<string, unknown>`
-- Import types: `import type { cart as cartTypes } from '@wix/ecom'`
+- Import types: `import type { cart as cartTypes } from '@wix/ecom'` or via namespace: `type TimeSlot = timeSlots.TimeSlot`
 - ⛔ **Never use `any`, `any[]`, `as any`, `as unknown as`, or `Record<string, any>`** — the ESLint `no-explicit-any` rule enforces this at build time. If a type error appears, fix the field access to match the SDK type — don't suppress the error. A type error means the code will crash at runtime.
+- ⛔ **Never write custom interfaces that mirror SDK types** (e.g., a local `interface TimeSlotInfo { startDate: string; status: string }` when `timeSlots.TimeSlot` exists). Using SDK types directly keeps your code in sync with API changes and surfaces real bugs — a custom mirror hides the fact that, e.g., `startDate` is `Date | null` not `string`, and that misalignment eventually crashes.
 - Use `as Function` (not `as any`) for SDK overload workarounds
+
+### `exactOptionalPropertyTypes` — don't pass explicit `undefined`
+
+The strictest tsconfig enables `exactOptionalPropertyTypes: true`. Under this rule, a field typed as `string | null` (optional but NOT `| undefined`) rejects an explicit `undefined`:
+
+```typescript
+reservation.teamMessage = specialRequests || undefined;  // ❌ type error
+```
+
+Instead, conditionally assign only when you have a value:
+
+```typescript
+if (specialRequests) reservation.teamMessage = specialRequests;  // ✅
+```
+
+This is more correct semantically — an omitted field means "don't send / don't update", not "send the literal value `undefined`".
+
+## SSR + React hydration (`client:load` vs `client:only`)
+
+Any React component mounted with `client:load` is **rendered on the server** (as part of the Astro SSR pass) and then **re-rendered and hydrated on the client**. If the two renders produce different HTML, React 18 throws:
+
+```
+Warning: Expected server HTML to contain a matching <div> in <astro-island>.
+Uncaught Error: Hydration failed because the initial UI does not match what was rendered on the server.
+```
+
+### Common sources of mismatch
+
+1. **Non-deterministic values at render time** — `new Date()`, `Math.random()`, `Date.now()`, any read of `window`, `document`, `localStorage`, `navigator.language`. Server and client compute these independently; values diverge at midnight boundaries, across timezones, or because `window` is simply undefined during SSR.
+
+2. **SDK calls that resolve differently on server vs client** — e.g., `multilingual.listSupportedLanguages()`, which returns client-side site config; `i18n.getLanguage()` in some contexts; anything that depends on runtime browser state.
+
+3. **Conditional rendering gated by browser APIs** — `typeof window !== "undefined" && window.location.pathname.includes(...)` evaluates false during SSR and true on the client. Anything that affects the rendered output (className, role, attributes, children) based on this will mismatch.
+
+### Two fixes, pick the right one
+
+- **Pattern A — `client:only="react"`** — skip SSR entirely for this island. The component renders nothing on the server; React takes over on mount. Use when the component's entire purpose is client-side interaction and SEO doesn't need the content (dropdowns, modals, interactive widgets, anything reading `multilingual` / `window` / browser APIs). Example: `<LanguageSwitcher client:only="react" />`.
+- **Pattern B — `useEffect` to populate non-deterministic state** — initialize state with a deterministic value (empty string, `null`), then set real values in `useEffect(() => {...}, [])`. Server and client both render the empty/null state initially; the client populates after mount. Use when the component *has* useful SSR content aside from the non-deterministic bit. Example: a date picker defaulting to tomorrow:
+
+```typescript
+const [selectedDate, setSelectedDate] = useState("");
+const [minDate, setMinDate] = useState("");
+useEffect(() => {
+  const iso = (offset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().split("T")[0]!;
+  };
+  const min = iso(1);
+  setMinDate(min);
+  setSelectedDate((prev) => prev || min);
+}, []);
+```
+
+⛔ **Do NOT** default `useState(new Date()...)` — initializers run during both renders with different values, guaranteeing a mismatch.
+
+### Where mismatches usually crop up
+
+- Language/locale switchers, theme toggles (read browser or site config)
+- Date/time inputs defaulted to "today" or "tomorrow"
+- Any client component that varies output by `window.location.pathname` / `window.matchMedia` / `userAgent`
+- Cart or wishlist badges that initialize from `localStorage` synchronously in `useState`
 
 ### Never render SDK objects directly in Astro templates
 

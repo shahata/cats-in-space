@@ -45,6 +45,29 @@ export function extractMediaUrl(m: productsV3.ProductMedia | undefined, width = 
 }
 
 /**
+ * Converts a Wix shape identifier (SVG icons, e.g., menu item label icons)
+ * to a displayable URL via @wix/sdk `media.getShapeUrl`. Accepts plain URLs,
+ * `wix:shape://...` URIs, or raw shape IDs.
+ */
+export function getShapeUrl(icon: unknown): string | null {
+  if (!icon) return null;
+  if (typeof icon === 'string') {
+    if (icon.startsWith('http')) return icon;
+    try {
+      return media.getShapeUrl(icon)?.url || null;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof icon === 'object') {
+    const o = icon as { url?: string; id?: string };
+    if (o.url?.startsWith('http')) return o.url;
+    if (o.id) return getShapeUrl(o.id);
+  }
+  return null;
+}
+
+/**
  * Converts a Wix image identifier to a displayable URL.
  * Uses the official @wix/sdk media helpers.
  * Supports wix:image:// strings, media IDs, and regular URLs.

@@ -177,12 +177,20 @@ function renderSeoTag(tag: Tag): string {
 	.cs-empty a { color: var(--accent); font-family: var(--font-heading); letter-spacing: 1px; text-decoration: none; }
 	.cs-items { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
 	.cs-item { display: flex; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid #1a1a1a; }
+	.cs-item-clickable { cursor: pointer; border-radius: 8px; padding: 8px; margin: -8px -8px calc(16px - 8px); transition: background 0.15s; }
+	.cs-item-clickable:hover { background: rgba(255, 102, 0, 0.05); }
 	.cs-item-img { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: #1a1a2e; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 	.cs-item-img img { width: 100%; height: 100%; object-fit: cover; }
 	.cs-item-placeholder { font-size: 2rem; }
 	.cs-item-details { flex: 1; min-width: 0; }
 	.cs-item-name { font-family: var(--font-heading); font-size: 0.9rem; color: var(--text-primary); letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.cs-item-options { font-size: 0.75rem; color: #666; margin-top: 2px; }
+	.cs-item-option-tags { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+	.cs-item-option-tag { font-size: 0.7rem; color: var(--accent); background: rgba(33, 150, 243, 0.1); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(33, 150, 243, 0.2); align-self: flex-start; }
+	.cs-item-mods { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+	.cs-mod-group { display: flex; flex-direction: column; gap: 2px; }
+	.cs-mod-group-name { font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); }
+	.cs-mod-row { font-size: 0.72rem; color: var(--text-muted); padding-left: 10px; }
 	.cs-item-price { font-size: 0.85rem; color: var(--accent-yellow); font-weight: 700; margin-top: 4px; }
 	.cs-item-qty { display: flex; align-items: center; gap: 0; margin-top: 6px; }
 	.cs-qty-btn { width: 26px; height: 26px; background: #1a1a1a; border: 1px solid #333; color: var(--text-secondary); font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }

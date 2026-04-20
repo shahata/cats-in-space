@@ -77,7 +77,20 @@ Add a small delay (~150ms) before closing hover dropdowns to prevent flicker whe
 
 ### Language Switcher
 
-Build as a React `client:load` component (not Astro) because `lang.url` is only populated client-side:
+Build as a React component and mount it with **`client:only="react"`** (NOT `client:load`). The switcher calls `multilingual.listSupportedLanguages()` which returns different data on the server (empty or partial) than on the client (the site's full language list). If Astro SSRs the component with `client:load`, the server-rendered HTML will mismatch what React builds at hydration, and React 18 throws:
+
+```
+Warning: Expected server HTML to contain a matching <div> in <astro-island>.
+Uncaught Error: Hydration failed because the initial UI does not match what was rendered on the server.
+```
+
+`client:only` skips SSR for this island entirely — the switcher renders blank on the server and React takes over on mount. That's the right trade-off here because the component is purely client-interactive (dropdown open/close) and its data isn't available at SSR time anyway.
+
+```astro
+<LanguageSwitcher variant="dropdown" client:only="react" />
+```
+
+The component itself:
 
 ```tsx
 import { multilingual } from "@wix/site";

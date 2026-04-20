@@ -5,7 +5,10 @@ import Footer from '../../components/Footer.astro';
 import DishCustomizer from '../../components/DishCustomizer';
 import { items as itemsApi, itemLabels, itemVariants } from '@wix/restaurants';
 import { i18n, auth } from '@wix/essentials';
-import { getImageUrl } from '../../utils/image';
+import { getImageUrl, getShapeUrl } from '../../utils/image';
+
+type Item = itemsApi.Item;
+type Label = itemLabels.Label;
 
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
@@ -19,47 +22,45 @@ function slugify(name: string): string {
 
 const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
 const itemsResult = await elevatedQueryItems().limit(100).find();
-const allItems = itemsResult.items || [];
+const allItems: Item[] = itemsResult.items || [];
 
-const item = allItems.find((i: any) => slugify(i.name || '') === slug) as any;
+const item = allItems.find(i => slugify(i.name || '') === slug);
 if (!item) return Astro.redirect('/restaurant');
 
-// Resolve image (can be string URL or object)
-const rawImg = item.image;
-const img = rawImg ? getImageUrl(typeof rawImg === 'string' ? rawImg : (rawImg.url || rawImg.id), 800, 600) : null;
+const img = getImageUrl(item.image, 800, 600);
 
-// Resolve label names
+interface LabelInfo { name: string; icon: string | null }
 const elevatedListLabels = auth.elevate(itemLabels.listLabels);
-let labelMap = new Map<string, string>();
+const labelMap = new Map<string, LabelInfo>();
 try {
 	const labelsResult = await elevatedListLabels();
-	for (const label of (labelsResult as any)?.labels || []) {
-		if (label._id && label.name) labelMap.set(label._id, label.name);
+	for (const label of labelsResult.labels || []) {
+		if (label._id && label.name) labelMap.set(label._id, { name: label.name, icon: getShapeUrl(label.icon) });
 	}
 } catch {}
-const labels = (item.labels || []).map((l: any) => labelMap.get(l.id) || '').filter(Boolean);
+const labels: LabelInfo[] = (item.labels || [])
+	.map((l: Label) => (l._id ? labelMap.get(l._id) : undefined))
+	.filter((l): l is LabelInfo => !!l);
 
-// Resolve variant IDs to names
-let variantMap = new Map<string, string>();
+const variantMap = new Map<string, string>();
 try {
 	const elevatedListVariants = auth.elevate(itemVariants.listVariants);
 	const variantsResult = await elevatedListVariants();
-	for (const v of (variantsResult as any)?.variants || []) {
+	for (const v of variantsResult.variants || []) {
 		if (v._id && v.name) variantMap.set(v._id, v.name);
 	}
 } catch {}
 
-function getItemPrice(item: any): string {
+function getItemPrice(it: Item): string {
 	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
-	if (item.priceVariants?.variants?.length) {
-		const prices = item.priceVariants.variants.map((v: any) => parseFloat(v.price || '0'));
+	const variants = it.priceVariants?.variants;
+	if (variants?.length) {
+		const prices = variants.map(v => parseFloat(v.priceInfo?.price || v.price || '0'));
 		const min = Math.min(...prices);
 		const max = Math.max(...prices);
 		return min === max ? fmt(min) : `${fmt(min)} - ${fmt(max)}`;
 	}
-	if (item.priceInfo?.price) {
-		return fmt(parseFloat(item.priceInfo.price));
-	}
+	if (it.priceInfo?.price) return fmt(parseFloat(it.priceInfo.price));
 	return '';
 }
 
@@ -67,22 +68,12 @@ const dishData = {
 	_id: item._id || '',
 	name: item.name || '',
 	price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency: 'USD' } : null,
-	priceVariants: item.priceVariants?.variants?.map((v: any) => ({
-		_id: v.variantId || v._id || '',
-		name: variantMap.get(v.variantId || v._id || '') || v.name || '',
-		price: { amount: v.price || '0', currency: 'USD' },
-	})) || [],
-	modifierGroups: (item.modifierGroups || []).map((g: any) => ({
-		_id: g._id || '',
-		name: g.name || '',
-		minChoices: g.minChoices || 0,
-		maxChoices: g.maxChoices || 0,
-		modifiers: (g.modifiers || []).map((m: any) => ({
-			_id: m._id || '',
-			name: m.name || '',
-			additionalPrice: m.additionalPrice ? { amount: m.additionalPrice || '0' } : null,
-		})),
+	priceVariants: (item.priceVariants?.variants || []).map(v => ({
+		_id: v.variantId || '',
+		name: (v.variantId && variantMap.get(v.variantId)) || '',
+		price: { amount: v.priceInfo?.price || v.price || '0', currency: 'USD' },
 	})),
+	modifierGroups: [],
 };
 ---
 
@@ -108,8 +99,11 @@ const dishData = {
 				<div class="dish-details">
 					{labels.length > 0 && (
 						<div class="dish-labels">
-							{labels.map((label: string) => (
-								<span class="dish-label">{label}</span>
+							{labels.map(label => (
+								<span class="dish-label" title={label.name}>
+									{label.icon && <span class="dish-label-icon" style={`-webkit-mask-image:url(${label.icon});mask-image:url(${label.icon})`}></span>}
+									<span>{label.name}</span>
+								</span>
 							))}
 						</div>
 					)}
@@ -193,6 +187,9 @@ const dishData = {
 	}
 
 	.dish-label {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
 		background: var(--accent);
 		color: #000;
 		padding: 4px 10px;
@@ -200,6 +197,19 @@ const dishData = {
 		font-family: var(--font-heading);
 		font-size: 0.7rem;
 		letter-spacing: 1px;
+	}
+
+	.dish-label-icon {
+		display: inline-block;
+		width: 14px;
+		height: 14px;
+		background-color: #000;
+		-webkit-mask-repeat: no-repeat;
+		mask-repeat: no-repeat;
+		-webkit-mask-size: contain;
+		mask-size: contain;
+		-webkit-mask-position: center;
+		mask-position: center;
 	}
 
 	.dish-title {

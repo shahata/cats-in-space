@@ -1,34 +1,51 @@
 "use client";
-import React, { useState } from "react";
-import { reservations, timeSlots } from "@wix/table-reservations";
+import React, { useState, useEffect, useMemo } from "react";
+import { reservations, reservationLocations, timeSlots } from "@wix/table-reservations";
 import { redirects } from "@wix/redirects";
 import { i18n } from "@wix/essentials";
 
+type TimeSlot = timeSlots.TimeSlot;
+type Reservation = reservations.Reservation;
+type ReservationLocation = reservationLocations.ReservationLocation;
+type TimePeriod = NonNullable<NonNullable<NonNullable<ReservationLocation["configuration"]>["onlineReservations"]>["businessSchedule"]>["periods"] extends (infer P)[] | null | undefined ? P : never;
+
+const DAY_BY_INDEX = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"] as const;
+
 interface Props {
   reservationLocationId: string;
+  businessSchedule: TimePeriod[];
+  timeSlotInterval: number;
   defaultName?: string;
   defaultEmail?: string;
   defaultPhone?: string;
 }
 
-interface TimeSlotInfo {
-  startDate: string;
-  status: string;
-  duration: number;
-}
+type Step = "search" | "details" | "confirm";
 
-type Step = "search" | "slots" | "details" | "confirm";
-
-export default function ReservationFlow({ reservationLocationId, defaultName, defaultEmail, defaultPhone }: Props) {
+export default function ReservationFlow({ reservationLocationId, businessSchedule, timeSlotInterval, defaultName, defaultEmail, defaultPhone }: Props) {
   const t = i18n.getTranslationFunction();
   const locale = i18n.getLocale();
 
   const [step, setStep] = useState<Step>("search");
   const [partySize, setPartySize] = useState(2);
   const [selectedDate, setSelectedDate] = useState("");
+  const [minDate, setMinDate] = useState("");
+  const [maxDate, setMaxDate] = useState("");
   const [selectedHour, setSelectedHour] = useState("19:00");
-  const [availableSlots, setAvailableSlots] = useState<TimeSlotInfo[]>([]);
-  const [chosenSlot, setChosenSlot] = useState<TimeSlotInfo | null>(null);
+
+  useEffect(() => {
+    const isoDate = (offset: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      return d.toISOString().split("T")[0]!;
+    };
+    const min = isoDate(1);
+    setMinDate(min);
+    setMaxDate(isoDate(30));
+    setSelectedDate((prev) => prev || min);
+  }, []);
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
+  const [chosenSlot, setChosenSlot] = useState<TimeSlot | null>(null);
   const [guestName, setGuestName] = useState(defaultName || "");
   const [guestEmail, setGuestEmail] = useState(defaultEmail || "");
   const [guestPhone, setGuestPhone] = useState(defaultPhone || "");
@@ -37,22 +54,36 @@ export default function ReservationFlow({ reservationLocationId, defaultName, de
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const hours = Array.from({ length: 13 }, (_, i) => {
-    const h = 11 + i;
-    return `${h.toString().padStart(2, "0")}:00`;
-  });
+  const hours = useMemo(() => {
+    if (!selectedDate || businessSchedule.length === 0) return [];
+    const day = DAY_BY_INDEX[new Date(`${selectedDate}T12:00:00`).getDay()];
+    const minutes = new Set<number>();
+    // The picker is a rough starting point; the API returns fine-grained slots around it.
+    // Step at 60 min (or the location's interval if coarser) to keep the dropdown short.
+    const step = Math.max(60, timeSlotInterval);
+    for (const period of businessSchedule) {
+      if (period.openDay !== day) continue;
+      const [openH, openM] = (period.openTime || "00:00").split(":").map(Number);
+      const [closeH, closeM] = (period.closeTime || "24:00").split(":").map(Number);
+      const start = (openH ?? 0) * 60 + (openM ?? 0);
+      const endsNextDay = period.closeDay && period.closeDay !== day;
+      // Same-day periods: `closeTime` is the last allowed reservation start — include it.
+      // Cross-day periods: stop before midnight of the start day.
+      const end = endsNextDay ? 24 * 60 - 1 : (closeH ?? 0) * 60 + (closeM ?? 0);
+      for (let m = start; m <= end; m += step) minutes.add(m);
+    }
+    return [...minutes]
+      .sort((a, b) => a - b)
+      .map(m => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }, [selectedDate, businessSchedule, timeSlotInterval]);
 
-  function getMinDate() {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split("T")[0];
-  }
-
-  function getMaxDate() {
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    return d.toISOString().split("T")[0];
-  }
+  useEffect(() => {
+    if (hours.length === 0) return;
+    if (!hours.includes(selectedHour)) {
+      const evening = hours.find(h => h >= "19:00") ?? hours[Math.floor(hours.length / 2)] ?? hours[0];
+      if (evening) setSelectedHour(evening);
+    }
+  }, [hours, selectedHour]);
 
   function formatDate(dateStr: string) {
     return new Date(dateStr + "T12:00:00").toLocaleDateString(locale, {
@@ -62,45 +93,60 @@ export default function ReservationFlow({ reservationLocationId, defaultName, de
     });
   }
 
-  function formatSlotTime(isoDate: string) {
-    return new Date(isoDate).toLocaleTimeString(locale, {
+  function formatSlotTime(startDate: Date | null | undefined) {
+    if (!startDate) return "";
+    return new Date(startDate).toLocaleTimeString(locale, {
       hour: "2-digit",
       minute: "2-digit",
     });
   }
 
-  async function handleFindSlots() {
-    if (!selectedDate || !selectedHour) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const requestDate = new Date(`${selectedDate}T${selectedHour}:00`);
-      const result = await timeSlots.getTimeSlots(
-        reservationLocationId,
-        requestDate,
-        partySize,
-        { slotsBefore: 3, slotsAfter: 6 },
-      );
-      const slots: TimeSlotInfo[] = (result.timeSlots || []).map((s: any) => ({
-        startDate: typeof s.startDate === "string" ? s.startDate : new Date(s.startDate).toISOString(),
-        status: s.status || "UNAVAILABLE",
-        duration: s.duration || 90,
-      }));
-      setAvailableSlots(slots);
-      setStep("slots");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to fetch time slots");
-    } finally {
-      setLoading(false);
-    }
+  function slotKey(slot: TimeSlot): string {
+    return slot.startDate ? new Date(slot.startDate).toISOString() : "";
   }
 
+  // Auto-fetch slots whenever the search inputs change; debounce so rapid edits don't thrash.
+  useEffect(() => {
+    if (step !== "search") return;
+    if (!reservationLocationId || !selectedDate || !selectedHour) return;
+    const requestDate = new Date(`${selectedDate}T${selectedHour}:00`);
+    if (isNaN(requestDate.getTime())) return;
+
+    let cancelled = false;
+    setChosenSlot(null);
+    setLoading(true);
+    setError(null);
+    const timer = setTimeout(async () => {
+      try {
+        const result = await timeSlots.getTimeSlots(
+          reservationLocationId,
+          requestDate,
+          partySize,
+          { slotsBefore: 3, slotsAfter: 6 },
+        );
+        if (cancelled) return;
+        setAvailableSlots(result.timeSlots || []);
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Failed to fetch time slots");
+        setAvailableSlots([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [reservationLocationId, partySize, selectedDate, selectedHour, step]);
+
   async function handleConfirm() {
-    if (!chosenSlot) return;
+    if (!chosenSlot?.startDate) return;
     setLoading(true);
     setError(null);
     try {
-      const result = await reservations.createReservation({
+      const reservation: Reservation = {
         details: {
           reservationLocationId,
           startDate: new Date(chosenSlot.startDate),
@@ -112,14 +158,12 @@ export default function ReservationFlow({ reservationLocationId, defaultName, de
           email: guestEmail,
           phone: guestPhone,
         },
-        teamMessage: specialRequests || undefined,
-      } as any);
+      };
+      if (specialRequests) reservation.teamMessage = specialRequests;
+      const created = await reservations.createReservation(reservation);
 
-      const res = result as any;
-      const paymentStatus = res?.paymentStatus || res?.reservation?.paymentStatus;
-
-      if (paymentStatus === "NOT_PAID") {
-        const reservationId = res?._id || res?.reservation?._id;
+      if (created.paymentStatus === "NOT_PAID") {
+        const reservationId = created._id;
         if (reservationId) {
           const { redirectSession } = await redirects.createRedirectSession({
             ecomCheckout: { checkoutId: reservationId },
@@ -144,13 +188,12 @@ export default function ReservationFlow({ reservationLocationId, defaultName, de
   }
 
   const stepLabels: Record<Step, string> = {
-    search: t("restaurant.selectDate"),
-    slots: t("restaurant.selectTime"),
+    search: t("restaurant.selectTime"),
     details: t("restaurant.reserveDetails"),
     confirm: t("restaurant.reserveConfirm"),
   };
 
-  const allSteps: Step[] = ["search", "slots", "details", "confirm"];
+  const allSteps: Step[] = ["search", "details", "confirm"];
 
   if (success) {
     return (
@@ -210,8 +253,8 @@ export default function ReservationFlow({ reservationLocationId, defaultName, de
               <input
                 type="date"
                 value={selectedDate}
-                min={getMinDate()}
-                max={getMaxDate()}
+                min={minDate}
+                max={maxDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 style={styles.select}
               />
@@ -231,66 +274,51 @@ export default function ReservationFlow({ reservationLocationId, defaultName, de
             </div>
           </div>
 
-          <button
-            onClick={handleFindSlots}
-            disabled={!selectedDate || loading}
-            style={{ ...styles.primaryBtn, marginTop: 16, opacity: selectedDate ? 1 : 0.5 }}
-          >
-            {loading ? t("restaurant.processing") : t("restaurant.findAvailability")}
-          </button>
-        </div>
-      )}
-
-      {step === "slots" && (
-        <div>
-          <p style={styles.stepLabel}>
-            {formatDate(selectedDate)} &middot; {partySize} {t("restaurant.guests")}
-            <button onClick={() => setStep("search")} style={styles.changeBtn}>{t("restaurant.change")}</button>
-          </p>
-          <p style={{ ...styles.stepLabel, fontWeight: 600 }}>{t("restaurant.selectTime")}</p>
-
-          {availableSlots.length === 0 ? (
-            <p style={{ color: "#999", fontSize: "0.85rem" }}>{t("restaurant.noSlotsAvailable")}</p>
-          ) : (
-            <div style={styles.slotsGrid}>
-              {availableSlots.map((slot) => {
-                const isAvailable = slot.status === "AVAILABLE";
-                const isSelected = chosenSlot?.startDate === slot.startDate;
-                return (
-                  <button
-                    key={slot.startDate}
-                    disabled={!isAvailable}
-                    onClick={() => setChosenSlot(slot)}
-                    style={{
-                      ...styles.slotBtn,
-                      borderColor: isSelected ? "#ff6600" : isAvailable ? "#333" : "#222",
-                      background: isSelected
-                        ? "rgba(255, 102, 0, 0.2)"
-                        : isAvailable
-                          ? "#1a1a1a"
-                          : "#111",
-                      color: isAvailable ? "#e0e0e0" : "#444",
-                      cursor: isAvailable ? "pointer" : "not-allowed",
-                      opacity: isAvailable ? 1 : 0.4,
-                    }}
-                  >
-                    {formatSlotTime(slot.startDate)}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <div style={{ ...styles.formActions, marginTop: 16 }}>
-            <button onClick={() => setStep("search")} style={styles.secondaryBtn}>{t("restaurant.back")}</button>
-            <button
-              onClick={() => setStep("details")}
-              disabled={!chosenSlot}
-              style={{ ...styles.primaryBtn, flex: 1, opacity: chosenSlot ? 1 : 0.5 }}
-            >
-              {t("restaurant.next")}
-            </button>
+          <div style={{ marginTop: 20 }}>
+            <p style={{ ...styles.stepLabel, fontWeight: 600, marginBottom: 8 }}>
+              {loading ? t("restaurant.processing") : t("restaurant.selectTime")}
+            </p>
+            {!loading && availableSlots.length === 0 ? (
+              <p style={{ color: "#999", fontSize: "0.85rem" }}>{t("restaurant.noSlotsAvailable")}</p>
+            ) : (
+              <div style={{ ...styles.slotsGrid, opacity: loading ? 0.5 : 1 }}>
+                {availableSlots.map((slot) => {
+                  const isAvailable = slot.status === "AVAILABLE";
+                  const key = slotKey(slot);
+                  const isSelected = chosenSlot ? slotKey(chosenSlot) === key : false;
+                  return (
+                    <button
+                      key={key}
+                      disabled={!isAvailable || loading}
+                      onClick={() => setChosenSlot(slot)}
+                      style={{
+                        ...styles.slotBtn,
+                        borderColor: isSelected ? "#ff6600" : isAvailable ? "#333" : "#222",
+                        background: isSelected
+                          ? "rgba(255, 102, 0, 0.2)"
+                          : isAvailable
+                            ? "#1a1a1a"
+                            : "#111",
+                        color: isAvailable ? "#e0e0e0" : "#444",
+                        cursor: isAvailable ? "pointer" : "not-allowed",
+                        opacity: isAvailable ? 1 : 0.4,
+                      }}
+                    >
+                      {formatSlotTime(slot.startDate)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+          <button
+            onClick={() => setStep("details")}
+            disabled={!chosenSlot || loading}
+            style={{ ...styles.primaryBtn, marginTop: 16, opacity: chosenSlot ? 1 : 0.5 }}
+          >
+            {t("restaurant.next")}
+          </button>
         </div>
       )}
 
@@ -331,7 +359,7 @@ export default function ReservationFlow({ reservationLocationId, defaultName, de
             />
           </div>
           <div style={styles.formActions}>
-            <button onClick={() => setStep("slots")} style={styles.secondaryBtn}>{t("restaurant.back")}</button>
+            <button onClick={() => setStep("search")} style={styles.secondaryBtn}>{t("restaurant.back")}</button>
             <button
               onClick={() => setStep("confirm")}
               disabled={!guestName || !guestEmail}

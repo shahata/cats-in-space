@@ -89,6 +89,37 @@ function getVideoUrl(wixVideo: string | undefined, thumbW = 800, thumbH = 800): 
 }
 ```
 
+### `getShapeUrl(icon)` — SVG Shapes (icons)
+
+Menu item labels, chip icons, and other small SVG assets come back as `wix:shape://...` URIs. Use `media.getShapeUrl()` from `@wix/sdk` — **don't** construct `https://static.wixstatic.com/shapes/<id>` URLs manually with regex. There's a dedicated helper for every media family the SDK surfaces:
+
+- `media.getImageUrl()` → images
+- `media.getVideoUrl()` → videos
+- `media.getShapeUrl()` → SVG shapes
+- `media.getAudioUrl()` → audio
+- `media.getDocumentUrl()` → documents
+
+```typescript
+import { media } from '@wix/sdk';
+
+export function getShapeUrl(icon: unknown): string | null {
+  if (!icon) return null;
+  if (typeof icon === 'string') {
+    if (icon.startsWith('http')) return icon;
+    return media.getShapeUrl(icon)?.url || null;
+  }
+  if (typeof icon === 'object') {
+    // REST responses give { id, url } object shape
+    const o = icon as { url?: string; id?: string };
+    if (o.url?.startsWith('http')) return o.url;
+    if (o.id) return getShapeUrl(o.id);
+  }
+  return null;
+}
+```
+
+To recolor a monochrome SVG icon at display time (e.g., matching a dark-theme accent), use CSS `mask-image` rather than a `filter: brightness(0) invert(...) sepia(...) hue-rotate(...)` chain — filter chains are brittle. See [RESTAURANTS.md](RESTAURANTS.md) → "Rendering icons on a dark theme".
+
 ### `extractMediaUrl(productMedia, w, h)` — Stores Products
 
 Detects type and calls the right helper:

@@ -1,5 +1,4 @@
-export { PRICING_PLANS_APP_ID } from '@wix/headless-pricing-plans/services';
-
+export const PRICING_PLANS_APP_ID = '1522827f-c56c-a5c9-2ac9-00f9e6ae12d3';
 export const DONATIONS_APP_ID = '333b456e-dd48-4d6b-b32b-9fd48d74e163';
 export const STORES_APP_ID = '215238eb-22a5-4c36-9e7b-e7c08025e04e';
 export const ECOM_PLATFORM_APP_ID = '1380b703-ce81-ff05-f115-39571d94dfcd';

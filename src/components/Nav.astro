@@ -23,16 +23,38 @@ const exploreLinks = [
 	{ href: getRelativeLocaleUrl('/missions'), path: '/missions', label: t('nav.missions') },
 ];
 
-const facilitiesLinks = [
-	{ href: getRelativeLocaleUrl('/store'), path: '/store', label: t('nav.store') },
-	{ href: getRelativeLocaleUrl('/bookings'), path: '/bookings', label: t('nav.bookings') },
-	{ href: getRelativeLocaleUrl('/restaurant'), path: '/restaurant', label: t('nav.restaurant') },
-	{ href: getRelativeLocaleUrl('/cinema'), path: '/cinema', label: t('nav.cinema') },
+const isPathActive = (path: string) => currentPath === path || currentPath.startsWith(path + '/');
+
+const isRestaurantOrder = isPathActive('/restaurant/order');
+const isRestaurantReserve = isPathActive('/restaurant/reserve');
+const isRestaurantThankYou = isPathActive('/restaurant/thank-you');
+const isRestaurantMenuActive = (currentPath === '/restaurant' || currentPath.startsWith('/restaurant/'))
+	&& !isRestaurantOrder && !isRestaurantReserve && !isRestaurantThankYou;
+
+type NavItem =
+	| { kind: 'link'; href: string; path: string; label: string }
+	| { kind: 'group'; label: string; active: boolean; children: { href: string; label: string; active: boolean }[] };
+
+const facilitiesItems: NavItem[] = [
+	{ kind: 'link', href: getRelativeLocaleUrl('/store'), path: '/store', label: t('nav.store') },
+	{ kind: 'link', href: getRelativeLocaleUrl('/bookings'), path: '/bookings', label: t('nav.bookings') },
+	{
+		kind: 'group',
+		label: t('nav.restaurant'),
+		active: isRestaurantMenuActive || isRestaurantReserve || isRestaurantOrder,
+		children: [
+			{ href: getRelativeLocaleUrl('/restaurant'), label: t('restaurant.menu'), active: isRestaurantMenuActive },
+			{ href: getRelativeLocaleUrl('/restaurant/reserve'), label: t('restaurant.reserve'), active: isRestaurantReserve },
+			{ href: getRelativeLocaleUrl('/restaurant/order'), label: t('restaurant.order'), active: isRestaurantOrder },
+		],
+	},
+	{ kind: 'link', href: getRelativeLocaleUrl('/cinema'), path: '/cinema', label: t('nav.cinema') },
 ];
 
-const isPathActive = (path: string) => currentPath === path || currentPath.startsWith(path + '/');
 const isExploreActive = exploreLinks.some(l => isPathActive(l.path));
-const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
+const isFacilitiesActive = facilitiesItems.some(item =>
+	item.kind === 'link' ? isPathActive(item.path) : item.active
+);
 ---
 
 <nav class="nav">
@@ -73,13 +95,34 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 				</button>
 				<div class="nav-dropdown-menu">
 					<div class="nav-dropdown-menu-inner">
-						{facilitiesLinks.map(link => (
-							<a
-								href={link.href}
-								class:list={['dropdown-item', { active: isPathActive(link.path) }]}
-							>
-								{link.label}
-							</a>
+						{facilitiesItems.map(item => (
+							item.kind === 'link' ? (
+								<a
+									href={item.href}
+									class:list={['dropdown-item', { active: isPathActive(item.path) }]}
+								>
+									{item.label}
+								</a>
+							) : (
+								<div class="nav-subdropdown">
+									<button class:list={['dropdown-item dropdown-subtrigger', { active: item.active }]} type="button">
+										<span>{item.label}</span>
+										<span class="submenu-caret">&#9656;</span>
+									</button>
+									<div class="nav-subdropdown-menu">
+										<div class="nav-subdropdown-menu-inner">
+											{item.children.map(child => (
+												<a
+													href={child.href}
+													class:list={['dropdown-item', { active: child.active }]}
+												>
+													{child.label}
+												</a>
+											))}
+										</div>
+									</div>
+								</div>
+							)
 						))}
 					</div>
 				</div>
@@ -112,7 +155,7 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 						</button>
 						<div class="member-dropdown">
 							<a href={getRelativeLocaleUrl('/member')} class="dropdown-item">{t('nav.myProfile')}</a>
-							<LanguageSwitcher variant="dropdown" client:load />
+							<LanguageSwitcher variant="dropdown" client:only="react" />
 							<form action={`/api/auth/logout?returnToUrl=${encodeURIComponent(currentPath)}`} method="POST">
 								<button type="submit" class="dropdown-item dropdown-logout">{t('nav.logout')}</button>
 							</form>
@@ -120,7 +163,7 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 						</div>
 				) : (
 					<>
-						<LanguageSwitcher variant="standalone" client:load />
+						<LanguageSwitcher variant="standalone" client:only="react" />
 						<a href={`/api/auth/login?returnToUrl=${encodeURIComponent(currentPath)}`} class="auth-link">{t('nav.login')}</a>
 					</>
 				)}
@@ -147,6 +190,7 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 	const navDropdowns = document.querySelectorAll('.nav-dropdown');
 	const closeAllNavMenus = () => {
 		navDropdowns.forEach(d => d.querySelector('.nav-dropdown-menu')?.classList.remove('nav-dropdown-open'));
+		document.querySelectorAll('.nav-subdropdown-menu').forEach(m => m.classList.remove('nav-subdropdown-open'));
 	};
 	navDropdowns.forEach(d => {
 		const menu = d.querySelector('.nav-dropdown-menu');
@@ -158,6 +202,17 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 			const wasOpen = menu?.classList.contains('nav-dropdown-open');
 			closeAllNavMenus();
 			if (!wasOpen) menu?.classList.add('nav-dropdown-open');
+		});
+	});
+
+	document.querySelectorAll('.nav-subdropdown').forEach(s => {
+		const submenu = s.querySelector('.nav-subdropdown-menu');
+		let subCloseTimer: ReturnType<typeof setTimeout>;
+		s.addEventListener('mouseenter', () => { clearTimeout(subCloseTimer); submenu?.classList.add('nav-subdropdown-open'); });
+		s.addEventListener('mouseleave', () => { subCloseTimer = setTimeout(() => submenu?.classList.remove('nav-subdropdown-open'), 150); });
+		s.querySelector('.dropdown-subtrigger')?.addEventListener('click', (e) => {
+			e.stopPropagation();
+			submenu?.classList.toggle('nav-subdropdown-open');
 		});
 	});
 
@@ -297,6 +352,49 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 
 	.nav-dropdown-menu .dropdown-item.active {
 		color: var(--accent);
+	}
+
+	.nav-subdropdown {
+		position: relative;
+	}
+
+	.dropdown-subtrigger {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		gap: 8px;
+		background: none;
+		border: none;
+		font-family: var(--font-heading);
+		cursor: pointer;
+	}
+
+	.dropdown-subtrigger .submenu-caret {
+		font-size: 0.6rem;
+		color: var(--text-muted);
+	}
+
+	.nav-subdropdown-menu {
+		display: none;
+		position: absolute;
+		top: -6px;
+		inset-inline-start: 100%;
+		padding-inline-start: 4px;
+		min-width: 180px;
+		z-index: 210;
+	}
+
+	.nav-subdropdown-menu-inner {
+		background: rgba(20, 20, 20, 0.98);
+		border: 1px solid #333;
+		border-radius: 8px;
+		padding: 6px 0;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+	}
+
+	.nav-subdropdown-open {
+		display: block;
 	}
 
 	.member-menu {
@@ -503,6 +601,32 @@ const isFacilitiesActive = facilitiesLinks.some(l => isPathActive(l.path));
 		.nav-dropdown-menu .dropdown-item.active {
 			color: var(--accent);
 			background: rgba(255, 102, 0, 0.08);
+		}
+
+		.nav-subdropdown-menu {
+			display: block;
+			position: static;
+			padding-inline-start: 0;
+			min-width: 0;
+		}
+
+		.nav-subdropdown-menu-inner {
+			background: transparent;
+			border: none;
+			padding: 0;
+			box-shadow: none;
+		}
+
+		.nav-subdropdown-menu .dropdown-item {
+			padding-inline-start: 48px;
+		}
+
+		.dropdown-subtrigger .submenu-caret {
+			display: none;
+		}
+
+		.dropdown-subtrigger {
+			cursor: default;
 		}
 
 		.auth-section {
