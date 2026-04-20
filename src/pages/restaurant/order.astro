@@ -13,10 +13,13 @@ import {
 	menus as menusApi,
 	menuOrderingSettings as menuOrderingSettingsApi,
 } from '@wix/restaurants';
+import { getSiteCurrency } from '../../utils/site';
 import { i18n, auth } from '@wix/essentials';
 import { getImageUrl, getShapeUrl } from '../../utils/image';
 
 const t = i18n.getTranslationFunction();
+
+const currency = await getSiteCurrency();
 
 // Fetch all menus
 const elevatedQueryMenus = auth.elevate(menusApi.queryMenus);
@@ -110,7 +113,7 @@ interface RawItem {
 	description?: string | null;
 	image?: string | ItemImg | null;
 	priceInfo?: { price?: string | null } | null;
-	priceVariants?: { variants?: Array<{ variantId?: string | null; _id?: string | null; name?: string | null; price?: string | null }> | null } | null;
+	priceVariants?: { variants?: Array<{ variantId?: string | null; _id?: string | null; name?: string | null; price?: string | null; priceInfo?: { price?: string | null } | null }> | null } | null;
 	labels?: Array<{ id?: string | null; _id?: string | null }> | null;
 	modifierGroups?: Array<{ _id?: string | null; id?: string | null }> | null;
 }
@@ -150,11 +153,11 @@ function buildItemDto(item: RawItem, ctx: { menuId: string; sectionId: string; o
 		name: item.name || '',
 		description: item.description || '',
 		image: getItemImage(item),
-		price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency: 'USD' } : null,
+		price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency } : null,
 		priceVariants: (item.priceVariants?.variants || []).map(v => ({
 			_id: v.variantId || v._id || '',
 			name: variantMap.get(v.variantId || v._id || '') || v.name || '',
-			price: { amount: v.price || '0', currency: 'USD' },
+			price: { amount: v.priceInfo?.price || v.price || '0', currency },
 		})),
 		labels: (item.labels || [])
 			.map(l => {
@@ -213,7 +216,7 @@ const menuData = orderableMenus.flatMap(menu => {
 					<p>{t('restaurant.noOrderableItems')}</p>
 				</div>
 			) : (
-				<MenuOrderView sections={menuData} client:load />
+				<MenuOrderView sections={menuData} currency={currency} client:load />
 			)}
 		</div>
 	</section>

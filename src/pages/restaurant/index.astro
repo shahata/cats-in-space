@@ -5,9 +5,12 @@ import Footer from '../../components/Footer.astro';
 import { sections as sectionsApi, items as itemsApi, itemLabels, menus as menusApi } from '@wix/restaurants';
 import { i18n, auth } from '@wix/essentials';
 import { getShapeUrl } from '../../utils/image';
+import { getSiteCurrency } from '../../utils/site';
 
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
+
+const currency = await getSiteCurrency();
 
 const elevatedQueryMenus = auth.elevate(menusApi.queryMenus);
 const menusResult = await elevatedQueryMenus().find();
@@ -56,20 +59,22 @@ interface MenuDisplay {
 }
 
 interface PriceSource {
-	priceVariants?: { variants?: Array<{ price?: string | null }> | null } | null;
+	priceVariants?: { variants?: Array<{ priceInfo?: { price?: string | null } | null; price?: string | null }> | null } | null;
 	priceInfo?: { price?: string | null } | null;
 }
 interface LabelSource { labels?: Array<{ id?: string | null; _id?: string | null }> | null }
 
+const priceFormatter = new Intl.NumberFormat(locale, { style: 'currency', currency });
+
 function formatPrice(item: PriceSource): string {
-	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
-	if (item.priceVariants?.variants?.length) {
-		const prices = item.priceVariants.variants.map(v => parseFloat(v.price || '0'));
+	const variants = item.priceVariants?.variants;
+	if (variants?.length) {
+		const prices = variants.map(v => parseFloat(v.priceInfo?.price || v.price || '0'));
 		const min = Math.min(...prices);
 		const max = Math.max(...prices);
-		return min === max ? fmt(min) : `${fmt(min)} – ${fmt(max)}`;
+		return min === max ? priceFormatter.format(min) : `${priceFormatter.format(min)} – ${priceFormatter.format(max)}`;
 	}
-	if (item.priceInfo?.price) return fmt(parseFloat(item.priceInfo.price));
+	if (item.priceInfo?.price) return priceFormatter.format(parseFloat(item.priceInfo.price));
 	return '';
 }
 

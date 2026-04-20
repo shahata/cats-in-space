@@ -107,7 +107,7 @@ const isFacilitiesActive = facilitiesItems.some(item =>
 								<div class="nav-subdropdown">
 									<button class:list={['dropdown-item dropdown-subtrigger', { active: item.active }]} type="button">
 										<span>{item.label}</span>
-										<span class="submenu-caret">&#9656;</span>
+										<span class="submenu-caret" aria-hidden="true"></span>
 									</button>
 									<div class="nav-subdropdown-menu">
 										<div class="nav-subdropdown-menu-inner">
@@ -373,6 +373,14 @@ const isFacilitiesActive = facilitiesItems.some(item =>
 	.dropdown-subtrigger .submenu-caret {
 		font-size: 0.6rem;
 		color: var(--text-muted);
+	}
+
+	.dropdown-subtrigger .submenu-caret::before {
+		content: "\25B8"; /* ▸ right-pointing small triangle */
+	}
+
+	:global(html[dir="rtl"]) .dropdown-subtrigger .submenu-caret::before {
+		content: "\25C2"; /* ◂ left-pointing small triangle */
 	}
 
 	.nav-subdropdown-menu {

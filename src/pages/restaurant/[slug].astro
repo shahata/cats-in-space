@@ -4,6 +4,7 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import DishCustomizer from '../../components/DishCustomizer';
 import { items as itemsApi, itemLabels, itemVariants } from '@wix/restaurants';
+import { getSiteCurrency } from '../../utils/site';
 import { i18n, auth } from '@wix/essentials';
 import { getImageUrl, getShapeUrl } from '../../utils/image';
 
@@ -12,6 +13,8 @@ type Label = itemLabels.Label;
 
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
+
+const currency = await getSiteCurrency();
 
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/restaurant');
@@ -51,27 +54,28 @@ try {
 	}
 } catch {}
 
+const priceFormatter = new Intl.NumberFormat(locale, { style: 'currency', currency });
+
 function getItemPrice(it: Item): string {
-	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
 	const variants = it.priceVariants?.variants;
 	if (variants?.length) {
 		const prices = variants.map(v => parseFloat(v.priceInfo?.price || v.price || '0'));
 		const min = Math.min(...prices);
 		const max = Math.max(...prices);
-		return min === max ? fmt(min) : `${fmt(min)} - ${fmt(max)}`;
+		return min === max ? priceFormatter.format(min) : `${priceFormatter.format(min)} - ${priceFormatter.format(max)}`;
 	}
-	if (it.priceInfo?.price) return fmt(parseFloat(it.priceInfo.price));
+	if (it.priceInfo?.price) return priceFormatter.format(parseFloat(it.priceInfo.price));
 	return '';
 }
 
 const dishData = {
 	_id: item._id || '',
 	name: item.name || '',
-	price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency: 'USD' } : null,
+	price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency } : null,
 	priceVariants: (item.priceVariants?.variants || []).map(v => ({
 		_id: v.variantId || '',
 		name: (v.variantId && variantMap.get(v.variantId)) || '',
-		price: { amount: v.priceInfo?.price || v.price || '0', currency: 'USD' },
+		price: { amount: v.priceInfo?.price || v.price || '0', currency },
 	})),
 	modifierGroups: [],
 };

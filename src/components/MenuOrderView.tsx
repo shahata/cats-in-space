@@ -60,6 +60,7 @@ interface CartLine {
 
 interface Props {
   sections: MenuSection[];
+  currency: string;
 }
 
 const slugifySection = (name: string) =>
@@ -111,7 +112,7 @@ function extractCartLine(
   return { lineId, quantity, variantId, modifierSelections, summary };
 }
 
-export default function MenuOrderView({ sections }: Props) {
+export default function MenuOrderView({ sections, currency }: Props) {
   const t = i18n.getTranslationFunction();
 
   const itemById = new Map<string, MenuItem>();
@@ -128,8 +129,8 @@ export default function MenuOrderView({ sections }: Props) {
   const busy = busyAction !== null;
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  const formatPrice = (amount: string, currency: string = "USD") =>
-    new Intl.NumberFormat(undefined, { style: "currency", currency }).format(parseFloat(amount));
+  const priceFormatter = new Intl.NumberFormat(undefined, { style: "currency", currency });
+  const formatAmount = (n: number): string => priceFormatter.format(n);
 
   const loadCart = async () => {
     try {
@@ -211,11 +212,9 @@ export default function MenuOrderView({ sections }: Props) {
   const priceLabel = (item: MenuItem): string => {
     if (item.priceVariants.length > 0) {
       const prices = item.priceVariants.map(v => parseFloat(v.price.amount));
-      const min = Math.min(...prices);
-      const currency = item.priceVariants[0]?.price.currency || "USD";
-      return formatPrice(String(min), currency);
+      return formatAmount(Math.min(...prices));
     }
-    if (item.price) return formatPrice(item.price.amount, item.price.currency);
+    if (item.price) return formatAmount(parseFloat(item.price.amount));
     return "";
   };
 
@@ -236,9 +235,7 @@ export default function MenuOrderView({ sections }: Props) {
         if (mod?.additionalPrice) extra += parseFloat(mod.additionalPrice.amount);
       }
     }
-    const currency =
-      variant?.price.currency || item.priceVariants[0]?.price.currency || item.price?.currency || "USD";
-    return formatPrice(String(base + extra), currency);
+    return formatAmount(base + extra);
   };
 
   const totalQtyFor = (itemId: string) =>
@@ -279,6 +276,15 @@ export default function MenuOrderView({ sections }: Props) {
     setEditingLineId(null);
   };
 
+  useEffect(() => {
+    if (!modalItem) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeModal();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modalItem]);
+
   const toggleModifier = (itemId: string, groupId: string, modId: string, max: number) => {
     setModSel(prev => {
       const g = prev[itemId]?.[groupId] || [];
@@ -304,7 +310,10 @@ export default function MenuOrderView({ sections }: Props) {
     const itemMods = modSel[item._id] || {};
 
     const priceVariant = selectedVariant
-      ? { id: selectedVariant._id, formattedPrice: formatPrice(selectedVariant.price.amount, selectedVariant.price.currency) }
+      ? {
+          id: selectedVariant._id,
+          formattedPrice: formatAmount(parseFloat(selectedVariant.price.amount)),
+        }
       : undefined;
 
     const modifierGroups = item.modifierGroups
@@ -316,7 +325,8 @@ export default function MenuOrderView({ sections }: Props) {
             const mod = group.modifiers.find(m => m._id === id);
             if (!mod) return null;
             const priceNum = mod.additionalPrice ? parseFloat(mod.additionalPrice.amount) : 0;
-            return { id: mod._id, price: mod.additionalPrice?.amount, formattedPrice: priceNum > 0 ? formatPrice(String(priceNum)) : undefined };
+            const formattedPrice = priceNum > 0 ? formatAmount(priceNum) : undefined;
+            return { id: mod._id, price: mod.additionalPrice?.amount, formattedPrice };
           })
           .filter((m): m is NonNullable<typeof m> => m !== null);
         return { id: group._id, modifiers };
@@ -358,9 +368,7 @@ export default function MenuOrderView({ sections }: Props) {
       }
     }
     const quantity = qty[item._id] || 1;
-    const total = (base + extra) * quantity;
-    const currency = item.priceVariants[0]?.price.currency || item.price?.currency || "USD";
-    return formatPrice(String(total), currency);
+    return formatAmount((base + extra) * quantity);
   };
 
   const addNewLine = async (item: MenuItem) => {
@@ -548,7 +556,7 @@ export default function MenuOrderView({ sections }: Props) {
                               onClick={() => setVariantSel(p => ({ ...p, [modalItem._id]: v._id }))}
                             >
                               <span>{v.name || modalItem.name}</span>
-                              <span>{formatPrice(v.price.amount, v.price.currency)}</span>
+                              <span>{formatAmount(parseFloat(v.price.amount))}</span>
                             </button>
                           );
                         })}
@@ -583,7 +591,7 @@ export default function MenuOrderView({ sections }: Props) {
                             >
                               <span>{icon} {mod.name}</span>
                               {mod.additionalPrice && parseFloat(mod.additionalPrice.amount) > 0 && (
-                                <span className="mov-mod-price">+{formatPrice(mod.additionalPrice.amount)}</span>
+                                <span className="mov-mod-price">+{formatAmount(parseFloat(mod.additionalPrice.amount))}</span>
                               )}
                             </button>
                           );

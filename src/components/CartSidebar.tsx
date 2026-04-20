@@ -59,6 +59,15 @@ export default function CartSidebar() {
     };
   }, [fetchCart]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   const updateQuantity = async (lineItemId: string, newQty: number) => {
     if (newQty < 1) return;
     setLoading(true);
