@@ -14,6 +14,7 @@ import {
 	menuOrderingSettings as menuOrderingSettingsApi,
 	fulfillmentMethods as fulfillmentMethodsApi,
 } from '@wix/restaurants';
+import { locations as locationsApi } from '@wix/business-tools';
 import { getSiteCurrency } from '../../utils/site';
 import { i18n, auth } from '@wix/essentials';
 import { getImageUrl, getShapeUrl } from '../../utils/image';
@@ -40,6 +41,37 @@ for (const s of mosList) {
 	}
 }
 const orderableMenus = allMenus.filter(m => m._id && operationByMenuId.has(m._id));
+
+// Fetch the restaurant's business location address — pickup-orders need an address
+// on the cart (Wix cart-v2 fails with DELIVERY_METHOD_MISSING_ADDRESS if no address is set
+// when selectedShippingOption is applied, regardless of pickup vs delivery).
+let pickupAddress: {
+	addressLine1: string;
+	city?: string;
+	country?: string;
+	postalCode?: string;
+	subdivision?: string;
+} | null = null;
+if (businessLocationId) {
+	try {
+		const elevatedGetLocation = auth.elevate(locationsApi.getLocation);
+		const loc = await elevatedGetLocation(businessLocationId);
+		const addr = loc.address;
+		if (addr) {
+			const streetLine = [addr.streetAddress?.number, addr.streetAddress?.name]
+				.filter(Boolean)
+				.join(' ');
+			const line = streetLine || addr.formatted || '';
+			pickupAddress = {
+				addressLine1: line,
+				...(addr.city ? { city: addr.city } : {}),
+				...(addr.country ? { country: addr.country } : {}),
+				...(addr.postalCode ? { postalCode: addr.postalCode } : {}),
+				...(addr.subdivision ? { subdivision: addr.subdivision } : {}),
+			};
+		}
+	} catch {}
+}
 
 type FulfillmentMethod = fulfillmentMethodsApi.FulfillmentMethod;
 let fulfillmentMethods: FulfillmentMethod[] = [];
@@ -234,6 +266,7 @@ const menuData = orderableMenus.flatMap(menu => {
 					currency={currency}
 					operationId={[...operationByMenuId.values()][0] || ''}
 					businessLocationId={businessLocationId}
+					pickupAddress={pickupAddress}
 					fulfillmentMethods={fulfillmentMethods.map(fm => ({
 						_id: fm._id || '',
 						type: fm.type || 'PICKUP',

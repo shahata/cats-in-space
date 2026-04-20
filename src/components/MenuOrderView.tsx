@@ -74,11 +74,20 @@ interface TimeSlotOption {
   minOrder: string | null;
 }
 
+interface PickupAddress {
+  addressLine1: string;
+  city?: string;
+  country?: string;
+  postalCode?: string;
+  subdivision?: string;
+}
+
 interface Props {
   sections: MenuSection[];
   currency: string;
   operationId: string;
   businessLocationId: string;
+  pickupAddress: PickupAddress | null;
   fulfillmentMethods: FulfillmentMethod[];
 }
 
@@ -131,7 +140,7 @@ function extractCartLine(
   return { lineId, quantity, variantId, modifierSelections, summary };
 }
 
-export default function MenuOrderView({ sections, currency, operationId, businessLocationId, fulfillmentMethods }: Props) {
+export default function MenuOrderView({ sections, currency, operationId, businessLocationId, pickupAddress, fulfillmentMethods }: Props) {
   const t = i18n.getTranslationFunction();
 
   const itemById = new Map<string, MenuItem>();
@@ -223,13 +232,26 @@ export default function MenuOrderView({ sections, currency, operationId, busines
         const endMs = slotObj ? new Date(slotObj.end).getTime() : startMs + 30 * 60 * 1000;
         code = `${type}|${startMs}|${endMs}`;
       }
+      // Wix cart-v2 setDeliveryMethod requires cart.deliveryInfo.address to be non-empty
+      // whenever a selectedShippingOption is set — including pickup. For pickup we send
+      // the restaurant's own business location address; for delivery, the user input.
+      const address =
+        type === "DELIVERY" && addr
+          ? { addressLine1: addr }
+          : pickupAddress
+            ? {
+                addressLine1: pickupAddress.addressLine1,
+                ...(pickupAddress.city ? { city: pickupAddress.city } : {}),
+                ...(pickupAddress.country ? { country: pickupAddress.country } : {}),
+                ...(pickupAddress.postalCode ? { postalCode: pickupAddress.postalCode } : {}),
+                ...(pickupAddress.subdivision ? { subdivision: pickupAddress.subdivision } : {}),
+              }
+            : null;
       const cartInfo: currentCart.Cart = {
         selectedShippingOption: { code },
         ...(businessLocationId ? { businessLocationId } : {}),
+        ...(address ? { contactInfo: { address } } : {}),
       };
-      if (type === "DELIVERY" && addr) {
-        cartInfo.contactInfo = { address: { addressLine1: addr } };
-      }
       await currentCart.updateCurrentCart({ cartInfo });
     } catch (e) {
       console.error("Failed to update cart dispatch:", e);
