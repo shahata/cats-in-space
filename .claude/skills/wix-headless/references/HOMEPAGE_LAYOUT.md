@@ -33,6 +33,27 @@ const dir = ['he', 'ar'].includes(lang) ? 'rtl' : 'ltr';
 | `right: 0` | `inset-inline-end: 0` |
 | `border-left` | `border-inline-start` |
 
+### Direction-aware glyphs (arrows, carets, chevrons)
+
+Logical properties handle layout but NOT the glyph content itself. A `▸` caret on a flyout submenu points right on LTR (toward the child menu) — in RTL the child menu opens to the left, so the glyph should flip to `◂`.
+
+Don't bake the character into the markup and reach for `transform: scaleX(-1)` to mirror it — the transform depends on `display: inline-block` and interacts awkwardly with text alignment. The cleaner pattern is to leave the span empty and use CSS `::before` with a direction-aware `content`:
+
+```astro
+<span class="submenu-caret" aria-hidden="true"></span>
+```
+
+```css
+.submenu-caret::before { content: "\25B8"; }              /* ▸ LTR */
+:global(html[dir="rtl"]) .submenu-caret::before {
+  content: "\25C2";                                       /* ◂ RTL */
+}
+```
+
+Inside a component's scoped styles, reach the root's `dir` attribute via `:global(html[dir="rtl"])`. `:dir(rtl)` as a pseudo-class works in most modern browsers but can interact unexpectedly with nested elements — the explicit `[dir="rtl"]` attribute selector is the reliable choice.
+
+Same pattern applies to back/forward arrows, breadcrumb separators, nav carets — any glyph whose semantic direction should flip for RTL.
+
 ### Design Tokens
 
 Define colors, fonts, and spacing as CSS variables so the theme is easy to change site-wide. Use semantic names (`--bg-primary`, `--accent`, `--text-muted`) rather than literal values.

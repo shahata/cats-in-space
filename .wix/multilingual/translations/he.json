@@ -545,7 +545,16 @@
     "change": "שינוי",
     "at": "בשעה",
     "findAvailability": "חפשו זמנים פנויים",
-    "noSlotsAvailable": "אין זמנים פנויים לתאריך ולגודל הקבוצה. נסו תאריך או שעה אחרים."
+    "noSlotsAvailable": "אין זמנים פנויים לתאריך ולגודל הקבוצה. נסו תאריך או שעה אחרים.",
+    "pickup": "איסוף עצמי",
+    "delivery": "משלוח",
+    "dineIn": "אכילה במסעדה",
+    "addressPlaceholder": "כתובת משלוח",
+    "addressRequired": "נא להזין כתובת משלוח",
+    "fee": "עמלה",
+    "when": "מתי",
+    "asap": "בהקדם האפשרי",
+    "addressNotServiceable": "אין לנו משלוחים לכתובת זו"
   },
   "research": {
     "pageTitle": "מימון מחקר",

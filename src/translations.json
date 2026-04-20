@@ -540,13 +540,21 @@
     "removing": "Removing...",
     "guests": "guests",
     "next": "Next",
-    "back": "Back",
     "change": "Change",
     "at": "at",
     "findAvailability": "Find Available Times",
     "noSlotsAvailable": "No available time slots for this date and party size. Try a different date or time.",
     "thankYouTitle": "Bon Appétit!",
-    "thankYouSubtitle": "Your order is being prepared by our cosmic chefs."
+    "thankYouSubtitle": "Your order is being prepared by our cosmic chefs.",
+    "pickup": "Pickup",
+    "delivery": "Delivery",
+    "dineIn": "Dine-in",
+    "addressPlaceholder": "Delivery address",
+    "addressRequired": "Please enter a delivery address",
+    "fee": "Fee",
+    "when": "When",
+    "asap": "As soon as possible",
+    "addressNotServiceable": "We don't deliver to this address"
   },
   "research": {
     "pageTitle": "Research Funding",

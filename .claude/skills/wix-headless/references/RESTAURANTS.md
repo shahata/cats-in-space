@@ -271,6 +271,21 @@ The pattern visitors expect from modern food-ordering UIs:
 - **Main area** — items grouped by section, rendered as a responsive grid of horizontal cards (image on one side, text on the other).
 - **Customization modal** opens on card click — NOT an inline expand. Centered with scale-in animation (do NOT bottom-align it; that's a mobile-only pattern and feels wrong on desktop).
 
+**ESC closes overlays.** Any modal (customization modal) or side panel (cart sidebar) opened over the page content must close when the user hits Escape. Standard web convention — without it, dismissing feels like it needs extra clicks. Pattern:
+
+```typescript
+useEffect(() => {
+  if (!open) return;
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") close();
+  };
+  window.addEventListener("keydown", onKey);
+  return () => window.removeEventListener("keydown", onKey);
+}, [open]);
+```
+
+Hook gated on `open` so the listener is only attached while the overlay is visible. Works for `MenuOrderView`'s customization modal and the global `CartSidebar`.
+
 **Do NOT add a floating "View cart" bar at the bottom of the screen.** The global cart icon (from `Layout.astro`) already shows the live count and opens the cart sidebar. A second cart affordance on the ordering page is redundant, competes for visual attention with the content, and makes the page feel like a dedicated checkout flow rather than a menu. One cart entry point, globally placed.
 
 ### Item card anatomy

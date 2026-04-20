@@ -12,6 +12,7 @@ import {
 	itemModifierGroups,
 	menus as menusApi,
 	menuOrderingSettings as menuOrderingSettingsApi,
+	fulfillmentMethods as fulfillmentMethodsApi,
 } from '@wix/restaurants';
 import { getSiteCurrency } from '../../utils/site';
 import { i18n, auth } from '@wix/essentials';
@@ -31,12 +32,24 @@ const elevatedQueryMos = auth.elevate(menuOrderingSettingsApi.queryMenuOrderingS
 const mosResult = await elevatedQueryMos({});
 const mosList = mosResult.menuOrderingSettings || [];
 const operationByMenuId = new Map<string, string>();
+let businessLocationId = '';
 for (const s of mosList) {
 	if (s.onlineOrderingEnabled && s.menuId && s.operationId) {
 		operationByMenuId.set(s.menuId, s.operationId);
+		if (s.businessLocationId && !businessLocationId) businessLocationId = s.businessLocationId;
 	}
 }
 const orderableMenus = allMenus.filter(m => m._id && operationByMenuId.has(m._id));
+
+type FulfillmentMethod = fulfillmentMethodsApi.FulfillmentMethod;
+let fulfillmentMethods: FulfillmentMethod[] = [];
+try {
+	const elevatedList = auth.elevate(fulfillmentMethodsApi.listFulfillmentMethods);
+	const fmResult = await elevatedList();
+	// DINE_IN is a restaurant service type but ordering through our flow is pickup/delivery only.
+	fulfillmentMethods = (fmResult.fulfillmentMethods || [])
+		.filter(fm => fm.enabled !== false && String(fm.type) !== 'DINE_IN');
+} catch {}
 
 const elevatedQuerySections = auth.elevate(sectionsApi.querySections);
 const sectionsResult = await elevatedQuerySections().find();
@@ -216,7 +229,20 @@ const menuData = orderableMenus.flatMap(menu => {
 					<p>{t('restaurant.noOrderableItems')}</p>
 				</div>
 			) : (
-				<MenuOrderView sections={menuData} currency={currency} client:load />
+				<MenuOrderView
+					sections={menuData}
+					currency={currency}
+					operationId={[...operationByMenuId.values()][0] || ''}
+					businessLocationId={businessLocationId}
+					fulfillmentMethods={fulfillmentMethods.map(fm => ({
+						_id: fm._id || '',
+						type: fm.type || 'PICKUP',
+						name: fm.name || '',
+						fee: fm.fee || null,
+						minOrderPrice: fm.minOrderPrice || null,
+					}))}
+					client:load
+				/>
 			)}
 		</div>
 	</section>
@@ -246,6 +272,104 @@ const menuData = orderableMenus.flatMap(menu => {
 		grid-template-columns: 200px 1fr;
 		gap: 40px;
 		align-items: start;
+	}
+
+	.mov-dispatch {
+		grid-column: 1 / -1;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 12px;
+		padding: 14px 16px;
+		margin-bottom: 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.mov-dispatch-row {
+		display: flex;
+		align-items: center;
+		gap: 16px;
+		flex-wrap: wrap;
+	}
+
+	.mov-dispatch-label {
+		color: var(--text-secondary);
+		font-family: var(--font-heading);
+		font-size: 0.85rem;
+		letter-spacing: 1px;
+	}
+
+	.mov-dispatch-select,
+	.mov-dispatch-date {
+		padding: 8px 12px;
+		background: #1a1a1a;
+		border: 1px solid #333;
+		border-radius: 8px;
+		color: var(--text-primary);
+		font-family: inherit;
+		font-size: 0.9rem;
+		color-scheme: dark;
+	}
+
+	.mov-dispatch-tabs {
+		display: inline-flex;
+		background: #1a1a1a;
+		border: 1px solid #333;
+		border-radius: 8px;
+		overflow: hidden;
+	}
+
+	.mov-dispatch-tab {
+		padding: 8px 16px;
+		background: transparent;
+		color: var(--text-secondary);
+		border: none;
+		cursor: pointer;
+		font-family: var(--font-heading);
+		font-size: 0.85rem;
+		letter-spacing: 1px;
+		transition: all 0.15s;
+	}
+
+	.mov-dispatch-tab:hover { color: var(--text-primary); }
+
+	.mov-dispatch-tab.active {
+		background: var(--accent);
+		color: #000;
+	}
+
+	.mov-dispatch-address {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		flex: 1;
+		min-width: 200px;
+	}
+
+	.mov-dispatch-address-input {
+		flex: 1;
+		padding: 8px 12px;
+		background: #1a1a1a;
+		border: 1px solid #333;
+		border-radius: 8px;
+		color: var(--text-primary);
+		font-family: inherit;
+		font-size: 0.9rem;
+	}
+
+	.mov-dispatch-address-input[aria-invalid="true"] {
+		border-color: #f44336;
+	}
+
+	.mov-dispatch-address-error {
+		color: #f44336;
+		font-size: 0.8rem;
+	}
+
+	.mov-dispatch-note {
+		color: var(--text-muted);
+		font-size: 0.8rem;
 	}
 
 	.mov-side {

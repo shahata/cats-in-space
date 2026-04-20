@@ -545,7 +545,16 @@
     "change": "変更",
     "at": "に",
     "findAvailability": "空き時間を検索",
-    "noSlotsAvailable": "この日付と人数の空き時間はありません。別の日付または時間をお試しください。"
+    "noSlotsAvailable": "この日付と人数の空き時間はありません。別の日付または時間をお試しください。",
+    "pickup": "テイクアウト",
+    "delivery": "デリバリー",
+    "dineIn": "店内飲食",
+    "addressPlaceholder": "配達先住所",
+    "addressRequired": "配達先住所を入力してください",
+    "fee": "手数料",
+    "when": "いつ",
+    "asap": "できるだけ早く",
+    "addressNotServiceable": "この住所には配達していません"
   },
   "research": {
     "pageTitle": "研究資金",

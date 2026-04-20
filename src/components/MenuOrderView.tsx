@@ -58,9 +58,28 @@ interface CartLine {
   summary: string[];
 }
 
+interface FulfillmentMethod {
+  _id: string;
+  type: string; // "PICKUP" | "DELIVERY" | "DINE_IN"
+  name: string;
+  fee: string | null;
+  minOrderPrice: string | null;
+}
+
+interface TimeSlotOption {
+  start: string;
+  end: string;
+  scheduling: string;
+  fee: string | null;
+  minOrder: string | null;
+}
+
 interface Props {
   sections: MenuSection[];
   currency: string;
+  operationId: string;
+  businessLocationId: string;
+  fulfillmentMethods: FulfillmentMethod[];
 }
 
 const slugifySection = (name: string) =>
@@ -112,7 +131,7 @@ function extractCartLine(
   return { lineId, quantity, variantId, modifierSelections, summary };
 }
 
-export default function MenuOrderView({ sections, currency }: Props) {
+export default function MenuOrderView({ sections, currency, operationId, businessLocationId, fulfillmentMethods }: Props) {
   const t = i18n.getTranslationFunction();
 
   const itemById = new Map<string, MenuItem>();
@@ -128,6 +147,97 @@ export default function MenuOrderView({ sections, currency }: Props) {
   const [busyAction, setBusyAction] = useState<null | "add" | "update" | "remove">(null);
   const busy = busyAction !== null;
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  // Unique dispatch types from the configured fulfillment methods (PICKUP, DELIVERY).
+  // Prefer pickup as the default — it doesn't require an address to activate.
+  const dispatchTypes = [...new Set(fulfillmentMethods.map(fm => fm.type))]
+    .sort((a, b) => (a === "PICKUP" ? -1 : b === "PICKUP" ? 1 : 0));
+  const [dispatchType, setDispatchType] = useState<string>(dispatchTypes[0] ?? "PICKUP");
+  const [address, setAddress] = useState<string>("");
+  const [addressError, setAddressError] = useState<string | null>(null);
+  const needsAddress = dispatchType === "DELIVERY";
+
+  // "ASAP" sentinel or an ISO time-slot start string.
+  const [selectedSlot, setSelectedSlot] = useState<"ASAP" | string>("ASAP");
+  const [slotsByType, setSlotsByType] = useState<Record<string, TimeSlotOption[]>>({});
+  const [slotsDate, setSlotsDate] = useState<string>("");
+  const [slotsLoading, setSlotsLoading] = useState(false);
+
+  useEffect(() => {
+    // Default to today's slots in the restaurant timezone (Asia/Jerusalem here).
+    const today = new Date();
+    const iso = today.toISOString().split("T")[0]!;
+    setSlotsDate(iso);
+  }, []);
+
+  const fetchSlots = async (type: string, date: string, addr: string) => {
+    if (!operationId || !date) return;
+    setSlotsLoading(true);
+    try {
+      const res = await fetch("/api/restaurant-slots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operationId, date, address: type === "DELIVERY" ? addr : "" }),
+      });
+      const data = await res.json() as {
+        slotsByType?: Record<string, TimeSlotOption[]>;
+        deliveryServiceable?: boolean;
+      };
+      setSlotsByType(data.slotsByType || {});
+      if (type === "DELIVERY" && addr && data.deliveryServiceable === false) {
+        setAddressError(t("restaurant.addressNotServiceable"));
+      }
+    } catch {
+      setSlotsByType({});
+    } finally {
+      setSlotsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!slotsDate) return;
+    if (dispatchType === "DELIVERY" && !address.trim()) {
+      // Don't fetch delivery slots without an address — they'll all be empty anyway.
+      setSlotsByType(prev => ({ ...prev, DELIVERY: [] }));
+      return;
+    }
+    void fetchSlots(dispatchType, slotsDate, address.trim());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatchType, slotsDate, address]);
+
+  const currentTypeSlots = slotsByType[dispatchType] || [];
+  const hasAsap = currentTypeSlots.some(s => s.scheduling === "ASAP");
+  const preorderSlots = currentTypeSlots.filter(s => s.scheduling === "PREORDER");
+
+  const selectedFulfillment = fulfillmentMethods.find(fm => fm.type === dispatchType) ?? null;
+
+  const applyDispatchToCart = async (type: string, addr: string | null, slot: "ASAP" | string) => {
+    try {
+      let code: string;
+      if (slot === "ASAP") {
+        // Wix OLO code format for ASAP: "{TYPE}|ASAP" (two parts, not three).
+        code = `${type}|ASAP`;
+      } else {
+        const slotObj = currentTypeSlots.find(s => s.start === slot);
+        const startMs = slotObj ? new Date(slotObj.start).getTime() : new Date(slot).getTime();
+        const endMs = slotObj ? new Date(slotObj.end).getTime() : startMs + 30 * 60 * 1000;
+        code = `${type}|${startMs}|${endMs}`;
+      }
+      const cartInfo: currentCart.Cart = {
+        selectedShippingOption: { code },
+        ...(businessLocationId ? { businessLocationId } : {}),
+      };
+      if (type === "DELIVERY" && addr) {
+        cartInfo.contactInfo = { address: { addressLine1: addr } };
+      }
+      await currentCart.updateCurrentCart({ cartInfo });
+    } catch (e) {
+      console.error("Failed to update cart dispatch:", e);
+    }
+  };
+
+  const formatSlotTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
   const priceFormatter = new Intl.NumberFormat(undefined, { style: "currency", currency });
   const formatAmount = (n: number): string => priceFormatter.format(n);
@@ -150,6 +260,14 @@ export default function MenuOrderView({ sections, currency }: Props) {
       setCartLinesByItem({});
     }
   };
+
+  // On mount, apply the default dispatch type to the cart (unless DELIVERY which needs address).
+  useEffect(() => {
+    if (dispatchTypes.length === 0) return;
+    if (dispatchType === "DELIVERY") return;
+    void applyDispatchToCart(dispatchType, null, "ASAP");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     loadCart();
@@ -420,8 +538,103 @@ export default function MenuOrderView({ sections, currency }: Props) {
     setEditingLineId(null);
   };
 
+  const onSelectDispatch = (type: string) => {
+    setDispatchType(type);
+    setAddressError(null);
+    setSelectedSlot("ASAP");
+    if (type !== "DELIVERY") void applyDispatchToCart(type, null, "ASAP");
+  };
+
+  const onCommitAddress = () => {
+    const trimmed = address.trim();
+    if (dispatchType === "DELIVERY" && trimmed.length < 3) {
+      setAddressError(t("restaurant.addressRequired"));
+      return;
+    }
+    setAddressError(null);
+    // Address-triggered refresh happens via the useEffect; cart update happens when a slot is chosen.
+  };
+
+  const onSelectSlot = (slot: "ASAP" | string) => {
+    setSelectedSlot(slot);
+    const addr = dispatchType === "DELIVERY" ? address.trim() : null;
+    if (dispatchType === "DELIVERY" && !addr) return;
+    void applyDispatchToCart(dispatchType, addr, slot);
+  };
+
+  const dispatchLabel = (type: string): string => {
+    if (type === "PICKUP") return t("restaurant.pickup");
+    if (type === "DELIVERY") return t("restaurant.delivery");
+    if (type === "DINE_IN") return t("restaurant.dineIn");
+    return type;
+  };
+
   return (
     <div className="mov-layout">
+      {dispatchTypes.length > 0 && (
+        <div className="mov-dispatch">
+          <div className="mov-dispatch-row">
+            <div className="mov-dispatch-tabs">
+              {dispatchTypes.map(type => (
+                <button
+                  key={type}
+                  type="button"
+                  className={`mov-dispatch-tab ${dispatchType === type ? "active" : ""}`}
+                  onClick={() => onSelectDispatch(type)}
+                >
+                  {dispatchLabel(type)}
+                </button>
+              ))}
+            </div>
+            {needsAddress && (
+              <div className="mov-dispatch-address">
+                <input
+                  type="text"
+                  className="mov-dispatch-address-input"
+                  placeholder={t("restaurant.addressPlaceholder")}
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  onBlur={onCommitAddress}
+                  aria-invalid={!!addressError}
+                />
+                {addressError && <span className="mov-dispatch-address-error">{addressError}</span>}
+              </div>
+            )}
+            {selectedFulfillment?.fee && parseFloat(selectedFulfillment.fee) > 0 && (
+              <div className="mov-dispatch-note">
+                {t("restaurant.fee")}: {formatAmount(parseFloat(selectedFulfillment.fee))}
+              </div>
+            )}
+          </div>
+
+          <div className="mov-dispatch-row">
+            <label className="mov-dispatch-label">{t("restaurant.when")}:</label>
+            <select
+              className="mov-dispatch-select"
+              value={selectedSlot}
+              onChange={(e) => onSelectSlot(e.target.value as "ASAP" | string)}
+              disabled={slotsLoading || (needsAddress && !address.trim())}
+            >
+              {hasAsap && <option value="ASAP">{t("restaurant.asap")}</option>}
+              {preorderSlots.map(s => (
+                <option key={s.start} value={s.start}>
+                  {formatSlotTime(s.start)} – {formatSlotTime(s.end)}
+                </option>
+              ))}
+              {!hasAsap && preorderSlots.length === 0 && !slotsLoading && (
+                <option value="ASAP" disabled>{t("restaurant.noSlotsAvailable")}</option>
+              )}
+            </select>
+            <input
+              type="date"
+              className="mov-dispatch-date"
+              value={slotsDate}
+              min={new Date().toISOString().split("T")[0]}
+              onChange={(e) => setSlotsDate(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
       <aside className="mov-side">
         <nav className="mov-nav">
           {sections.map(s => (

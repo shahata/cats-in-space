@@ -121,6 +121,36 @@ const locale = await i18n.getLocale();
 const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
 ```
 
+### Getting the site's payment currency
+
+⛔ **Do NOT hardcode `'USD'`** as the currency. Every Wix site has a configured `paymentCurrency` (e.g., `"ILS"`, `"EUR"`) and prices are priced in it. If you use USD-hardcoded formatting, an IL-based restaurant's menu renders as `$14.99` instead of `₪14.99` — same digits, wrong currency.
+
+⛔ **Don't go looking for the currency in the feature-specific API.** Intuition says "the restaurant has a `paymentCurrency` on its Operation" — and SDK types confirm it — but at runtime that field is empty. Same for `currentCart.currency` when the cart is empty. The only reliable source is **Site Properties**:
+
+```bash
+npm install @wix/business-tools
+```
+
+```typescript
+// src/utils/site.ts
+import { siteProperties } from '@wix/business-tools';
+import { auth } from '@wix/essentials';
+
+export async function getSiteCurrency(): Promise<string> {
+  try {
+    const elevated = auth.elevate(siteProperties.getSiteProperties);
+    const res = await elevated();
+    return res.properties?.paymentCurrency || 'USD';
+  } catch {
+    return 'USD';
+  }
+}
+```
+
+`siteProperties.getSiteProperties()` returns `{ properties: { paymentCurrency, language, timeZone, ... } }`. Use this from any Astro page (server-side) to get an ISO-4217 currency code, then pass it to `Intl.NumberFormat` — or through a prop to React components that format computed totals.
+
+REST equivalent: `GET https://www.wixapis.com/site-properties/v4/properties`. Prefer the SDK so auth, types, and response shapes are handled correctly.
+
 ## SDK Gotchas — Quick Reference
 
 These are the most common runtime failures. Each is explained because understanding *why* prevents similar mistakes on related APIs.
