@@ -89,10 +89,29 @@ interface Props {
   businessLocationId: string;
   pickupAddress: PickupAddress | null;
   fulfillmentMethods: FulfillmentMethod[];
+  // From `operation.defaultFulfillmentType` — "PICKUP" or "DELIVERY". Empty
+  // string means the operation didn't declare one; fall back to the first
+  // available method in that case.
+  defaultDispatchType: string;
+  // Derived from `operation.orderScheduling` — true when the restaurant allows
+  // preorder (future-dated orders). When false we hide the Schedule button
+  // entirely; the cart stays on ASAP.
+  schedulingEnabled: boolean;
 }
 
 const slugifySection = (name: string) =>
   "sec-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+// Local YYYY-MM-DD (never UTC). A slot whose `start` is UTC "2026-04-21T20:45:00Z"
+// is on 2026-04-21 local in Tel Aviv (GMT+3 → 23:45) but on 2026-04-21 UTC — so
+// UTC vs local day can differ by ±1 depending on timezone. For the Schedule
+// dropdown to match the user's calendar, always bucket by local day.
+const toLocalDayKey = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 interface RawOptions {
   priceVariant?: { id?: string; _id?: string; variantId?: string } | null;
@@ -140,7 +159,7 @@ function extractCartLine(
   return { lineId, quantity, variantId, modifierSelections, summary };
 }
 
-export default function MenuOrderView({ sections, currency, operationId, businessLocationId, pickupAddress, fulfillmentMethods }: Props) {
+export default function MenuOrderView({ sections, currency, operationId, businessLocationId, pickupAddress, fulfillmentMethods, defaultDispatchType, schedulingEnabled }: Props) {
   const t = i18n.getTranslationFunction();
 
   const itemById = new Map<string, MenuItem>();
@@ -158,95 +177,102 @@ export default function MenuOrderView({ sections, currency, operationId, busines
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   // Unique dispatch types from the configured fulfillment methods (PICKUP, DELIVERY).
-  // Prefer pickup as the default — it doesn't require an address to activate.
-  const dispatchTypes = [...new Set(fulfillmentMethods.map(fm => fm.type))]
-    .sort((a, b) => (a === "PICKUP" ? -1 : b === "PICKUP" ? 1 : 0));
-  const [dispatchType, setDispatchType] = useState<string>(dispatchTypes[0] ?? "PICKUP");
-  const [address, setAddress] = useState<string>("");
-  const [addressError, setAddressError] = useState<string | null>(null);
-  const needsAddress = dispatchType === "DELIVERY";
+  // Order follows the list returned by the API so the tab order matches how the
+  // restaurant has them configured.
+  const dispatchTypes = [...new Set(fulfillmentMethods.map(fm => fm.type))];
+  // Initial selection comes from the operation's `defaultFulfillmentType`
+  // (configured in the Wix dashboard); fall back to the first available method
+  // only when that value is missing or isn't in the enabled list.
+  const initialDispatch = dispatchTypes.includes(defaultDispatchType)
+    ? defaultDispatchType
+    : (dispatchTypes[0] ?? "PICKUP");
+  const [dispatchType, setDispatchType] = useState<string>(initialDispatch);
 
   // "ASAP" sentinel or an ISO time-slot start string.
   const [selectedSlot, setSelectedSlot] = useState<"ASAP" | string>("ASAP");
   const [slotsByType, setSlotsByType] = useState<Record<string, TimeSlotOption[]>>({});
   const [slotsDate, setSlotsDate] = useState<string>("");
-  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [, setSlotsLoading] = useState(false);
+  // Becomes true after the first successful fetch — until then we render
+  // "Loading…" placeholders instead of "No slots available".
+  const [slotsLoaded, setSlotsLoaded] = useState(false);
+
+  // Schedule popup draft state — only committed to selectedSlot/slotsDate on Confirm.
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleStep, setScheduleStep] = useState<"when" | "schedule">("when");
+  const [scheduleMode, setScheduleMode] = useState<"ASAP" | "SCHEDULE">("ASAP");
+  const [draftDay, setDraftDay] = useState<string>("");
+  const [draftSlot, setDraftSlot] = useState<string>("");
+  const [draftSlots, setDraftSlots] = useState<TimeSlotOption[]>([]);
+  const [draftLoading, setDraftLoading] = useState(false);
+  // Days the restaurant actually has preorder slots for, fetched once when the
+  // popup transitions to step 2. The Day dropdown renders from this list so we
+  // never show days that would come back empty. Reset when dispatchType changes.
+  const [availableDays, setAvailableDays] = useState<{ iso: string; label: string; slots: TimeSlotOption[] }[]>([]);
 
   useEffect(() => {
-    // Default to today's slots in the restaurant timezone (Asia/Jerusalem here).
-    const today = new Date();
-    const iso = today.toISOString().split("T")[0]!;
-    setSlotsDate(iso);
+    // Default to today's slots in the user's local calendar.
+    setSlotsDate(toLocalDayKey(new Date()));
   }, []);
 
-  const fetchSlots = async (type: string, date: string, addr: string) => {
+  const fetchSlots = async (date: string) => {
     if (!operationId || !date) return;
     setSlotsLoading(true);
     try {
       const res = await fetch("/api/restaurant-slots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operationId, date, address: type === "DELIVERY" ? addr : "" }),
+        body: JSON.stringify({ operationId, date, address: "" }),
       });
       const data = await res.json() as {
         slotsByType?: Record<string, TimeSlotOption[]>;
-        deliveryServiceable?: boolean;
       };
       setSlotsByType(data.slotsByType || {});
-      if (type === "DELIVERY" && addr && data.deliveryServiceable === false) {
-        setAddressError(t("restaurant.addressNotServiceable"));
-      }
     } catch {
       setSlotsByType({});
     } finally {
       setSlotsLoading(false);
+      setSlotsLoaded(true);
     }
   };
 
   useEffect(() => {
     if (!slotsDate) return;
-    if (dispatchType === "DELIVERY" && !address.trim()) {
-      // Don't fetch delivery slots without an address — they'll all be empty anyway.
-      setSlotsByType(prev => ({ ...prev, DELIVERY: [] }));
-      return;
-    }
-    void fetchSlots(dispatchType, slotsDate, address.trim());
+    void fetchSlots(slotsDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatchType, slotsDate, address]);
+  }, [slotsDate]);
 
   const currentTypeSlots = slotsByType[dispatchType] || [];
   const hasAsap = currentTypeSlots.some(s => s.scheduling === "ASAP");
-  const preorderSlots = currentTypeSlots.filter(s => s.scheduling === "PREORDER");
 
   const selectedFulfillment = fulfillmentMethods.find(fm => fm.type === dispatchType) ?? null;
 
-  const applyDispatchToCart = async (type: string, addr: string | null, slot: "ASAP" | string) => {
+  // Write dispatch to the cart. PICKUP sends the restaurant's own address so
+  // cart-v2 doesn't error out (it requires an address alongside every
+  // selectedShippingOption). DELIVERY writes the code only — the customer's
+  // delivery address is collected on the Wix checkout page, which recalculates
+  // totals once they enter it.
+  const applyDispatchToCart = async (type: string, slot: "ASAP" | string, slotObj?: TimeSlotOption) => {
     try {
       let code: string;
       if (slot === "ASAP") {
         // Wix OLO code format for ASAP: "{TYPE}|ASAP" (two parts, not three).
         code = `${type}|ASAP`;
       } else {
-        const slotObj = currentTypeSlots.find(s => s.start === slot);
-        const startMs = slotObj ? new Date(slotObj.start).getTime() : new Date(slot).getTime();
-        const endMs = slotObj ? new Date(slotObj.end).getTime() : startMs + 30 * 60 * 1000;
+        const resolved = slotObj ?? currentTypeSlots.find(s => s.start === slot) ?? draftSlots.find(s => s.start === slot);
+        const startMs = resolved ? new Date(resolved.start).getTime() : new Date(slot).getTime();
+        const endMs = resolved ? new Date(resolved.end).getTime() : startMs + 30 * 60 * 1000;
         code = `${type}|${startMs}|${endMs}`;
       }
-      // Wix cart-v2 setDeliveryMethod requires cart.deliveryInfo.address to be non-empty
-      // whenever a selectedShippingOption is set — including pickup. For pickup we send
-      // the restaurant's own business location address; for delivery, the user input.
-      const address =
-        type === "DELIVERY" && addr
-          ? { addressLine1: addr }
-          : pickupAddress
-            ? {
-                addressLine1: pickupAddress.addressLine1,
-                ...(pickupAddress.city ? { city: pickupAddress.city } : {}),
-                ...(pickupAddress.country ? { country: pickupAddress.country } : {}),
-                ...(pickupAddress.postalCode ? { postalCode: pickupAddress.postalCode } : {}),
-                ...(pickupAddress.subdivision ? { subdivision: pickupAddress.subdivision } : {}),
-              }
-            : null;
+      const address = type === "PICKUP" && pickupAddress
+        ? {
+            addressLine1: pickupAddress.addressLine1,
+            ...(pickupAddress.city ? { city: pickupAddress.city } : {}),
+            ...(pickupAddress.country ? { country: pickupAddress.country } : {}),
+            ...(pickupAddress.postalCode ? { postalCode: pickupAddress.postalCode } : {}),
+            ...(pickupAddress.subdivision ? { subdivision: pickupAddress.subdivision } : {}),
+          }
+        : null;
       const cartInfo: currentCart.Cart = {
         selectedShippingOption: { code },
         ...(businessLocationId ? { businessLocationId } : {}),
@@ -258,12 +284,14 @@ export default function MenuOrderView({ sections, currency, operationId, busines
     }
   };
 
+  const locale = i18n.getLocale();
   const formatSlotTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
-  const priceFormatter = new Intl.NumberFormat(undefined, { style: "currency", currency });
+  const priceFormatter = new Intl.NumberFormat(locale, { style: "currency", currency });
   const formatAmount = (n: number): string => priceFormatter.format(n);
 
+  const hydratedRef = useRef(false);
   const loadCart = async () => {
     try {
       const cart = await currentCart.getCurrentCart();
@@ -278,18 +306,41 @@ export default function MenuOrderView({ sections, currency, operationId, busines
         (byItem[catalogItemId] ||= []).push(line);
       }
       setCartLinesByItem(byItem);
+
+      // Restore dispatch selection from an existing cart on first load so the user
+      // sees the same PICKUP|ASAP / PICKUP|startMs|endMs choice they left with.
+      // (Runs only once — subsequent cart-updated events don't overwrite user state.)
+      if (!hydratedRef.current) {
+        hydratedRef.current = true;
+        const code = cart.selectedShippingOption?.code;
+        if (code) {
+          const parts = code.split("|");
+          const type = parts[0];
+          if (type && dispatchTypes.includes(type)) setDispatchType(type);
+          if (parts.length === 3) {
+            const startMs = parseInt(parts[1] || "", 10);
+            if (!isNaN(startMs)) {
+              // Store the slot's start as a UTC ISO — selectedSlot comparisons use
+              // exact string match. Day-level grouping uses toLocalDayKey.
+              setSelectedSlot(new Date(startMs).toISOString());
+            }
+          }
+        } else if ((cart.lineItems || []).length > 0) {
+          // Cart has items but no dispatch yet — seed with default PICKUP|ASAP so checkout
+          // has fulfillment info (see applyDispatchToCart's comment on cart-v2 requirements).
+          const defaultType = dispatchTypes[0] ?? "PICKUP";
+          void applyDispatchToCart(defaultType, "ASAP");
+        }
+      }
     } catch {
       setCartLinesByItem({});
     }
   };
 
-  // On mount, apply the default dispatch type to the cart (unless DELIVERY which needs address).
-  useEffect(() => {
-    if (dispatchTypes.length === 0) return;
-    if (dispatchType === "DELIVERY") return;
-    void applyDispatchToCart(dispatchType, null, "ASAP");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Dispatch is written to the cart on-demand: in addNewLine (first item creates
+  // the cart) and in confirmSchedule* (user picks a time). A mount-time write
+  // would race against loadCart's hydration and clobber a scheduled slot back to
+  // ASAP, so we don't do that here.
 
   useEffect(() => {
     loadCart();
@@ -473,10 +524,14 @@ export default function MenuOrderView({ sections, currency, operationId, busines
       })
       .filter((g): g is NonNullable<typeof g> => g !== null && g.modifiers.length > 0);
 
+    // Wix Restaurants validations SPI reads catalogReference.options via the
+    // CatalogReferenceOptions proto — the section field is `menu_section_id`
+    // (camelCase `menuSectionId`). Sending `sectionId` makes ProtoStructMapper
+    // drop it, so ItemInSectionValidator reports "<item> is no longer available".
     const options: Record<string, unknown> = {
       operationId: item.operationId,
       menuId: item.menuId,
-      sectionId: item.sectionId,
+      menuSectionId: item.sectionId,
     };
     if (priceVariant) options.priceVariant = priceVariant;
     if (modifierGroups.length > 0) options.modifierGroups = modifierGroups;
@@ -531,6 +586,10 @@ export default function MenuOrderView({ sections, currency, operationId, busines
           },
         ],
       });
+      // The first addToCurrentCart creates the cart — the mount-time dispatch
+      // PATCH 404s before that, so the cart is born without selectedShippingOption
+      // or address and the restaurants SPI fails fulfillment validation at checkout.
+      await applyDispatchToCart(dispatchType, selectedSlot);
       window.dispatchEvent(new Event("cart-updated"));
       await loadCart();
       closeModal();
@@ -562,26 +621,176 @@ export default function MenuOrderView({ sections, currency, operationId, busines
 
   const onSelectDispatch = (type: string) => {
     setDispatchType(type);
-    setAddressError(null);
     setSelectedSlot("ASAP");
-    if (type !== "DELIVERY") void applyDispatchToCart(type, null, "ASAP");
+    void applyDispatchToCart(type, "ASAP");
+    // `availableDays` is reset and (if the popup is open on step 2) re-probed
+    // in the dispatchType useEffect below.
   };
 
-  const onCommitAddress = () => {
-    const trimmed = address.trim();
-    if (dispatchType === "DELIVERY" && trimmed.length < 3) {
-      setAddressError(t("restaurant.addressRequired"));
+  // Fetch preorder slots for a given local day. Returns the filtered slots so
+  // callers can decide what to do (open popup with them / probe next day / etc.).
+  const fetchPreorderSlots = async (day: string): Promise<TimeSlotOption[]> => {
+    if (!operationId || !day) return [];
+    try {
+      const res = await fetch("/api/restaurant-slots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operationId, date: day, address: "" }),
+      });
+      const data = await res.json() as { slotsByType?: Record<string, TimeSlotOption[]> };
+      // The API may return slots whose local day differs from the requested `day`
+      // (timezone drift at day boundaries) — filter to match. Order is not
+      // guaranteed either, so sort earliest → latest for the Time dropdown.
+      return (data.slotsByType?.[dispatchType] || [])
+        .filter(s => s.scheduling === "PREORDER" && toLocalDayKey(new Date(s.start)) === day)
+        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+    } catch {
+      return [];
+    }
+  };
+
+  // Probe the next `SCHEDULE_DAY_HORIZON` days in parallel and populate
+  // `availableDays` with only those that actually have preorder slots. The
+  // Day dropdown renders from this list, so a restaurant configured with a
+  // 3-day preorder window shows exactly 3 days — not 14 with empties.
+  // `preferSlot` lets the caller (reopen case) stick with the user's previous
+  // choice if it's still on the menu.
+  const SCHEDULE_DAY_HORIZON = 14;
+  const loadAvailableDays = async (preferSlot?: string): Promise<{ iso: string; label: string; slots: TimeSlotOption[] }[]> => {
+    const candidates = buildScheduleDayOptions(SCHEDULE_DAY_HORIZON);
+    const results = await Promise.all(candidates.map(async (opt) => {
+      const slots = await fetchPreorderSlots(opt.iso);
+      return { ...opt, slots };
+    }));
+    const available = results.filter(d => d.slots.length > 0);
+    setAvailableDays(available);
+    // Re-anchor draft state to whatever is still valid.
+    if (preferSlot) {
+      const dayKey = toLocalDayKey(new Date(preferSlot));
+      const dayHit = available.find(d => d.iso === dayKey);
+      if (dayHit && dayHit.slots.find(s => s.start === preferSlot)) {
+        setDraftDay(dayKey);
+        setDraftSlots(dayHit.slots);
+        setDraftSlot(preferSlot);
+        return available;
+      }
+    }
+    const first = available[0];
+    if (first) {
+      setDraftDay(first.iso);
+      setDraftSlots(first.slots);
+      setDraftSlot(first.slots[0]?.start || "");
+    } else {
+      setDraftDay("");
+      setDraftSlots([]);
+      setDraftSlot("");
+    }
+    return available;
+  };
+
+  const openSchedule = () => {
+    const alreadyScheduled = selectedSlot !== "ASAP";
+    setScheduleMode(alreadyScheduled ? "SCHEDULE" : "ASAP");
+    setScheduleStep(alreadyScheduled ? "schedule" : "when");
+    setScheduleOpen(true);
+    if (alreadyScheduled) {
+      setDraftLoading(true);
+      void loadAvailableDays(selectedSlot).finally(() => setDraftLoading(false));
+    }
+  };
+
+  const closeSchedule = () => setScheduleOpen(false);
+
+  const gotoScheduleStep = async () => {
+    setScheduleMode("SCHEDULE");
+    setScheduleStep("schedule");
+    if (availableDays.length > 0) return; // already loaded this session
+    setDraftLoading(true);
+    try {
+      await loadAvailableDays();
+    } finally {
+      setDraftLoading(false);
+    }
+  };
+
+  const onDraftDayChange = (day: string) => {
+    setDraftDay(day);
+    const hit = availableDays.find(d => d.iso === day);
+    if (hit) {
+      setDraftSlots(hit.slots);
+      setDraftSlot(hit.slots[0]?.start || "");
+    }
+  };
+
+  // Dispatch-type changes invalidate the availableDays cache. When the popup is
+  // open on step 2, re-probe immediately so the Day / Time dropdowns reflect
+  // the new type's slots instead of stale pickup/delivery data. A ref avoids
+  // re-running on initial mount before the user has ever touched dispatch.
+  const dispatchTypeInitialRef = useRef(true);
+  useEffect(() => {
+    if (dispatchTypeInitialRef.current) {
+      dispatchTypeInitialRef.current = false;
       return;
     }
-    setAddressError(null);
-    // Address-triggered refresh happens via the useEffect; cart update happens when a slot is chosen.
+    setAvailableDays([]);
+    if (scheduleOpen && scheduleStep === "schedule") {
+      setDraftLoading(true);
+      loadAvailableDays().finally(() => setDraftLoading(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatchType]);
+
+  const confirmScheduleAsap = () => {
+    setSelectedSlot("ASAP");
+    void applyDispatchToCart(dispatchType, "ASAP");
+    setScheduleOpen(false);
   };
 
-  const onSelectSlot = (slot: "ASAP" | string) => {
-    setSelectedSlot(slot);
-    const addr = dispatchType === "DELIVERY" ? address.trim() : null;
-    if (dispatchType === "DELIVERY" && !addr) return;
-    void applyDispatchToCart(dispatchType, addr, slot);
+  const confirmScheduleSlot = () => {
+    const slot = draftSlots.find(s => s.start === draftSlot) ?? draftSlots[0];
+    if (!slot) return;
+    setSelectedSlot(slot.start);
+    // Intentionally don't change slotsDate — it stays on today so slotsByType
+    // (used for hasAsap) reflects today's ASAP availability, not the scheduled day.
+    void applyDispatchToCart(dispatchType, slot.start, slot);
+    setScheduleOpen(false);
+  };
+
+  // Build a calendar of up to `count` upcoming local days. We probe these against
+  // the slot API and only surface the ones that actually have preorder slots —
+  // so the Day dropdown reflects the restaurant's configured preorder window
+  // instead of a fixed one-size-fits-all number.
+  const buildScheduleDayOptions = (count: number): { iso: string; label: string }[] => {
+    const days: { iso: string; label: string }[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dateFmt = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
+    for (let i = 0; i < count; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const iso = toLocalDayKey(d);
+      const base = i === 0
+        ? t("restaurant.today")
+        : i === 1
+          ? t("restaurant.tomorrow")
+          : d.toLocaleDateString(locale, { weekday: "long" });
+      // Suffix every option with the actual date so the user can distinguish
+      // e.g. two Thursdays or a long preorder window.
+      const label = `${base}, ${dateFmt.format(d)}`;
+      days.push({ iso, label });
+    }
+    return days;
+  };
+
+  const scheduleButtonLabel = (): string => {
+    if (selectedSlot === "ASAP") return t("restaurant.scheduleOrder");
+    const d = new Date(selectedSlot);
+    const dayKey = toLocalDayKey(d);
+    // Use the "Today / Tomorrow / <weekday>, Apr 22" label if the slot falls in
+    // the upcoming week; otherwise fall back to a short localized date.
+    const dayLabel = buildScheduleDayOptions(7).find(o => o.iso === dayKey)?.label
+      ?? d.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" });
+    return `${dayLabel}, ${formatSlotTime(selectedSlot)}`;
   };
 
   const dispatchLabel = (type: string): string => {
@@ -608,52 +817,134 @@ export default function MenuOrderView({ sections, currency, operationId, busines
                 </button>
               ))}
             </div>
-            {needsAddress && (
-              <div className="mov-dispatch-address">
-                <input
-                  type="text"
-                  className="mov-dispatch-address-input"
-                  placeholder={t("restaurant.addressPlaceholder")}
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  onBlur={onCommitAddress}
-                  aria-invalid={!!addressError}
-                />
-                {addressError && <span className="mov-dispatch-address-error">{addressError}</span>}
-              </div>
-            )}
+
+            {schedulingEnabled && <div className="mov-schedule-wrap">
+              <button
+                type="button"
+                className="mov-schedule-btn"
+                onClick={() => (scheduleOpen ? closeSchedule() : openSchedule())}
+                aria-expanded={scheduleOpen}
+              >
+                <span className="mov-schedule-icon" aria-hidden="true">🕒</span>
+                <span>{scheduleButtonLabel()}</span>
+                <span className="mov-schedule-caret" aria-hidden="true">▾</span>
+              </button>
+              {scheduleOpen && (
+                <div className="mov-schedule-pop" role="dialog" aria-modal="false">
+                  {scheduleStep === "when" ? (
+                    <>
+                      <div className="mov-schedule-header">
+                        <h3 className="mov-schedule-title">{t("restaurant.scheduleWhen")}</h3>
+                        <button type="button" className="mov-schedule-icon-btn" onClick={closeSchedule} aria-label={t("restaurant.close")}>×</button>
+                      </div>
+                      <button
+                        type="button"
+                        className={`mov-schedule-option ${scheduleMode === "ASAP" ? "active" : ""}`}
+                        onClick={() => setScheduleMode("ASAP")}
+                        disabled={slotsLoaded && !hasAsap}
+                      >
+                        <span className={`mov-schedule-radio ${scheduleMode === "ASAP" ? "active" : ""}`} aria-hidden="true" />
+                        <span className="mov-schedule-option-body">
+                          <span className="mov-schedule-option-title">{t("restaurant.standard")}</span>
+                          <span className="mov-schedule-option-sub">
+                            {!slotsLoaded
+                              ? t("restaurant.loading")
+                              : hasAsap
+                                ? t("restaurant.asap")
+                                : t("restaurant.noSlots")}
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`mov-schedule-option ${scheduleMode === "SCHEDULE" ? "active" : ""}`}
+                        onClick={gotoScheduleStep}
+                      >
+                        <span className={`mov-schedule-radio ${scheduleMode === "SCHEDULE" ? "active" : ""}`} aria-hidden="true" />
+                        <span className="mov-schedule-option-body">
+                          <span className="mov-schedule-option-title">{t("restaurant.scheduleOption")}</span>
+                          <span className="mov-schedule-option-sub">
+                            {dispatchType === "DELIVERY" ? t("restaurant.chooseDeliveryTime") : t("restaurant.choosePickupTime")}
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="mov-schedule-primary"
+                        onClick={confirmScheduleAsap}
+                        disabled={!slotsLoaded || !hasAsap}
+                      >
+                        {t("restaurant.done")}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="mov-schedule-header">
+                        <button type="button" className="mov-schedule-icon-btn mov-schedule-back" onClick={() => setScheduleStep("when")} aria-label={t("restaurant.back")}>←</button>
+                        <button type="button" className="mov-schedule-icon-btn" onClick={closeSchedule} aria-label={t("restaurant.close")}>×</button>
+                      </div>
+                      <h3 className="mov-schedule-title">{t("restaurant.scheduleTitle")}</h3>
+                      <div className="mov-schedule-grid">
+                        <label className="mov-schedule-field">
+                          <span className="mov-schedule-field-label">{t("restaurant.day")}</span>
+                          <select
+                            className="mov-schedule-select"
+                            value={draftDay}
+                            onChange={(e) => onDraftDayChange(e.target.value)}
+                            disabled={draftLoading || availableDays.length === 0}
+                          >
+                            {draftLoading && availableDays.length === 0 && (
+                              <option value="">{t("restaurant.loading")}</option>
+                            )}
+                            {!draftLoading && availableDays.length === 0 && (
+                              <option value="">{t("restaurant.noSlots")}</option>
+                            )}
+                            {availableDays.map(d => (
+                              <option key={d.iso} value={d.iso}>{d.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="mov-schedule-field">
+                          <span className="mov-schedule-field-label">{t("restaurant.time")}</span>
+                          <select
+                            className="mov-schedule-select"
+                            value={draftSlot}
+                            onChange={(e) => setDraftSlot(e.target.value)}
+                            disabled={draftLoading || draftSlots.length === 0}
+                          >
+                            {draftLoading && (
+                              <option value="">{t("restaurant.loading")}</option>
+                            )}
+                            {!draftLoading && draftSlots.length === 0 && (
+                              <option value="">{t("restaurant.noSlots")}</option>
+                            )}
+                            {!draftLoading && draftSlots.map(s => (
+                              <option key={s.start} value={s.start}>
+                                {formatSlotTime(s.start)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        className="mov-schedule-primary"
+                        onClick={confirmScheduleSlot}
+                        disabled={draftLoading || draftSlots.length === 0}
+                      >
+                        {t("restaurant.confirm")}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>}
+
             {selectedFulfillment?.fee && parseFloat(selectedFulfillment.fee) > 0 && (
               <div className="mov-dispatch-note">
                 {t("restaurant.fee")}: {formatAmount(parseFloat(selectedFulfillment.fee))}
               </div>
             )}
-          </div>
-
-          <div className="mov-dispatch-row">
-            <label className="mov-dispatch-label">{t("restaurant.when")}:</label>
-            <select
-              className="mov-dispatch-select"
-              value={selectedSlot}
-              onChange={(e) => onSelectSlot(e.target.value as "ASAP" | string)}
-              disabled={slotsLoading || (needsAddress && !address.trim())}
-            >
-              {hasAsap && <option value="ASAP">{t("restaurant.asap")}</option>}
-              {preorderSlots.map(s => (
-                <option key={s.start} value={s.start}>
-                  {formatSlotTime(s.start)} – {formatSlotTime(s.end)}
-                </option>
-              ))}
-              {!hasAsap && preorderSlots.length === 0 && !slotsLoading && (
-                <option value="ASAP" disabled>{t("restaurant.noSlotsAvailable")}</option>
-              )}
-            </select>
-            <input
-              type="date"
-              className="mov-dispatch-date"
-              value={slotsDate}
-              min={new Date().toISOString().split("T")[0]}
-              onChange={(e) => setSlotsDate(e.target.value)}
-            />
           </div>
         </div>
       )}

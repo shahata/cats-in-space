@@ -13,6 +13,7 @@ import {
 	menus as menusApi,
 	menuOrderingSettings as menuOrderingSettingsApi,
 	fulfillmentMethods as fulfillmentMethodsApi,
+	operations as operationsApi,
 } from '@wix/restaurants';
 import { locations as locationsApi } from '@wix/business-tools';
 import { getSiteCurrency } from '../../utils/site';
@@ -82,6 +83,27 @@ try {
 	fulfillmentMethods = (fmResult.fulfillmentMethods || [])
 		.filter(fm => fm.enabled !== false && String(fm.type) !== 'DINE_IN');
 } catch {}
+
+// Read the restaurant's configured default dispatch (PICKUP vs DELIVERY) from the
+// operation — hard-coding pickup-first ignores restaurants that default to delivery.
+// Also derive whether scheduled (preorder) is enabled so we can hide the Schedule
+// button entirely for ASAP-only restaurants.
+let defaultDispatchType = '';
+let schedulingEnabled = false;
+const firstOperationId = [...operationByMenuId.values()][0];
+if (firstOperationId) {
+	try {
+		const elevatedGetOp = auth.elevate(operationsApi.getOperation);
+		const op = await elevatedGetOp(firstOperationId);
+		defaultDispatchType = String(op.defaultFulfillmentType || '');
+		const sched = op.orderScheduling;
+		// PREORDER-only → always schedule. ASAP with asapFutureHandlingType ===
+		// BUSINESS_DAYS_AHEAD_HANDLING means the restaurant allows scheduling
+		// future orders alongside immediate ones.
+		const asapFuture = String(sched?.asapOptions?.asapFutureHandlingType || '');
+		schedulingEnabled = String(sched?.type) === 'PREORDER' || asapFuture === 'BUSINESS_DAYS_AHEAD_HANDLING';
+	} catch {}
+}
 
 const elevatedQuerySections = auth.elevate(sectionsApi.querySections);
 const sectionsResult = await elevatedQuerySections().find();
@@ -172,7 +194,11 @@ function buildItemDto(item: RawItem, ctx: { menuId: string; sectionId: string; o
 			if (!g) return null;
 			const minSel = g.rule?.minSelections ?? 0;
 			const maxSel = g.rule?.maxSelections ?? 0;
-			const required = !!g.rule?.required;
+			const rawRequired = !!g.rule?.required;
+			// Wix Restaurants' catalog SPI rejects line items ("no longer available") when a
+			// single-select group has no choice, even if rule.required is false — so treat
+			// maxSelections === 1 as implicitly required.
+			const required = rawRequired || maxSel === 1;
 			return {
 				_id: g._id || '',
 				name: g.name || '',
@@ -267,6 +293,8 @@ const menuData = orderableMenus.flatMap(menu => {
 					operationId={[...operationByMenuId.values()][0] || ''}
 					businessLocationId={businessLocationId}
 					pickupAddress={pickupAddress}
+					defaultDispatchType={defaultDispatchType}
+					schedulingEnabled={schedulingEnabled}
 					fulfillmentMethods={fulfillmentMethods.map(fm => ({
 						_id: fm._id || '',
 						type: fm.type || 'PICKUP',
@@ -326,25 +354,6 @@ const menuData = orderableMenus.flatMap(menu => {
 		flex-wrap: wrap;
 	}
 
-	.mov-dispatch-label {
-		color: var(--text-secondary);
-		font-family: var(--font-heading);
-		font-size: 0.85rem;
-		letter-spacing: 1px;
-	}
-
-	.mov-dispatch-select,
-	.mov-dispatch-date {
-		padding: 8px 12px;
-		background: #1a1a1a;
-		border: 1px solid #333;
-		border-radius: 8px;
-		color: var(--text-primary);
-		font-family: inherit;
-		font-size: 0.9rem;
-		color-scheme: dark;
-	}
-
 	.mov-dispatch-tabs {
 		display: inline-flex;
 		background: #1a1a1a;
@@ -372,37 +381,214 @@ const menuData = orderableMenus.flatMap(menu => {
 		color: #000;
 	}
 
-	.mov-dispatch-address {
+	.mov-dispatch-note {
+		color: var(--text-muted);
+		font-size: 0.8rem;
+	}
+
+	/* Schedule-order button + popover */
+	.mov-schedule-wrap {
+		position: relative;
+		margin-inline-start: auto;
+	}
+
+	.mov-schedule-btn {
 		display: inline-flex;
 		align-items: center;
 		gap: 8px;
-		flex: 1;
-		min-width: 200px;
+		padding: 8px 16px;
+		background: #1a1a1a;
+		color: var(--text-primary);
+		border: 1px solid #333;
+		border-radius: 8px;
+		font-family: var(--font-heading);
+		font-size: 0.85rem;
+		letter-spacing: 1px;
+		cursor: pointer;
+		transition: all 0.15s;
 	}
 
-	.mov-dispatch-address-input {
-		flex: 1;
-		padding: 8px 12px;
+	.mov-schedule-btn:hover {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+
+	.mov-schedule-icon {
+		font-size: 0.95rem;
+	}
+
+	.mov-schedule-caret {
+		font-size: 0.75rem;
+		opacity: 0.8;
+	}
+
+	.mov-schedule-pop {
+		position: absolute;
+		top: calc(100% + 8px);
+		inset-inline-end: 0;
+		z-index: 50;
+		min-width: 320px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 14px;
+		padding: 16px;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+	}
+
+	.mov-schedule-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.mov-schedule-title {
+		margin: 0;
+		font-family: var(--font-heading);
+		font-size: 1.2rem;
+		color: var(--text-primary);
+		letter-spacing: 1px;
+	}
+
+	.mov-schedule-icon-btn {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.05);
+		border: none;
+		color: var(--text-secondary);
+		cursor: pointer;
+		font-size: 1rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.mov-schedule-icon-btn:hover {
+		background: rgba(255, 255, 255, 0.1);
+		color: var(--text-primary);
+	}
+
+	/* Flip the back-arrow glyph in RTL so it points "back" in the reading direction. */
+	[dir="rtl"] .mov-schedule-back { transform: scaleX(-1); }
+
+	.mov-schedule-option {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px 14px;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid #333;
+		border-radius: 10px;
+		color: var(--text-primary);
+		font-family: inherit;
+		cursor: pointer;
+		text-align: start;
+		transition: all 0.15s;
+	}
+
+	.mov-schedule-option:hover:not(:disabled) {
+		border-color: rgba(255, 102, 0, 0.4);
+	}
+
+	.mov-schedule-option.active {
+		border-color: var(--accent);
+		background: rgba(255, 102, 0, 0.08);
+	}
+
+	.mov-schedule-option:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.mov-schedule-radio {
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		border: 2px solid #666;
+		flex-shrink: 0;
+		position: relative;
+	}
+
+	.mov-schedule-radio.active {
+		border-color: var(--accent);
+	}
+
+	.mov-schedule-radio.active::after {
+		content: "";
+		position: absolute;
+		inset: 3px;
+		border-radius: 50%;
+		background: var(--accent);
+	}
+
+	.mov-schedule-option-body {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.mov-schedule-option-title {
+		font-weight: 700;
+		font-size: 0.95rem;
+	}
+
+	.mov-schedule-option-sub {
+		font-size: 0.8rem;
+		color: var(--text-muted);
+	}
+
+	.mov-schedule-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+	}
+
+	.mov-schedule-field {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.mov-schedule-field-label {
+		font-size: 0.75rem;
+		color: var(--text-muted);
+	}
+
+	.mov-schedule-select {
+		padding: 10px 12px;
 		background: #1a1a1a;
 		border: 1px solid #333;
 		border-radius: 8px;
 		color: var(--text-primary);
 		font-family: inherit;
 		font-size: 0.9rem;
+		color-scheme: dark;
 	}
 
-	.mov-dispatch-address-input[aria-invalid="true"] {
-		border-color: #f44336;
+	.mov-schedule-primary {
+		margin-top: 6px;
+		padding: 14px;
+		background: var(--accent);
+		color: #000;
+		border: none;
+		border-radius: 10px;
+		font-family: var(--font-heading);
+		font-size: 1rem;
+		font-weight: 700;
+		letter-spacing: 1px;
+		cursor: pointer;
+		transition: background 0.15s;
 	}
 
-	.mov-dispatch-address-error {
-		color: #f44336;
-		font-size: 0.8rem;
-	}
+	.mov-schedule-primary:hover:not(:disabled) { background: var(--accent-yellow); }
 
-	.mov-dispatch-note {
-		color: var(--text-muted);
-		font-size: 0.8rem;
+	.mov-schedule-primary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	.mov-side {

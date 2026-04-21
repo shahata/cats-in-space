@@ -33,7 +33,7 @@ const isRestaurantMenuActive = (currentPath === '/restaurant' || currentPath.sta
 
 type NavItem =
 	| { kind: 'link'; href: string; path: string; label: string }
-	| { kind: 'group'; label: string; active: boolean; children: { href: string; label: string; active: boolean }[] };
+	| { kind: 'group'; label: string; href?: string; active: boolean; children: { href: string; label: string; active: boolean }[] };
 
 const facilitiesItems: NavItem[] = [
 	{ kind: 'link', href: getRelativeLocaleUrl('/store'), path: '/store', label: t('nav.store') },
@@ -41,6 +41,7 @@ const facilitiesItems: NavItem[] = [
 	{
 		kind: 'group',
 		label: t('nav.restaurant'),
+		href: getRelativeLocaleUrl('/restaurant'),
 		active: isRestaurantMenuActive || isRestaurantReserve || isRestaurantOrder,
 		children: [
 			{ href: getRelativeLocaleUrl('/restaurant'), label: t('restaurant.menu'), active: isRestaurantMenuActive },
@@ -105,10 +106,17 @@ const isFacilitiesActive = facilitiesItems.some(item =>
 								</a>
 							) : (
 								<div class="nav-subdropdown">
-									<button class:list={['dropdown-item dropdown-subtrigger', { active: item.active }]} type="button">
-										<span>{item.label}</span>
-										<span class="submenu-caret" aria-hidden="true"></span>
-									</button>
+									{item.href ? (
+										<a href={item.href} class:list={['dropdown-item dropdown-subtrigger', { active: item.active }]}>
+											<span>{item.label}</span>
+											<span class="submenu-caret" aria-hidden="true"></span>
+										</a>
+									) : (
+										<button class:list={['dropdown-item dropdown-subtrigger', { active: item.active }]} type="button">
+											<span>{item.label}</span>
+											<span class="submenu-caret" aria-hidden="true"></span>
+										</button>
+									)}
 									<div class="nav-subdropdown-menu">
 										<div class="nav-subdropdown-menu-inner">
 											{item.children.map(child => (
@@ -210,10 +218,15 @@ const isFacilitiesActive = facilitiesItems.some(item =>
 		let subCloseTimer: ReturnType<typeof setTimeout>;
 		s.addEventListener('mouseenter', () => { clearTimeout(subCloseTimer); submenu?.classList.add('nav-subdropdown-open'); });
 		s.addEventListener('mouseleave', () => { subCloseTimer = setTimeout(() => submenu?.classList.remove('nav-subdropdown-open'), 150); });
-		s.querySelector('.dropdown-subtrigger')?.addEventListener('click', (e) => {
-			e.stopPropagation();
-			submenu?.classList.toggle('nav-subdropdown-open');
-		});
+		const subtrigger = s.querySelector('.dropdown-subtrigger');
+		// Anchor subtriggers should navigate on click — don't hijack with a toggle.
+		// Only <button> subtriggers get the open/close behaviour.
+		if (subtrigger instanceof HTMLButtonElement) {
+			subtrigger.addEventListener('click', (e) => {
+				e.stopPropagation();
+				submenu?.classList.toggle('nav-subdropdown-open');
+			});
+		}
 	});
 
 	document.addEventListener('click', () => {

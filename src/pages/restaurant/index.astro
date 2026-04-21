@@ -4,6 +4,7 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { sections as sectionsApi, items as itemsApi, itemLabels, menus as menusApi } from '@wix/restaurants';
 import { i18n, auth } from '@wix/essentials';
+import { getRelativeLocaleUrl } from 'wix:astro:i18n';
 import { getShapeUrl } from '../../utils/image';
 import { getSiteCurrency } from '../../utils/site';
 
@@ -124,8 +125,16 @@ const menuDisplays: MenuDisplay[] = allMenus.map(menu => {
 	<Nav />
 	<section class="page-header">
 		<div class="container">
-			<h1 class="section-title">{t('restaurant.pageTitle')}</h1>
-			<p class="section-subtitle">{t('restaurant.pageSubtitle')}</p>
+			<div class="menu-ctas">
+				<a class="menu-cta" href={getRelativeLocaleUrl('/restaurant/reserve')}>
+					<span class="menu-cta-icon" aria-hidden="true">🪑</span>
+					<span class="menu-cta-label">{t('restaurant.reserve')}</span>
+				</a>
+				<a class="menu-cta menu-cta-primary" href={getRelativeLocaleUrl('/restaurant/order')}>
+					<span class="menu-cta-icon" aria-hidden="true">🚗</span>
+					<span class="menu-cta-label">{t('restaurant.order')}</span>
+				</a>
+			</div>
 		</div>
 	</section>
 
@@ -181,8 +190,51 @@ const menuDisplays: MenuDisplay[] = allMenus.map(menu => {
 
 <style>
 	.page-header {
-		padding: 80px 0 40px;
-		text-align: center;
+		padding: 48px 0 32px;
+	}
+
+	.menu-ctas {
+		display: flex;
+		gap: 12px;
+		justify-content: center;
+		flex-wrap: wrap;
+	}
+
+	.menu-cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		padding: 12px 22px;
+		background: rgba(255, 255, 255, 0.03);
+		border: 1px solid var(--border-card);
+		border-radius: 999px;
+		color: var(--text-primary);
+		font-family: var(--font-heading);
+		font-size: 0.9rem;
+		letter-spacing: 1px;
+		text-decoration: none;
+		transition: all 0.15s;
+	}
+
+	.menu-cta:hover {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+
+	.menu-cta-primary {
+		background: var(--accent);
+		color: #000;
+		border-color: var(--accent);
+	}
+
+	.menu-cta-primary:hover {
+		background: var(--accent-yellow);
+		border-color: var(--accent-yellow);
+		color: #000;
+	}
+
+	.menu-cta-icon {
+		font-size: 1rem;
 	}
 
 	.menu-content {
