@@ -36,12 +36,25 @@ while (page) {
 	page = await page.next();
 }
 
-let current = events.find(e => e.slug === slug);
-if (!current) {
-	current = events.find(e => {
-		const derived = e.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-		return derived === slug;
-	});
+// Resolve the URL slug. Preferred form is a title-derived movie slug (e.g.
+// "purr-assic-park") that maps to the entire series; we pick the soonest
+// upcoming sibling as `current`. Direct Wix event slugs still work for
+// backward-compat (anyone who bookmarked the old per-showtime URLs).
+function titleSlug(ev: Event): string {
+	return ev.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ?? '';
+}
+const titleMatches = events.filter(e => titleSlug(e) === slug);
+let current: Event | undefined;
+if (titleMatches.length > 0) {
+	const nowMs = Date.now();
+	const upcoming = titleMatches
+		.filter(e => new Date(e.dateAndTimeSettings?.startDate ?? 0).getTime() >= nowMs)
+		.sort((a, b) =>
+			new Date(a.dateAndTimeSettings?.startDate ?? 0).getTime()
+			- new Date(b.dateAndTimeSettings?.startDate ?? 0).getTime());
+	current = upcoming[0] ?? titleMatches[0];
+} else {
+	current = events.find(e => e.slug === slug);
 }
 if (!current) return Astro.redirect('/cinema');
 

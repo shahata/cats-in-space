@@ -185,6 +185,44 @@ UI pattern: if `seatingDetails.places.length > 0`, render a seat grid (group by 
 
 When cleaning up for a fresh seed, delete MANUAL categories after deleting their events — the RECURRING_EVENT categories clean up automatically.
 
+## Modifying the checkout form (phone, custom fields)
+
+Don't patch `event.form.controls` through `updateEvent`. Use the dedicated `@wix/events` → `forms` namespace:
+
+```ts
+import { forms as eventForms } from '@wix/events';
+await auth.elevate(eventForms.addControl)(eventId, {
+  phone: { label: 'Phone Number', mandatory: false },
+});
+// or: text, dropdown, checkbox, radioButton, address, date, additionalGuests
+// Update existing: forms.updateControl({ eventId, _id }, { ... })
+// Remove: forms.deleteControl({ eventId, _id })
+```
+
+One control per `addControl` call — the options type is a `oneOf` over control kinds. `addControl` appends to the end; there's no `orderIndex` argument.
+
+## Flipping form-per-order → form-per-ticket
+
+Setting `registration.tickets.guestsAssignedSeparately = true` makes Wix's hosted ticket-form collect attendee details once per ticket instead of once per order (you'll see a new "2. Tickets Details" step between "Add your details" and "Payment").
+
+Update it through `updateEvent`, but pass ONLY the delta — do NOT spread the full `registration` object, or you'll trip `INVALID_FIELD_MASK`:
+
+```ts
+await updateEvent(ev._id, {
+  event: { registration: { tickets: { guestsAssignedSeparately: true } } },
+});
+```
+
+## Movie-level routing for recurring series
+
+If every occurrence is its own Event with its own Wix-generated slug (e.g. `purr-assic-park-2026-04-22-20-00-2`), don't use that slug as the detail URL — link by a stable title-derived slug (`purr-assic-park`) and let the detail page resolve it to the earliest upcoming sibling. Ticket defs are per-event so your booking component needs to swap its `eventId` when the user changes date:
+
+1. SSR renders with `current = earliest-upcoming sibling`. Tickets for that event are fetched server-side (names/prices match across siblings).
+2. Client owns a `selectedEventId` state; a dropdown (or chips for few options) switches it without navigation.
+3. On Book: if selection differs from SSR's event, client calls `ticketDefinitionsV2.queryAvailableTicketDefinitions({ filter: { eventId: selected } })`, maps the user's qty-by-tier-**name** to the fresh `_id`s, reserves, redirects.
+
+Key state trick: key qty/seat state by `td.name`, not `td._id`, so state survives a date change.
+
 ## Seed pattern (idempotent re-run)
 
 ```
@@ -242,3 +280,5 @@ Portrait (1024×1792) for posters. Prompts must explicitly say "vertical portrai
 | Client component clicks do nothing after SDK edits | Stale `node_modules/.vite` optimize cache | `rm -rf node_modules/.vite` + restart |
 | Ticket picker qty buttons disabled at 0 | `limitPerCheckout` undefined treated as 0 | Default to 10 or similar: `td.limitPerCheckout ?? 10` |
 | User lands on thank-you without paying | Used `orders.checkout` instead of `redirects.createRedirectSession` | Switch to redirects + eventsCheckout |
+| `updateEvent({ event: { form: { controls } } })` → `Invalid field mask: form.controls: UNKNOWN` | v3 REST API doesn't accept `form.controls` as an updatable path despite the SDK type including it | Use `forms.addControl(eventId, { phone: {...} })` etc. |
+| `updateEvent({ event: { registration: {...ev.registration, ...} } })` → `INVALID_FIELD_MASK` with many read-only paths listed | Spreading the full `registration` response object sends read-only fields in the write mask | Pass ONLY the sub-tree you want to change: `{ event: { registration: { tickets: { guestsAssignedSeparately: true } } } }` |

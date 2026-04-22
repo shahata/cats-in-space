@@ -65,11 +65,13 @@ function eventStart(ev: Event): number {
 	return s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
 }
 
+// Derive a stable movie-level slug from the title. Each Wix Event gets its
+// own auto-generated slug suffixed with the showtime's date (e.g.
+// "purr-assic-park-2026-04-22-20-00-2"); linking by that would bind shared
+// URLs to a specific showtime. The detail page resolves this title slug to
+// the earliest upcoming sibling in the series.
 function slugOf(ev: Event): string {
-	return ev.slug
-		?? ev.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-		?? ev._id
-		?? '';
+	return ev.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ?? '';
 }
 
 const dateTimeFmt = new Intl.DateTimeFormat(locale, {
