@@ -8,14 +8,11 @@ import BlogEngagement from '../../components/BlogEngagement';
 import { posts, tags as tagsApi } from '@wix/blog';
 import { members } from '@wix/members';
 import { auth, i18n } from '@wix/essentials';
-import type { seoTags as seoTagsNs } from '@wix/seo';
-import { getImageUrl } from '../../utils/image';
 const t = i18n.getTranslationFunction();
 
 type Post = posts.Post;
 type BlogTag = tagsApi.BlogTag;
 type Member = members.Member;
-type SeoTag = seoTagsNs.Tag;
 
 const { slug } = Astro.params;
 let post: Post | undefined;
@@ -75,37 +72,7 @@ const writerTitle = writer?.profile?.title || '';
 const writerPhoto = writer?.profile?.photo?.url;
 const writerSlug = writer?.profile?.slug;
 
-// The @wix/blog SDK surfaces dashboard-configured SEO on `post.seoData.tags`,
-// but those currently only contain AI-generated JSON-LD (no og:/twitter:/
-// meta description / canonical). Synthesise the standard set from the post
-// fields so social previews, canonical, and SERP snippets all work, then
-// merge in whatever Wix did provide (so structured data still renders).
-const pageUrl = new URL(`/blog/${slug}`, Astro.url).href;
-const coverImage = getImageUrl(post.media?.wixMedia?.image, 1200, 630);
-const ogDescription = (post.excerpt || post.contentText || '').slice(0, 300);
-const publishedTime = post.firstPublishedDate ? new Date(post.firstPublishedDate).toISOString() : null;
-const modifiedTime = post.lastPublishedDate ? new Date(post.lastPublishedDate).toISOString() : null;
-
-const synthesizedSeoTags: SeoTag[] = [
-	{ type: 'title', children: post.title ?? '' },
-	...(ogDescription ? [{ type: 'meta', props: { name: 'description', content: ogDescription } }] : []),
-	{ type: 'meta', props: { name: 'robots', content: 'index,follow' } },
-	{ type: 'link', props: { rel: 'canonical', href: pageUrl } },
-	{ type: 'meta', props: { property: 'og:type', content: 'article' } },
-	{ type: 'meta', props: { property: 'og:title', content: post.title ?? '' } },
-	...(ogDescription ? [{ type: 'meta', props: { property: 'og:description', content: ogDescription } }] : []),
-	{ type: 'meta', props: { property: 'og:url', content: pageUrl } },
-	{ type: 'meta', props: { property: 'og:site_name', content: t('home.title') } },
-	...(coverImage ? [{ type: 'meta', props: { property: 'og:image', content: coverImage } }] : []),
-	...(publishedTime ? [{ type: 'meta', props: { property: 'article:published_time', content: publishedTime } }] : []),
-	...(modifiedTime ? [{ type: 'meta', props: { property: 'article:modified_time', content: modifiedTime } }] : []),
-	...(writerName ? [{ type: 'meta', props: { property: 'article:author', content: writerName } }] : []),
-	{ type: 'meta', props: { name: 'twitter:card', content: coverImage ? 'summary_large_image' : 'summary' } },
-	{ type: 'meta', props: { name: 'twitter:title', content: post.title ?? '' } },
-	...(ogDescription ? [{ type: 'meta', props: { name: 'twitter:description', content: ogDescription } }] : []),
-	...(coverImage ? [{ type: 'meta', props: { name: 'twitter:image', content: coverImage } }] : []),
-];
-const seoTags: SeoTag[] = [...synthesizedSeoTags, ...(post.seoData?.tags || [])];
+const seoTags = post.seoData?.tags || [];
 ---
 
 <Layout title={`${post.title} - ${t('blog.pageTitle')}`} seoTags={seoTags}>
