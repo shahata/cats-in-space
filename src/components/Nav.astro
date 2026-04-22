@@ -29,12 +29,21 @@ const isPathActive = (path: string) => currentPath === path || currentPath.start
 const isRestaurantOrder = isPathActive('/restaurant/order');
 const isRestaurantReserve = isPathActive('/restaurant/reserve');
 const isRestaurantThankYou = isPathActive('/restaurant/thank-you');
-const isRestaurantMenuActive = (currentPath === '/restaurant' || currentPath.startsWith('/restaurant/'))
-	&& !isRestaurantOrder && !isRestaurantReserve && !isRestaurantThankYou;
+const isRestaurantMenuActive =
+	(currentPath === '/restaurant' || currentPath.startsWith('/restaurant/')) &&
+	!isRestaurantOrder &&
+	!isRestaurantReserve &&
+	!isRestaurantThankYou;
 
 type NavItem =
 	| { kind: 'link'; href: string; path: string; label: string }
-	| { kind: 'group'; label: string; href?: string; active: boolean; children: { href: string; label: string; active: boolean }[] };
+	| {
+			kind: 'group';
+			label: string;
+			href?: string;
+			active: boolean;
+			children: { href: string; label: string; active: boolean }[];
+	  };
 
 const facilitiesItems: NavItem[] = [
 	{ kind: 'link', href: getRelativeLocaleUrl('/store'), path: '/store', label: t('nav.store') },
@@ -46,16 +55,20 @@ const facilitiesItems: NavItem[] = [
 		active: isRestaurantMenuActive || isRestaurantReserve || isRestaurantOrder,
 		children: [
 			{ href: getRelativeLocaleUrl('/restaurant'), label: t('restaurant.menu'), active: isRestaurantMenuActive },
-			{ href: getRelativeLocaleUrl('/restaurant/reserve'), label: t('restaurant.reserve'), active: isRestaurantReserve },
+			{
+				href: getRelativeLocaleUrl('/restaurant/reserve'),
+				label: t('restaurant.reserve'),
+				active: isRestaurantReserve,
+			},
 			{ href: getRelativeLocaleUrl('/restaurant/order'), label: t('restaurant.order'), active: isRestaurantOrder },
 		],
 	},
 	{ kind: 'link', href: getRelativeLocaleUrl('/cinema'), path: '/cinema', label: t('nav.cinema') },
 ];
 
-const isExploreActive = exploreLinks.some(l => isPathActive(l.path));
-const isFacilitiesActive = facilitiesItems.some(item =>
-	item.kind === 'link' ? isPathActive(item.path) : item.active
+const isExploreActive = exploreLinks.some((l) => isPathActive(l.path));
+const isFacilitiesActive = facilitiesItems.some((item) =>
+	item.kind === 'link' ? isPathActive(item.path) : item.active,
 );
 ---
 
@@ -68,114 +81,109 @@ const isFacilitiesActive = facilitiesItems.some(item =>
 			<span class="nav-toggle-bar"></span>
 		</button>
 		<div class="nav-links">
-			<a
-				href={getRelativeLocaleUrl('/')}
-				class:list={['nav-link', { active: currentPath === '/' }]}
-			>
+			<a href={getRelativeLocaleUrl('/')} class:list={['nav-link', { active: currentPath === '/' }]}>
 				{t('nav.home')}
 			</a>
 			<div class="nav-dropdown">
 				<button class:list={['nav-link nav-dropdown-trigger', { active: isExploreActive }]} type="button">
-					{t('nav.explore')} <span class="nav-caret">&#9662;</span>
+					{t('nav.explore')}
+					<span class="nav-caret">&#9662;</span>
 				</button>
 				<div class="nav-dropdown-menu">
 					<div class="nav-dropdown-menu-inner">
-						{exploreLinks.map(link => (
-							<a
-								href={link.href}
-								class:list={['dropdown-item', { active: isPathActive(link.path) }]}
-							>
-								{link.label}
-							</a>
-						))}
+						{
+							exploreLinks.map((link) => (
+								<a href={link.href} class:list={['dropdown-item', { active: isPathActive(link.path) }]}>
+									{link.label}
+								</a>
+							))
+						}
 					</div>
 				</div>
 			</div>
 			<div class="nav-dropdown">
 				<button class:list={['nav-link nav-dropdown-trigger', { active: isFacilitiesActive }]} type="button">
-					{t('nav.facilities')} <span class="nav-caret">&#9662;</span>
+					{t('nav.facilities')}
+					<span class="nav-caret">&#9662;</span>
 				</button>
 				<div class="nav-dropdown-menu">
 					<div class="nav-dropdown-menu-inner">
-						{facilitiesItems.map(item => (
-							item.kind === 'link' ? (
-								<a
-									href={item.href}
-									class:list={['dropdown-item', { active: isPathActive(item.path) }]}
-								>
-									{item.label}
-								</a>
-							) : (
-								<div class="nav-subdropdown">
-									{item.href ? (
-										<a href={item.href} class:list={['dropdown-item dropdown-subtrigger', { active: item.active }]}>
-											<span>{item.label}</span>
-											<span class="submenu-caret" aria-hidden="true"></span>
-										</a>
-									) : (
-										<button class:list={['dropdown-item dropdown-subtrigger', { active: item.active }]} type="button">
-											<span>{item.label}</span>
-											<span class="submenu-caret" aria-hidden="true"></span>
-										</button>
-									)}
-									<div class="nav-subdropdown-menu">
-										<div class="nav-subdropdown-menu-inner">
-											{item.children.map(child => (
-												<a
-													href={child.href}
-													class:list={['dropdown-item', { active: child.active }]}
-												>
-													{child.label}
-												</a>
-											))}
+						{
+							facilitiesItems.map((item) =>
+								item.kind === 'link' ? (
+									<a href={item.href} class:list={['dropdown-item', { active: isPathActive(item.path) }]}>
+										{item.label}
+									</a>
+								) : (
+									<div class="nav-subdropdown">
+										{item.href ? (
+											<a href={item.href} class:list={['dropdown-item dropdown-subtrigger', { active: item.active }]}>
+												<span>{item.label}</span>
+												<span class="submenu-caret" aria-hidden="true" />
+											</a>
+										) : (
+											<button class:list={['dropdown-item dropdown-subtrigger', { active: item.active }]} type="button">
+												<span>{item.label}</span>
+												<span class="submenu-caret" aria-hidden="true" />
+											</button>
+										)}
+										<div class="nav-subdropdown-menu">
+											<div class="nav-subdropdown-menu-inner">
+												{item.children.map((child) => (
+													<a href={child.href} class:list={['dropdown-item', { active: child.active }]}>
+														{child.label}
+													</a>
+												))}
+											</div>
 										</div>
 									</div>
-								</div>
+								),
 							)
-						))}
+						}
 					</div>
 				</div>
 			</div>
-			<a
-				href={getRelativeLocaleUrl('/blog')}
-				class:list={['nav-link', { active: isPathActive('/blog') }]}
-			>
+			<a href={getRelativeLocaleUrl('/blog')} class:list={['nav-link', { active: isPathActive('/blog') }]}>
 				{t('nav.blog')}
 			</a>
-			<a
-				href={getRelativeLocaleUrl('/research')}
-				class:list={['nav-link', { active: isPathActive('/research') }]}
-			>
+			<a href={getRelativeLocaleUrl('/research')} class:list={['nav-link', { active: isPathActive('/research') }]}>
 				{t('nav.research')}
 			</a>
-			<a
-				href={getRelativeLocaleUrl('/plans')}
-				class:list={['nav-link', { active: isPathActive('/plans') }]}
-			>
+			<a href={getRelativeLocaleUrl('/plans')} class:list={['nav-link', { active: isPathActive('/plans') }]}>
 				{t('nav.plans')}
 			</a>
 			<div class="auth-section">
-				{loggedInMember ? (
-					<div class="member-menu">
-						<button class="member-link" type="button">
-							{memberPhoto && <img src={memberPhoto} alt={loggedInMember} class="member-avatar" referrerpolicy="no-referrer" />}
-							<span class="member-name">{loggedInMember}</span>
-							<span class="member-caret">&#9662;</span>
-						</button>
-						<div class="member-dropdown">
-							<a href={getRelativeLocaleUrl('/member')} class="dropdown-item">{t('nav.myProfile')}</a>
-							<LanguageSwitcher variant="dropdown" client:only="react" />
-							<form action={`/api/auth/logout?returnToUrl=${encodeURIComponent(currentPath)}`} method="POST">
-								<button type="submit" class="dropdown-item dropdown-logout">{t('nav.logout')}</button>
-							</form>
+				{
+					loggedInMember ? (
+						<div class="member-menu">
+							<button class="member-link" type="button">
+								{memberPhoto && (
+									<img src={memberPhoto} alt={loggedInMember} class="member-avatar" referrerpolicy="no-referrer" />
+								)}
+								<span class="member-name">{loggedInMember}</span>
+								<span class="member-caret">&#9662;</span>
+							</button>
+							<div class="member-dropdown">
+								<a href={getRelativeLocaleUrl('/member')} class="dropdown-item">
+									{t('nav.myProfile')}
+								</a>
+								<LanguageSwitcher variant="dropdown" client:only="react" />
+								<form action={`/api/auth/logout?returnToUrl=${encodeURIComponent(currentPath)}`} method="POST">
+									<button type="submit" class="dropdown-item dropdown-logout">
+										{t('nav.logout')}
+									</button>
+								</form>
+							</div>
 						</div>
-						</div>
-				) : (
-					<>
-						<LanguageSwitcher variant="standalone" client:only="react" />
-						<a href={`/api/auth/login?returnToUrl=${encodeURIComponent(currentPath)}`} class="auth-link">{t('nav.login')}</a>
-					</>
-				)}
+					) : (
+						<>
+							<LanguageSwitcher variant="standalone" client:only="react" />
+							<a href={`/api/auth/login?returnToUrl=${encodeURIComponent(currentPath)}`} class="auth-link">
+								{t('nav.login')}
+							</a>
+						</>
+					)
+				}
 			</div>
 		</div>
 	</div>
@@ -198,14 +206,20 @@ const isFacilitiesActive = facilitiesItems.some(item =>
 
 	const navDropdowns = document.querySelectorAll('.nav-dropdown');
 	const closeAllNavMenus = () => {
-		navDropdowns.forEach(d => d.querySelector('.nav-dropdown-menu')?.classList.remove('nav-dropdown-open'));
-		document.querySelectorAll('.nav-subdropdown-menu').forEach(m => m.classList.remove('nav-subdropdown-open'));
+		navDropdowns.forEach((d) => d.querySelector('.nav-dropdown-menu')?.classList.remove('nav-dropdown-open'));
+		document.querySelectorAll('.nav-subdropdown-menu').forEach((m) => m.classList.remove('nav-subdropdown-open'));
 	};
-	navDropdowns.forEach(d => {
+	navDropdowns.forEach((d) => {
 		const menu = d.querySelector('.nav-dropdown-menu');
 		let closeTimer: ReturnType<typeof setTimeout>;
-		d.addEventListener('mouseenter', () => { clearTimeout(closeTimer); closeAllNavMenus(); menu?.classList.add('nav-dropdown-open'); });
-		d.addEventListener('mouseleave', () => { closeTimer = setTimeout(() => menu?.classList.remove('nav-dropdown-open'), 150); });
+		d.addEventListener('mouseenter', () => {
+			clearTimeout(closeTimer);
+			closeAllNavMenus();
+			menu?.classList.add('nav-dropdown-open');
+		});
+		d.addEventListener('mouseleave', () => {
+			closeTimer = setTimeout(() => menu?.classList.remove('nav-dropdown-open'), 150);
+		});
 		d.querySelector('.nav-dropdown-trigger')?.addEventListener('click', (e) => {
 			e.stopPropagation();
 			const wasOpen = menu?.classList.contains('nav-dropdown-open');
@@ -214,11 +228,16 @@ const isFacilitiesActive = facilitiesItems.some(item =>
 		});
 	});
 
-	document.querySelectorAll('.nav-subdropdown').forEach(s => {
+	document.querySelectorAll('.nav-subdropdown').forEach((s) => {
 		const submenu = s.querySelector('.nav-subdropdown-menu');
 		let subCloseTimer: ReturnType<typeof setTimeout>;
-		s.addEventListener('mouseenter', () => { clearTimeout(subCloseTimer); submenu?.classList.add('nav-subdropdown-open'); });
-		s.addEventListener('mouseleave', () => { subCloseTimer = setTimeout(() => submenu?.classList.remove('nav-subdropdown-open'), 150); });
+		s.addEventListener('mouseenter', () => {
+			clearTimeout(subCloseTimer);
+			submenu?.classList.add('nav-subdropdown-open');
+		});
+		s.addEventListener('mouseleave', () => {
+			subCloseTimer = setTimeout(() => submenu?.classList.remove('nav-subdropdown-open'), 150);
+		});
 		const subtrigger = s.querySelector('.dropdown-subtrigger');
 		// Anchor subtriggers should navigate on click — don't hijack with a toggle.
 		// Only <button> subtriggers get the open/close behaviour.
@@ -390,11 +409,11 @@ const isFacilitiesActive = facilitiesItems.some(item =>
 	}
 
 	.dropdown-subtrigger .submenu-caret::before {
-		content: "\25B8"; /* ▸ right-pointing small triangle */
+		content: '\25B8'; /* ▸ right-pointing small triangle */
 	}
 
-	:global(html[dir="rtl"]) .dropdown-subtrigger .submenu-caret::before {
-		content: "\25C2"; /* ◂ left-pointing small triangle */
+	:global(html[dir='rtl']) .dropdown-subtrigger .submenu-caret::before {
+		content: '\25C2'; /* ◂ left-pointing small triangle */
 	}
 
 	.nav-subdropdown-menu {
@@ -541,7 +560,6 @@ const isFacilitiesActive = facilitiesItems.some(item =>
 		background: rgba(255, 102, 0, 0.1);
 	}
 
-
 	@media (max-width: 960px) {
 		.nav-toggle {
 			display: flex;
@@ -667,7 +685,6 @@ const isFacilitiesActive = facilitiesItems.some(item =>
 			left: 50%;
 			transform: translateX(-50%);
 		}
-
 
 		.lang-standalone-dropdown {
 			left: auto;

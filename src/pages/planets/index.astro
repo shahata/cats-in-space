@@ -12,8 +12,10 @@ const planets = result.items;
 
 function getStatusBadge(status: string) {
 	const map: Record<string, string> = {
-		'Top Candidate': 'badge-green', 'Exploring': 'badge-blue',
-		'Candidate': 'badge-purple', 'Rejected': 'badge-pink',
+		'Top Candidate': 'badge-green',
+		Exploring: 'badge-blue',
+		Candidate: 'badge-purple',
+		Rejected: 'badge-pink',
 	};
 	return map[status] || 'badge-blue';
 }
@@ -31,39 +33,45 @@ function getStatusBadge(status: string) {
 	<section class="content">
 		<div class="container">
 			<div class="planets-grid">
-				{planets.map((planet, i) => (
-					<a href={`/planets/${planet.slug}`} class="planet-card">
-						<div class="planet-rank">#{i + 1}</div>
-						<div class="planet-orb-wrap">
-							{getImageUrl(planet.image, 300, 300) ? (
-								<img src={getImageUrl(planet.image, 300, 300)!} alt={planet.title} class="planet-img" />
-							) : (
-								<div class="planet-orb"></div>
-							)}
-						</div>
-						<h2>{planet.title}</h2>
-						<p class="tagline">{planet.tagline}</p>
-						<span class={`badge ${getStatusBadge(planet.status)}`}>{planet.status}</span>
-						<div class="score-bar">
-							<div class="score-fill" style={`width: ${planet.habitabilityScore}%`}></div>
-							<span class="score-label">{planet.habitabilityScore}% {t('planets.habitable')}</span>
-						</div>
-						<div class="meta-row">
-							<div class="meta-item">
-								<span class="meta-label">{t('planets.distance')}</span>
-								<span class="meta-value">{planet.distance} {t('planets.ly')}</span>
+				{
+					planets.map((planet, i) => (
+						<a href={`/planets/${planet.slug}`} class="planet-card">
+							<div class="planet-rank">#{i + 1}</div>
+							<div class="planet-orb-wrap">
+								{getImageUrl(planet.image, 300, 300) ? (
+									<img src={getImageUrl(planet.image, 300, 300)!} alt={planet.title} class="planet-img" />
+								) : (
+									<div class="planet-orb" />
+								)}
 							</div>
-							<div class="meta-item">
-								<span class="meta-label">{t('planets.gravity')}</span>
-								<span class="meta-value">{planet.gravity}</span>
+							<h2>{planet.title}</h2>
+							<p class="tagline">{planet.tagline}</p>
+							<span class={`badge ${getStatusBadge(planet.status)}`}>{planet.status}</span>
+							<div class="score-bar">
+								<div class="score-fill" style={`width: ${planet.habitabilityScore}%`} />
+								<span class="score-label">
+									{planet.habitabilityScore}% {t('planets.habitable')}
+								</span>
 							</div>
-							<div class="meta-item">
-								<span class="meta-label">{t('planets.atmosphere')}</span>
-								<span class="meta-value">{planet.atmosphere}</span>
+							<div class="meta-row">
+								<div class="meta-item">
+									<span class="meta-label">{t('planets.distance')}</span>
+									<span class="meta-value">
+										{planet.distance} {t('planets.ly')}
+									</span>
+								</div>
+								<div class="meta-item">
+									<span class="meta-label">{t('planets.gravity')}</span>
+									<span class="meta-value">{planet.gravity}</span>
+								</div>
+								<div class="meta-item">
+									<span class="meta-label">{t('planets.atmosphere')}</span>
+									<span class="meta-value">{planet.atmosphere}</span>
+								</div>
 							</div>
-						</div>
-					</a>
-				))}
+						</a>
+					))
+				}
 			</div>
 		</div>
 	</section>
@@ -133,15 +141,30 @@ function getStatusBadge(status: string) {
 	}
 
 	@keyframes float {
-		0%, 100% { transform: translateY(0px); }
-		50% { transform: translateY(-6px); }
+		0%,
+		100% {
+			transform: translateY(0px);
+		}
+		50% {
+			transform: translateY(-6px);
+		}
 	}
 
-	.planet-card:nth-child(1) .planet-orb { background: linear-gradient(135deg, #ff6600, #ffcc00); }
-	.planet-card:nth-child(2) .planet-orb { background: linear-gradient(135deg, #ffcc00, #ff6600); }
-	.planet-card:nth-child(3) .planet-orb { background: linear-gradient(135deg, #ff6600, #cc5500); }
-	.planet-card:nth-child(4) .planet-orb { background: linear-gradient(135deg, #ffcc00, #ff9900); }
-	.planet-card:nth-child(5) .planet-orb { background: linear-gradient(135deg, #cc5500, #ff6600); }
+	.planet-card:nth-child(1) .planet-orb {
+		background: linear-gradient(135deg, #ff6600, #ffcc00);
+	}
+	.planet-card:nth-child(2) .planet-orb {
+		background: linear-gradient(135deg, #ffcc00, #ff6600);
+	}
+	.planet-card:nth-child(3) .planet-orb {
+		background: linear-gradient(135deg, #ff6600, #cc5500);
+	}
+	.planet-card:nth-child(4) .planet-orb {
+		background: linear-gradient(135deg, #ffcc00, #ff9900);
+	}
+	.planet-card:nth-child(5) .planet-orb {
+		background: linear-gradient(135deg, #cc5500, #ff6600);
+	}
 
 	.planet-img {
 		width: 100px;
@@ -176,7 +199,7 @@ function getStatusBadge(status: string) {
 	}
 
 	.score-bar {
-		background: rgba(255,255,255,0.05);
+		background: rgba(255, 255, 255, 0.05);
 		border-radius: 999px;
 		height: 24px;
 		position: relative;
@@ -203,7 +226,7 @@ function getStatusBadge(status: string) {
 		font-family: var(--font-title);
 		font-weight: 700;
 		color: white;
-		text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 		z-index: 1;
 	}
 
@@ -221,10 +244,18 @@ function getStatusBadge(status: string) {
 		border-bottom: 1px solid var(--border-card);
 	}
 
-	.meta-label { color: var(--text-muted); }
-	.meta-value { color: var(--text-secondary); font-family: var(--font-body); font-size: 0.75rem; }
+	.meta-label {
+		color: var(--text-muted);
+	}
+	.meta-value {
+		color: var(--text-secondary);
+		font-family: var(--font-body);
+		font-size: 0.75rem;
+	}
 
 	@media (max-width: 768px) {
-		.planets-grid { grid-template-columns: 1fr; }
+		.planets-grid {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

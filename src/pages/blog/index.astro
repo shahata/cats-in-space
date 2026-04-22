@@ -16,7 +16,18 @@ type Post = posts.Post & { metrics?: Metrics };
 
 // Use queryPosts — returns real metrics (views, likes, comments). listPosts returns zeros.
 const currentLanguage = i18n.getLanguage();
-const queryResult = await posts.queryPosts({ fieldsets: [posts.PostFieldField.URL, posts.PostFieldField.RICH_CONTENT, posts.PostFieldField.METRICS, posts.PostFieldField.CONTACT_ID, posts.PostFieldField.REFERENCE_ID] }).eq('language', currentLanguage).find();
+const queryResult = await posts
+	.queryPosts({
+		fieldsets: [
+			posts.PostFieldField.URL,
+			posts.PostFieldField.RICH_CONTENT,
+			posts.PostFieldField.METRICS,
+			posts.PostFieldField.CONTACT_ID,
+			posts.PostFieldField.REFERENCE_ID,
+		],
+	})
+	.eq('language', currentLanguage)
+	.find();
 const blogPosts = queryResult.items || [];
 // Fetch all tags
 const tagsResult = await tagsApi.queryTags({});
@@ -40,7 +51,9 @@ for (const id of memberIds) {
 function formatDate(dateStr: string | Date | null | undefined) {
 	if (!dateStr) return '';
 	return new Date(dateStr).toLocaleDateString(i18n.getLocale(), {
-		year: 'numeric', month: 'long', day: 'numeric'
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
 	});
 }
 
@@ -91,65 +104,85 @@ function getPostTags(post: Post): BlogTag[] {
 
 	<section class="content">
 		<div class="container">
-			{blogPosts.length === 0 ? (
-				<p class="empty-state">{t('blog.noTransmissions')}</p>
-			) : (
-				<>
-					{usedTags.length > 0 && (
-						<div class="filter-tabs" id="tag-tabs">
-							<button class="filter-tab active" data-tag="all">{t('blog.all')}</button>
-							{usedTags.map((tag) => (
-								<button class="filter-tab" data-tag={tag._id}>{tag.label}</button>
-							))}
-						</div>
-					)}
-					<div class="blog-grid" id="blog-grid">
-						{blogPosts.map((post, i) => {
-							const tagIds = (post.tagIds || []).join(',');
-							return (
-							<a href={`/blog/${post.slug}`} class:list={['blog-card', { featured: i === 0 }]} data-tags={tagIds}>
-								{getCoverImage(post) && (
-									<img src={getCoverImage(post)!} alt={post.title} class="blog-cover" />
-								)}
-								<div class="blog-card-body">
-									<div class="blog-meta">
-										<span class="blog-writer">{getWriter(post)}</span>
-										<span class="meta-sep">&middot;</span>
-										<span class="blog-date">{formatDate(post.firstPublishedDate)}</span>
-										{post.minutesToRead && (
-											<>
+			{
+				blogPosts.length === 0 ? (
+					<p class="empty-state">{t('blog.noTransmissions')}</p>
+				) : (
+					<>
+						{usedTags.length > 0 && (
+							<div class="filter-tabs" id="tag-tabs">
+								<button class="filter-tab active" data-tag="all">
+									{t('blog.all')}
+								</button>
+								{usedTags.map((tag) => (
+									<button class="filter-tab" data-tag={tag._id}>
+										{tag.label}
+									</button>
+								))}
+							</div>
+						)}
+						<div class="blog-grid" id="blog-grid">
+							{blogPosts.map((post, i) => {
+								const tagIds = (post.tagIds || []).join(',');
+								return (
+									<a href={`/blog/${post.slug}`} class:list={['blog-card', { featured: i === 0 }]} data-tags={tagIds}>
+										{getCoverImage(post) && <img src={getCoverImage(post)!} alt={post.title} class="blog-cover" />}
+										<div class="blog-card-body">
+											<div class="blog-meta">
+												<span class="blog-writer">{getWriter(post)}</span>
 												<span class="meta-sep">&middot;</span>
-												<span class="blog-read-time">{post.minutesToRead} {t('blog.minRead')}</span>
-											</>
-										)}
-									</div>
-									<div class="blog-title-row">
-										{post.pinned && <span class="pinned-badge" title={t('blog.pinnedLabel')}>&#128204;</span>}
-										<h2>{post.title}</h2>
-									</div>
-									{getPostTags(post).length > 0 && (
-										<div class="blog-tags">
-											{getPostTags(post).map((tag) => (
-												<span class="tag tag-link" data-tag-id={tag._id}>{tag.label}</span>
-											))}
+												<span class="blog-date">{formatDate(post.firstPublishedDate)}</span>
+												{post.minutesToRead && (
+													<>
+														<span class="meta-sep">&middot;</span>
+														<span class="blog-read-time">
+															{post.minutesToRead} {t('blog.minRead')}
+														</span>
+													</>
+												)}
+											</div>
+											<div class="blog-title-row">
+												{post.pinned && (
+													<span class="pinned-badge" title={t('blog.pinnedLabel')}>
+														&#128204;
+													</span>
+												)}
+												<h2>{post.title}</h2>
+											</div>
+											{getPostTags(post).length > 0 && (
+												<div class="blog-tags">
+													{getPostTags(post).map((tag) => (
+														<span class="tag tag-link" data-tag-id={tag._id}>
+															{tag.label}
+														</span>
+													))}
+												</div>
+											)}
+											<p class="blog-excerpt">{getExcerpt(post)}...</p>
+											<div class="blog-footer">
+												<div class="blog-stats">
+													<span class="stat" title="Views">
+														{getMetric(post, 'views')} {t('blog.views')}
+													</span>
+													<span class="stat" title="Likes">
+														{getMetric(post, 'likes')} {t('blog.likes')}
+													</span>
+													<span class="stat" title="Comments">
+														{getMetric(post, 'comments')} {t('blog.comments')}
+													</span>
+												</div>
+												<span class="read-more">
+													{t('blog.readTransmission')} <span class="rtl-flip">→</span>
+												</span>
+											</div>
 										</div>
-									)}
-									<p class="blog-excerpt">{getExcerpt(post)}...</p>
-									<div class="blog-footer">
-										<div class="blog-stats">
-											<span class="stat" title="Views">{getMetric(post, 'views')} {t('blog.views')}</span>
-											<span class="stat" title="Likes">{getMetric(post, 'likes')} {t('blog.likes')}</span>
-											<span class="stat" title="Comments">{getMetric(post, 'comments')} {t('blog.comments')}</span>
-										</div>
-										<span class="read-more">{t('blog.readTransmission')} <span class="rtl-flip">→</span></span>
-									</div>
-								</div>
-							</a>
-							);
-						})}
-					</div>
-				</>
-			)}
+									</a>
+								);
+							})}
+						</div>
+					</>
+				)
+			}
 		</div>
 	</section>
 	<Footer />
@@ -158,15 +191,18 @@ function getPostTags(post: Post): BlogTag[] {
 <script is:inline>
 	function filterByTag(tagId) {
 		// Update tabs
-		document.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
-		var activeTab = document.querySelector('.filter-tab[data-tag="' + tagId + '"]')
-			|| document.querySelector('.filter-tab[data-tag="all"]');
+		document.querySelectorAll('.filter-tab').forEach(function (t) {
+			t.classList.remove('active');
+		});
+		var activeTab =
+			document.querySelector('.filter-tab[data-tag="' + tagId + '"]') ||
+			document.querySelector('.filter-tab[data-tag="all"]');
 		if (activeTab) activeTab.classList.add('active');
 
 		// Filter cards
 		var grid = document.getElementById('blog-grid');
 		if (!grid) return;
-		grid.querySelectorAll('.blog-card').forEach(function(card) {
+		grid.querySelectorAll('.blog-card').forEach(function (card) {
 			if (tagId === 'all') {
 				card.style.display = '';
 			} else {
@@ -178,7 +214,7 @@ function getPostTags(post: Post): BlogTag[] {
 		// First visible card gets featured
 		var cards = grid.querySelectorAll('.blog-card');
 		var first = true;
-		cards.forEach(function(card) {
+		cards.forEach(function (card) {
 			card.classList.remove('featured');
 			if (card.style.display !== 'none' && first) {
 				card.classList.add('featured');
@@ -197,7 +233,7 @@ function getPostTags(post: Post): BlogTag[] {
 	}
 
 	// Handle tab clicks
-	document.addEventListener('click', function(e) {
+	document.addEventListener('click', function (e) {
 		var tab = e.target.closest('.filter-tab');
 		if (tab) {
 			filterByTag(tab.dataset.tag);
@@ -216,7 +252,7 @@ function getPostTags(post: Post): BlogTag[] {
 	});
 
 	// On page load, apply ?tag= filter if present
-	(function() {
+	(function () {
 		var params = new URLSearchParams(window.location.search);
 		var tag = params.get('tag');
 		if (tag) filterByTag(tag);
@@ -409,7 +445,9 @@ function getPostTags(post: Post): BlogTag[] {
 
 	.tag-link {
 		cursor: pointer;
-		transition: background 0.2s, border-color 0.2s;
+		transition:
+			background 0.2s,
+			border-color 0.2s;
 	}
 
 	.tag-link:hover {

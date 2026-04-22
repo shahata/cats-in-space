@@ -8,7 +8,11 @@ import { members } from '@wix/members';
 import { i18n, auth } from '@wix/essentials';
 
 type ReservationLocation = reservationLocations.ReservationLocation;
-type TimePeriod = NonNullable<NonNullable<NonNullable<ReservationLocation['configuration']>['onlineReservations']>['businessSchedule']>['periods'] extends (infer P)[] | null | undefined ? P : never;
+type TimePeriod = NonNullable<
+	NonNullable<NonNullable<ReservationLocation['configuration']>['onlineReservations']>['businessSchedule']
+>['periods'] extends (infer P)[] | null | undefined
+	? P
+	: never;
 
 const t = i18n.getTranslationFunction();
 
@@ -60,9 +64,9 @@ try {
 					reservationLocationId={locationId}
 					businessSchedule={businessSchedule}
 					timeSlotInterval={timeSlotInterval}
-					{...(memberName ? { defaultName: memberName } : {})}
-					{...(memberEmail ? { defaultEmail: memberEmail } : {})}
-					{...(memberPhone ? { defaultPhone: memberPhone } : {})}
+					{...memberName ? { defaultName: memberName } : {}}
+					{...memberEmail ? { defaultEmail: memberEmail } : {}}
+					{...memberPhone ? { defaultPhone: memberPhone } : {}}
 					client:load
 				/>
 			</div>

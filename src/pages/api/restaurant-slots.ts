@@ -28,7 +28,10 @@ export const POST: APIRoute = async ({ request }) => {
 		if (address) options.deliveryAddress = { addressLine: address };
 		const result = await elevated(operationId, options);
 
-		const slotsByType: Record<string, Array<{ start: string; end: string; scheduling: string; fee: string | null; minOrder: string | null }>> = {};
+		const slotsByType: Record<
+			string,
+			Array<{ start: string; end: string; scheduling: string; fee: string | null; minOrder: string | null }>
+		> = {};
 		for (const entry of result.timeslotsPerFulfillmentType || []) {
 			const type = entry.fulfilmentType;
 			const startDate = entry.timeSlot?.startTime;

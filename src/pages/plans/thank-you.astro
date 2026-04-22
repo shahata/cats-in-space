@@ -13,7 +13,7 @@ const t = i18n.getTranslationFunction();
 let order: Record<string, any> | null = null;
 if (orderId) {
 	try {
-		const result = await orders.memberGetOrder(orderId) as Record<string, any>;
+		const result = (await orders.memberGetOrder(orderId)) as Record<string, any>;
 		order = result?.order ?? null;
 	} catch {}
 }
@@ -32,59 +32,76 @@ const fmt = (amount: number, currency: string) =>
 				<p class="ty-subtitle">{t('plans.thankYouSubtitle')}</p>
 			</div>
 
-			{order ? (
-				<div class="ty-order">
-					<div class="ty-order-header">
-						<div>
-							<span class="ty-label">{t('plans.plan')}</span>
-							<span class="ty-value">{order.planName}</span>
-						</div>
-						{order.priceDetails && (
+			{
+				order ? (
+					<div class="ty-order">
+						<div class="ty-order-header">
 							<div>
-								<span class="ty-label">{t('plans.price')}</span>
-								<span class="ty-value ty-total">
-									{parseFloat(order.priceDetails.planPrice || '0') === 0
-										? t('plans.free')
-										: order.priceDetails.currency
-											? fmt(parseFloat(order.priceDetails.total || order.priceDetails.planPrice), order.priceDetails.currency)
-											: ''}
+								<span class="ty-label">{t('plans.plan')}</span>
+								<span class="ty-value">{order.planName}</span>
+							</div>
+							{order.priceDetails && (
+								<div>
+									<span class="ty-label">{t('plans.price')}</span>
+									<span class="ty-value ty-total">
+										{parseFloat(order.priceDetails.planPrice || '0') === 0
+											? t('plans.free')
+											: order.priceDetails.currency
+												? fmt(
+														parseFloat(order.priceDetails.total || order.priceDetails.planPrice),
+														order.priceDetails.currency,
+													)
+												: ''}
+									</span>
+								</div>
+							)}
+						</div>
+
+						{order.planDescription && <p class="ty-plan-desc">{order.planDescription}</p>}
+
+						{order.priceDetails?.subscription?.cycleDuration && (
+							<div class="ty-detail">
+								<span class="ty-label">{t('plans.billing')}</span>
+								<span class="ty-detail-value">
+									{t('plans.every')}{' '}
+									{order.priceDetails.subscription.cycleDuration.count > 1
+										? order.priceDetails.subscription.cycleDuration.count + ' '
+										: ''}
+									{t(cyclePeriodKey(order.priceDetails.subscription.cycleDuration.unit || ''))}
 								</span>
 							</div>
 						)}
+
+						{order.freeTrialDays > 0 && (
+							<div class="ty-detail">
+								<span class="ty-label">{t('plans.freeTrial')}</span>
+								<span class="ty-detail-value">
+									{order.freeTrialDays} {t('plans.days')}
+								</span>
+							</div>
+						)}
+
+						<div class="ty-actions">
+							<a href="/member#subscriptions" class="ty-btn ty-btn-primary">
+								{t('plans.viewSubscription')}
+							</a>
+							<a href="/" class="ty-btn ty-btn-secondary">
+								{t('plans.backToHome')}
+							</a>
+						</div>
 					</div>
-
-					{order.planDescription && (
-						<p class="ty-plan-desc">{order.planDescription}</p>
-					)}
-
-					{order.priceDetails?.subscription?.cycleDuration && (
-						<div class="ty-detail">
-							<span class="ty-label">{t('plans.billing')}</span>
-							<span class="ty-detail-value">
-								{t('plans.every')} {order.priceDetails.subscription.cycleDuration.count > 1 ? order.priceDetails.subscription.cycleDuration.count + ' ' : ''}{t(cyclePeriodKey(order.priceDetails.subscription.cycleDuration.unit || ''))}
-							</span>
-						</div>
-					)}
-
-					{order.freeTrialDays > 0 && (
-						<div class="ty-detail">
-							<span class="ty-label">{t('plans.freeTrial')}</span>
-							<span class="ty-detail-value">{order.freeTrialDays} {t('plans.days')}</span>
-						</div>
-					)}
-
+				) : (
 					<div class="ty-actions">
-						<a href="/member#subscriptions" class="ty-btn ty-btn-primary">{t('plans.viewSubscription')}</a>
-						<a href="/" class="ty-btn ty-btn-secondary">{t('plans.backToHome')}</a>
+						<p class="ty-no-order">{t('plans.subscriptionProcessing')}</p>
+						<a href="/member#subscriptions" class="ty-btn ty-btn-primary">
+							{t('plans.viewSubscriptions')}
+						</a>
+						<a href="/" class="ty-btn ty-btn-secondary">
+							{t('plans.backToHome')}
+						</a>
 					</div>
-				</div>
-			) : (
-				<div class="ty-actions">
-					<p class="ty-no-order">{t('plans.subscriptionProcessing')}</p>
-					<a href="/member#subscriptions" class="ty-btn ty-btn-primary">{t('plans.viewSubscriptions')}</a>
-					<a href="/" class="ty-btn ty-btn-secondary">{t('plans.backToHome')}</a>
-				</div>
-			)}
+				)
+			}
 		</div>
 	</section>
 	<Footer />

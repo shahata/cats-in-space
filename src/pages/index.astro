@@ -18,12 +18,17 @@ const missions = missionsResult.items;
 
 function getStatusBadge(status: string) {
 	const map: Record<string, string> = {
-		'Top Candidate': 'badge-green', 'Exploring': 'badge-blue',
-		'Candidate': 'badge-purple', 'Rejected': 'badge-pink',
-		'Active': 'badge-green', 'On Mission': 'badge-gold',
-		'Retired': 'badge-pink', 'In Progress': 'badge-blue',
-		'Launching Soon': 'badge-gold', 'Planning': 'badge-purple',
-		'Planned': 'badge-purple',
+		'Top Candidate': 'badge-green',
+		Exploring: 'badge-blue',
+		Candidate: 'badge-purple',
+		Rejected: 'badge-pink',
+		Active: 'badge-green',
+		'On Mission': 'badge-gold',
+		Retired: 'badge-pink',
+		'In Progress': 'badge-blue',
+		'Launching Soon': 'badge-gold',
+		Planning: 'badge-purple',
+		Planned: 'badge-purple',
 	};
 	return map[status] || 'badge-blue';
 }
@@ -41,9 +46,11 @@ function getStatusBadge(status: string) {
 
 	<!-- Hero -->
 	<section class="hero">
-		{planets[0] && getImageUrl(planets[0].image) && (
-			<div class="hero-bg" style={`background-image: url(${getImageUrl(planets[0].image, 1200, 800)})`}></div>
-		)}
+		{
+			planets[0] && getImageUrl(planets[0].image) && (
+				<div class="hero-bg" style={`background-image: url(${getImageUrl(planets[0].image, 1200, 800)})`} />
+			)
+		}
 		<div class="hero-content container">
 			<h1>{t('home.title')}</h1>
 			<p class="hero-subtitle">{t('home.subtitle')}</p>
@@ -88,31 +95,33 @@ function getStatusBadge(status: string) {
 			<h2 class="section-title">{t('home.topPlanets')}</h2>
 			<p class="section-subtitle">{t('home.topPlanetsSubtitle')}</p>
 
-			{planets.map((planet, i) => (
-				<a href={`/planets/${planet.slug}`} class:list={['story-card', { reverse: i % 2 !== 0 }]}>
-					{getImageUrl(planet.image) && (
-						<img src={getImageUrl(planet.image, 600, 450)!} alt={planet.title} />
-					)}
-					<div class="story-content">
-						<div class="story-top">
-							<span class={`badge ${getStatusBadge(planet.status)}`}>{planet.status}</span>
-						</div>
-						<h3>{planet.title}</h3>
-						<p class="story-tagline">{planet.tagline}</p>
-						<p class="story-desc">{planet.description.slice(0, 200)}...</p>
-						<div class="story-stats">
-							<div class="story-stat">
-								<span class="story-stat-num">{planet.habitabilityScore}%</span>
-								<span class="story-stat-label">{t('home.habitable')}</span>
+			{
+				planets.map((planet, i) => (
+					<a href={`/planets/${planet.slug}`} class:list={['story-card', { reverse: i % 2 !== 0 }]}>
+						{getImageUrl(planet.image) && <img src={getImageUrl(planet.image, 600, 450)!} alt={planet.title} />}
+						<div class="story-content">
+							<div class="story-top">
+								<span class={`badge ${getStatusBadge(planet.status)}`}>{planet.status}</span>
 							</div>
-							<div class="story-stat">
-								<span class="story-stat-num">{planet.distance} {t('planets.ly')}</span>
-								<span class="story-stat-label">{t('home.distance')}</span>
+							<h3>{planet.title}</h3>
+							<p class="story-tagline">{planet.tagline}</p>
+							<p class="story-desc">{planet.description.slice(0, 200)}...</p>
+							<div class="story-stats">
+								<div class="story-stat">
+									<span class="story-stat-num">{planet.habitabilityScore}%</span>
+									<span class="story-stat-label">{t('home.habitable')}</span>
+								</div>
+								<div class="story-stat">
+									<span class="story-stat-num">
+										{planet.distance} {t('planets.ly')}
+									</span>
+									<span class="story-stat-label">{t('home.distance')}</span>
+								</div>
 							</div>
 						</div>
-					</div>
-				</a>
-			))}
+					</a>
+				))
+			}
 		</div>
 	</section>
 
@@ -122,21 +131,23 @@ function getStatusBadge(status: string) {
 			<h2 class="section-title">{t('home.theCrew')}</h2>
 			<p class="section-subtitle">{t('home.theCrewSubtitle')}</p>
 			<div class="crew-grid">
-				{crew.map((cat) => (
-					<a href={`/crew/${cat.slug}`} class="crew-card">
-						{getImageUrl(cat.image) ? (
-							<img src={getImageUrl(cat.image, 300, 300)!} alt={cat.name} class="crew-img" />
-						) : (
-							<div class="crew-placeholder">?</div>
-						)}
-						<div class="crew-info">
-							<span class={`badge ${getStatusBadge(cat.status)}`}>{cat.status}</span>
-							<h3>{cat.name}</h3>
-							<p class="crew-role">{cat.role}</p>
-							<p class="crew-skill">{cat.specialSkill}</p>
-						</div>
-					</a>
-				))}
+				{
+					crew.map((cat) => (
+						<a href={`/crew/${cat.slug}`} class="crew-card">
+							{getImageUrl(cat.image) ? (
+								<img src={getImageUrl(cat.image, 300, 300)!} alt={cat.name} class="crew-img" />
+							) : (
+								<div class="crew-placeholder">?</div>
+							)}
+							<div class="crew-info">
+								<span class={`badge ${getStatusBadge(cat.status)}`}>{cat.status}</span>
+								<h3>{cat.name}</h3>
+								<p class="crew-role">{cat.role}</p>
+								<p class="crew-skill">{cat.specialSkill}</p>
+							</div>
+						</a>
+					))
+				}
 			</div>
 			<div class="section-cta">
 				<a href="/crew" class="btn btn-outline">{t('home.fullCrewRoster')} <span class="rtl-flip">→</span></a>
@@ -150,17 +161,21 @@ function getStatusBadge(status: string) {
 			<h2 class="section-title">{t('home.missionLog')}</h2>
 			<p class="section-subtitle">{t('home.missionLogSubtitle')}</p>
 			<div class="timeline">
-				{missions.map((mission) => (
-					<a href={`/missions/${mission.slug}`} class="timeline-item">
-						<div class="timeline-date">{mission.launchDate}</div>
-						<h4>{mission.title}</h4>
-						<p>{mission.description}</p>
-						<div class="timeline-meta">
-							<span class={`badge ${getStatusBadge(mission.status)}`}>{mission.status}</span>
-							<span class="timeline-dest">{t('home.destination')}: {mission.planet}</span>
-						</div>
-					</a>
-				))}
+				{
+					missions.map((mission) => (
+						<a href={`/missions/${mission.slug}`} class="timeline-item">
+							<div class="timeline-date">{mission.launchDate}</div>
+							<h4>{mission.title}</h4>
+							<p>{mission.description}</p>
+							<div class="timeline-meta">
+								<span class={`badge ${getStatusBadge(mission.status)}`}>{mission.status}</span>
+								<span class="timeline-dest">
+									{t('home.destination')}: {mission.planet}
+								</span>
+							</div>
+						</a>
+					))
+				}
 			</div>
 			<div class="section-cta">
 				<a href="/missions" class="btn btn-outline">{t('home.allMissions')} <span class="rtl-flip">→</span></a>
@@ -199,8 +214,12 @@ function getStatusBadge(status: string) {
 	}
 
 	@keyframes scroll {
-		from { transform: translateX(100vw); }
-		to { transform: translateX(-200%); }
+		from {
+			transform: translateX(100vw);
+		}
+		to {
+			transform: translateX(-200%);
+		}
 	}
 
 	/* Hero */
@@ -237,7 +256,9 @@ function getStatusBadge(status: string) {
 		font-family: var(--font-title);
 		font-size: clamp(2.5rem, 7vw, 5rem);
 		color: var(--accent);
-		text-shadow: 3px 3px 0 #000, 0 0 30px var(--accent-glow-strong);
+		text-shadow:
+			3px 3px 0 #000,
+			0 0 30px var(--accent-glow-strong);
 		margin-bottom: 20px;
 		letter-spacing: 4px;
 	}
@@ -604,7 +625,8 @@ function getStatusBadge(status: string) {
 
 	/* Responsive */
 	@media (max-width: 768px) {
-		.story-card, .story-card.reverse {
+		.story-card,
+		.story-card.reverse {
 			flex-direction: column;
 		}
 

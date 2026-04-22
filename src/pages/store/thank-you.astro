@@ -32,59 +32,78 @@ const fmt = (amount: number, currency: string) =>
 				<p class="ty-subtitle">{t('store.thankYouSubtitle')}</p>
 			</div>
 
-			{order ? (
-				<div class="ty-order">
-					<div class="ty-order-header">
-						<div>
-							<span class="ty-label">{t('store.order')}</span>
-							<span class="ty-value">#{order.number || orderId?.slice(-8)}</span>
-						</div>
-						{order.priceSummary?.total && order.currency && (
+			{
+				order ? (
+					<div class="ty-order">
+						<div class="ty-order-header">
 							<div>
-								<span class="ty-label">{t('store.total')}</span>
-								<span class="ty-value ty-total">
-									{fmt(parseFloat(order.priceSummary.total.amount), order.currency)}
-								</span>
+								<span class="ty-label">{t('store.order')}</span>
+								<span class="ty-value">#{order.number || orderId?.slice(-8)}</span>
+							</div>
+							{order.priceSummary?.total && order.currency && (
+								<div>
+									<span class="ty-label">{t('store.total')}</span>
+									<span class="ty-value ty-total">
+										{fmt(parseFloat(order.priceSummary.total.amount), order.currency)}
+									</span>
+								</div>
+							)}
+						</div>
+
+						{order.lineItems?.length > 0 && (
+							<div class="ty-items">
+								{order.lineItems.map(
+									(li: {
+										image?: string;
+										productName?: { translated?: string; original?: string };
+										quantity?: number;
+										price?: { formattedAmount?: string };
+									}) => {
+										const img = getImageUrl(li.image, 80, 80);
+										return (
+											<div class="ty-item">
+												<div class="ty-item-img">
+													{img ? (
+														<img src={img} alt={li.productName?.translated || li.productName?.original} />
+													) : (
+														<span>&#128049;</span>
+													)}
+												</div>
+												<div class="ty-item-info">
+													<div class="ty-item-name">{li.productName?.translated || li.productName?.original}</div>
+													<div class="ty-item-qty">
+														{t('store.qty')}: {li.quantity}
+													</div>
+												</div>
+												<div class="ty-item-price">{li.price?.formattedAmount}</div>
+											</div>
+										);
+									},
+								)}
 							</div>
 						)}
-					</div>
 
-					{order.lineItems?.length > 0 && (
-						<div class="ty-items">
-							{order.lineItems.map((li: { image?: string; productName?: { translated?: string; original?: string }; quantity?: number; price?: { formattedAmount?: string } }) => {
-								const img = getImageUrl(li.image, 80, 80);
-								return (
-									<div class="ty-item">
-										<div class="ty-item-img">
-											{img ? (
-												<img src={img} alt={li.productName?.translated || li.productName?.original} />
-											) : (
-												<span>&#128049;</span>
-											)}
-										</div>
-										<div class="ty-item-info">
-											<div class="ty-item-name">{li.productName?.translated || li.productName?.original}</div>
-											<div class="ty-item-qty">{t('store.qty')}: {li.quantity}</div>
-										</div>
-										<div class="ty-item-price">{li.price?.formattedAmount}</div>
-									</div>
-								);
-							})}
+						<div class="ty-actions">
+							<a href="/store" class="ty-btn ty-btn-primary">
+								{t('store.continueShopping')}
+							</a>
+							<a href="/member#orders" class="ty-btn ty-btn-secondary">
+								{t('store.viewOrders')}
+							</a>
 						</div>
-					)}
-
-					<div class="ty-actions">
-						<a href="/store" class="ty-btn ty-btn-primary">{t('store.continueShopping')}</a>
-						<a href="/member#orders" class="ty-btn ty-btn-secondary">{t('store.viewOrders')}</a>
 					</div>
-				</div>
-			) : (
-				<div class="ty-actions">
-					<p class="ty-no-order">{t('store.orderProcessing')}</p>
-					<a href="/store" class="ty-btn ty-btn-primary">{t('store.continueShopping')}</a>
-					<a href="/member#orders" class="ty-btn ty-btn-secondary">{t('store.viewOrders')}</a>
-				</div>
-			)}
+				) : (
+					<div class="ty-actions">
+						<p class="ty-no-order">{t('store.orderProcessing')}</p>
+						<a href="/store" class="ty-btn ty-btn-primary">
+							{t('store.continueShopping')}
+						</a>
+						<a href="/member#orders" class="ty-btn ty-btn-secondary">
+							{t('store.viewOrders')}
+						</a>
+					</div>
+				)
+			}
 		</div>
 	</section>
 	<Footer />

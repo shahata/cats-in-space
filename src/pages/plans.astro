@@ -25,45 +25,42 @@ const allPlans = result.items || [];
 	<section class="content">
 		<div class="container">
 			<div class="plans-grid">
-				{allPlans.map((plan, i) => {
-					const priceValue = plan.pricing?.price?.value || "0";
-					const currency = plan.pricing?.price?.currency || "USD";
-					const isFree = parseFloat(priceValue) === 0;
-					const cycleDuration = plan.pricing?.subscription?.cycleDuration;
-					const trialDays = plan.pricing?.freeTrialDays || 0;
-					const isMiddle = i === 1;
-					const perksList = plan.perks?.values || [];
+				{
+					allPlans.map((plan, i) => {
+						const priceValue = plan.pricing?.price?.value || '0';
+						const currency = plan.pricing?.price?.currency || 'USD';
+						const isFree = parseFloat(priceValue) === 0;
+						const cycleDuration = plan.pricing?.subscription?.cycleDuration;
+						const trialDays = plan.pricing?.freeTrialDays || 0;
+						const isMiddle = i === 1;
+						const perksList = plan.perks?.values || [];
 
-					return (
-						<div class:list={['plan-card', { featured: isMiddle }]}>
-							{isMiddle && <div class="featured-badge">{t('plans.mostPopular')}</div>}
-							<h2>{plan.name}</h2>
-							<p class="plan-desc">{plan.description}</p>
-							<div class="plan-price">
-								{isFree ? (
-									<span class="price">{t('plans.free')}</span>
-								) : (
-									<>
-										<span class="price">{formatCurrency(priceValue, currency, locale)}</span>
-										{cycleDuration && <span class="period">/{t(cyclePeriodKey(cycleDuration.unit || ''))}</span>}
-									</>
-								)}
+						return (
+							<div class:list={['plan-card', { featured: isMiddle }]}>
+								{isMiddle && <div class="featured-badge">{t('plans.mostPopular')}</div>}
+								<h2>{plan.name}</h2>
+								<p class="plan-desc">{plan.description}</p>
+								<div class="plan-price">
+									{isFree ? (
+										<span class="price">{t('plans.free')}</span>
+									) : (
+										<>
+											<span class="price">{formatCurrency(priceValue, currency, locale)}</span>
+											{cycleDuration && <span class="period">/{t(cyclePeriodKey(cycleDuration.unit || ''))}</span>}
+										</>
+									)}
+								</div>
+								{trialDays > 0 && <p class="trial-info">{t('plans.freeTrialDays', { days: trialDays.toString() })}</p>}
+								<ul class="perks">
+									{perksList.map((perk: string) => (
+										<li>{perk}</li>
+									))}
+								</ul>
+								<PlanCheckout planId={plan._id!} client:load />
 							</div>
-							{trialDays > 0 && (
-								<p class="trial-info">{t('plans.freeTrialDays', { days: trialDays.toString() })}</p>
-							)}
-							<ul class="perks">
-								{perksList.map((perk: string) => (
-									<li>{perk}</li>
-								))}
-							</ul>
-							<PlanCheckout
-								planId={plan._id!}
-								client:load
-							/>
-						</div>
-					);
-				})}
+						);
+					})
+				}
 			</div>
 		</div>
 	</section>
@@ -180,7 +177,7 @@ const allPlans = result.items || [];
 	}
 
 	.perks li::before {
-		content: "✓ ";
+		content: '✓ ';
 		color: var(--accent);
 		font-weight: bold;
 	}

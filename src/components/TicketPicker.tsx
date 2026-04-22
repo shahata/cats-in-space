@@ -1,8 +1,8 @@
-"use client";
-import { useMemo, useState } from "react";
-import { i18n } from "@wix/essentials";
-import { ticketReservations, ticketDefinitionsV2 } from "@wix/events";
-import { redirects } from "@wix/redirects";
+'use client';
+import { useMemo, useState } from 'react';
+import { i18n } from '@wix/essentials';
+import { ticketReservations, ticketDefinitionsV2 } from '@wix/events';
+import { redirects } from '@wix/redirects';
 
 type TicketDefinition = ticketDefinitionsV2.TicketDefinition;
 type AvailablePlace = ticketDefinitionsV2.AvailablePlace;
@@ -26,7 +26,7 @@ function firstCurrency(tickets: TicketDefinition[]): string {
 		const c = t.pricingMethod?.fixedPrice?.currency;
 		if (c) return c;
 	}
-	return "USD";
+	return 'USD';
 }
 
 function ticketPriceNumber(td: TicketDefinition): number {
@@ -42,13 +42,7 @@ function ticketHasSeats(td: TicketDefinition): boolean {
 // `_id`. We key quantity/seat state by `td.name` so it survives a date change;
 // at book time we fetch the selected showtime's ticket defs and map the user's
 // selections from name → fresh `_id`.
-export default function TicketPicker({
-	eventTitle,
-	showtimes,
-	initialEventId,
-	initialTickets,
-	locale,
-}: Props) {
+export default function TicketPicker({ eventTitle, showtimes, initialEventId, initialTickets, locale }: Props) {
 	const t = i18n.getTranslationFunction();
 	const [selectedEventId, setSelectedEventId] = useState(initialEventId);
 	const [qtyByName, setQtyByName] = useState<Record<string, number>>({});
@@ -56,46 +50,48 @@ export default function TicketPicker({
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const selectedShowtime = showtimes.find(s => s.eventId === selectedEventId) ?? showtimes[0];
+	const selectedShowtime = showtimes.find((s) => s.eventId === selectedEventId) ?? showtimes[0];
 
 	const currency = firstCurrency(initialTickets);
-	const priceFmt = useMemo(
-		() => new Intl.NumberFormat(locale, { style: "currency", currency }),
-		[locale, currency],
-	);
+	const priceFmt = useMemo(() => new Intl.NumberFormat(locale, { style: 'currency', currency }), [locale, currency]);
 	const chipFmt = useMemo(
-		() => new Intl.DateTimeFormat(locale, {
-			weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-		}),
+		() =>
+			new Intl.DateTimeFormat(locale, {
+				weekday: 'short',
+				month: 'short',
+				day: 'numeric',
+				hour: '2-digit',
+				minute: '2-digit',
+			}),
 		[locale],
 	);
 
 	const seatedTickets = initialTickets.filter(ticketHasSeats);
-	const gaTickets = initialTickets.filter(td => !ticketHasSeats(td));
+	const gaTickets = initialTickets.filter((td) => !ticketHasSeats(td));
 
 	const gaQty = Object.values(qtyByName).reduce((s, q) => s + q, 0);
 	const seatedQty = Object.values(seatsByName).reduce((s, set) => s + set.size, 0);
 	const totalQty = gaQty + seatedQty;
 
-	const gaPrice = gaTickets.reduce((sum, td) => sum + (qtyByName[td.name ?? ""] || 0) * ticketPriceNumber(td), 0);
+	const gaPrice = gaTickets.reduce((sum, td) => sum + (qtyByName[td.name ?? ''] || 0) * ticketPriceNumber(td), 0);
 	const seatedPrice = seatedTickets.reduce((sum, td) => {
-		const n = seatsByName[td.name ?? ""]?.size ?? 0;
+		const n = seatsByName[td.name ?? '']?.size ?? 0;
 		return sum + n * ticketPriceNumber(td);
 	}, 0);
 	const totalPrice = gaPrice + seatedPrice;
 
 	const setQty = (name: string, next: number) => {
-		const def = initialTickets.find(td => td.name === name);
+		const def = initialTickets.find((td) => td.name === name);
 		if (!def) return;
 		const limit = def.limitPerCheckout ?? 10;
 		const clamped = Math.max(0, Math.min(limit, next));
-		setQtyByName(prev => ({ ...prev, [name]: clamped }));
+		setQtyByName((prev) => ({ ...prev, [name]: clamped }));
 	};
 	const inc = (name: string) => setQty(name, (qtyByName[name] || 0) + 1);
 	const dec = (name: string) => setQty(name, (qtyByName[name] || 0) - 1);
 
 	const toggleSeat = (name: string, placeId: string) => {
-		setSeatsByName(prev => {
+		setSeatsByName((prev) => {
 			const existing = new Set(prev[name] ?? []);
 			if (existing.has(placeId)) existing.delete(placeId);
 			else existing.add(placeId);
@@ -130,7 +126,7 @@ export default function TicketPicker({
 				ticketInfo?: { seatId: string };
 			}> = [];
 			for (const td of gaTickets) {
-				const name = td.name ?? "";
+				const name = td.name ?? '';
 				const q = qtyByName[name] || 0;
 				if (q <= 0) continue;
 				const freshId = defByName.get(name)?._id;
@@ -138,7 +134,7 @@ export default function TicketPicker({
 				reservationTickets.push({ ticketDefinitionId: freshId, quantity: q });
 			}
 			for (const td of seatedTickets) {
-				const name = td.name ?? "";
+				const name = td.name ?? '';
 				const seats = seatsByName[name];
 				if (!seats || seats.size === 0) continue;
 				const freshId = defByName.get(name)?._id;
@@ -150,23 +146,23 @@ export default function TicketPicker({
 
 			const reservation = await ticketReservations.createTicketReservation({ tickets: reservationTickets });
 			const reservationId = reservation._id;
-			if (!reservationId) throw new Error("Reservation failed — no id returned");
+			if (!reservationId) throw new Error('Reservation failed — no id returned');
 
 			const { redirectSession } = await redirects.createRedirectSession({
 				eventsCheckout: { reservationId, eventSlug: selectedShowtime.eventSlug },
 				callbacks: {
-					thankYouPageUrl: window.location.origin + "/cinema/thank-you",
-					postFlowUrl: window.location.origin + "/cinema",
+					thankYouPageUrl: window.location.origin + '/cinema/thank-you',
+					postFlowUrl: window.location.origin + '/cinema',
 				},
 				preferences: { checkIfPublish: true },
 			});
 
 			const url = redirectSession?.fullUrl;
 			if (url) window.location.href = url;
-			else throw new Error("Wix returned no redirect URL");
+			else throw new Error('Wix returned no redirect URL');
 		} catch (e) {
-			console.error("Book error", e);
-			setError(e instanceof Error ? e.message : t("cinema.bookingFailed"));
+			console.error('Book error', e);
+			setError(e instanceof Error ? e.message : t('cinema.bookingFailed'));
 			setLoading(false);
 		}
 	};
@@ -177,14 +173,14 @@ export default function TicketPicker({
 		<div className="tp-root">
 			{showtimes.length > 1 && (
 				<div className="tp-showtime-picker">
-					<span className="tp-showtime-label">{t("cinema.selectShowtime")}</span>
+					<span className="tp-showtime-label">{t('cinema.selectShowtime')}</span>
 					{useDropdown ? (
 						<select
 							className="tp-showtime-select"
 							value={selectedEventId}
-							onChange={e => setSelectedEventId(e.target.value)}
+							onChange={(e) => setSelectedEventId(e.target.value)}
 						>
-							{showtimes.map(s => (
+							{showtimes.map((s) => (
 								<option key={s.eventId} value={s.eventId}>
 									{chipFmt.format(new Date(s.startMs))}
 								</option>
@@ -192,11 +188,11 @@ export default function TicketPicker({
 						</select>
 					) : (
 						<div className="tp-showtime-chips">
-							{showtimes.map(s => (
+							{showtimes.map((s) => (
 								<button
 									key={s.eventId}
 									type="button"
-									className={`tp-showtime-chip ${s.eventId === selectedEventId ? "tp-showtime-chip-on" : ""}`}
+									className={`tp-showtime-chip ${s.eventId === selectedEventId ? 'tp-showtime-chip-on' : ''}`}
 									onClick={() => setSelectedEventId(s.eventId)}
 								>
 									{chipFmt.format(new Date(s.startMs))}
@@ -208,11 +204,11 @@ export default function TicketPicker({
 			)}
 
 			{initialTickets.length === 0 ? (
-				<p className="tp-empty">{t("cinema.noTickets")}</p>
+				<p className="tp-empty">{t('cinema.noTickets')}</p>
 			) : (
 				<div className="tp-tickets">
-					{initialTickets.map(td => {
-						const name = td.name ?? "";
+					{initialTickets.map((td) => {
+						const name = td.name ?? '';
 						const qty = qtyByName[name] || 0;
 						const isSeated = ticketHasSeats(td);
 						const selectedSeats = seatsByName[name] ?? new Set<string>();
@@ -223,21 +219,34 @@ export default function TicketPicker({
 								<div className="tp-ticket-info">
 									<div className="tp-ticket-name">{td.name}</div>
 									{td.description && <div className="tp-ticket-desc">{td.description}</div>}
-									<div className="tp-ticket-price">
-										{free ? t("cinema.free") : priceFmt.format(price)}
-									</div>
+									<div className="tp-ticket-price">{free ? t('cinema.free') : priceFmt.format(price)}</div>
 								</div>
 								{isSeated ? (
 									<SeatGrid
 										places={td.seatingDetails?.places ?? []}
 										selected={selectedSeats}
-										onToggle={placeId => toggleSeat(name, placeId)}
+										onToggle={(placeId) => toggleSeat(name, placeId)}
 									/>
 								) : (
 									<div className="tp-qty">
-										<button type="button" className="tp-qty-btn" onClick={() => dec(name)} disabled={qty === 0} aria-label={t('common.decrease')}>−</button>
+										<button
+											type="button"
+											className="tp-qty-btn"
+											onClick={() => dec(name)}
+											disabled={qty === 0}
+											aria-label={t('common.decrease')}
+										>
+											−
+										</button>
 										<span className="tp-qty-val">{qty}</span>
-										<button type="button" className="tp-qty-btn" onClick={() => inc(name)} aria-label={t('common.increase')}>+</button>
+										<button
+											type="button"
+											className="tp-qty-btn"
+											onClick={() => inc(name)}
+											aria-label={t('common.increase')}
+										>
+											+
+										</button>
 									</div>
 								)}
 							</div>
@@ -250,9 +259,9 @@ export default function TicketPicker({
 				<>
 					<div className="tp-total-bar">
 						<div>
-							<span className="tp-total-label">{t("cinema.total")}</span>
+							<span className="tp-total-label">{t('cinema.total')}</span>
 							<span className="tp-total-sub">
-								{totalQty} {totalQty === 1 ? t("cinema.ticket") : t("cinema.tickets")}
+								{totalQty} {totalQty === 1 ? t('cinema.ticket') : t('cinema.tickets')}
 							</span>
 						</div>
 						<span className="tp-total-amount">{priceFmt.format(totalPrice)}</span>
@@ -260,12 +269,8 @@ export default function TicketPicker({
 
 					{error && <div className="tp-error">{error}</div>}
 
-					<button
-						className="tp-book-btn"
-						onClick={handleBook}
-						disabled={!canSubmit}
-					>
-						{loading ? t("cinema.processing") : `${t("cinema.bookFor")} ${eventTitle}`}
+					<button className="tp-book-btn" onClick={handleBook} disabled={!canSubmit}>
+						{loading ? t('cinema.processing') : `${t('cinema.bookFor')} ${eventTitle}`}
 					</button>
 				</>
 			)}
@@ -286,7 +291,7 @@ function SeatGrid({
 }) {
 	const groups = new Map<string, AvailablePlace[]>();
 	for (const p of places) {
-		const key = p.elementLabel ?? p.sectionLabel ?? "Seats";
+		const key = p.elementLabel ?? p.sectionLabel ?? 'Seats';
 		const arr = groups.get(key) ?? [];
 		arr.push(p);
 		groups.set(key, arr);
@@ -297,15 +302,15 @@ function SeatGrid({
 				<div key={label} className="tp-seat-row">
 					<span className="tp-seat-row-label">{label}</span>
 					<div className="tp-seat-cells">
-						{seats.map(p => {
-							const id = p.placeId ?? "";
+						{seats.map((p) => {
+							const id = p.placeId ?? '';
 							const full = (p.availableCapacity ?? 0) === 0;
 							const on = selected.has(id);
 							return (
 								<button
 									key={id}
 									type="button"
-									className={`tp-seat ${on ? "tp-seat-on" : ""} ${full ? "tp-seat-full" : ""}`}
+									className={`tp-seat ${on ? 'tp-seat-on' : ''} ${full ? 'tp-seat-full' : ''}`}
 									disabled={full}
 									onClick={() => onToggle(id)}
 									aria-label={`Seat ${p.label ?? id}`}

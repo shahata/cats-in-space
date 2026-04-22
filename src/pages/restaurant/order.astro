@@ -27,7 +27,7 @@ const currency = await getSiteCurrency();
 // Fetch all menus
 const elevatedQueryMenus = auth.elevate(menusApi.queryMenus);
 const menusResult = await elevatedQueryMenus().find();
-const allMenus = (menusResult.items || []).filter(m => m.visible !== false);
+const allMenus = (menusResult.items || []).filter((m) => m.visible !== false);
 
 // Fetch menu ordering settings — decides which menus are online-orderable
 const elevatedQueryMos = auth.elevate(menuOrderingSettingsApi.queryMenuOrderingSettings);
@@ -41,7 +41,7 @@ for (const s of mosList) {
 		if (s.businessLocationId && !businessLocationId) businessLocationId = s.businessLocationId;
 	}
 }
-const orderableMenus = allMenus.filter(m => m._id && operationByMenuId.has(m._id));
+const orderableMenus = allMenus.filter((m) => m._id && operationByMenuId.has(m._id));
 
 // Fetch the restaurant's business location address — pickup-orders need an address
 // on the cart (Wix cart-v2 fails with DELIVERY_METHOD_MISSING_ADDRESS if no address is set
@@ -59,9 +59,7 @@ if (businessLocationId) {
 		const loc = await elevatedGetLocation(businessLocationId);
 		const addr = loc.address;
 		if (addr) {
-			const streetLine = [addr.streetAddress?.number, addr.streetAddress?.name]
-				.filter(Boolean)
-				.join(' ');
+			const streetLine = [addr.streetAddress?.number, addr.streetAddress?.name].filter(Boolean).join(' ');
 			const line = streetLine || addr.formatted || '';
 			pickupAddress = {
 				addressLine1: line,
@@ -83,7 +81,7 @@ try {
 	fulfillmentMethods = (fmResult.fulfillmentMethods || [])
 		// The runtime API returns DINE_IN but @wix/restaurants' fulfillment-methods
 		// type enum only declares PICKUP/DELIVERY, so compare via string.
-		.filter(fm => fm.enabled !== false && String(fm.type) !== 'DINE_IN');
+		.filter((fm) => fm.enabled !== false && String(fm.type) !== 'DINE_IN');
 } catch {}
 
 // Read the restaurant's configured default dispatch (PICKUP vs DELIVERY) from the
@@ -103,27 +101,31 @@ if (firstOperationId) {
 		// BUSINESS_DAYS_AHEAD_HANDLING means the restaurant allows scheduling
 		// future orders alongside immediate ones.
 		schedulingEnabled =
-			sched?.type === operationsApi.SchedulingType.PREORDER
-			|| sched?.asapOptions?.asapFutureHandlingType === operationsApi.AsapFutureHandlingType.BUSINESS_DAYS_AHEAD_HANDLING;
+			sched?.type === operationsApi.SchedulingType.PREORDER ||
+			sched?.asapOptions?.asapFutureHandlingType === operationsApi.AsapFutureHandlingType.BUSINESS_DAYS_AHEAD_HANDLING;
 	} catch {}
 }
 
 const elevatedQuerySections = auth.elevate(sectionsApi.querySections);
 const sectionsResult = await elevatedQuerySections().find();
 const allSections = sectionsResult.items || [];
-const sectionById = new Map(allSections.map(s => [s._id!, s]));
+const sectionById = new Map(allSections.map((s) => [s._id!, s]));
 
 const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
 const itemsResult = await elevatedQueryItems().limit(200).find();
 const allItems = itemsResult.items || [];
-const itemById = new Map(allItems.map(i => [i._id!, i]));
+const itemById = new Map(allItems.map((i) => [i._id!, i]));
 
-interface LabelInfo { name: string; icon: string | null }
+interface LabelInfo {
+	name: string;
+	icon: string | null;
+}
 const elevatedListLabels = auth.elevate(itemLabels.listLabels);
 const labelMap = new Map<string, LabelInfo>();
 try {
 	const labelsResult = await elevatedListLabels();
-	for (const label of (labelsResult as { labels?: Array<{ _id?: string; name?: string; icon?: unknown }> })?.labels || []) {
+	for (const label of (labelsResult as { labels?: Array<{ _id?: string; name?: string; icon?: unknown }> })?.labels ||
+		[]) {
 		if (label._id && label.name) {
 			labelMap.set(label._id, { name: label.name, icon: getShapeUrl(label.icon) });
 		}
@@ -139,7 +141,12 @@ interface RawModifierGroup {
 	_id?: string | null;
 	name?: string | null;
 	rule?: { required?: boolean | null; minSelections?: number | null; maxSelections?: number | null } | null;
-	modifiers?: Array<{ _id?: string | null; additionalChargeInfo?: { additionalCharge?: string | null } | null; additionalCharge?: string | null; preSelected?: boolean | null }> | null;
+	modifiers?: Array<{
+		_id?: string | null;
+		additionalChargeInfo?: { additionalCharge?: string | null } | null;
+		additionalCharge?: string | null;
+		preSelected?: boolean | null;
+	}> | null;
 }
 
 const modifierMap = new Map<string, string>();
@@ -169,7 +176,10 @@ try {
 	}
 } catch {}
 
-interface ItemImg { url?: string | null; id?: string | null }
+interface ItemImg {
+	url?: string | null;
+	id?: string | null;
+}
 function getItemImage(item: { image?: string | ItemImg | null }): string | null {
 	const img = item.image;
 	if (!img) return null;
@@ -183,14 +193,22 @@ interface RawItem {
 	description?: string | null;
 	image?: string | ItemImg | null;
 	priceInfo?: { price?: string | null } | null;
-	priceVariants?: { variants?: Array<{ variantId?: string | null; _id?: string | null; name?: string | null; price?: string | null; priceInfo?: { price?: string | null } | null }> | null } | null;
+	priceVariants?: {
+		variants?: Array<{
+			variantId?: string | null;
+			_id?: string | null;
+			name?: string | null;
+			price?: string | null;
+			priceInfo?: { price?: string | null } | null;
+		}> | null;
+	} | null;
 	labels?: Array<{ id?: string | null; _id?: string | null }> | null;
 	modifierGroups?: Array<{ _id?: string | null; id?: string | null }> | null;
 }
 
 function buildItemDto(item: RawItem, ctx: { menuId: string; sectionId: string; operationId: string }) {
 	const modifierGroups = (item.modifierGroups || [])
-		.map(ref => {
+		.map((ref) => {
 			const groupId = ref._id || ref.id;
 			if (!groupId) return null;
 			const g = modifierGroupById.get(groupId);
@@ -208,7 +226,7 @@ function buildItemDto(item: RawItem, ctx: { menuId: string; sectionId: string; o
 				required,
 				minChoices: required ? Math.max(1, minSel) : minSel,
 				maxChoices: maxSel,
-				modifiers: (g.modifiers || []).map(m => {
+				modifiers: (g.modifiers || []).map((m) => {
 					const modId = m._id || '';
 					const price = m.additionalChargeInfo?.additionalCharge ?? m.additionalCharge ?? '0';
 					return {
@@ -228,13 +246,13 @@ function buildItemDto(item: RawItem, ctx: { menuId: string; sectionId: string; o
 		description: item.description || '',
 		image: getItemImage(item),
 		price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency } : null,
-		priceVariants: (item.priceVariants?.variants || []).map(v => ({
+		priceVariants: (item.priceVariants?.variants || []).map((v) => ({
 			_id: v.variantId || v._id || '',
 			name: variantMap.get(v.variantId || v._id || '') || v.name || '',
 			price: { amount: v.priceInfo?.price || v.price || '0', currency },
 		})),
 		labels: (item.labels || [])
-			.map(l => {
+			.map((l) => {
 				const id = l?.id || l?._id;
 				return (id && labelMap.get(id)) || null;
 			})
@@ -249,28 +267,28 @@ function buildItemDto(item: RawItem, ctx: { menuId: string; sectionId: string; o
 // Build menu → sections → items structure, flatten across menus
 // but preserve section order per menu; dedupe sections that appear in multiple menus.
 const seenSections = new Set<string>();
-const menuData = orderableMenus.flatMap(menu => {
+const menuData = orderableMenus.flatMap((menu) => {
 	const operationId = operationByMenuId.get(menu._id!)!;
 	return (menu.sectionIds || [])
-		.map(id => sectionById.get(id))
+		.map((id) => sectionById.get(id))
 		.filter((s): s is NonNullable<typeof s> => !!s && s.visible !== false)
-		.filter(s => {
+		.filter((s) => {
 			if (!s._id || seenSections.has(s._id)) return false;
 			seenSections.add(s._id);
 			return true;
 		})
-		.map(section => {
+		.map((section) => {
 			const sectionItems = (section.itemIds || [])
-				.map(id => itemById.get(id))
+				.map((id) => itemById.get(id))
 				.filter((i): i is NonNullable<typeof i> => !!i && i.visible !== false)
-				.map(i => buildItemDto(i as RawItem, { menuId: menu._id!, sectionId: section._id!, operationId }));
+				.map((i) => buildItemDto(i as RawItem, { menuId: menu._id!, sectionId: section._id!, operationId }));
 			return {
 				_id: section._id!,
 				name: section.name || '',
 				items: sectionItems,
 			};
 		})
-		.filter(s => s.items.length > 0);
+		.filter((s) => s.items.length > 0);
 });
 ---
 
@@ -285,29 +303,31 @@ const menuData = orderableMenus.flatMap(menu => {
 
 	<section class="order-content">
 		<div class="container">
-			{menuData.length === 0 ? (
-				<div class="empty-order">
-					<p>{t('restaurant.noOrderableItems')}</p>
-				</div>
-			) : (
-				<MenuOrderView
-					sections={menuData}
-					currency={currency}
-					operationId={[...operationByMenuId.values()][0] || ''}
-					businessLocationId={businessLocationId}
-					pickupAddress={pickupAddress}
-					defaultDispatchType={defaultDispatchType}
-					schedulingEnabled={schedulingEnabled}
-					fulfillmentMethods={fulfillmentMethods.map(fm => ({
-						_id: fm._id || '',
-						type: fm.type || fulfillmentMethodsApi.FulfillmentMethodType.PICKUP,
-						name: fm.name || '',
-						fee: fm.fee || null,
-						minOrderPrice: fm.minOrderPrice || null,
-					}))}
-					client:load
-				/>
-			)}
+			{
+				menuData.length === 0 ? (
+					<div class="empty-order">
+						<p>{t('restaurant.noOrderableItems')}</p>
+					</div>
+				) : (
+					<MenuOrderView
+						sections={menuData}
+						currency={currency}
+						operationId={[...operationByMenuId.values()][0] || ''}
+						businessLocationId={businessLocationId}
+						pickupAddress={pickupAddress}
+						defaultDispatchType={defaultDispatchType}
+						schedulingEnabled={schedulingEnabled}
+						fulfillmentMethods={fulfillmentMethods.map((fm) => ({
+							_id: fm._id || '',
+							type: fm.type || fulfillmentMethodsApi.FulfillmentMethodType.PICKUP,
+							name: fm.name || '',
+							fee: fm.fee || null,
+							minOrderPrice: fm.minOrderPrice || null,
+						}))}
+						client:load
+					/>
+				)
+			}
 		</div>
 	</section>
 	<Footer />
@@ -377,7 +397,9 @@ const menuData = orderableMenus.flatMap(menu => {
 		transition: all 0.15s;
 	}
 
-	.mov-dispatch-tab:hover { color: var(--text-primary); }
+	.mov-dispatch-tab:hover {
+		color: var(--text-primary);
+	}
 
 	.mov-dispatch-tab.active {
 		background: var(--accent);
@@ -476,7 +498,9 @@ const menuData = orderableMenus.flatMap(menu => {
 	}
 
 	/* Flip the back-arrow glyph in RTL so it points "back" in the reading direction. */
-	[dir="rtl"] .mov-schedule-back { transform: scaleX(-1); }
+	[dir='rtl'] .mov-schedule-back {
+		transform: scaleX(-1);
+	}
 
 	.mov-schedule-option {
 		display: flex;
@@ -521,7 +545,7 @@ const menuData = orderableMenus.flatMap(menu => {
 	}
 
 	.mov-schedule-radio.active::after {
-		content: "";
+		content: '';
 		position: absolute;
 		inset: 3px;
 		border-radius: 50%;
@@ -587,7 +611,9 @@ const menuData = orderableMenus.flatMap(menu => {
 		transition: background 0.15s;
 	}
 
-	.mov-schedule-primary:hover:not(:disabled) { background: var(--accent-yellow); }
+	.mov-schedule-primary:hover:not(:disabled) {
+		background: var(--accent-yellow);
+	}
 
 	.mov-schedule-primary:disabled {
 		opacity: 0.5;
@@ -876,8 +902,12 @@ const menuData = orderableMenus.flatMap(menu => {
 	}
 
 	@keyframes movFade {
-		from { opacity: 0; }
-		to { opacity: 1; }
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 
 	.mov-modal {
@@ -893,8 +923,14 @@ const menuData = orderableMenus.flatMap(menu => {
 	}
 
 	@keyframes movScale {
-		from { transform: scale(0.96); opacity: 0; }
-		to { transform: scale(1); opacity: 1; }
+		from {
+			transform: scale(0.96);
+			opacity: 0;
+		}
+		to {
+			transform: scale(1);
+			opacity: 1;
+		}
 	}
 
 	.mov-modal-hero {
@@ -981,7 +1017,8 @@ const menuData = orderableMenus.flatMap(menu => {
 		gap: 6px;
 	}
 
-	.mov-variant-btn, .mov-mod-btn {
+	.mov-variant-btn,
+	.mov-mod-btn {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
@@ -999,11 +1036,13 @@ const menuData = orderableMenus.flatMap(menu => {
 		transition: all 0.15s;
 	}
 
-	.mov-variant-btn:hover, .mov-mod-btn:hover {
+	.mov-variant-btn:hover,
+	.mov-mod-btn:hover {
 		border-color: var(--accent);
 	}
 
-	.mov-variant-btn.active, .mov-mod-btn.active {
+	.mov-variant-btn.active,
+	.mov-mod-btn.active {
 		border-color: var(--accent);
 		background: rgba(255, 102, 0, 0.08);
 		color: var(--text-primary);

@@ -23,7 +23,8 @@ let order: Order | null = null;
 if (eventId) {
 	try {
 		const getEvent = auth.elevate(wixEventsV2.getEvent) as (
-			id: string, opts?: wixEventsV2.GetEventOptions,
+			id: string,
+			opts?: wixEventsV2.GetEventOptions,
 		) => Promise<Event>;
 		event = await getEvent(eventId, { fields: [wixEventsV2.RequestedFields.DETAILS] });
 	} catch {}
@@ -37,7 +38,10 @@ if (eventId && orderNumber) {
 			identifiers: { eventId: string; orderNumber: string },
 			options?: orders.GetOrderOptions,
 		) => Promise<Order>;
-		order = await getOrder({ eventId, orderNumber }, { fieldset: [orders.OrderFieldset.DETAILS, orders.OrderFieldset.TICKETS] });
+		order = await getOrder(
+			{ eventId, orderNumber },
+			{ fieldset: [orders.OrderFieldset.DETAILS, orders.OrderFieldset.TICKETS] },
+		);
 	} catch {}
 }
 
@@ -48,8 +52,12 @@ const ticketCount = order?.tickets?.length ?? order?.ticketsQuantity ?? 0;
 
 const showtime = event?.dateAndTimeSettings?.startDate
 	? new Intl.DateTimeFormat(locale, {
-		weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-	}).format(new Date(event.dateAndTimeSettings.startDate))
+			weekday: 'long',
+			month: 'long',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit',
+		}).format(new Date(event.dateAndTimeSettings.startDate))
 	: null;
 ---
 
@@ -66,29 +74,37 @@ const showtime = event?.dateAndTimeSettings?.startDate
 				{event?.title && <p class="ty-movie-title">{event.title}</p>}
 				{showtime && <p class="ty-showtime">{showtime}</p>}
 				<p class="ty-subtitle">{t('cinema.thankYouSubtitle')}</p>
-				{ticketCount > 0 && (
-					<p class="ty-ticket-count">
-						{ticketCount} {ticketCount === 1 ? t('cinema.ticket') : t('cinema.tickets')}
-					</p>
-				)}
+				{
+					ticketCount > 0 && (
+						<p class="ty-ticket-count">
+							{ticketCount} {ticketCount === 1 ? t('cinema.ticket') : t('cinema.tickets')}
+						</p>
+					)
+				}
 			</div>
 
 			<div class="ty-actions">
-				{ticketsPdf && (
-					<a href={ticketsPdf} target="_blank" rel="noopener" class="ty-btn ty-btn-primary">
-						🎟 {t('cinema.downloadTickets')}
-					</a>
-				)}
-				{calGoogle && (
-					<a href={calGoogle} target="_blank" rel="noopener" class="ty-btn ty-btn-secondary">
-						📅 {t('cinema.addToGoogle')}
-					</a>
-				)}
-				{calIcs && (
-					<a href={calIcs} class="ty-btn ty-btn-secondary">
-						📆 {t('cinema.downloadIcs')}
-					</a>
-				)}
+				{
+					ticketsPdf && (
+						<a href={ticketsPdf} target="_blank" rel="noopener" class="ty-btn ty-btn-primary">
+							🎟 {t('cinema.downloadTickets')}
+						</a>
+					)
+				}
+				{
+					calGoogle && (
+						<a href={calGoogle} target="_blank" rel="noopener" class="ty-btn ty-btn-secondary">
+							📅 {t('cinema.addToGoogle')}
+						</a>
+					)
+				}
+				{
+					calIcs && (
+						<a href={calIcs} class="ty-btn ty-btn-secondary">
+							📆 {t('cinema.downloadIcs')}
+						</a>
+					)
+				}
 				<a href="/cinema" class="ty-btn ty-btn-ghost">{t('cinema.backToMovies')}</a>
 			</div>
 		</div>
@@ -136,8 +152,15 @@ const showtime = event?.dateAndTimeSettings?.startDate
 	}
 
 	@keyframes pulse-glow {
-		0%, 100% { transform: scale(1); opacity: 1; }
-		50% { transform: scale(1.3); opacity: 0.6; }
+		0%,
+		100% {
+			transform: scale(1);
+			opacity: 1;
+		}
+		50% {
+			transform: scale(1.3);
+			opacity: 0.6;
+		}
 	}
 
 	.ty-movie-title {

@@ -17,7 +17,16 @@ type Member = members.Member;
 const { slug } = Astro.params;
 let post: Post | undefined;
 try {
-	const result = await posts.getPostBySlug(slug!, { fieldsets: [posts.PostFieldField.RICH_CONTENT, posts.PostFieldField.URL, posts.PostFieldField.METRICS, posts.PostFieldField.CONTACT_ID, posts.PostFieldField.REFERENCE_ID, posts.PostFieldField.SEO] });
+	const result = await posts.getPostBySlug(slug!, {
+		fieldsets: [
+			posts.PostFieldField.RICH_CONTENT,
+			posts.PostFieldField.URL,
+			posts.PostFieldField.METRICS,
+			posts.PostFieldField.CONTACT_ID,
+			posts.PostFieldField.REFERENCE_ID,
+			posts.PostFieldField.SEO,
+		],
+	});
 	post = result.post;
 } catch {}
 
@@ -63,7 +72,9 @@ const postTags: BlogTag[] = (post.tagIds || [])
 function formatDate(dateStr: string | Date | null | undefined) {
 	if (!dateStr) return '';
 	return new Date(dateStr).toLocaleDateString(i18n.getLocale(), {
-		year: 'numeric', month: 'long', day: 'numeric'
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
 	});
 }
 
@@ -84,48 +95,70 @@ const seoTags = post.seoData?.tags || [];
 			<header class="post-header">
 				<div class="post-meta-row">
 					<div class="writer-info">
-						{writerPhoto && (
-							<a href={writerSlug ? `/member/${writerSlug}` : '#'}>
-								<img src={writerPhoto} alt={writerName} class="writer-avatar" referrerpolicy="no-referrer" />
-							</a>
-						)}
+						{
+							writerPhoto && (
+								<a href={writerSlug ? `/member/${writerSlug}` : '#'}>
+									<img src={writerPhoto} alt={writerName} class="writer-avatar" referrerpolicy="no-referrer" />
+								</a>
+							)
+						}
 						<div>
-							<a href={writerSlug ? `/member/${writerSlug}` : '#'} class="writer-name-link"><span class="writer-name">{writerName}</span></a>
+							<a href={writerSlug ? `/member/${writerSlug}` : '#'} class="writer-name-link"
+								><span class="writer-name">{writerName}</span></a
+							>
 							{writerTitle && <span class="writer-title">{writerTitle}</span>}
 						</div>
 					</div>
 					<div class="post-date-info">
 						<span class="post-date">{formatDate(post.firstPublishedDate)}</span>
-						{post.minutesToRead && <span class="read-time">{post.minutesToRead} {t('blog.minRead')}</span>}
+						{
+							post.minutesToRead && (
+								<span class="read-time">
+									{post.minutesToRead} {t('blog.minRead')}
+								</span>
+							)
+						}
 					</div>
 				</div>
 				{post.pinned && <div class="pinned-indicator">&#128204; {t('blog.pinnedPost')}</div>}
 				<h1>{post.title}</h1>
-				{postTags.length > 0 && (
-					<div class="post-tags">
-						{postTags.map((tag) => (
-							<a href={`/blog?tag=${tag._id}`} class="tag">{tag.label}</a>
-						))}
-					</div>
-				)}
+				{
+					postTags.length > 0 && (
+						<div class="post-tags">
+							{postTags.map((tag) => (
+								<a href={`/blog?tag=${tag._id}`} class="tag">
+									{tag.label}
+								</a>
+							))}
+						</div>
+					)
+				}
 			</header>
 
-			{post.preview ? (
-				<div class="post-content">
-					<PremiumContentResolver slug={slug!} {...(post.richContent ? { previewContent: post.richContent } : {})} client:load />
-				</div>
-			) : (
-				<div class="post-content">
-					{post.richContent && <RichContentViewer content={post.richContent} client:load />}
-				</div>
-			)}
+			{
+				post.preview ? (
+					<div class="post-content">
+						<PremiumContentResolver
+							slug={slug!}
+							{...(post.richContent ? { previewContent: post.richContent } : {})}
+							client:load
+						/>
+					</div>
+				) : (
+					<div class="post-content">
+						{post.richContent && <RichContentViewer content={post.richContent} client:load />}
+					</div>
+				)
+			}
 
 			<div class="writer-card">
-				{writerPhoto && (
-					<a href={writerSlug ? `/member/${writerSlug}` : '#'}>
-						<img src={writerPhoto} alt={writerName} class="writer-card-photo" referrerpolicy="no-referrer" />
-					</a>
-				)}
+				{
+					writerPhoto && (
+						<a href={writerSlug ? `/member/${writerSlug}` : '#'}>
+							<img src={writerPhoto} alt={writerName} class="writer-card-photo" referrerpolicy="no-referrer" />
+						</a>
+					)
+				}
 				<div class="writer-card-info">
 					<span class="writer-card-label">{t('blog.writtenBy')}</span>
 					<a href={writerSlug ? `/member/${writerSlug}` : '#'} class="writer-card-name">{writerName}</a>
@@ -133,7 +166,15 @@ const seoTags = post.seoData?.tags || [];
 				</div>
 			</div>
 
-			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} {...(currentMemberName ? { memberName: currentMemberName } : {})} {...(currentMemberPhoto ? { memberPhoto: currentMemberPhoto } : {})} {...(currentIdentityId ? { identityId: currentIdentityId } : {})} commentingEnabled={post.commentingEnabled !== false} client:load />
+			<BlogEngagement
+				postId={post._id!}
+				referenceId={post.referenceId || post._id!}
+				{...currentMemberName ? { memberName: currentMemberName } : {}}
+				{...currentMemberPhoto ? { memberPhoto: currentMemberPhoto } : {}}
+				{...currentIdentityId ? { identityId: currentIdentityId } : {}}
+				commentingEnabled={post.commentingEnabled !== false}
+				client:load
+			/>
 
 			<footer class="post-footer">
 				<a href="/blog" class="btn btn-outline"><span class="rtl-flip">←</span> {t('blog.moreTransmissions')}</a>
@@ -246,7 +287,9 @@ const seoTags = post.seoData?.tags || [];
 		color: var(--accent-yellow);
 		letter-spacing: 2px;
 		line-height: 1.2;
-		text-shadow: 2px 2px 0 #000, 0 0 20px var(--accent-glow);
+		text-shadow:
+			2px 2px 0 #000,
+			0 0 20px var(--accent-glow);
 		margin-bottom: 16px;
 	}
 
@@ -267,7 +310,9 @@ const seoTags = post.seoData?.tags || [];
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
-		transition: background 0.2s, border-color 0.2s;
+		transition:
+			background 0.2s,
+			border-color 0.2s;
 	}
 
 	.tag:hover {

@@ -18,15 +18,21 @@ const cat = result.items[0]!;
 
 function getEmoji(role: string) {
 	const map: Record<string, string> = {
-		'Captain': '🐱', 'Chief Scientist': '🔬', 'Pilot': '🚀',
-		'Engineer': '🔧', 'Communications Officer': '📡', 'Stealth Operations': '🐈‍⬛',
+		Captain: '🐱',
+		'Chief Scientist': '🔬',
+		Pilot: '🚀',
+		Engineer: '🔧',
+		'Communications Officer': '📡',
+		'Stealth Operations': '🐈‍⬛',
 	};
 	return map[role] || '🐾';
 }
 
 function getStatusBadge(status: string) {
 	const map: Record<string, string> = {
-		'Active': 'badge-green', 'On Mission': 'badge-gold', 'Retired': 'badge-pink',
+		Active: 'badge-green',
+		'On Mission': 'badge-gold',
+		Retired: 'badge-pink',
 	};
 	return map[status] || 'badge-blue';
 }
@@ -41,11 +47,13 @@ function getStatusBadge(status: string) {
 			<div class="profile">
 				<div class="profile-header">
 					<div class="profile-avatar">
-						{getImageUrl(cat.image, 200, 200) ? (
-							<img src={getImageUrl(cat.image, 200, 200)!} alt={cat.name} class="profile-img" />
-						) : (
-							<span class="avatar-emoji">{getEmoji(cat.role)}</span>
-						)}
+						{
+							getImageUrl(cat.image, 200, 200) ? (
+								<img src={getImageUrl(cat.image, 200, 200)!} alt={cat.name} class="profile-img" />
+							) : (
+								<span class="avatar-emoji">{getEmoji(cat.role)}</span>
+							)
+						}
 					</div>
 					<div class="profile-info">
 						<h1>{cat.name}</h1>
@@ -90,7 +98,11 @@ function getStatusBadge(status: string) {
 </Layout>
 
 <style>
-	.detail-page { position: relative; z-index: 1; padding: 60px 0 40px; }
+	.detail-page {
+		position: relative;
+		z-index: 1;
+		padding: 60px 0 40px;
+	}
 
 	.back-link {
 		font-size: 0.85rem;
@@ -99,7 +111,9 @@ function getStatusBadge(status: string) {
 		margin-bottom: 2rem;
 		transition: color 0.2s;
 	}
-	.back-link:hover { color: var(--accent); }
+	.back-link:hover {
+		color: var(--accent);
+	}
 
 	.profile-header {
 		display: flex;
@@ -127,13 +141,17 @@ function getStatusBadge(status: string) {
 		object-fit: cover;
 	}
 
-	.avatar-emoji { font-size: 3rem; }
+	.avatar-emoji {
+		font-size: 3rem;
+	}
 
 	.profile-info h1 {
 		font-family: var(--font-title);
 		font-size: 2.5rem;
 		color: var(--accent);
-		text-shadow: 2px 2px 0 #000, 0 0 20px var(--accent-glow);
+		text-shadow:
+			2px 2px 0 #000,
+			0 0 20px var(--accent-glow);
 		margin-bottom: 0.25rem;
 	}
 
@@ -157,7 +175,9 @@ function getStatusBadge(status: string) {
 		font-size: 1.3rem;
 		color: var(--accent);
 		letter-spacing: 1px;
-		text-shadow: 2px 2px 0 #000, 0 0 20px var(--accent-glow);
+		text-shadow:
+			2px 2px 0 #000,
+			0 0 20px var(--accent-glow);
 		margin-bottom: 1rem;
 	}
 
@@ -167,7 +187,8 @@ function getStatusBadge(status: string) {
 		line-height: 1.8;
 	}
 
-	.info-card, .fun-fact-card {
+	.info-card,
+	.fun-fact-card {
 		background: var(--bg-card);
 		border: 1px solid var(--border-card);
 		border-radius: 16px;
@@ -175,7 +196,8 @@ function getStatusBadge(status: string) {
 		margin-bottom: 1rem;
 	}
 
-	.info-card h3, .fun-fact-card h3 {
+	.info-card h3,
+	.fun-fact-card h3 {
 		font-family: var(--font-heading);
 		font-size: 1rem;
 		margin-bottom: 1rem;
@@ -190,15 +212,24 @@ function getStatusBadge(status: string) {
 		border-bottom: 1px solid var(--border-card);
 	}
 
-	.info-label { color: var(--text-muted); font-size: 0.85rem; }
-	.info-value { color: var(--accent); font-family: var(--font-title); font-size: 0.8rem; }
+	.info-label {
+		color: var(--text-muted);
+		font-size: 0.85rem;
+	}
+	.info-value {
+		color: var(--accent);
+		font-family: var(--font-title);
+		font-size: 0.8rem;
+	}
 
 	.fun-fact-card {
 		background: rgba(255, 204, 0, 0.05);
 		border-color: rgba(255, 204, 0, 0.2);
 	}
 
-	.fun-fact-card h3 { color: var(--accent-yellow); }
+	.fun-fact-card h3 {
+		color: var(--accent-yellow);
+	}
 
 	.fun-fact-card p {
 		color: var(--text-secondary);
@@ -208,8 +239,15 @@ function getStatusBadge(status: string) {
 	}
 
 	@media (max-width: 768px) {
-		.profile-header { flex-direction: column; text-align: center; }
-		.profile-grid { grid-template-columns: 1fr; }
-		.profile-info h1 { font-size: 2rem; }
+		.profile-header {
+			flex-direction: column;
+			text-align: center;
+		}
+		.profile-grid {
+			grid-template-columns: 1fr;
+		}
+		.profile-info h1 {
+			font-size: 2rem;
+		}
 	}
 </style>

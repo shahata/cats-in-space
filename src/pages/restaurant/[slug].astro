@@ -20,19 +20,25 @@ const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/restaurant');
 
 function slugify(name: string): string {
-	return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+	return name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/(^-|-$)/g, '');
 }
 
 const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
 const itemsResult = await elevatedQueryItems().limit(100).find();
 const allItems: Item[] = itemsResult.items || [];
 
-const item = allItems.find(i => slugify(i.name || '') === slug);
+const item = allItems.find((i) => slugify(i.name || '') === slug);
 if (!item) return Astro.redirect('/restaurant');
 
 const img = getImageUrl(item.image, 800, 600);
 
-interface LabelInfo { name: string; icon: string | null }
+interface LabelInfo {
+	name: string;
+	icon: string | null;
+}
 const elevatedListLabels = auth.elevate(itemLabels.listLabels);
 const labelMap = new Map<string, LabelInfo>();
 try {
@@ -59,7 +65,7 @@ const priceFormatter = new Intl.NumberFormat(locale, { style: 'currency', curren
 function getItemPrice(it: Item): string {
 	const variants = it.priceVariants?.variants;
 	if (variants?.length) {
-		const prices = variants.map(v => parseFloat(v.priceInfo?.price || v.price || '0'));
+		const prices = variants.map((v) => parseFloat(v.priceInfo?.price || v.price || '0'));
 		const min = Math.min(...prices);
 		const max = Math.max(...prices);
 		return min === max ? priceFormatter.format(min) : `${priceFormatter.format(min)} - ${priceFormatter.format(max)}`;
@@ -72,7 +78,7 @@ const dishData = {
 	_id: item._id || '',
 	name: item.name || '',
 	price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency } : null,
-	priceVariants: (item.priceVariants?.variants || []).map(v => ({
+	priceVariants: (item.priceVariants?.variants || []).map((v) => ({
 		_id: v.variantId || '',
 		name: (v.variantId && variantMap.get(v.variantId)) || '',
 		price: { amount: v.priceInfo?.price || v.price || '0', currency },
@@ -89,37 +95,48 @@ const dishData = {
 
 			<div class="dish-layout">
 				<div class="dish-gallery">
-					{img ? (
-						<div class="gallery-main">
-							<img src={img} alt={item.name} />
-						</div>
-					) : (
-						<div class="gallery-placeholder">
-							<span>&#127869;</span>
-						</div>
-					)}
+					{
+						img ? (
+							<div class="gallery-main">
+								<img src={img} alt={item.name} />
+							</div>
+						) : (
+							<div class="gallery-placeholder">
+								<span>&#127869;</span>
+							</div>
+						)
+					}
 				</div>
 
 				<div class="dish-details">
-					{labels.length > 0 && (
-						<div class="dish-labels">
-							{labels.map(label => (
-								<span class="dish-label" title={label.name}>
-									{label.icon && <span class="dish-label-icon" style={`-webkit-mask-image:url(${label.icon});mask-image:url(${label.icon})`}></span>}
-									<span>{label.name}</span>
-								</span>
-							))}
-						</div>
-					)}
+					{
+						labels.length > 0 && (
+							<div class="dish-labels">
+								{labels.map((label) => (
+									<span class="dish-label" title={label.name}>
+										{label.icon && (
+											<span
+												class="dish-label-icon"
+												style={`-webkit-mask-image:url(${label.icon});mask-image:url(${label.icon})`}
+											/>
+										)}
+										<span>{label.name}</span>
+									</span>
+								))}
+							</div>
+						)
+					}
 
 					<h1 class="dish-title">{item.name}</h1>
 					<div class="dish-price">{getItemPrice(item)}</div>
 
-					{item.description && (
-						<div class="dish-description">
-							<p>{item.description}</p>
-						</div>
-					)}
+					{
+						item.description && (
+							<div class="dish-description">
+								<p>{item.description}</p>
+							</div>
+						)
+					}
 
 					<DishCustomizer item={dishData} client:load />
 				</div>

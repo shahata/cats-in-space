@@ -12,15 +12,21 @@ const crew = result.items;
 
 function getEmoji(role: string) {
 	const map: Record<string, string> = {
-		'Captain': '🐱', 'Chief Scientist': '🔬', 'Pilot': '🚀',
-		'Engineer': '🔧', 'Communications Officer': '📡', 'Stealth Operations': '🐈‍⬛',
+		Captain: '🐱',
+		'Chief Scientist': '🔬',
+		Pilot: '🚀',
+		Engineer: '🔧',
+		'Communications Officer': '📡',
+		'Stealth Operations': '🐈‍⬛',
 	};
 	return map[role] || '🐾';
 }
 
 function getStatusBadge(status: string) {
 	const map: Record<string, string> = {
-		'Active': 'badge-green', 'On Mission': 'badge-gold', 'Retired': 'badge-pink',
+		Active: 'badge-green',
+		'On Mission': 'badge-gold',
+		Retired: 'badge-pink',
 	};
 	return map[status] || 'badge-blue';
 }
@@ -38,24 +44,26 @@ function getStatusBadge(status: string) {
 	<section class="content">
 		<div class="container">
 			<div class="crew-grid">
-				{crew.map((cat) => (
-					<a href={`/crew/${cat.slug}`} class="crew-card">
-						<div class="crew-avatar">
-							{getImageUrl(cat.image, 200, 200) ? (
-								<img src={getImageUrl(cat.image, 200, 200)!} alt={cat.name} class="crew-img" />
-							) : (
-								<span class="crew-emoji">{getEmoji(cat.role)}</span>
-							)}
-						</div>
-						<h2>{cat.name}</h2>
-						<p class="crew-role">{cat.role}</p>
-						<span class={`badge ${getStatusBadge(cat.status)}`}>{cat.status}</span>
-						<p class="crew-bio">{cat.bio.slice(0, 120)}...</p>
-						<div class="crew-footer">
-							<div class="skill-tag">{cat.specialSkill}</div>
-						</div>
-					</a>
-				))}
+				{
+					crew.map((cat) => (
+						<a href={`/crew/${cat.slug}`} class="crew-card">
+							<div class="crew-avatar">
+								{getImageUrl(cat.image, 200, 200) ? (
+									<img src={getImageUrl(cat.image, 200, 200)!} alt={cat.name} class="crew-img" />
+								) : (
+									<span class="crew-emoji">{getEmoji(cat.role)}</span>
+								)}
+							</div>
+							<h2>{cat.name}</h2>
+							<p class="crew-role">{cat.role}</p>
+							<span class={`badge ${getStatusBadge(cat.status)}`}>{cat.status}</span>
+							<p class="crew-bio">{cat.bio.slice(0, 120)}...</p>
+							<div class="crew-footer">
+								<div class="skill-tag">{cat.specialSkill}</div>
+							</div>
+						</a>
+					))
+				}
 			</div>
 		</div>
 	</section>
@@ -69,7 +77,11 @@ function getStatusBadge(status: string) {
 		z-index: 1;
 	}
 
-	.content { position: relative; z-index: 1; padding-bottom: 40px; }
+	.content {
+		position: relative;
+		z-index: 1;
+		padding-bottom: 40px;
+	}
 
 	.crew-grid {
 		display: grid;
@@ -116,7 +128,9 @@ function getStatusBadge(status: string) {
 		object-fit: cover;
 	}
 
-	.crew-emoji { font-size: 2rem; }
+	.crew-emoji {
+		font-size: 2rem;
+	}
 
 	h2 {
 		font-family: var(--font-heading);
@@ -157,6 +171,8 @@ function getStatusBadge(status: string) {
 	}
 
 	@media (max-width: 768px) {
-		.crew-grid { grid-template-columns: 1fr; }
+		.crew-grid {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

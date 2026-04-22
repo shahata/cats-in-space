@@ -14,14 +14,20 @@ const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
 // Fetch gift card products
-interface GcVariantPrice { amount: string; formattedAmount: string }
+interface GcVariantPrice {
+	amount: string;
+	formattedAmount: string;
+}
 interface GcPresetVariant {
 	_id: string;
 	price: GcVariantPrice;
 	value: GcVariantPrice;
 	image: string | null;
 }
-interface GcCustomVariant { minValue?: GcVariantPrice; maxValue?: GcVariantPrice }
+interface GcCustomVariant {
+	minValue?: GcVariantPrice;
+	maxValue?: GcVariantPrice;
+}
 interface GcProduct {
 	_id: string;
 	name: string;
@@ -34,23 +40,32 @@ let giftCardProductsList: GcProduct[] = [];
 try {
 	const elevatedQuery = auth.elevate(giftVoucherProducts.queryGiftCardProducts);
 	const gcResult = await elevatedQuery().limit(10).find();
-	giftCardProductsList = (gcResult.items || []).map(p => {
+	giftCardProductsList = (gcResult.items || []).map((p) => {
 		const cv: GcCustomVariant | null = p.customVariant ? {} : null;
 		if (cv && p.customVariant?.minValue) {
-			cv.minValue = { amount: p.customVariant.minValue.amount || '0', formattedAmount: p.customVariant.minValue.formattedAmount || '' };
+			cv.minValue = {
+				amount: p.customVariant.minValue.amount || '0',
+				formattedAmount: p.customVariant.minValue.formattedAmount || '',
+			};
 		}
 		if (cv && p.customVariant?.maxValue) {
-			cv.maxValue = { amount: p.customVariant.maxValue.amount || '0', formattedAmount: p.customVariant.maxValue.formattedAmount || '' };
+			cv.maxValue = {
+				amount: p.customVariant.maxValue.amount || '0',
+				formattedAmount: p.customVariant.maxValue.formattedAmount || '',
+			};
 		}
 		return {
 			_id: p._id || '',
 			name: p.name || '',
 			description: p.description || null,
 			image: getImageUrl(p.image || undefined, 600, 340),
-			presetVariants: (p.presetVariants || []).map(v => ({
+			presetVariants: (p.presetVariants || []).map((v) => ({
 				_id: v._id || '',
 				price: { amount: v.price?.amount || '0', formattedAmount: v.price?.formattedAmount || '' },
-				value: { amount: v.value?.amount || v.price?.amount || '0', formattedAmount: v.value?.formattedAmount || v.price?.formattedAmount || '' },
+				value: {
+					amount: v.value?.amount || v.price?.amount || '0',
+					formattedAmount: v.value?.formattedAmount || v.price?.formattedAmount || '',
+				},
 				image: getImageUrl(v.image || undefined, 600, 340),
 			})),
 			customVariant: cv,
@@ -60,7 +75,16 @@ try {
 	// Gift card products may not be configured yet
 }
 const hasGiftCards = giftCardProductsList.length > 0;
-const productResult = await productsV3.queryProducts({ fields: [productsV3.RequestedFields.MEDIA_ITEMS_INFO, productsV3.RequestedFields.CURRENCY, productsV3.RequestedFields.DIRECT_CATEGORIES_INFO] }).limit(100).find();
+const productResult = await productsV3
+	.queryProducts({
+		fields: [
+			productsV3.RequestedFields.MEDIA_ITEMS_INFO,
+			productsV3.RequestedFields.CURRENCY,
+			productsV3.RequestedFields.DIRECT_CATEGORIES_INFO,
+		],
+	})
+	.limit(100)
+	.find();
 const allProducts = productResult.items || [];
 
 function formatPrice(product: productsV3Types.V3Product) {
@@ -76,8 +100,11 @@ function formatPrice(product: productsV3Types.V3Product) {
 	return { formatted, original: onSale ? fmt(compareMin) : null };
 }
 
-const catResult = await categories.queryCategories({ cursorPaging: { limit: 100 } }, { treeReference: { appNamespace: '@wix/stores' } });
-const allCollections = (catResult.categories || []).map(c => ({ _id: c._id!, name: c.name! }));
+const catResult = await categories.queryCategories(
+	{ cursorPaging: { limit: 100 } },
+	{ treeReference: { appNamespace: '@wix/stores' } },
+);
+const allCollections = (catResult.categories || []).map((c) => ({ _id: c._id!, name: c.name! }));
 
 const categoryMap = new Map<string, string>();
 for (const c of allCollections) categoryMap.set(c._id, c.name);
@@ -86,11 +113,10 @@ const categoryOrder = new Map(allCollections.map((c, i) => [c._id, i]));
 
 function getCollections(product: productsV3Types.V3Product): { _id: string; name: string }[] {
 	return (product.directCategoriesInfo?.categories || [])
-		.filter(cat => cat._id && categoryMap.has(cat._id))
-		.map(cat => ({ _id: cat._id!, name: categoryMap.get(cat._id!)! }))
+		.filter((cat) => cat._id && categoryMap.has(cat._id))
+		.map((cat) => ({ _id: cat._id!, name: categoryMap.get(cat._id!)! }))
 		.sort((a, b) => (categoryOrder.get(a._id) ?? 999) - (categoryOrder.get(b._id) ?? 999));
 }
-
 ---
 
 <Layout title={`${t('store.pageTitle')} - ${t('home.title')}`}>
@@ -105,82 +131,102 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 	<section class="store-content">
 		<div class="container">
 			<div class="filter-tabs" id="filter-tabs">
-				{allCollections.map((c, i: number) => (
-					<button class:list={['filter-tab', { active: i === 0 }]} data-collection={c._id}>{c.name}</button>
-				))}
-				{hasGiftCards && (
-					<button class="filter-tab" data-collection="gift-cards">{t('store.giftCards')}</button>
-				)}
+				{
+					allCollections.map((c, i: number) => (
+						<button class:list={['filter-tab', { active: i === 0 }]} data-collection={c._id}>
+							{c.name}
+						</button>
+					))
+				}
+				{
+					hasGiftCards && (
+						<button class="filter-tab" data-collection="gift-cards">
+							{t('store.giftCards')}
+						</button>
+					)
+				}
 			</div>
 
-			{hasGiftCards && (
-				<div class="gift-card-section" id="gift-card-section" style="display:none;">
-					{giftCardProductsList.map((gcp) => (
-						<div class="gc-product">
-							<h2 class="gc-product-name">{gcp.name}</h2>
-							{gcp.description && <p class="gc-product-desc">{gcp.description}</p>}
-							<GiftCardActions
-								client:load
-								productId={gcp._id}
-								productImage={gcp.image}
-								presetVariants={gcp.presetVariants}
-								customVariant={gcp.customVariant}
-							/>
-						</div>
-					))}
-				</div>
-			)}
+			{
+				hasGiftCards && (
+					<div class="gift-card-section" id="gift-card-section" style="display:none;">
+						{giftCardProductsList.map((gcp) => (
+							<div class="gc-product">
+								<h2 class="gc-product-name">{gcp.name}</h2>
+								{gcp.description && <p class="gc-product-desc">{gcp.description}</p>}
+								<GiftCardActions
+									client:load
+									productId={gcp._id}
+									productImage={gcp.image}
+									presetVariants={gcp.presetVariants}
+									customVariant={gcp.customVariant}
+								/>
+							</div>
+						))}
+					</div>
+				)
+			}
 
 			<div class="product-grid" id="product-grid">
-				{allProducts.map((product) => {
-					const mainMedia = product.media?.main;
-					const cover = extractMediaUrl(product.media?.itemsInfo?.items?.[0] || mainMedia, 400, 400);
-					const collections = getCollections(product);
-					const collIds = product.directCategoriesInfo?.categories?.map(c => c._id).filter(Boolean).join(',') || '';
-					const { formatted, original } = formatPrice(product);
-					const ribbon = product.ribbon?.name;
+				{
+					allProducts.map((product) => {
+						const mainMedia = product.media?.main;
+						const cover = extractMediaUrl(product.media?.itemsInfo?.items?.[0] || mainMedia, 400, 400);
+						const collections = getCollections(product);
+						const collIds =
+							product.directCategoriesInfo?.categories
+								?.map((c) => c._id)
+								.filter(Boolean)
+								.join(',') || '';
+						const { formatted, original } = formatPrice(product);
+						const ribbon = product.ribbon?.name;
 
-					return (
-						<a href={`/store/${product.slug}`} class="product-card" data-collections={collIds}>
-							<div class="product-image">
-								{cover?.type === 'video' ? (
-									<video src={cover.url} poster={cover.thumbnail || ''} autoplay muted loop playsinline />
-								) : cover ? (
-									<img src={cover.url} alt={product.name} loading="lazy" />
-								) : (
-									<div class="product-placeholder">
-										<span>&#128049;</span>
-									</div>
-								)}
-								{ribbon && <span class="product-ribbon">{ribbon}</span>}
-								{collections.length > 0 && (
-									<div class="product-badges">
-										{collections.map((col) => (
-											<span class="product-badge cat-link" data-cat-id={col._id}>{col.name}</span>
-										))}
-									</div>
-								)}
-							</div>
-							<div class="product-info">
-								<h3 class="product-name">{product.name}</h3>
-								<div class="product-price">
-									{original && <span class="price-original">{original}</span>}
-									<span class={original ? 'price-sale' : ''}>{formatted}</span>
+						return (
+							<a href={`/store/${product.slug}`} class="product-card" data-collections={collIds}>
+								<div class="product-image">
+									{cover?.type === 'video' ? (
+										<video src={cover.url} poster={cover.thumbnail || ''} autoplay muted loop playsinline />
+									) : cover ? (
+										<img src={cover.url} alt={product.name} loading="lazy" />
+									) : (
+										<div class="product-placeholder">
+											<span>&#128049;</span>
+										</div>
+									)}
+									{ribbon && <span class="product-ribbon">{ribbon}</span>}
+									{collections.length > 0 && (
+										<div class="product-badges">
+											{collections.map((col) => (
+												<span class="product-badge cat-link" data-cat-id={col._id}>
+													{col.name}
+												</span>
+											))}
+										</div>
+									)}
 								</div>
-								{product.inventory?.availabilityStatus === productsV3.InventoryAvailabilityStatus.OUT_OF_STOCK && (
-									<span class="oos-badge">{t('store.outOfStock')}</span>
-								)}
-							</div>
-						</a>
-					);
-				})}
+								<div class="product-info">
+									<h3 class="product-name">{product.name}</h3>
+									<div class="product-price">
+										{original && <span class="price-original">{original}</span>}
+										<span class={original ? 'price-sale' : ''}>{formatted}</span>
+									</div>
+									{product.inventory?.availabilityStatus === productsV3.InventoryAvailabilityStatus.OUT_OF_STOCK && (
+										<span class="oos-badge">{t('store.outOfStock')}</span>
+									)}
+								</div>
+							</a>
+						);
+					})
+				}
 			</div>
 
-			{allProducts.length === 0 && (
-				<div class="empty-store">
-					<p>{t('store.noProducts')}</p>
-				</div>
-			)}
+			{
+				allProducts.length === 0 && (
+					<div class="empty-store">
+						<p>{t('store.noProducts')}</p>
+					</div>
+				)
+			}
 		</div>
 	</section>
 	<Footer />
@@ -188,7 +234,9 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 
 <script is:inline>
 	function filterByCollection(collectionId) {
-		document.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
+		document.querySelectorAll('.filter-tab').forEach(function (t) {
+			t.classList.remove('active');
+		});
 		var activeTab = document.querySelector('.filter-tab[data-collection="' + collectionId + '"]');
 		if (activeTab) activeTab.classList.add('active');
 
@@ -204,7 +252,7 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 			if (productGrid) productGrid.style.display = '';
 			if (gcSection) gcSection.style.display = 'none';
 			if (emptyStore) emptyStore.style.display = '';
-			document.querySelectorAll('.product-card').forEach(function(card) {
+			document.querySelectorAll('.product-card').forEach(function (card) {
 				var ids = card.dataset.collections || '';
 				card.style.display = ids.indexOf(collectionId) !== -1 ? '' : 'none';
 			});
@@ -215,7 +263,7 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 		history.replaceState(null, '', url);
 	}
 
-	document.addEventListener('click', function(e) {
+	document.addEventListener('click', function (e) {
 		var tab = e.target.closest('.filter-tab');
 		if (tab) {
 			filterByCollection(tab.dataset.collection);
@@ -233,7 +281,7 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 	});
 
 	// On load: apply ?cat= if present, otherwise first tab
-	(function() {
+	(function () {
 		var params = new URLSearchParams(window.location.search);
 		var cat = params.get('cat');
 		var target = cat && document.querySelector('.filter-tab[data-collection="' + cat + '"]');

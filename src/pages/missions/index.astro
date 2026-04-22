@@ -12,24 +12,28 @@ const missions = result.items;
 
 function getStatusBadge(status: string) {
 	const map: Record<string, string> = {
-		'In Progress': 'badge-blue', 'Launching Soon': 'badge-gold',
-		'Planning': 'badge-purple', 'Planned': 'badge-purple', 'Completed': 'badge-green',
+		'In Progress': 'badge-blue',
+		'Launching Soon': 'badge-gold',
+		Planning: 'badge-purple',
+		Planned: 'badge-purple',
+		Completed: 'badge-green',
 	};
 	return map[status] || 'badge-blue';
 }
 
 function getStatusIcon(status: string) {
 	const map: Record<string, string> = {
-		'In Progress': '🛸', 'Launching Soon': '🚀',
-		'Planning': '📋', 'Planned': '🗺️', 'Completed': '✅',
+		'In Progress': '🛸',
+		'Launching Soon': '🚀',
+		Planning: '📋',
+		Planned: '🗺️',
+		Completed: '✅',
 	};
 	return map[status] || '🛸';
 }
 
 const statusOrder = ['In Progress', 'Launching Soon', 'Planned', 'Planning', 'Completed'];
-const sorted = [...missions].sort((a, b) =>
-	statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)
-);
+const sorted = [...missions].sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status));
 ---
 
 <Layout title={`${t('missions.pageTitle')} - ${t('home.title')}`}>
@@ -44,62 +48,61 @@ const sorted = [...missions].sort((a, b) =>
 	<section class="content">
 		<div class="container">
 			<div class="missions-list">
-				{sorted.map((mission) => (
-					<div class="mission-card" data-href={`/missions/${mission.slug}`} data-status={mission.status}>
-						<div class="card-accent" data-status={mission.status}></div>
-						<div class="card-inner">
-							<div class="card-top">
-								<div class="planet-circle">
-									{mission.planetRef && getImageUrl(mission.planetRef.image, 100, 100) ? (
-										<a href={`/planets/${mission.planetRef.slug}`} class="planet-img-link">
-											<img src={getImageUrl(mission.planetRef.image, 100, 100)!} alt={mission.planetRef.title} />
-										</a>
-									) : (
-										<span class="planet-fallback">{getStatusIcon(mission.status)}</span>
-									)}
-								</div>
-								<div class="card-info">
-									<div class="title-row">
-										<h2>{mission.title}</h2>
-										<span class={`badge ${getStatusBadge(mission.status)}`}>{mission.status}</span>
+				{
+					sorted.map((mission) => (
+						<div class="mission-card" data-href={`/missions/${mission.slug}`} data-status={mission.status}>
+							<div class="card-accent" data-status={mission.status} />
+							<div class="card-inner">
+								<div class="card-top">
+									<div class="planet-circle">
+										{mission.planetRef && getImageUrl(mission.planetRef.image, 100, 100) ? (
+											<a href={`/planets/${mission.planetRef.slug}`} class="planet-img-link">
+												<img src={getImageUrl(mission.planetRef.image, 100, 100)!} alt={mission.planetRef.title} />
+											</a>
+										) : (
+											<span class="planet-fallback">{getStatusIcon(mission.status)}</span>
+										)}
 									</div>
-									{mission.planetRef && (
-										<a href={`/planets/${mission.planetRef.slug}`} class="dest-link"><span class="rtl-flip">→</span> {t('missions.goToPlanet', { planet: mission.planetRef.title })}</a>
-									)}
-									<p class="mission-desc">{mission.description}</p>
-								</div>
-							</div>
-
-							<div class="card-bottom">
-								{mission.crew && mission.crew.length > 0 && (
-									<div class="crew-section">
-										<span class="meta-label">{t('missions.crew')}</span>
-										<div class="crew-stack">
-											{mission.crew.map((cat: any, i: number) => (
-												<a
-													href={`/crew/${cat.slug}`}
-													class="crew-pip"
-													style={`z-index: ${10 - i}`}
-													title={cat.name}
-												>
-													{getImageUrl(cat.image, 36, 36) ? (
-														<img src={getImageUrl(cat.image, 36, 36)!} alt={cat.name} />
-													) : (
-														<span class="pip-fallback">🐱</span>
-													)}
-												</a>
-											))}
+									<div class="card-info">
+										<div class="title-row">
+											<h2>{mission.title}</h2>
+											<span class={`badge ${getStatusBadge(mission.status)}`}>{mission.status}</span>
 										</div>
+										{mission.planetRef && (
+											<a href={`/planets/${mission.planetRef.slug}`} class="dest-link">
+												<span class="rtl-flip">→</span> {t('missions.goToPlanet', { planet: mission.planetRef.title })}
+											</a>
+										)}
+										<p class="mission-desc">{mission.description}</p>
 									</div>
-								)}
-								<div class="launch-section">
-									<span class="meta-label">{t('missions.launch')}</span>
-									<span class="launch-val">{mission.launchDate}</span>
+								</div>
+
+								<div class="card-bottom">
+									{mission.crew && mission.crew.length > 0 && (
+										<div class="crew-section">
+											<span class="meta-label">{t('missions.crew')}</span>
+											<div class="crew-stack">
+												{mission.crew.map((cat: any, i: number) => (
+													<a href={`/crew/${cat.slug}`} class="crew-pip" style={`z-index: ${10 - i}`} title={cat.name}>
+														{getImageUrl(cat.image, 36, 36) ? (
+															<img src={getImageUrl(cat.image, 36, 36)!} alt={cat.name} />
+														) : (
+															<span class="pip-fallback">🐱</span>
+														)}
+													</a>
+												))}
+											</div>
+										</div>
+									)}
+									<div class="launch-section">
+										<span class="meta-label">{t('missions.launch')}</span>
+										<span class="launch-val">{mission.launchDate}</span>
+									</div>
 								</div>
 							</div>
 						</div>
-					</div>
-				))}
+					))
+				}
 			</div>
 		</div>
 	</section>
@@ -107,7 +110,7 @@ const sorted = [...missions].sort((a, b) =>
 </Layout>
 
 <script is:inline>
-	document.addEventListener('click', function(e) {
+	document.addEventListener('click', function (e) {
 		var target = e.target;
 		if (target.closest('a')) return;
 		var card = target.closest('.mission-card[data-href]');
@@ -122,7 +125,11 @@ const sorted = [...missions].sort((a, b) =>
 		z-index: 1;
 	}
 
-	.content { position: relative; z-index: 1; padding-bottom: 40px; }
+	.content {
+		position: relative;
+		z-index: 1;
+		padding-bottom: 40px;
+	}
 
 	.missions-list {
 		display: flex;
@@ -154,18 +161,18 @@ const sorted = [...missions].sort((a, b) =>
 		background: var(--border-card);
 	}
 
-	.card-accent[data-status="In Progress"] {
+	.card-accent[data-status='In Progress'] {
 		background: var(--accent);
 		box-shadow: 0 0 8px var(--accent-glow);
 	}
 
-	.card-accent[data-status="Launching Soon"] {
+	.card-accent[data-status='Launching Soon'] {
 		background: var(--accent-yellow);
 		box-shadow: 0 0 8px rgba(255, 204, 0, 0.3);
 	}
 
-	.card-accent[data-status="Planned"],
-	.card-accent[data-status="Planning"] {
+	.card-accent[data-status='Planned'],
+	.card-accent[data-status='Planning'] {
 		background: #9b59b6;
 	}
 
@@ -245,7 +252,10 @@ const sorted = [...missions].sort((a, b) =>
 		transition: opacity 0.2s;
 	}
 
-	.dest-link:hover { opacity: 1; text-decoration: underline; }
+	.dest-link:hover {
+		opacity: 1;
+		text-decoration: underline;
+	}
 
 	.mission-desc {
 		color: var(--text-secondary);
@@ -288,7 +298,9 @@ const sorted = [...missions].sort((a, b) =>
 		flex-shrink: 0;
 	}
 
-	.crew-pip:last-child { margin-right: 0; }
+	.crew-pip:last-child {
+		margin-right: 0;
+	}
 
 	.crew-pip:hover {
 		transform: scale(1.3) translateY(-3px);
@@ -313,7 +325,10 @@ const sorted = [...missions].sort((a, b) =>
 		background: rgba(255, 102, 0, 0.15);
 	}
 
-	.launch-section { text-align: right; flex-shrink: 0; }
+	.launch-section {
+		text-align: right;
+		flex-shrink: 0;
+	}
 
 	.launch-val {
 		font-family: var(--font-title);
@@ -322,9 +337,20 @@ const sorted = [...missions].sort((a, b) =>
 	}
 
 	@media (max-width: 600px) {
-		.card-top { flex-direction: column; align-items: center; text-align: center; }
-		.title-row { justify-content: center; }
-		.card-bottom { flex-direction: column; align-items: flex-start; }
-		.launch-section { text-align: left; }
+		.card-top {
+			flex-direction: column;
+			align-items: center;
+			text-align: center;
+		}
+		.title-row {
+			justify-content: center;
+		}
+		.card-bottom {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+		.launch-section {
+			text-align: left;
+		}
 	}
 </style>

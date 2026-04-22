@@ -7,10 +7,12 @@ import { getImageUrl } from '../../utils/image';
 import { i18n } from '@wix/essentials';
 const t = i18n.getTranslationFunction();
 
-const servicesResult = await services.queryServices({}) as any;
-const allServices = ((servicesResult.services || servicesResult.items || []) as any[]).filter((s: any) => s.onlineBooking?.enabled && !s.hidden);
+const servicesResult = (await services.queryServices({})) as any;
+const allServices = ((servicesResult.services || servicesResult.items || []) as any[]).filter(
+	(s: any) => s.onlineBooking?.enabled && !s.hidden,
+);
 
-const staffResult = await staffMembers.queryStaffMembers({}) as any;
+const staffResult = (await staffMembers.queryStaffMembers({})) as any;
 const allStaff = (staffResult.staffMembers || staffResult.items || []) as any[];
 const staffMap = new Map(allStaff.map((s: any) => [s.resourceId, s]));
 
@@ -46,77 +48,100 @@ const roleEmojis: Record<string, string> = {
 			<div class="staff-section">
 				<h2 class="subsection-title">{t('bookings.ourMedicalStaff')}</h2>
 				<div class="staff-grid">
-					{allStaff.map((staff: any) => {
-						const staffImg = getImageUrl(typeof staff.mainMedia?.image === 'string' ? staff.mainMedia.image : (staff.mainMedia?.image?.id || staff.mainMedia?.image?.url), 200, 200);
-						return (
-						<div class="staff-card">
-							<div class="staff-avatar">
-								{staffImg ? <img src={staffImg} alt={staff.name} class="staff-photo" /> : <span>{roleEmojis[staff.name || ''] || '🐱'}</span>}
-							</div>
-							<div class="staff-info">
-								<h3 class="staff-name">{staff.name}</h3>
-								<p class="staff-desc">{staff.description}</p>
-							</div>
-						</div>
-						);
-					})}
+					{
+						allStaff.map((staff: any) => {
+							const staffImg = getImageUrl(
+								typeof staff.mainMedia?.image === 'string'
+									? staff.mainMedia.image
+									: staff.mainMedia?.image?.id || staff.mainMedia?.image?.url,
+								200,
+								200,
+							);
+							return (
+								<div class="staff-card">
+									<div class="staff-avatar">
+										{staffImg ? (
+											<img src={staffImg} alt={staff.name} class="staff-photo" />
+										) : (
+											<span>{roleEmojis[staff.name || ''] || '🐱'}</span>
+										)}
+									</div>
+									<div class="staff-info">
+										<h3 class="staff-name">{staff.name}</h3>
+										<p class="staff-desc">{staff.description}</p>
+									</div>
+								</div>
+							);
+						})
+					}
 				</div>
 			</div>
 
 			<h2 class="subsection-title">{t('bookings.availableServices')}</h2>
 			<div class="services-grid">
-				{allServices.map((service: any) => {
-					const duration = service.schedule?.availabilityConstraints?.sessionDurations?.[0];
-					const staffIds = service.staffMemberIds || [];
-					const serviceStaff = staffIds.map((id: string) => staffMap.get(id)).filter(Boolean);
-					const slug = service.mainSlug?.name || service._id;
-					const icon = serviceIcons[service.name || ''] || '🏥';
-					const svcMediaImg = service.media?.mainMedia?.image;
-					const serviceImg = getImageUrl(typeof svcMediaImg === 'string' ? svcMediaImg : (svcMediaImg?.id || svcMediaImg?.url), 700, 400);
+				{
+					allServices.map((service: any) => {
+						const duration = service.schedule?.availabilityConstraints?.sessionDurations?.[0];
+						const staffIds = service.staffMemberIds || [];
+						const serviceStaff = staffIds.map((id: string) => staffMap.get(id)).filter(Boolean);
+						const slug = service.mainSlug?.name || service._id;
+						const icon = serviceIcons[service.name || ''] || '🏥';
+						const svcMediaImg = service.media?.mainMedia?.image;
+						const serviceImg = getImageUrl(
+							typeof svcMediaImg === 'string' ? svcMediaImg : svcMediaImg?.id || svcMediaImg?.url,
+							700,
+							400,
+						);
 
-					return (
-						<a href={`/bookings/${slug}`} class="service-card">
-							{serviceImg ? (
-								<div class="service-image">
-									<img src={serviceImg} alt={service.name} />
+						return (
+							<a href={`/bookings/${slug}`} class="service-card">
+								{serviceImg ? (
+									<div class="service-image">
+										<img src={serviceImg} alt={service.name} />
+									</div>
+								) : (
+									<div class="service-icon">{icon}</div>
+								)}
+								<div class="service-body">
+									<h3 class="service-name">{service.name}</h3>
+									{service.tagLine && <p class="service-tagline">{service.tagLine}</p>}
+									<p class="service-desc">{service.description}</p>
+									<div class="service-meta">
+										{duration && (
+											<span class="service-duration">
+												<span class="meta-icon">⏱</span> {duration} {t('bookings.min')}
+											</span>
+										)}
+										{service.payment?.rateType === services.RateType.FIXED ? (
+											<span class="service-price service-price-paid">
+												<span class="meta-icon">💰</span> {service.payment.fixed?.price?.currency}{' '}
+												{service.payment.fixed?.price?.value}
+											</span>
+										) : service.payment?.options?.pricingPlan ? (
+											<span class="service-price service-price-plan">
+												<span class="meta-icon">⭐</span> {t('bookings.membersOnly')}
+											</span>
+										) : (
+											<span class="service-price">
+												<span class="meta-icon">💰</span> {t('bookings.free')}
+											</span>
+										)}
+									</div>
+									<div class="service-staff">
+										{serviceStaff.map((s: any) => (
+											<span class="staff-tag">
+												{roleEmojis[s!.name || ''] || '🐱'} {s!.name}
+											</span>
+										))}
+									</div>
 								</div>
-							) : (
-								<div class="service-icon">{icon}</div>
-							)}
-							<div class="service-body">
-								<h3 class="service-name">{service.name}</h3>
-								{service.tagLine && <p class="service-tagline">{service.tagLine}</p>}
-								<p class="service-desc">{service.description}</p>
-								<div class="service-meta">
-									{duration && (
-										<span class="service-duration">
-											<span class="meta-icon">⏱</span> {duration} {t('bookings.min')}
-										</span>
-									)}
-									{service.payment?.rateType === services.RateType.FIXED ? (
-										<span class="service-price service-price-paid">
-											<span class="meta-icon">💰</span> {service.payment.fixed?.price?.currency} {service.payment.fixed?.price?.value}
-										</span>
-									) : service.payment?.options?.pricingPlan ? (
-										<span class="service-price service-price-plan">
-											<span class="meta-icon">⭐</span> {t('bookings.membersOnly')}
-										</span>
-									) : (
-										<span class="service-price">
-											<span class="meta-icon">💰</span> {t('bookings.free')}
-										</span>
-									)}
+								<div class="service-cta">
+									{t('bookings.bookNow')} <span class="rtl-flip">→</span>
 								</div>
-								<div class="service-staff">
-									{serviceStaff.map((s: any) => (
-										<span class="staff-tag">{roleEmojis[s!.name || ''] || '🐱'} {s!.name}</span>
-									))}
-								</div>
-							</div>
-							<div class="service-cta">{t('bookings.bookNow')} <span class="rtl-flip">→</span></div>
-						</a>
-					);
-				})}
+							</a>
+						);
+					})
+				}
 			</div>
 
 			<div class="policy-note">

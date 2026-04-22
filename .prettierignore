@@ -1,0 +1,11 @@
+node_modules
+dist
+.astro
+.wix
+.git
+.claude
+.config
+public
+.env*
+src/translations.json
+package-lock.json
