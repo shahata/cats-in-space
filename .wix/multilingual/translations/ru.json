@@ -2,6 +2,7 @@
   "navhome": "123",
   "nav": {
     "home": "Главная",
+    "aboard": "Корабль",
     "planets": "Планеты",
     "crew": "Экипаж",
     "missions": "Миссии",
