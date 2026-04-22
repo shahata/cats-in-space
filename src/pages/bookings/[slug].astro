@@ -27,7 +27,7 @@ const serviceStaff = (service.staffMemberIds || []).map((id: string) => staffMap
 
 let loggedIn = false;
 try {
-	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+	const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
 	loggedIn = !!res.member;
 } catch {}
 
@@ -107,8 +107,8 @@ const seoTags = seoResult.seoTags?.tags || [];
 						<div class="detail-row">
 							<span class="detail-label">{t('bookings.cost')}</span>
 							<span class="detail-value">
-								{service.payment?.rateType === services.RateType.FIXED
-									? formatCurrency(service.payment.fixed?.price?.value || 0, service.payment.fixed?.price?.currency || 'USD', locale)
+								{service.payment?.rateType === services.RateType.FIXED && service.payment.fixed?.price?.currency
+									? formatCurrency(service.payment.fixed?.price?.value || 0, service.payment.fixed.price.currency, locale)
 									: service.payment?.options?.pricingPlan
 										? t('bookings.membersOnly')
 										: t('bookings.free')}

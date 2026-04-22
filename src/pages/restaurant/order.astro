@@ -81,6 +81,8 @@ try {
 	const fmResult = await elevatedList();
 	// DINE_IN is a restaurant service type but ordering through our flow is pickup/delivery only.
 	fulfillmentMethods = (fmResult.fulfillmentMethods || [])
+		// The runtime API returns DINE_IN but @wix/restaurants' fulfillment-methods
+		// type enum only declares PICKUP/DELIVERY, so compare via string.
 		.filter(fm => fm.enabled !== false && String(fm.type) !== 'DINE_IN');
 } catch {}
 
@@ -100,8 +102,9 @@ if (firstOperationId) {
 		// PREORDER-only → always schedule. ASAP with asapFutureHandlingType ===
 		// BUSINESS_DAYS_AHEAD_HANDLING means the restaurant allows scheduling
 		// future orders alongside immediate ones.
-		const asapFuture = String(sched?.asapOptions?.asapFutureHandlingType || '');
-		schedulingEnabled = String(sched?.type) === 'PREORDER' || asapFuture === 'BUSINESS_DAYS_AHEAD_HANDLING';
+		schedulingEnabled =
+			sched?.type === operationsApi.SchedulingType.PREORDER
+			|| sched?.asapOptions?.asapFutureHandlingType === operationsApi.AsapFutureHandlingType.BUSINESS_DAYS_AHEAD_HANDLING;
 	} catch {}
 }
 
@@ -297,7 +300,7 @@ const menuData = orderableMenus.flatMap(menu => {
 					schedulingEnabled={schedulingEnabled}
 					fulfillmentMethods={fulfillmentMethods.map(fm => ({
 						_id: fm._id || '',
-						type: fm.type || 'PICKUP',
+						type: fm.type || fulfillmentMethodsApi.FulfillmentMethodType.PICKUP,
 						name: fm.name || '',
 						fee: fm.fee || null,
 						minOrderPrice: fm.minOrderPrice || null,

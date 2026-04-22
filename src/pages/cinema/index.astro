@@ -25,7 +25,7 @@ const t = i18n.getTranslationFunction();
 const elevatedQuery = auth.elevate(wixEventsV2.queryEvents);
 const events: Event[] = [];
 let page: wixEventsV2.EventsQueryResult | undefined
-	= await elevatedQuery({ fields: ['DETAILS', 'CATEGORIES', 'FORM'] })
+	= await elevatedQuery({ fields: [wixEventsV2.RequestedFields.DETAILS, wixEventsV2.RequestedFields.CATEGORIES, wixEventsV2.RequestedFields.FORM] })
 		.ne('status', wixEventsV2.Status.CANCELED)
 		.limit(200)
 		.find();

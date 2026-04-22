@@ -29,7 +29,7 @@ import {
 
 let member: membersTypes.Member | null = null;
 try {
-	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+	const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
 	member = res.member ?? null;
 } catch {}
 
@@ -228,9 +228,9 @@ const tabs = [
 							{(myOrders || []).map((order) => {
 								const fmt = fmtDate;
 								const isFree = parseFloat(order.priceDetails?.planPrice || "0") === 0;
-								const currCode = order.priceDetails?.currency || 'USD';
+								const currCode = order.priceDetails?.currency;
 								const planPrice = order.priceDetails?.planPrice || "0";
-								const fmtPrice = (v: string) => formatCurrency(v, currCode, locale);
+								const fmtPrice = (v: string) => currCode ? formatCurrency(v, currCode, locale) : '';
 								const discount = order.priceDetails?.discount && parseFloat(order.priceDetails.discount) > 0 ? order.priceDetails.discount : null;
 								const couponCode = order.priceDetails?.coupon?.code;
 								const total = order.priceDetails?.total || planPrice;

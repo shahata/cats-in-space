@@ -32,7 +32,7 @@ export const GET: APIRoute = async ({ url }) => {
 		const queryEvents = auth.elevate(wixEventsV2.queryEvents);
 		const all: wixEventsV2.Event[] = [];
 		let page: wixEventsV2.EventsQueryResult | undefined = await queryEvents({
-			fields: ['FORM', 'REGISTRATION'],
+			fields: [wixEventsV2.RequestedFields.FORM, wixEventsV2.RequestedFields.REGISTRATION],
 		}).limit(200).find();
 		while (page) {
 			all.push(...(page.items ?? []));

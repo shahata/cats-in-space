@@ -33,7 +33,7 @@ let memberName = '';
 let memberEmail = '';
 let memberPhone = '';
 try {
-	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+	const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
 	if (res.member) {
 		const c = res.member.contact;
 		const p = res.member.profile;

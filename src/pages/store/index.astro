@@ -60,11 +60,12 @@ try {
 	// Gift card products may not be configured yet
 }
 const hasGiftCards = giftCardProductsList.length > 0;
-const productResult = await productsV3.queryProducts({ fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO'] }).limit(100).find();
+const productResult = await productsV3.queryProducts({ fields: [productsV3.RequestedFields.MEDIA_ITEMS_INFO, productsV3.RequestedFields.CURRENCY, productsV3.RequestedFields.DIRECT_CATEGORIES_INFO] }).limit(100).find();
 const allProducts = productResult.items || [];
 
 function formatPrice(product: productsV3Types.V3Product) {
-	const currency = product.currency || 'USD';
+	const currency = product.currency;
+	if (!currency) return { formatted: '', original: null };
 	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
 	const min = parseFloat(product.actualPriceRange?.minValue?.amount ?? '0');
 	const max = parseFloat(product.actualPriceRange?.maxValue?.amount ?? '0');

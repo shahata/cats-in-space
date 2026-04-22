@@ -45,7 +45,9 @@ const fmt = (amount: number, currency: string) =>
 								<span class="ty-value ty-total">
 									{parseFloat(order.priceDetails.planPrice || '0') === 0
 										? t('plans.free')
-										: fmt(parseFloat(order.priceDetails.total || order.priceDetails.planPrice), order.priceDetails.currency || 'USD')}
+										: order.priceDetails.currency
+											? fmt(parseFloat(order.priceDetails.total || order.priceDetails.planPrice), order.priceDetails.currency)
+											: ''}
 								</span>
 							</div>
 						)}

@@ -26,7 +26,7 @@ const { slug } = Astro.params;
 const queryEvents = auth.elevate(wixEventsV2.queryEvents);
 const events: Event[] = [];
 let page: wixEventsV2.EventsQueryResult | undefined
-	= await queryEvents({ fields: ['DETAILS', 'CATEGORIES', 'FORM'] })
+	= await queryEvents({ fields: [wixEventsV2.RequestedFields.DETAILS, wixEventsV2.RequestedFields.CATEGORIES, wixEventsV2.RequestedFields.FORM] })
 		.ne('status', wixEventsV2.Status.CANCELED)
 		.limit(200)
 		.find();

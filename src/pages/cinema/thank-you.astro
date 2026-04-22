@@ -25,7 +25,7 @@ if (eventId) {
 		const getEvent = auth.elevate(wixEventsV2.getEvent) as (
 			id: string, opts?: wixEventsV2.GetEventOptions,
 		) => Promise<Event>;
-		event = await getEvent(eventId, { fields: ['DETAILS'] });
+		event = await getEvent(eventId, { fields: [wixEventsV2.RequestedFields.DETAILS] });
 	} catch {}
 }
 if (eventId && orderNumber) {
@@ -37,7 +37,7 @@ if (eventId && orderNumber) {
 			identifiers: { eventId: string; orderNumber: string },
 			options?: orders.GetOrderOptions,
 		) => Promise<Order>;
-		order = await getOrder({ eventId, orderNumber }, { fieldset: ['DETAILS', 'TICKETS'] });
+		order = await getOrder({ eventId, orderNumber }, { fieldset: [orders.OrderFieldset.DETAILS, orders.OrderFieldset.TICKETS] });
 	} catch {}
 }
 

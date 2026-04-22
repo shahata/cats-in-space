@@ -17,7 +17,7 @@ type Member = members.Member;
 const { slug } = Astro.params;
 let post: Post | undefined;
 try {
-	const result = await posts.getPostBySlug(slug!, { fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID', 'SEO'] });
+	const result = await posts.getPostBySlug(slug!, { fieldsets: [posts.PostFieldField.RICH_CONTENT, posts.PostFieldField.URL, posts.PostFieldField.METRICS, posts.PostFieldField.CONTACT_ID, posts.PostFieldField.REFERENCE_ID, posts.PostFieldField.SEO] });
 	post = result.post;
 } catch {}
 
@@ -27,7 +27,7 @@ if (!post) return Astro.redirect('/blog');
 let writer: Member | undefined;
 if (post.memberId) {
 	try {
-		writer = await members.getMember(post.memberId, { fieldsets: ['FULL'] });
+		writer = await members.getMember(post.memberId, { fieldsets: [members.Set.FULL] });
 	} catch {}
 }
 
@@ -35,7 +35,7 @@ if (post.memberId) {
 let currentMemberName: string | undefined;
 let currentMemberPhoto: string | undefined;
 try {
-	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+	const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
 	if (res.member) {
 		currentMemberName = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
 		currentMemberPhoto = res.member.profile?.photo?.url ?? undefined;

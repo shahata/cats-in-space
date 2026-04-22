@@ -13,11 +13,11 @@ const { slug } = Astro.params;
 
 let member: membersTypes.Member | null = null;
 try {
-	member = await members.getMember(slug!, { fieldsets: ['FULL'] });
+	member = await members.getMember(slug!, { fieldsets: [members.Set.FULL] });
 } catch {}
 if (!member) {
 	try {
-		const result = await members.listMembers({ fieldsets: ['FULL'], paging: { limit: 100 } });
+		const result = await members.listMembers({ fieldsets: [members.Set.FULL], paging: { limit: 100 } });
 		member = result.members?.find(m => m.profile?.slug === slug) ?? null;
 	} catch {}
 }

@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { wixEventsV2, ticketDefinitionsV2, categories as categoriesApi } from '@wix/events';
 import { files } from '@wix/media';
 import { auth } from '@wix/essentials';
+import { getSiteCurrency } from '../../utils/site';
 
 // Admin-only setup endpoint. GET /api/setup-cinema?run=yes wipes every existing
 // cinema event, generates a fresh DALL-E poster for each movie, and creates a
@@ -159,6 +160,7 @@ export const GET: APIRoute = async ({ url }) => {
 	const warn = (s: string) => log.push('! ' + s);
 
 	try {
+		const siteCurrency = await getSiteCurrency();
 		// 1. Wipe every existing event (cancel first, then delete). Loop across
 		// several passes: recurring-series siblings are indexed asynchronously,
 		// so a single pass can miss late arrivals. Paginate each pass via
@@ -313,7 +315,7 @@ export const GET: APIRoute = async ({ url }) => {
 			// 30+s to finish indexing.
 			let siblings: wixEventsV2.Event[] = [];
 			for (let attempt = 0; attempt < 30; attempt++) {
-				const allEvents = await fetchAllEvents(['DETAILS']);
+				const allEvents = await fetchAllEvents([wixEventsV2.RequestedFields.DETAILS]);
 				siblings = allEvents.filter(
 					e => e.dateAndTimeSettings?.recurringEvents?.categoryId === movie.seriesCategoryId,
 				);
@@ -350,7 +352,7 @@ export const GET: APIRoute = async ({ url }) => {
 				if (!ev._id) continue;
 				if (movie.posterUri) {
 					try {
-						await updateEvent(ev._id, { event: { mainImage: movie.posterUri }, fields: ['DETAILS'] });
+						await updateEvent(ev._id, { event: { mainImage: movie.posterUri }, fields: [wixEventsV2.RequestedFields.DETAILS] });
 					} catch (e) {
 						warn(`  ${movie.title} updateEvent mainImage: ${e instanceof Error ? e.message : e}`);
 					}
@@ -362,7 +364,7 @@ export const GET: APIRoute = async ({ url }) => {
 							name: tt.name,
 							description: tt.description,
 							feeType: ticketDefinitionsV2.FeeTypeEnumType.FEE_ADDED_AT_CHECKOUT,
-							pricingMethod: { fixedPrice: { value: tt.price, currency: 'ILS' } },
+							pricingMethod: { fixedPrice: { value: tt.price, currency: siteCurrency } },
 							initialLimit: 200,
 						});
 					} catch (e) {
@@ -387,7 +389,7 @@ export const GET: APIRoute = async ({ url }) => {
 		// doesn't belong to one of our series.
 		await new Promise(r => setTimeout(r, 3000));
 		const seriesIds = new Set(createdMovies.map(m => m.seriesCategoryId));
-		const allItems = await fetchAllEvents(['DETAILS']);
+		const allItems = await fetchAllEvents([wixEventsV2.RequestedFields.DETAILS]);
 
 		const byKey = new Map<string, wixEventsV2.Event>();
 		const toWipe: wixEventsV2.Event[] = [];
@@ -417,21 +419,21 @@ export const GET: APIRoute = async ({ url }) => {
 
 		// 8. Fill mainImage on any survivor that's missing it (can happen if the
 		// first update loop ran before the sibling was indexed).
-		const surviving = await fetchAllEvents(['DETAILS']);
+		const surviving = await fetchAllEvents([wixEventsV2.RequestedFields.DETAILS]);
 		for (const ev of surviving) {
 			if (typeof ev.mainImage === 'string' && ev.mainImage.length > 0) continue;
 			const series = ev.dateAndTimeSettings?.recurringEvents?.categoryId;
 			const movie = createdMovies.find(m => m.seriesCategoryId === series);
 			if (!movie?.posterUri || !ev._id) continue;
 			try {
-				await updateEvent(ev._id, { event: { mainImage: movie.posterUri }, fields: ['DETAILS'] });
+				await updateEvent(ev._id, { event: { mainImage: movie.posterUri }, fields: [wixEventsV2.RequestedFields.DETAILS] });
 				ok(`Repaired mainImage on ${ev.title} (${ev.dateAndTimeSettings?.startDate})`);
 			} catch (e) {
 				warn(`repair mainImage ${ev._id}: ${e instanceof Error ? e.message : e}`);
 			}
 		}
 
-		const final = await fetchAllEvents(['DETAILS']);
+		const final = await fetchAllEvents([wixEventsV2.RequestedFields.DETAILS]);
 		const withImages = final.filter(e => typeof e.mainImage === 'string' && e.mainImage.length > 0).length;
 		ok(`Verify: ${final.length} canonical event(s), ${withImages} with mainImage, ${toWipe.length} duplicate/orphan(s) removed in final sweep`);
 

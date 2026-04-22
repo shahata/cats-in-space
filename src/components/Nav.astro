@@ -10,7 +10,7 @@ const t = i18n.getTranslationFunction();
 let loggedInMember: string | null = null;
 let memberPhoto: string | null = null;
 try {
-	const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+	const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
 	if (res.member) {
 		loggedInMember = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
 		memberPhoto = res.member.profile?.photo?.url || null;

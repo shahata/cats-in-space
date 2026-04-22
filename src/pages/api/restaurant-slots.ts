@@ -38,7 +38,7 @@ export const POST: APIRoute = async ({ request }) => {
 			(slotsByType[type] ||= []).push({
 				start: new Date(startDate).toISOString(),
 				end: new Date(endDate).toISOString(),
-				scheduling: entry.timeSlot?.orderSchedulingType || 'PREORDER',
+				scheduling: entry.timeSlot?.orderSchedulingType || operationsApi.OrderSchedulingType.PREORDER,
 				fee: fi?.fee ?? null,
 				minOrder: fi?.minOrderPrice ?? null,
 			});

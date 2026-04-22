@@ -39,11 +39,11 @@ const fmt = (amount: number, currency: string) =>
 							<span class="ty-label">{t('store.order')}</span>
 							<span class="ty-value">#{order.number || orderId?.slice(-8)}</span>
 						</div>
-						{order.priceSummary?.total && (
+						{order.priceSummary?.total && order.currency && (
 							<div>
 								<span class="ty-label">{t('store.total')}</span>
 								<span class="ty-value ty-total">
-									{fmt(parseFloat(order.priceSummary.total.amount), order.currency || 'USD')}
+									{fmt(parseFloat(order.priceSummary.total.amount), order.currency)}
 								</span>
 							</div>
 						)}

@@ -16,7 +16,7 @@ type Post = posts.Post & { metrics?: Metrics };
 
 // Use queryPosts — returns real metrics (views, likes, comments). listPosts returns zeros.
 const currentLanguage = i18n.getLanguage();
-const queryResult = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).eq('language', currentLanguage).find();
+const queryResult = await posts.queryPosts({ fieldsets: [posts.PostFieldField.URL, posts.PostFieldField.RICH_CONTENT, posts.PostFieldField.METRICS, posts.PostFieldField.CONTACT_ID, posts.PostFieldField.REFERENCE_ID] }).eq('language', currentLanguage).find();
 const blogPosts = queryResult.items || [];
 // Fetch all tags
 const tagsResult = await tagsApi.queryTags({});
@@ -32,7 +32,7 @@ const memberIds = [...new Set(blogPosts.map((p) => p.memberId).filter((id): id i
 const membersMap = new Map<string, Member>();
 for (const id of memberIds) {
 	try {
-		const m = await members.getMember(id, { fieldsets: ['FULL'] });
+		const m = await members.getMember(id, { fieldsets: [members.Set.FULL] });
 		if (m._id) membersMap.set(id, m);
 	} catch {}
 }
