@@ -17,6 +17,14 @@ const lang = i18n.getLanguage();
 const dir = ['he', 'ar'].includes(lang) ? 'rtl' : 'ltr';
 const { title = t('home.title'), description = t('home.subtitle'), seoTags = [] } = Astro.props;
 
+// The floating cart affordance only makes sense where there's a cart to
+// open — the Store catalog and the Restaurant online-order flow. Everywhere
+// else (blog, bookings, cinema, ...) it just clutters the corner.
+const path = Astro.url.pathname;
+const showCart =
+	path === '/store' || path.startsWith('/store/') ||
+	path === '/restaurant/order' || path.startsWith('/restaurant/order/');
+
 const activeSeoTags = seoTags.filter(tag => !tag.disabled && tag.type);
 const hasSeoTitle = activeSeoTags.some(tag => tag.type === 'title');
 const hasSeoDescription = activeSeoTags.some(tag => tag.type === 'meta' && tag.props?.name === 'description');
@@ -47,7 +55,7 @@ function renderSeoTag(tag: Tag): string {
 	</head>
 	<body>
 		<slot />
-		<CartSidebar client:load />
+		{showCart && <CartSidebar client:load />}
 	</body>
 </html>
 
