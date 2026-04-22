@@ -1,261 +1,273 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import { items } from '@wix/data';
-import { getImageUrl } from '../../utils/image';
-import { i18n } from '@wix/essentials';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { items } from "@wix/data";
+import { getImageUrl } from "../../utils/image";
+import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
-const result = await items.query('Planets').descending('habitabilityScore').find();
+const result = await items
+  .query("Planets")
+  .descending("habitabilityScore")
+  .find();
 const planets = result.items;
 
 function getStatusBadge(status: string) {
-	const map: Record<string, string> = {
-		'Top Candidate': 'badge-green',
-		Exploring: 'badge-blue',
-		Candidate: 'badge-purple',
-		Rejected: 'badge-pink',
-	};
-	return map[status] || 'badge-blue';
+  const map: Record<string, string> = {
+    "Top Candidate": "badge-green",
+    Exploring: "badge-blue",
+    Candidate: "badge-purple",
+    Rejected: "badge-pink",
+  };
+  return map[status] || "badge-blue";
 }
 ---
 
-<Layout title={`${t('planets.pageTitle')} - ${t('home.title')}`}>
-	<Nav />
-	<section class="page-header">
-		<div class="container">
-			<h1 class="section-title">{t('planets.pageTitle')}</h1>
-			<p class="section-subtitle">{t('planets.pageSubtitle')}</p>
-		</div>
-	</section>
+<Layout title={`${t("planets.pageTitle")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="page-header">
+    <div class="container">
+      <h1 class="section-title">{t("planets.pageTitle")}</h1>
+      <p class="section-subtitle">{t("planets.pageSubtitle")}</p>
+    </div>
+  </section>
 
-	<section class="content">
-		<div class="container">
-			<div class="planets-grid">
-				{
-					planets.map((planet, i) => (
-						<a href={`/planets/${planet.slug}`} class="planet-card">
-							<div class="planet-rank">#{i + 1}</div>
-							<div class="planet-orb-wrap">
-								{getImageUrl(planet.image, 300, 300) ? (
-									<img src={getImageUrl(planet.image, 300, 300)!} alt={planet.title} class="planet-img" />
-								) : (
-									<div class="planet-orb" />
-								)}
-							</div>
-							<h2>{planet.title}</h2>
-							<p class="tagline">{planet.tagline}</p>
-							<span class={`badge ${getStatusBadge(planet.status)}`}>{planet.status}</span>
-							<div class="score-bar">
-								<div class="score-fill" style={`width: ${planet.habitabilityScore}%`} />
-								<span class="score-label">
-									{planet.habitabilityScore}% {t('planets.habitable')}
-								</span>
-							</div>
-							<div class="meta-row">
-								<div class="meta-item">
-									<span class="meta-label">{t('planets.distance')}</span>
-									<span class="meta-value">
-										{planet.distance} {t('planets.ly')}
-									</span>
-								</div>
-								<div class="meta-item">
-									<span class="meta-label">{t('planets.gravity')}</span>
-									<span class="meta-value">{planet.gravity}</span>
-								</div>
-								<div class="meta-item">
-									<span class="meta-label">{t('planets.atmosphere')}</span>
-									<span class="meta-value">{planet.atmosphere}</span>
-								</div>
-							</div>
-						</a>
-					))
-				}
-			</div>
-		</div>
-	</section>
-	<Footer />
+  <section class="content">
+    <div class="container">
+      <div class="planets-grid">
+        {
+          planets.map((planet, i) => (
+            <a href={`/planets/${planet.slug}`} class="planet-card">
+              <div class="planet-rank">#{i + 1}</div>
+              <div class="planet-orb-wrap">
+                {getImageUrl(planet.image, 300, 300) ? (
+                  <img
+                    src={getImageUrl(planet.image, 300, 300)!}
+                    alt={planet.title}
+                    class="planet-img"
+                  />
+                ) : (
+                  <div class="planet-orb" />
+                )}
+              </div>
+              <h2>{planet.title}</h2>
+              <p class="tagline">{planet.tagline}</p>
+              <span class={`badge ${getStatusBadge(planet.status)}`}>
+                {planet.status}
+              </span>
+              <div class="score-bar">
+                <div
+                  class="score-fill"
+                  style={`width: ${planet.habitabilityScore}%`}
+                />
+                <span class="score-label">
+                  {planet.habitabilityScore}% {t("planets.habitable")}
+                </span>
+              </div>
+              <div class="meta-row">
+                <div class="meta-item">
+                  <span class="meta-label">{t("planets.distance")}</span>
+                  <span class="meta-value">
+                    {planet.distance} {t("planets.ly")}
+                  </span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">{t("planets.gravity")}</span>
+                  <span class="meta-value">{planet.gravity}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">{t("planets.atmosphere")}</span>
+                  <span class="meta-value">{planet.atmosphere}</span>
+                </div>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+  <Footer />
 </Layout>
 
 <style>
-	.page-header {
-		padding: 60px 0 40px;
-		position: relative;
-		z-index: 1;
-	}
+  .page-header {
+    padding: 60px 0 40px;
+    position: relative;
+    z-index: 1;
+  }
 
-	.content {
-		position: relative;
-		z-index: 1;
-		padding-bottom: 40px;
-	}
+  .content {
+    position: relative;
+    z-index: 1;
+    padding-bottom: 40px;
+  }
 
-	.planets-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-		gap: 1.5rem;
-	}
+  .planets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.5rem;
+  }
 
-	.planet-card {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 16px;
-		padding: 1.5rem;
-		transition: all 0.3s;
-		color: var(--text-primary);
-		display: block;
-		position: relative;
-	}
+  .planet-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    padding: 1.5rem;
+    transition: all 0.3s;
+    color: var(--text-primary);
+    display: block;
+    position: relative;
+  }
 
-	.planet-card:hover {
-		border-color: var(--accent);
-		transform: translateY(-4px);
-		box-shadow: 0 0 40px var(--accent-glow);
-		color: var(--text-primary);
-	}
+  .planet-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-4px);
+    box-shadow: 0 0 40px var(--accent-glow);
+    color: var(--text-primary);
+  }
 
-	.planet-rank {
-		position: absolute;
-		top: 1rem;
-		right: 1rem;
-		font-family: var(--font-title);
-		font-size: 0.8rem;
-		color: var(--accent);
-		opacity: 0.6;
-	}
+  .planet-rank {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-family: var(--font-title);
+    font-size: 0.8rem;
+    color: var(--accent);
+    opacity: 0.6;
+  }
 
-	.planet-orb-wrap {
-		display: flex;
-		justify-content: center;
-		margin-bottom: 1rem;
-	}
+  .planet-orb-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
 
-	.planet-orb {
-		width: 60px;
-		height: 60px;
-		border-radius: 50%;
-		background: linear-gradient(135deg, var(--accent), var(--accent-yellow));
-		box-shadow: 0 0 25px var(--accent-glow);
-		animation: float 6s ease-in-out infinite;
-	}
+  .planet-orb {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-yellow));
+    box-shadow: 0 0 25px var(--accent-glow);
+    animation: float 6s ease-in-out infinite;
+  }
 
-	@keyframes float {
-		0%,
-		100% {
-			transform: translateY(0px);
-		}
-		50% {
-			transform: translateY(-6px);
-		}
-	}
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
 
-	.planet-card:nth-child(1) .planet-orb {
-		background: linear-gradient(135deg, #ff6600, #ffcc00);
-	}
-	.planet-card:nth-child(2) .planet-orb {
-		background: linear-gradient(135deg, #ffcc00, #ff6600);
-	}
-	.planet-card:nth-child(3) .planet-orb {
-		background: linear-gradient(135deg, #ff6600, #cc5500);
-	}
-	.planet-card:nth-child(4) .planet-orb {
-		background: linear-gradient(135deg, #ffcc00, #ff9900);
-	}
-	.planet-card:nth-child(5) .planet-orb {
-		background: linear-gradient(135deg, #cc5500, #ff6600);
-	}
+  .planet-card:nth-child(1) .planet-orb {
+    background: linear-gradient(135deg, #ff6600, #ffcc00);
+  }
+  .planet-card:nth-child(2) .planet-orb {
+    background: linear-gradient(135deg, #ffcc00, #ff6600);
+  }
+  .planet-card:nth-child(3) .planet-orb {
+    background: linear-gradient(135deg, #ff6600, #cc5500);
+  }
+  .planet-card:nth-child(4) .planet-orb {
+    background: linear-gradient(135deg, #ffcc00, #ff9900);
+  }
+  .planet-card:nth-child(5) .planet-orb {
+    background: linear-gradient(135deg, #cc5500, #ff6600);
+  }
 
-	.planet-img {
-		width: 100px;
-		height: 100px;
-		object-fit: cover;
-		box-shadow: 0 0 25px var(--accent-glow);
-		animation: float 6s ease-in-out infinite;
-	}
+  .planet-img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    box-shadow: 0 0 25px var(--accent-glow);
+    animation: float 6s ease-in-out infinite;
+  }
 
-	h2 {
-		font-family: var(--font-heading);
-		font-size: 1.3rem;
-		color: var(--accent-yellow);
-		letter-spacing: 1px;
-		margin-bottom: 0.25rem;
-		text-align: center;
-	}
+  h2 {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+    margin-bottom: 0.25rem;
+    text-align: center;
+  }
 
-	.tagline {
-		text-align: center;
-		color: var(--text-secondary);
-		font-size: 0.85rem;
-		font-style: italic;
-		margin-bottom: 0.75rem;
-	}
+  .tagline {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-style: italic;
+    margin-bottom: 0.75rem;
+  }
 
-	.planet-card .badge {
-		display: block;
-		text-align: center;
-		width: fit-content;
-		margin: 0 auto 1rem;
-	}
+  .planet-card .badge {
+    display: block;
+    text-align: center;
+    width: fit-content;
+    margin: 0 auto 1rem;
+  }
 
-	.score-bar {
-		background: rgba(255, 255, 255, 0.05);
-		border-radius: 999px;
-		height: 24px;
-		position: relative;
-		overflow: hidden;
-		margin-bottom: 1rem;
-	}
+  .score-bar {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 999px;
+    height: 24px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
 
-	.score-fill {
-		position: absolute;
-		top: 0;
-		left: 0;
-		height: 100%;
-		background: linear-gradient(90deg, var(--accent), var(--accent-yellow));
-		border-radius: 999px;
-		transition: width 0.5s ease;
-	}
+  .score-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-yellow));
+    border-radius: 999px;
+    transition: width 0.5s ease;
+  }
 
-	.score-label {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		font-size: 0.7rem;
-		font-family: var(--font-title);
-		font-weight: 700;
-		color: white;
-		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-		z-index: 1;
-	}
+  .score-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.7rem;
+    font-family: var(--font-title);
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    z-index: 1;
+  }
 
-	.meta-row {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
+  .meta-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 
-	.meta-item {
-		display: flex;
-		justify-content: space-between;
-		font-size: 0.8rem;
-		padding: 0.35rem 0;
-		border-bottom: 1px solid var(--border-card);
-	}
+  .meta-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--border-card);
+  }
 
-	.meta-label {
-		color: var(--text-muted);
-	}
-	.meta-value {
-		color: var(--text-secondary);
-		font-family: var(--font-body);
-		font-size: 0.75rem;
-	}
+  .meta-label {
+    color: var(--text-muted);
+  }
+  .meta-value {
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+  }
 
-	@media (max-width: 768px) {
-		.planets-grid {
-			grid-template-columns: 1fr;
-		}
-	}
+  @media (max-width: 768px) {
+    .planets-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>

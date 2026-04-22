@@ -1,698 +1,749 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import { productsV3 } from '@wix/stores';
-import type { productsV3 as productsV3Types } from '@wix/stores';
-import { categories } from '@wix/categories';
-import { giftVoucherProducts } from '@wix/gift-vouchers';
-import { i18n, auth } from '@wix/essentials';
-import { extractMediaUrl, getImageUrl } from '../../utils/image';
-import GiftCardActions from '../../components/GiftCardActions';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { productsV3 } from "@wix/stores";
+import type { productsV3 as productsV3Types } from "@wix/stores";
+import { categories } from "@wix/categories";
+import { giftVoucherProducts } from "@wix/gift-vouchers";
+import { i18n, auth } from "@wix/essentials";
+import { extractMediaUrl, getImageUrl } from "../../utils/image";
+import GiftCardActions from "../../components/GiftCardActions";
 
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
 // Fetch gift card products
 interface GcVariantPrice {
-	amount: string;
-	formattedAmount: string;
+  amount: string;
+  formattedAmount: string;
 }
 interface GcPresetVariant {
-	_id: string;
-	price: GcVariantPrice;
-	value: GcVariantPrice;
-	image: string | null;
+  _id: string;
+  price: GcVariantPrice;
+  value: GcVariantPrice;
+  image: string | null;
 }
 interface GcCustomVariant {
-	minValue?: GcVariantPrice;
-	maxValue?: GcVariantPrice;
+  minValue?: GcVariantPrice;
+  maxValue?: GcVariantPrice;
 }
 interface GcProduct {
-	_id: string;
-	name: string;
-	description: string | null;
-	image: string | null;
-	presetVariants: GcPresetVariant[];
-	customVariant: GcCustomVariant | null;
+  _id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  presetVariants: GcPresetVariant[];
+  customVariant: GcCustomVariant | null;
 }
 let giftCardProductsList: GcProduct[] = [];
 try {
-	const elevatedQuery = auth.elevate(giftVoucherProducts.queryGiftCardProducts);
-	const gcResult = await elevatedQuery().limit(10).find();
-	giftCardProductsList = (gcResult.items || []).map((p) => {
-		const cv: GcCustomVariant | null = p.customVariant ? {} : null;
-		if (cv && p.customVariant?.minValue) {
-			cv.minValue = {
-				amount: p.customVariant.minValue.amount || '0',
-				formattedAmount: p.customVariant.minValue.formattedAmount || '',
-			};
-		}
-		if (cv && p.customVariant?.maxValue) {
-			cv.maxValue = {
-				amount: p.customVariant.maxValue.amount || '0',
-				formattedAmount: p.customVariant.maxValue.formattedAmount || '',
-			};
-		}
-		return {
-			_id: p._id || '',
-			name: p.name || '',
-			description: p.description || null,
-			image: getImageUrl(p.image || undefined, 600, 340),
-			presetVariants: (p.presetVariants || []).map((v) => ({
-				_id: v._id || '',
-				price: { amount: v.price?.amount || '0', formattedAmount: v.price?.formattedAmount || '' },
-				value: {
-					amount: v.value?.amount || v.price?.amount || '0',
-					formattedAmount: v.value?.formattedAmount || v.price?.formattedAmount || '',
-				},
-				image: getImageUrl(v.image || undefined, 600, 340),
-			})),
-			customVariant: cv,
-		};
-	});
+  const elevatedQuery = auth.elevate(giftVoucherProducts.queryGiftCardProducts);
+  const gcResult = await elevatedQuery().limit(10).find();
+  giftCardProductsList = (gcResult.items || []).map((p) => {
+    const cv: GcCustomVariant | null = p.customVariant ? {} : null;
+    if (cv && p.customVariant?.minValue) {
+      cv.minValue = {
+        amount: p.customVariant.minValue.amount || "0",
+        formattedAmount: p.customVariant.minValue.formattedAmount || "",
+      };
+    }
+    if (cv && p.customVariant?.maxValue) {
+      cv.maxValue = {
+        amount: p.customVariant.maxValue.amount || "0",
+        formattedAmount: p.customVariant.maxValue.formattedAmount || "",
+      };
+    }
+    return {
+      _id: p._id || "",
+      name: p.name || "",
+      description: p.description || null,
+      image: getImageUrl(p.image || undefined, 600, 340),
+      presetVariants: (p.presetVariants || []).map((v) => ({
+        _id: v._id || "",
+        price: {
+          amount: v.price?.amount || "0",
+          formattedAmount: v.price?.formattedAmount || "",
+        },
+        value: {
+          amount: v.value?.amount || v.price?.amount || "0",
+          formattedAmount:
+            v.value?.formattedAmount || v.price?.formattedAmount || "",
+        },
+        image: getImageUrl(v.image || undefined, 600, 340),
+      })),
+      customVariant: cv,
+    };
+  });
 } catch {
-	// Gift card products may not be configured yet
+  // Gift card products may not be configured yet
 }
 const hasGiftCards = giftCardProductsList.length > 0;
 const productResult = await productsV3
-	.queryProducts({
-		fields: [
-			productsV3.RequestedFields.MEDIA_ITEMS_INFO,
-			productsV3.RequestedFields.CURRENCY,
-			productsV3.RequestedFields.DIRECT_CATEGORIES_INFO,
-		],
-	})
-	.limit(100)
-	.find();
+  .queryProducts({
+    fields: [
+      productsV3.RequestedFields.MEDIA_ITEMS_INFO,
+      productsV3.RequestedFields.CURRENCY,
+      productsV3.RequestedFields.DIRECT_CATEGORIES_INFO,
+    ],
+  })
+  .limit(100)
+  .find();
 const allProducts = productResult.items || [];
 
 function formatPrice(product: productsV3Types.V3Product) {
-	const currency = product.currency;
-	if (!currency) return { formatted: '', original: null };
-	const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
-	const min = parseFloat(product.actualPriceRange?.minValue?.amount ?? '0');
-	const max = parseFloat(product.actualPriceRange?.maxValue?.amount ?? '0');
-	const compareMin = parseFloat(product.compareAtPriceRange?.minValue?.amount ?? '0');
-	const hasRange = max > min;
-	const onSale = !hasRange && compareMin > min && compareMin > 0;
-	const formatted = hasRange ? `${fmt(min)} – ${fmt(max)}` : fmt(min);
-	return { formatted, original: onSale ? fmt(compareMin) : null };
+  const currency = product.currency;
+  if (!currency) return { formatted: "", original: null };
+  const fmt = (n: number) =>
+    new Intl.NumberFormat(locale, { style: "currency", currency }).format(n);
+  const min = parseFloat(product.actualPriceRange?.minValue?.amount ?? "0");
+  const max = parseFloat(product.actualPriceRange?.maxValue?.amount ?? "0");
+  const compareMin = parseFloat(
+    product.compareAtPriceRange?.minValue?.amount ?? "0",
+  );
+  const hasRange = max > min;
+  const onSale = !hasRange && compareMin > min && compareMin > 0;
+  const formatted = hasRange ? `${fmt(min)} – ${fmt(max)}` : fmt(min);
+  return { formatted, original: onSale ? fmt(compareMin) : null };
 }
 
 const catResult = await categories.queryCategories(
-	{ cursorPaging: { limit: 100 } },
-	{ treeReference: { appNamespace: '@wix/stores' } },
+  { cursorPaging: { limit: 100 } },
+  { treeReference: { appNamespace: "@wix/stores" } },
 );
-const allCollections = (catResult.categories || []).map((c) => ({ _id: c._id!, name: c.name! }));
+const allCollections = (catResult.categories || []).map((c) => ({
+  _id: c._id!,
+  name: c.name!,
+}));
 
 const categoryMap = new Map<string, string>();
 for (const c of allCollections) categoryMap.set(c._id, c.name);
 
 const categoryOrder = new Map(allCollections.map((c, i) => [c._id, i]));
 
-function getCollections(product: productsV3Types.V3Product): { _id: string; name: string }[] {
-	return (product.directCategoriesInfo?.categories || [])
-		.filter((cat) => cat._id && categoryMap.has(cat._id))
-		.map((cat) => ({ _id: cat._id!, name: categoryMap.get(cat._id!)! }))
-		.sort((a, b) => (categoryOrder.get(a._id) ?? 999) - (categoryOrder.get(b._id) ?? 999));
+function getCollections(
+  product: productsV3Types.V3Product,
+): { _id: string; name: string }[] {
+  return (product.directCategoriesInfo?.categories || [])
+    .filter((cat) => cat._id && categoryMap.has(cat._id))
+    .map((cat) => ({ _id: cat._id!, name: categoryMap.get(cat._id!)! }))
+    .sort(
+      (a, b) =>
+        (categoryOrder.get(a._id) ?? 999) - (categoryOrder.get(b._id) ?? 999),
+    );
 }
 ---
 
-<Layout title={`${t('store.pageTitle')} - ${t('home.title')}`}>
-	<Nav />
-	<section class="page-header">
-		<div class="container">
-			<h1 class="section-title">{t('store.pageTitle')}</h1>
-			<p class="section-subtitle">{t('store.pageSubtitle')}</p>
-		</div>
-	</section>
+<Layout title={`${t("store.pageTitle")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="page-header">
+    <div class="container">
+      <h1 class="section-title">{t("store.pageTitle")}</h1>
+      <p class="section-subtitle">{t("store.pageSubtitle")}</p>
+    </div>
+  </section>
 
-	<section class="store-content">
-		<div class="container">
-			<div class="filter-tabs" id="filter-tabs">
-				{
-					allCollections.map((c, i: number) => (
-						<button class:list={['filter-tab', { active: i === 0 }]} data-collection={c._id}>
-							{c.name}
-						</button>
-					))
-				}
-				{
-					hasGiftCards && (
-						<button class="filter-tab" data-collection="gift-cards">
-							{t('store.giftCards')}
-						</button>
-					)
-				}
-			</div>
+  <section class="store-content">
+    <div class="container">
+      <div class="filter-tabs" id="filter-tabs">
+        {
+          allCollections.map((c, i: number) => (
+            <button
+              class:list={["filter-tab", { active: i === 0 }]}
+              data-collection={c._id}
+            >
+              {c.name}
+            </button>
+          ))
+        }
+        {
+          hasGiftCards && (
+            <button class="filter-tab" data-collection="gift-cards">
+              {t("store.giftCards")}
+            </button>
+          )
+        }
+      </div>
 
-			{
-				hasGiftCards && (
-					<div class="gift-card-section" id="gift-card-section" style="display:none;">
-						{giftCardProductsList.map((gcp) => (
-							<div class="gc-product">
-								<h2 class="gc-product-name">{gcp.name}</h2>
-								{gcp.description && <p class="gc-product-desc">{gcp.description}</p>}
-								<GiftCardActions
-									client:load
-									productId={gcp._id}
-									productImage={gcp.image}
-									presetVariants={gcp.presetVariants}
-									customVariant={gcp.customVariant}
-								/>
-							</div>
-						))}
-					</div>
-				)
-			}
+      {
+        hasGiftCards && (
+          <div
+            class="gift-card-section"
+            id="gift-card-section"
+            style="display:none;"
+          >
+            {giftCardProductsList.map((gcp) => (
+              <div class="gc-product">
+                <h2 class="gc-product-name">{gcp.name}</h2>
+                {gcp.description && (
+                  <p class="gc-product-desc">{gcp.description}</p>
+                )}
+                <GiftCardActions
+                  client:load
+                  productId={gcp._id}
+                  productImage={gcp.image}
+                  presetVariants={gcp.presetVariants}
+                  customVariant={gcp.customVariant}
+                />
+              </div>
+            ))}
+          </div>
+        )
+      }
 
-			<div class="product-grid" id="product-grid">
-				{
-					allProducts.map((product) => {
-						const mainMedia = product.media?.main;
-						const cover = extractMediaUrl(product.media?.itemsInfo?.items?.[0] || mainMedia, 400, 400);
-						const collections = getCollections(product);
-						const collIds =
-							product.directCategoriesInfo?.categories
-								?.map((c) => c._id)
-								.filter(Boolean)
-								.join(',') || '';
-						const { formatted, original } = formatPrice(product);
-						const ribbon = product.ribbon?.name;
+      <div class="product-grid" id="product-grid">
+        {
+          allProducts.map((product) => {
+            const mainMedia = product.media?.main;
+            const cover = extractMediaUrl(
+              product.media?.itemsInfo?.items?.[0] || mainMedia,
+              400,
+              400,
+            );
+            const collections = getCollections(product);
+            const collIds =
+              product.directCategoriesInfo?.categories
+                ?.map((c) => c._id)
+                .filter(Boolean)
+                .join(",") || "";
+            const { formatted, original } = formatPrice(product);
+            const ribbon = product.ribbon?.name;
 
-						return (
-							<a href={`/store/${product.slug}`} class="product-card" data-collections={collIds}>
-								<div class="product-image">
-									{cover?.type === 'video' ? (
-										<video src={cover.url} poster={cover.thumbnail || ''} autoplay muted loop playsinline />
-									) : cover ? (
-										<img src={cover.url} alt={product.name} loading="lazy" />
-									) : (
-										<div class="product-placeholder">
-											<span>&#128049;</span>
-										</div>
-									)}
-									{ribbon && <span class="product-ribbon">{ribbon}</span>}
-									{collections.length > 0 && (
-										<div class="product-badges">
-											{collections.map((col) => (
-												<span class="product-badge cat-link" data-cat-id={col._id}>
-													{col.name}
-												</span>
-											))}
-										</div>
-									)}
-								</div>
-								<div class="product-info">
-									<h3 class="product-name">{product.name}</h3>
-									<div class="product-price">
-										{original && <span class="price-original">{original}</span>}
-										<span class={original ? 'price-sale' : ''}>{formatted}</span>
-									</div>
-									{product.inventory?.availabilityStatus === productsV3.InventoryAvailabilityStatus.OUT_OF_STOCK && (
-										<span class="oos-badge">{t('store.outOfStock')}</span>
-									)}
-								</div>
-							</a>
-						);
-					})
-				}
-			</div>
+            return (
+              <a
+                href={`/store/${product.slug}`}
+                class="product-card"
+                data-collections={collIds}
+              >
+                <div class="product-image">
+                  {cover?.type === "video" ? (
+                    <video
+                      src={cover.url}
+                      poster={cover.thumbnail || ""}
+                      autoplay
+                      muted
+                      loop
+                      playsinline
+                    />
+                  ) : cover ? (
+                    <img src={cover.url} alt={product.name} loading="lazy" />
+                  ) : (
+                    <div class="product-placeholder">
+                      <span>&#128049;</span>
+                    </div>
+                  )}
+                  {ribbon && <span class="product-ribbon">{ribbon}</span>}
+                  {collections.length > 0 && (
+                    <div class="product-badges">
+                      {collections.map((col) => (
+                        <span
+                          class="product-badge cat-link"
+                          data-cat-id={col._id}
+                        >
+                          {col.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div class="product-info">
+                  <h3 class="product-name">{product.name}</h3>
+                  <div class="product-price">
+                    {original && <span class="price-original">{original}</span>}
+                    <span class={original ? "price-sale" : ""}>
+                      {formatted}
+                    </span>
+                  </div>
+                  {product.inventory?.availabilityStatus ===
+                    productsV3.InventoryAvailabilityStatus.OUT_OF_STOCK && (
+                    <span class="oos-badge">{t("store.outOfStock")}</span>
+                  )}
+                </div>
+              </a>
+            );
+          })
+        }
+      </div>
 
-			{
-				allProducts.length === 0 && (
-					<div class="empty-store">
-						<p>{t('store.noProducts')}</p>
-					</div>
-				)
-			}
-		</div>
-	</section>
-	<Footer />
+      {
+        allProducts.length === 0 && (
+          <div class="empty-store">
+            <p>{t("store.noProducts")}</p>
+          </div>
+        )
+      }
+    </div>
+  </section>
+  <Footer />
 </Layout>
 
 <script is:inline>
-	function filterByCollection(collectionId) {
-		document.querySelectorAll('.filter-tab').forEach(function (t) {
-			t.classList.remove('active');
-		});
-		var activeTab = document.querySelector('.filter-tab[data-collection="' + collectionId + '"]');
-		if (activeTab) activeTab.classList.add('active');
+  function filterByCollection(collectionId) {
+    document.querySelectorAll(".filter-tab").forEach(function (t) {
+      t.classList.remove("active");
+    });
+    var activeTab = document.querySelector(
+      '.filter-tab[data-collection="' + collectionId + '"]',
+    );
+    if (activeTab) activeTab.classList.add("active");
 
-		var productGrid = document.getElementById('product-grid');
-		var gcSection = document.getElementById('gift-card-section');
-		var emptyStore = document.querySelector('.empty-store');
+    var productGrid = document.getElementById("product-grid");
+    var gcSection = document.getElementById("gift-card-section");
+    var emptyStore = document.querySelector(".empty-store");
 
-		if (collectionId === 'gift-cards') {
-			if (productGrid) productGrid.style.display = 'none';
-			if (gcSection) gcSection.style.display = '';
-			if (emptyStore) emptyStore.style.display = 'none';
-		} else {
-			if (productGrid) productGrid.style.display = '';
-			if (gcSection) gcSection.style.display = 'none';
-			if (emptyStore) emptyStore.style.display = '';
-			document.querySelectorAll('.product-card').forEach(function (card) {
-				var ids = card.dataset.collections || '';
-				card.style.display = ids.indexOf(collectionId) !== -1 ? '' : 'none';
-			});
-		}
+    if (collectionId === "gift-cards") {
+      if (productGrid) productGrid.style.display = "none";
+      if (gcSection) gcSection.style.display = "";
+      if (emptyStore) emptyStore.style.display = "none";
+    } else {
+      if (productGrid) productGrid.style.display = "";
+      if (gcSection) gcSection.style.display = "none";
+      if (emptyStore) emptyStore.style.display = "";
+      document.querySelectorAll(".product-card").forEach(function (card) {
+        var ids = card.dataset.collections || "";
+        card.style.display = ids.indexOf(collectionId) !== -1 ? "" : "none";
+      });
+    }
 
-		var url = new URL(window.location);
-		url.searchParams.set('cat', collectionId);
-		history.replaceState(null, '', url);
-	}
+    var url = new URL(window.location);
+    url.searchParams.set("cat", collectionId);
+    history.replaceState(null, "", url);
+  }
 
-	document.addEventListener('click', function (e) {
-		var tab = e.target.closest('.filter-tab');
-		if (tab) {
-			filterByCollection(tab.dataset.collection);
-			return;
-		}
+  document.addEventListener("click", function (e) {
+    var tab = e.target.closest(".filter-tab");
+    if (tab) {
+      filterByCollection(tab.dataset.collection);
+      return;
+    }
 
-		var catLink = e.target.closest('.cat-link[data-cat-id]');
-		if (catLink) {
-			e.preventDefault();
-			e.stopPropagation();
-			filterByCollection(catLink.dataset.catId);
-			document.getElementById('filter-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-			return;
-		}
-	});
+    var catLink = e.target.closest(".cat-link[data-cat-id]");
+    if (catLink) {
+      e.preventDefault();
+      e.stopPropagation();
+      filterByCollection(catLink.dataset.catId);
+      document
+        .getElementById("filter-tabs")
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
+  });
 
-	// On load: apply ?cat= if present, otherwise first tab
-	(function () {
-		var params = new URLSearchParams(window.location.search);
-		var cat = params.get('cat');
-		var target = cat && document.querySelector('.filter-tab[data-collection="' + cat + '"]');
-		if (target) {
-			filterByCollection(cat);
-		} else {
-			var first = document.querySelector('.filter-tab');
-			if (first) filterByCollection(first.dataset.collection);
-		}
-	})();
+  // On load: apply ?cat= if present, otherwise first tab
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var cat = params.get("cat");
+    var target =
+      cat &&
+      document.querySelector('.filter-tab[data-collection="' + cat + '"]');
+    if (target) {
+      filterByCollection(cat);
+    } else {
+      var first = document.querySelector(".filter-tab");
+      if (first) filterByCollection(first.dataset.collection);
+    }
+  })();
 </script>
 
 <style>
-	.page-header {
-		padding: 60px 0 30px;
-	}
+  .page-header {
+    padding: 60px 0 30px;
+  }
 
-	.store-content {
-		padding-bottom: 60px;
-	}
+  .store-content {
+    padding-bottom: 60px;
+  }
 
-	.filter-tabs {
-		display: flex;
-		gap: 4px;
-		margin-bottom: 32px;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		padding: 6px;
-		width: fit-content;
-	}
+  .filter-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 6px;
+    width: fit-content;
+  }
 
-	.filter-tab {
-		padding: 10px 20px;
-		font-family: var(--font-heading);
-		font-size: 0.85rem;
-		letter-spacing: 1px;
-		color: var(--text-muted);
-		background: none;
-		border: none;
-		border-radius: 8px;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
+  .filter-tab {
+    padding: 10px 20px;
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
 
-	.filter-tab:hover {
-		color: var(--text-secondary);
-		background: rgba(255, 255, 255, 0.03);
-	}
+  .filter-tab:hover {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+  }
 
-	.filter-tab.active {
-		color: #000;
-		background: var(--accent);
-	}
+  .filter-tab.active {
+    color: #000;
+    background: var(--accent);
+  }
 
-	.product-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-		gap: 24px;
-	}
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 24px;
+  }
 
-	.product-card {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		overflow: hidden;
-		transition: all 0.2s;
-		text-decoration: none;
-		color: inherit;
-	}
+  .product-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+  }
 
-	.product-card:hover {
-		border-color: var(--accent);
-		transform: translateY(-2px);
-		box-shadow: 0 8px 24px rgba(255, 102, 0, 0.1);
-		color: inherit;
-	}
+  .product-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(255, 102, 0, 0.1);
+    color: inherit;
+  }
 
-	.product-image {
-		position: relative;
-		aspect-ratio: 1;
-		background: #111;
-		overflow: hidden;
-	}
+  .product-image {
+    position: relative;
+    aspect-ratio: 1;
+    background: #111;
+    overflow: hidden;
+  }
 
-	.product-image img,
-	.product-image video {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
+  .product-image img,
+  .product-image video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
-	.product-placeholder {
-		width: 100%;
-		height: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 4rem;
-		background: linear-gradient(135deg, #1a1a2e, #16213e);
-		opacity: 0.7;
-	}
+  .product-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    opacity: 0.7;
+  }
 
-	.product-ribbon {
-		position: absolute;
-		top: 10px;
-		inset-inline-end: 10px;
-		background: #cc0000;
-		color: #fff;
-		padding: 4px 10px;
-		border-radius: 6px;
-		font-family: var(--font-heading);
-		font-size: 0.7rem;
-		letter-spacing: 1px;
-		z-index: 1;
-	}
+  .product-ribbon {
+    position: absolute;
+    top: 10px;
+    inset-inline-end: 10px;
+    background: #cc0000;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    z-index: 1;
+  }
 
-	.product-badges {
-		position: absolute;
-		top: 10px;
-		inset-inline-start: 10px;
-		display: flex;
-		gap: 4px;
-		flex-wrap: wrap;
-		z-index: 1;
-	}
+  .product-badges {
+    position: absolute;
+    top: 10px;
+    inset-inline-start: 10px;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    z-index: 1;
+  }
 
-	.product-badge {
-		background: var(--accent);
-		color: #000;
-		padding: 4px 10px;
-		border-radius: 6px;
-		font-family: var(--font-heading);
-		font-size: 0.7rem;
-		letter-spacing: 1px;
-	}
+  .product-badge {
+    background: var(--accent);
+    color: #000;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+  }
 
-	.cat-link {
-		cursor: pointer;
-		transition: background 0.2s;
-	}
+  .cat-link {
+    cursor: pointer;
+    transition: background 0.2s;
+  }
 
-	.cat-link:hover {
-		background: var(--accent-yellow);
-	}
+  .cat-link:hover {
+    background: var(--accent-yellow);
+  }
 
-	.product-info {
-		padding: 16px;
-	}
+  .product-info {
+    padding: 16px;
+  }
 
-	.product-name {
-		font-family: var(--font-heading);
-		font-size: 1.05rem;
-		color: var(--text-primary);
-		letter-spacing: 0.5px;
-		margin-bottom: 6px;
-	}
+  .product-name {
+    font-family: var(--font-heading);
+    font-size: 1.05rem;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
 
-	.price-original {
-		text-decoration: line-through;
-		color: var(--text-muted);
-		font-size: 0.85rem;
-		font-weight: 400;
-		margin-right: 6px;
-	}
+  .price-original {
+    text-decoration: line-through;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 400;
+    margin-right: 6px;
+  }
 
-	.price-sale {
-		color: #f44336;
-	}
+  .price-sale {
+    color: #f44336;
+  }
 
-	.product-price {
-		font-size: 1.1rem;
-		font-weight: 700;
-		color: var(--accent-yellow);
-	}
+  .product-price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent-yellow);
+  }
 
-	.oos-badge {
-		display: inline-block;
-		margin-top: 6px;
-		padding: 2px 8px;
-		border-radius: 4px;
-		font-size: 0.7rem;
-		font-weight: 700;
-		background: #cc0000;
-		color: #fff;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-	}
+  .oos-badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #cc0000;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
 
-	.empty-store {
-		text-align: center;
-		padding: 60px 20px;
-		color: var(--text-muted);
-	}
+  .empty-store {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
 
-	@media (max-width: 640px) {
-		.product-grid {
-			grid-template-columns: repeat(2, 1fr);
-			gap: 12px;
-		}
+  @media (max-width: 640px) {
+    .product-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
 
-		.filter-tabs {
-			overflow-x: auto;
-			width: 100%;
-		}
+    .filter-tabs {
+      overflow-x: auto;
+      width: 100%;
+    }
 
-		.filter-tab {
-			white-space: nowrap;
-			font-size: 0.75rem;
-			padding: 8px 14px;
-		}
-	}
+    .filter-tab {
+      white-space: nowrap;
+      font-size: 0.75rem;
+      padding: 8px 14px;
+    }
+  }
 </style>
 
 <style is:global>
-	.gift-card-section {
-		max-width: 600px;
-	}
+  .gift-card-section {
+    max-width: 600px;
+  }
 
-	.gc-product {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		padding: 32px;
-		margin-bottom: 24px;
-	}
+  .gc-product {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
 
-	.gc-product-name {
-		font-family: var(--font-heading);
-		font-size: 1.4rem;
-		color: var(--text-primary);
-		margin-bottom: 8px;
-	}
+  .gc-product-name {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
 
-	.gc-product-desc {
-		color: var(--text-muted);
-		font-size: 0.95rem;
-		margin-bottom: 24px;
-		line-height: 1.5;
-	}
+  .gc-product-desc {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
 
-	.gc-label {
-		display: block;
-		font-family: var(--font-heading);
-		font-size: 0.85rem;
-		letter-spacing: 1px;
-		color: var(--text-secondary);
-		margin-bottom: 12px;
-	}
+  .gc-label {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
 
-	.gc-amount-options {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		margin-bottom: 16px;
-	}
+  .gc-amount-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
 
-	.gc-amount-btn {
-		padding: 12px 24px;
-		font-family: var(--font-heading);
-		font-size: 1rem;
-		letter-spacing: 0.5px;
-		color: var(--text-secondary);
-		background: rgba(255, 255, 255, 0.03);
-		border: 1px solid var(--border-card);
-		border-radius: 8px;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
+  .gc-amount-btn {
+    padding: 12px 24px;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-card);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
 
-	.gc-amount-btn:hover {
-		border-color: var(--accent);
-		color: var(--text-primary);
-	}
+  .gc-amount-btn:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+  }
 
-	.gc-amount-btn.active {
-		background: var(--accent);
-		color: #000;
-		border-color: var(--accent);
-	}
+  .gc-amount-btn.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
 
-	.gc-custom-input-wrap {
-		margin-bottom: 16px;
-	}
+  .gc-custom-input-wrap {
+    margin-bottom: 16px;
+  }
 
-	.gc-custom-input {
-		width: 100%;
-		padding: 12px 16px;
-		font-size: 1rem;
-		background: rgba(255, 255, 255, 0.03);
-		border: 1px solid var(--border-card);
-		border-radius: 8px;
-		color: var(--text-primary);
-		font-family: inherit;
-	}
+  .gc-custom-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-card);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: inherit;
+  }
 
-	.gc-custom-input:focus {
-		outline: none;
-		border-color: var(--accent);
-	}
+  .gc-custom-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
 
-	.gc-range-hint {
-		display: block;
-		font-size: 0.8rem;
-		color: var(--text-muted);
-		margin-top: 6px;
-	}
+  .gc-range-hint {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
 
-	.gc-form {
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-		margin: 24px 0;
-	}
+  .gc-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 24px 0;
+  }
 
-	.gc-field label {
-		display: block;
-		font-family: var(--font-heading);
-		font-size: 0.8rem;
-		letter-spacing: 1px;
-		color: var(--text-muted);
-		margin-bottom: 6px;
-	}
+  .gc-field label {
+    display: block;
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
 
-	.gc-input {
-		width: 100%;
-		padding: 12px 16px;
-		font-size: 0.95rem;
-		background: rgba(255, 255, 255, 0.03);
-		border: 1px solid var(--border-card);
-		border-radius: 8px;
-		color: var(--text-primary);
-		font-family: inherit;
-		resize: vertical;
-	}
+  .gc-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-card);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: inherit;
+    resize: vertical;
+  }
 
-	.gc-input:focus {
-		outline: none;
-		border-color: var(--accent);
-	}
+  .gc-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
 
-	.gc-purchase-btn {
-		width: 100%;
-		padding: 14px;
-		font-family: var(--font-heading);
-		font-size: 1rem;
-		letter-spacing: 1px;
-		background: var(--accent);
-		color: #000;
-		border: none;
-		border-radius: 8px;
-		cursor: pointer;
-		transition: all 0.2s;
-		font-weight: 700;
-	}
+  .gc-purchase-btn {
+    width: 100%;
+    padding: 14px;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    letter-spacing: 1px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 700;
+  }
 
-	.gc-purchase-btn:hover:not(:disabled) {
-		background: var(--accent-yellow);
-		transform: translateY(-1px);
-	}
+  .gc-purchase-btn:hover:not(:disabled) {
+    background: var(--accent-yellow);
+    transform: translateY(-1px);
+  }
 
-	.gc-purchase-btn:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
+  .gc-purchase-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 
-	.gc-status {
-		margin-top: 12px;
-		padding: 12px 16px;
-		border-radius: 8px;
-		font-size: 0.9rem;
-		text-align: center;
-	}
+  .gc-status {
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    text-align: center;
+  }
 
-	.gc-status-error {
-		background: rgba(244, 67, 54, 0.15);
-		color: #f44336;
-		border: 1px solid rgba(244, 67, 54, 0.3);
-	}
+  .gc-status-error {
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+    border: 1px solid rgba(244, 67, 54, 0.3);
+  }
 
-	.gc-image {
-		margin-bottom: 20px;
-		border-radius: 8px;
-		overflow: hidden;
-		aspect-ratio: 16 / 9;
-		background: #111;
-	}
+  .gc-image {
+    margin-bottom: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    background: #111;
+  }
 
-	.gc-image img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
+  .gc-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
-	.gc-price-display {
-		display: flex;
-		align-items: baseline;
-		gap: 10px;
-		margin-bottom: 20px;
-		font-family: var(--font-heading);
-	}
+  .gc-price-display {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 20px;
+    font-family: var(--font-heading);
+  }
 
-	.gc-price-original {
-		font-size: 1.1rem;
-		color: var(--text-muted);
-		text-decoration: line-through;
-	}
+  .gc-price-original {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    text-decoration: line-through;
+  }
 
-	.gc-price-cost {
-		font-size: 1.4rem;
-		font-weight: 700;
-		color: var(--accent-yellow);
-	}
+  .gc-price-cost {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--accent-yellow);
+  }
 </style>

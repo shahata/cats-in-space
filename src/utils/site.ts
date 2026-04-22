@@ -1,5 +1,5 @@
-import { siteProperties } from '@wix/business-tools';
-import { auth } from '@wix/essentials';
+import { siteProperties } from "@wix/business-tools";
+import { auth } from "@wix/essentials";
 
 /**
  * Fetches the site's payment currency (ISO-4217 code, e.g. "ILS") via the
@@ -9,9 +9,12 @@ import { auth } from '@wix/essentials';
  * rather than silently falling back to a hard-coded default.
  */
 export async function getSiteCurrency(): Promise<string> {
-	const elevated = auth.elevate(siteProperties.getSiteProperties);
-	const res = await elevated();
-	const currency = res.properties?.paymentCurrency;
-	if (!currency) throw new Error('Site paymentCurrency is not configured in Wix Site Properties.');
-	return currency;
+  const elevated = auth.elevate(siteProperties.getSiteProperties);
+  const res = await elevated();
+  const currency = res.properties?.paymentCurrency;
+  if (!currency)
+    throw new Error(
+      "Site paymentCurrency is not configured in Wix Site Properties.",
+    );
+  return currency;
 }

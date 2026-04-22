@@ -1,11 +1,11 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import { wixEventsV2 } from '@wix/events';
-import { auth, i18n } from '@wix/essentials';
-import { getRelativeLocaleUrl } from 'wix:astro:i18n';
-import { getImageUrl } from '../../utils/image';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { wixEventsV2 } from "@wix/events";
+import { auth, i18n } from "@wix/essentials";
+import { getRelativeLocaleUrl } from "wix:astro:i18n";
+import { getImageUrl } from "../../utils/image";
 
 // `Event.categories` is populated at runtime when the CATEGORIES fieldset is
 // requested but isn't part of the typed `Event` shape — extend it locally.
@@ -25,49 +25,49 @@ const t = i18n.getTranslationFunction();
 const elevatedQuery = auth.elevate(wixEventsV2.queryEvents);
 const events: Event[] = [];
 let page: wixEventsV2.EventsQueryResult | undefined = await elevatedQuery({
-	fields: [
-		wixEventsV2.RequestedFields.DETAILS,
-		wixEventsV2.RequestedFields.CATEGORIES,
-		wixEventsV2.RequestedFields.FORM,
-	],
+  fields: [
+    wixEventsV2.RequestedFields.DETAILS,
+    wixEventsV2.RequestedFields.CATEGORIES,
+    wixEventsV2.RequestedFields.FORM,
+  ],
 })
-	.ne('status', wixEventsV2.Status.CANCELED)
-	.limit(200)
-	.find();
+  .ne("status", wixEventsV2.Status.CANCELED)
+  .limit(200)
+  .find();
 while (page) {
-	events.push(...((page.items ?? []) as Event[]));
-	if (!page.items || page.items.length < 200) break;
-	page = await page.next();
+  events.push(...((page.items ?? []) as Event[]));
+  if (!page.items || page.items.length < 200) break;
+  page = await page.next();
 }
 
 // event.categories contains BOTH the user-added genre categories AND the
 // hidden RECURRING_EVENT series category (whose _id is the seriesCategoryId
 // and whose name duplicates the movie title). Filter that one out.
 function extractGenres(ev: Event): string[] {
-	const seriesCatId = ev.dateAndTimeSettings?.recurringEvents?.categoryId;
-	const cats: EventCategory[] = ev.categories?.categories ?? [];
-	return cats
-		.filter((c) => c._id !== seriesCatId)
-		.map((c) => c.name ?? '')
-		.filter(Boolean);
+  const seriesCatId = ev.dateAndTimeSettings?.recurringEvents?.categoryId;
+  const cats: EventCategory[] = ev.categories?.categories ?? [];
+  return cats
+    .filter((c) => c._id !== seriesCatId)
+    .map((c) => c.name ?? "")
+    .filter(Boolean);
 }
 
 const now = Date.now();
 
 interface Series {
-	key: string;
-	title: string;
-	description: string;
-	posterUrl: string | null;
-	genres: string[];
-	nextEvent: Event;
-	nextSlug: string;
-	showtimeCount: number;
+  key: string;
+  title: string;
+  description: string;
+  posterUrl: string | null;
+  genres: string[];
+  nextEvent: Event;
+  nextSlug: string;
+  showtimeCount: number;
 }
 
 function eventStart(ev: Event): number {
-	const s = ev.dateAndTimeSettings?.startDate;
-	return s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
+  const s = ev.dateAndTimeSettings?.startDate;
+  return s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
 }
 
 // Derive a stable movie-level slug by stripping the date-time suffix Wix
@@ -77,16 +77,16 @@ function eventStart(ev: Event): number {
 // because non-ASCII titles slugify to an empty string. The underlying slug
 // is locale-invariant (set from the English title at creation).
 function seriesSlug(ev: Event): string {
-	const s = ev.slug ?? '';
-	return s.replace(/-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}(-\d+)?$/, '');
+  const s = ev.slug ?? "";
+  return s.replace(/-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}(-\d+)?$/, "");
 }
 
 const dateTimeFmt = new Intl.DateTimeFormat(locale, {
-	weekday: 'short',
-	month: 'short',
-	day: 'numeric',
-	hour: '2-digit',
-	minute: '2-digit',
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
 });
 
 // Group events by series. The seed is responsible for producing canonical
@@ -95,314 +95,345 @@ const dateTimeFmt = new Intl.DateTimeFormat(locale, {
 // occurrence) and trust its fields directly.
 const seriesByKey = new Map<string, Series>();
 for (const ev of events) {
-	const start = eventStart(ev);
-	if (start < now) continue;
-	const seriesId = ev.dateAndTimeSettings?.recurringEvents?.categoryId || ev._id || '';
-	if (!seriesId) continue;
-	const existing = seriesByKey.get(seriesId);
-	if (existing) {
-		existing.showtimeCount += 1;
-		if (start < eventStart(existing.nextEvent)) {
-			existing.nextEvent = ev;
-			existing.nextSlug = seriesSlug(ev);
-			existing.posterUrl = typeof ev.mainImage === 'string' ? getImageUrl(ev.mainImage, 480, 680) : null;
-			existing.genres = extractGenres(ev);
-			existing.description = ev.shortDescription ?? '';
-		}
-	} else {
-		seriesByKey.set(seriesId, {
-			key: seriesId,
-			title: ev.title ?? '',
-			description: ev.shortDescription ?? '',
-			posterUrl: typeof ev.mainImage === 'string' ? getImageUrl(ev.mainImage, 480, 680) : null,
-			genres: extractGenres(ev),
-			nextEvent: ev,
-			nextSlug: seriesSlug(ev),
-			showtimeCount: 1,
-		});
-	}
+  const start = eventStart(ev);
+  if (start < now) continue;
+  const seriesId =
+    ev.dateAndTimeSettings?.recurringEvents?.categoryId || ev._id || "";
+  if (!seriesId) continue;
+  const existing = seriesByKey.get(seriesId);
+  if (existing) {
+    existing.showtimeCount += 1;
+    if (start < eventStart(existing.nextEvent)) {
+      existing.nextEvent = ev;
+      existing.nextSlug = seriesSlug(ev);
+      existing.posterUrl =
+        typeof ev.mainImage === "string"
+          ? getImageUrl(ev.mainImage, 480, 680)
+          : null;
+      existing.genres = extractGenres(ev);
+      existing.description = ev.shortDescription ?? "";
+    }
+  } else {
+    seriesByKey.set(seriesId, {
+      key: seriesId,
+      title: ev.title ?? "",
+      description: ev.shortDescription ?? "",
+      posterUrl:
+        typeof ev.mainImage === "string"
+          ? getImageUrl(ev.mainImage, 480, 680)
+          : null,
+      genres: extractGenres(ev),
+      nextEvent: ev,
+      nextSlug: seriesSlug(ev),
+      showtimeCount: 1,
+    });
+  }
 }
 
-const seriesList = [...seriesByKey.values()].sort((a, b) => eventStart(a.nextEvent) - eventStart(b.nextEvent));
+const seriesList = [...seriesByKey.values()].sort(
+  (a, b) => eventStart(a.nextEvent) - eventStart(b.nextEvent),
+);
 
 function genreBadgeClass(genre: string): string {
-	const map: Record<string, string> = {
-		action: 'genre-action',
-		comedy: 'genre-comedy',
-		drama: 'genre-drama',
-		horror: 'genre-horror',
-		'sci-fi': 'genre-scifi',
-		fantasy: 'genre-fantasy',
-		adventure: 'genre-adventure',
-		family: 'genre-family',
-	};
-	return map[genre.toLowerCase()] || 'genre-default';
+  const map: Record<string, string> = {
+    action: "genre-action",
+    comedy: "genre-comedy",
+    drama: "genre-drama",
+    horror: "genre-horror",
+    "sci-fi": "genre-scifi",
+    fantasy: "genre-fantasy",
+    adventure: "genre-adventure",
+    family: "genre-family",
+  };
+  return map[genre.toLowerCase()] || "genre-default";
 }
 ---
 
-<Layout title={`${t('cinema.pageTitle')} - ${t('home.title')}`}>
-	<Nav />
+<Layout title={`${t("cinema.pageTitle")} - ${t("home.title")}`}>
+  <Nav />
 
-	<section class="cinema-hero">
-		<div class="hero-glow"></div>
-		<div class="container hero-content">
-			<h1 class="section-title">{t('cinema.pageTitle')}</h1>
-			<p class="section-subtitle">{t('cinema.pageSubtitle')}</p>
-		</div>
-	</section>
+  <section class="cinema-hero">
+    <div class="hero-glow"></div>
+    <div class="container hero-content">
+      <h1 class="section-title">{t("cinema.pageTitle")}</h1>
+      <p class="section-subtitle">{t("cinema.pageSubtitle")}</p>
+    </div>
+  </section>
 
-	<section class="cinema-content">
-		<div class="container">
-			{seriesList.length === 0 && <p class="no-movies">{t('cinema.noMovies')}</p>}
+  <section class="cinema-content">
+    <div class="container">
+      {
+        seriesList.length === 0 && (
+          <p class="no-movies">{t("cinema.noMovies")}</p>
+        )
+      }
 
-			<div class="movies-grid">
-				{
-					seriesList.map((s) => {
-						const nextStart = s.nextEvent.dateAndTimeSettings?.startDate;
-						const showtime = nextStart ? dateTimeFmt.format(new Date(nextStart)) : null;
-						return (
-							<a href={getRelativeLocaleUrl(`/cinema/${s.nextSlug}`)} class="movie-card">
-								<div class="movie-poster">
-									{s.posterUrl ? (
-										<img src={s.posterUrl} alt={s.title} loading="lazy" />
-									) : (
-										<div class="poster-placeholder">
-											<span class="poster-icon">&#9733;</span>
-										</div>
-									)}
-									{s.showtimeCount > 1 && (
-										<span class="showtime-badge">
-											{s.showtimeCount} {t('cinema.showtimes')}
-										</span>
-									)}
-									<div class="poster-overlay">
-										<span class="play-icon">&#9654;</span>
-									</div>
-								</div>
-								<div class="movie-info">
-									<h3 class="movie-title">{s.title}</h3>
-									{s.genres.length > 0 && (
-										<div class="movie-genres">
-											{s.genres.slice(0, 3).map((g) => (
-												<span class={`genre-badge ${genreBadgeClass(g)}`}>{g}</span>
-											))}
-										</div>
-									)}
-									{showtime && (
-										<div class="movie-showtime">
-											<span class="showtime-label">{t('cinema.nextShowtime')}:</span> {showtime}
-										</div>
-									)}
-									{s.description && <p class="movie-desc">{s.description}</p>}
-								</div>
-							</a>
-						);
-					})
-				}
-			</div>
-		</div>
-	</section>
+      <div class="movies-grid">
+        {
+          seriesList.map((s) => {
+            const nextStart = s.nextEvent.dateAndTimeSettings?.startDate;
+            const showtime = nextStart
+              ? dateTimeFmt.format(new Date(nextStart))
+              : null;
+            return (
+              <a
+                href={getRelativeLocaleUrl(`/cinema/${s.nextSlug}`)}
+                class="movie-card"
+              >
+                <div class="movie-poster">
+                  {s.posterUrl ? (
+                    <img src={s.posterUrl} alt={s.title} loading="lazy" />
+                  ) : (
+                    <div class="poster-placeholder">
+                      <span class="poster-icon">&#9733;</span>
+                    </div>
+                  )}
+                  {s.showtimeCount > 1 && (
+                    <span class="showtime-badge">
+                      {s.showtimeCount} {t("cinema.showtimes")}
+                    </span>
+                  )}
+                  <div class="poster-overlay">
+                    <span class="play-icon">&#9654;</span>
+                  </div>
+                </div>
+                <div class="movie-info">
+                  <h3 class="movie-title">{s.title}</h3>
+                  {s.genres.length > 0 && (
+                    <div class="movie-genres">
+                      {s.genres.slice(0, 3).map((g) => (
+                        <span class={`genre-badge ${genreBadgeClass(g)}`}>
+                          {g}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {showtime && (
+                    <div class="movie-showtime">
+                      <span class="showtime-label">
+                        {t("cinema.nextShowtime")}:
+                      </span>{" "}
+                      {showtime}
+                    </div>
+                  )}
+                  {s.description && <p class="movie-desc">{s.description}</p>}
+                </div>
+              </a>
+            );
+          })
+        }
+      </div>
+    </div>
+  </section>
 
-	<Footer />
+  <Footer />
 </Layout>
 
 <style>
-	.cinema-hero {
-		position: relative;
-		padding: 100px 20px 60px;
-		text-align: center;
-		background: linear-gradient(180deg, #1a0a00 0%, var(--bg-primary) 100%);
-		overflow: hidden;
-	}
-	.hero-glow {
-		position: absolute;
-		top: -100px;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 600px;
-		height: 400px;
-		background: radial-gradient(ellipse, rgba(255, 102, 0, 0.15) 0%, transparent 70%);
-		pointer-events: none;
-	}
-	.hero-content {
-		position: relative;
-		z-index: 1;
-	}
-	.cinema-content {
-		padding: 0 20px 80px;
-	}
+  .cinema-hero {
+    position: relative;
+    padding: 100px 20px 60px;
+    text-align: center;
+    background: linear-gradient(180deg, #1a0a00 0%, var(--bg-primary) 100%);
+    overflow: hidden;
+  }
+  .hero-glow {
+    position: absolute;
+    top: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 400px;
+    background: radial-gradient(
+      ellipse,
+      rgba(255, 102, 0, 0.15) 0%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 1;
+  }
+  .cinema-content {
+    padding: 0 20px 80px;
+  }
 
-	.no-movies {
-		text-align: center;
-		color: var(--text-muted);
-		padding: 60px 20px;
-		font-size: 1rem;
-	}
+  .no-movies {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 60px 20px;
+    font-size: 1rem;
+  }
 
-	.movies-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-		gap: 32px;
-	}
+  .movies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 32px;
+  }
 
-	.movie-card {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		overflow: hidden;
-		text-decoration: none;
-		color: inherit;
-		transition: all 0.2s;
-	}
-	.movie-card:hover {
-		transform: translateY(-4px);
-		border-color: var(--accent);
-		box-shadow: 0 12px 40px rgba(255, 102, 0, 0.2);
-	}
+  .movie-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s;
+  }
+  .movie-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: 0 12px 40px rgba(255, 102, 0, 0.2);
+  }
 
-	.movie-poster {
-		position: relative;
-		aspect-ratio: 2 / 3;
-		background: #111;
-		overflow: hidden;
-	}
-	.movie-poster img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		display: block;
-	}
-	.poster-placeholder {
-		width: 100%;
-		height: 100%;
-		background: linear-gradient(135deg, #1a1a2e, #16213e);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 4rem;
-		color: var(--accent);
-		opacity: 0.4;
-	}
+  .movie-poster {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    background: #111;
+    overflow: hidden;
+  }
+  .movie-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .poster-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    color: var(--accent);
+    opacity: 0.4;
+  }
 
-	.showtime-badge {
-		position: absolute;
-		top: 10px;
-		inset-inline-end: 10px;
-		background: rgba(0, 0, 0, 0.85);
-		color: var(--accent-yellow);
-		padding: 4px 10px;
-		border-radius: 999px;
-		font-family: var(--font-heading);
-		font-size: 0.7rem;
-		letter-spacing: 1px;
-		border: 1px solid var(--accent);
-	}
+  .showtime-badge {
+    position: absolute;
+    top: 10px;
+    inset-inline-end: 10px;
+    background: rgba(0, 0, 0, 0.85);
+    color: var(--accent-yellow);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    border: 1px solid var(--accent);
+  }
 
-	.poster-overlay {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, 0.5) 100%);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		opacity: 0;
-		transition: opacity 0.2s;
-	}
-	.movie-card:hover .poster-overlay {
-		opacity: 1;
-	}
-	.play-icon {
-		font-size: 2.5rem;
-		color: var(--accent);
-		text-shadow: 0 0 20px var(--accent);
-	}
+  .poster-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      transparent 50%,
+      rgba(0, 0, 0, 0.5) 100%
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .movie-card:hover .poster-overlay {
+    opacity: 1;
+  }
+  .play-icon {
+    font-size: 2.5rem;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent);
+  }
 
-	.movie-info {
-		padding: 16px;
-	}
+  .movie-info {
+    padding: 16px;
+  }
 
-	.movie-title {
-		font-family: var(--font-heading);
-		font-size: 1rem;
-		color: var(--text-primary);
-		letter-spacing: 1px;
-		margin-bottom: 8px;
-	}
+  .movie-title {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
 
-	.movie-genres {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px;
-		margin-bottom: 10px;
-	}
+  .movie-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
 
-	.genre-badge {
-		padding: 2px 8px;
-		border-radius: 4px;
-		font-size: 0.65rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-	}
-	.genre-action {
-		background: #cc0000;
-		color: #fff;
-	}
-	.genre-comedy {
-		background: #2e7d32;
-		color: #fff;
-	}
-	.genre-drama {
-		background: #1565c0;
-		color: #fff;
-	}
-	.genre-horror {
-		background: #6a1b9a;
-		color: #fff;
-	}
-	.genre-scifi {
-		background: #00838f;
-		color: #fff;
-	}
-	.genre-fantasy {
-		background: #c6a700;
-		color: #000;
-	}
-	.genre-adventure {
-		background: #ef6c00;
-		color: #000;
-	}
-	.genre-family {
-		background: #7cb342;
-		color: #000;
-	}
-	.genre-default {
-		background: #444;
-		color: #e0e0e0;
-	}
+  .genre-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .genre-action {
+    background: #cc0000;
+    color: #fff;
+  }
+  .genre-comedy {
+    background: #2e7d32;
+    color: #fff;
+  }
+  .genre-drama {
+    background: #1565c0;
+    color: #fff;
+  }
+  .genre-horror {
+    background: #6a1b9a;
+    color: #fff;
+  }
+  .genre-scifi {
+    background: #00838f;
+    color: #fff;
+  }
+  .genre-fantasy {
+    background: #c6a700;
+    color: #000;
+  }
+  .genre-adventure {
+    background: #ef6c00;
+    color: #000;
+  }
+  .genre-family {
+    background: #7cb342;
+    color: #000;
+  }
+  .genre-default {
+    background: #444;
+    color: #e0e0e0;
+  }
 
-	.movie-showtime {
-		font-size: 0.8rem;
-		color: var(--text-secondary);
-		margin-bottom: 8px;
-	}
-	.showtime-label {
-		color: var(--accent);
-		font-family: var(--font-heading);
-		letter-spacing: 0.5px;
-	}
+  .movie-showtime {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .showtime-label {
+    color: var(--accent);
+    font-family: var(--font-heading);
+    letter-spacing: 0.5px;
+  }
 
-	.movie-desc {
-		color: var(--text-muted);
-		font-size: 0.8rem;
-		line-height: 1.5;
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
+  .movie-desc {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 
-	.poster-icon {
-		opacity: 0.6;
-	}
+  .poster-icon {
+    opacity: 0.6;
+  }
 </style>

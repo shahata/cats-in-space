@@ -1,253 +1,261 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import { items } from '@wix/data';
-import { getImageUrl } from '../../utils/image';
-import { i18n } from '@wix/essentials';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { items } from "@wix/data";
+import { getImageUrl } from "../../utils/image";
+import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
 const { slug } = Astro.params;
-const result = await items.query('CatExplorers').eq('slug', slug).find();
+const result = await items.query("CatExplorers").eq("slug", slug).find();
 
 if (result.items.length === 0) {
-	return Astro.redirect('/crew');
+  return Astro.redirect("/crew");
 }
 
 const cat = result.items[0]!;
 
 function getEmoji(role: string) {
-	const map: Record<string, string> = {
-		Captain: '🐱',
-		'Chief Scientist': '🔬',
-		Pilot: '🚀',
-		Engineer: '🔧',
-		'Communications Officer': '📡',
-		'Stealth Operations': '🐈‍⬛',
-	};
-	return map[role] || '🐾';
+  const map: Record<string, string> = {
+    Captain: "🐱",
+    "Chief Scientist": "🔬",
+    Pilot: "🚀",
+    Engineer: "🔧",
+    "Communications Officer": "📡",
+    "Stealth Operations": "🐈‍⬛",
+  };
+  return map[role] || "🐾";
 }
 
 function getStatusBadge(status: string) {
-	const map: Record<string, string> = {
-		Active: 'badge-green',
-		'On Mission': 'badge-gold',
-		Retired: 'badge-pink',
-	};
-	return map[status] || 'badge-blue';
+  const map: Record<string, string> = {
+    Active: "badge-green",
+    "On Mission": "badge-gold",
+    Retired: "badge-pink",
+  };
+  return map[status] || "badge-blue";
 }
 ---
 
-<Layout title={`${cat.name} - ${t('home.title')}`}>
-	<Nav />
-	<div class="detail-page">
-		<div class="container">
-			<a href="/crew" class="back-link"><span class="rtl-flip">←</span> {t('crew.backToAll')}</a>
+<Layout title={`${cat.name} - ${t("home.title")}`}>
+  <Nav />
+  <div class="detail-page">
+    <div class="container">
+      <a href="/crew" class="back-link"
+        ><span class="rtl-flip">←</span> {t("crew.backToAll")}</a
+      >
 
-			<div class="profile">
-				<div class="profile-header">
-					<div class="profile-avatar">
-						{
-							getImageUrl(cat.image, 200, 200) ? (
-								<img src={getImageUrl(cat.image, 200, 200)!} alt={cat.name} class="profile-img" />
-							) : (
-								<span class="avatar-emoji">{getEmoji(cat.role)}</span>
-							)
-						}
-					</div>
-					<div class="profile-info">
-						<h1>{cat.name}</h1>
-						<p class="role">{cat.role}</p>
-						<span class={`badge ${getStatusBadge(cat.status)}`}>{cat.status}</span>
-					</div>
-				</div>
+      <div class="profile">
+        <div class="profile-header">
+          <div class="profile-avatar">
+            {
+              getImageUrl(cat.image, 200, 200) ? (
+                <img
+                  src={getImageUrl(cat.image, 200, 200)!}
+                  alt={cat.name}
+                  class="profile-img"
+                />
+              ) : (
+                <span class="avatar-emoji">{getEmoji(cat.role)}</span>
+              )
+            }
+          </div>
+          <div class="profile-info">
+            <h1>{cat.name}</h1>
+            <p class="role">{cat.role}</p>
+            <span class={`badge ${getStatusBadge(cat.status)}`}
+              >{cat.status}</span
+            >
+          </div>
+        </div>
 
-				<div class="profile-grid">
-					<div class="profile-main">
-						<h2>{t('crew.bio')}</h2>
-						<p class="bio">{cat.bio}</p>
-					</div>
+        <div class="profile-grid">
+          <div class="profile-main">
+            <h2>{t("crew.bio")}</h2>
+            <p class="bio">{cat.bio}</p>
+          </div>
 
-					<div class="profile-sidebar">
-						<div class="info-card">
-							<h3>{t('crew.dossier')}</h3>
-							<div class="info-row">
-								<span class="info-label">{t('crew.specialSkill')}</span>
-								<span class="info-value">{cat.specialSkill}</span>
-							</div>
-							<div class="info-row">
-								<span class="info-label">{t('crew.status')}</span>
-								<span class="info-value">{cat.status}</span>
-							</div>
-							<div class="info-row">
-								<span class="info-label">{t('crew.role')}</span>
-								<span class="info-value">{cat.role}</span>
-							</div>
-						</div>
+          <div class="profile-sidebar">
+            <div class="info-card">
+              <h3>{t("crew.dossier")}</h3>
+              <div class="info-row">
+                <span class="info-label">{t("crew.specialSkill")}</span>
+                <span class="info-value">{cat.specialSkill}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{t("crew.status")}</span>
+                <span class="info-value">{cat.status}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">{t("crew.role")}</span>
+                <span class="info-value">{cat.role}</span>
+              </div>
+            </div>
 
-						<div class="fun-fact-card">
-							<h3>{t('crew.funFact')}</h3>
-							<p>{cat.funFact}</p>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-	<Footer />
+            <div class="fun-fact-card">
+              <h3>{t("crew.funFact")}</h3>
+              <p>{cat.funFact}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <Footer />
 </Layout>
 
 <style>
-	.detail-page {
-		position: relative;
-		z-index: 1;
-		padding: 60px 0 40px;
-	}
+  .detail-page {
+    position: relative;
+    z-index: 1;
+    padding: 60px 0 40px;
+  }
 
-	.back-link {
-		font-size: 0.85rem;
-		color: var(--text-muted);
-		display: inline-block;
-		margin-bottom: 2rem;
-		transition: color 0.2s;
-	}
-	.back-link:hover {
-		color: var(--accent);
-	}
+  .back-link {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    display: inline-block;
+    margin-bottom: 2rem;
+    transition: color 0.2s;
+  }
+  .back-link:hover {
+    color: var(--accent);
+  }
 
-	.profile-header {
-		display: flex;
-		align-items: center;
-		gap: 2rem;
-		margin-bottom: 3rem;
-	}
+  .profile-header {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 3rem;
+  }
 
-	.profile-avatar {
-		width: 120px;
-		height: 120px;
-		border-radius: 50%;
-		background: linear-gradient(135deg, var(--accent), rgba(255, 102, 0, 0.4));
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border: 3px solid rgba(255, 102, 0, 0.3);
-		flex-shrink: 0;
-		overflow: hidden;
-	}
+  .profile-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), rgba(255, 102, 0, 0.4));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid rgba(255, 102, 0, 0.3);
+    flex-shrink: 0;
+    overflow: hidden;
+  }
 
-	.profile-img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
+  .profile-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
-	.avatar-emoji {
-		font-size: 3rem;
-	}
+  .avatar-emoji {
+    font-size: 3rem;
+  }
 
-	.profile-info h1 {
-		font-family: var(--font-title);
-		font-size: 2.5rem;
-		color: var(--accent);
-		text-shadow:
-			2px 2px 0 #000,
-			0 0 20px var(--accent-glow);
-		margin-bottom: 0.25rem;
-	}
+  .profile-info h1 {
+    font-family: var(--font-title);
+    font-size: 2.5rem;
+    color: var(--accent);
+    text-shadow:
+      2px 2px 0 #000,
+      0 0 20px var(--accent-glow);
+    margin-bottom: 0.25rem;
+  }
 
-	.role {
-		color: var(--accent);
-		font-family: var(--font-body);
-		font-size: 1rem;
-		font-weight: 700;
-		margin-bottom: 0.5rem;
-	}
+  .role {
+    color: var(--accent);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
 
-	.profile-grid {
-		display: grid;
-		grid-template-columns: 1fr 340px;
-		gap: 2rem;
-		align-items: start;
-	}
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 2rem;
+    align-items: start;
+  }
 
-	.profile-main h2 {
-		font-family: var(--font-heading);
-		font-size: 1.3rem;
-		color: var(--accent);
-		letter-spacing: 1px;
-		text-shadow:
-			2px 2px 0 #000,
-			0 0 20px var(--accent-glow);
-		margin-bottom: 1rem;
-	}
+  .profile-main h2 {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-shadow:
+      2px 2px 0 #000,
+      0 0 20px var(--accent-glow);
+    margin-bottom: 1rem;
+  }
 
-	.bio {
-		color: var(--text-secondary);
-		font-size: 1rem;
-		line-height: 1.8;
-	}
+  .bio {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.8;
+  }
 
-	.info-card,
-	.fun-fact-card {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 16px;
-		padding: 1.5rem;
-		margin-bottom: 1rem;
-	}
+  .info-card,
+  .fun-fact-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
 
-	.info-card h3,
-	.fun-fact-card h3 {
-		font-family: var(--font-heading);
-		font-size: 1rem;
-		margin-bottom: 1rem;
-		color: var(--accent-yellow);
-		letter-spacing: 1px;
-	}
+  .info-card h3,
+  .fun-fact-card h3 {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+  }
 
-	.info-row {
-		display: flex;
-		justify-content: space-between;
-		padding: 0.6rem 0;
-		border-bottom: 1px solid var(--border-card);
-	}
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border-card);
+  }
 
-	.info-label {
-		color: var(--text-muted);
-		font-size: 0.85rem;
-	}
-	.info-value {
-		color: var(--accent);
-		font-family: var(--font-title);
-		font-size: 0.8rem;
-	}
+  .info-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+  .info-value {
+    color: var(--accent);
+    font-family: var(--font-title);
+    font-size: 0.8rem;
+  }
 
-	.fun-fact-card {
-		background: rgba(255, 204, 0, 0.05);
-		border-color: rgba(255, 204, 0, 0.2);
-	}
+  .fun-fact-card {
+    background: rgba(255, 204, 0, 0.05);
+    border-color: rgba(255, 204, 0, 0.2);
+  }
 
-	.fun-fact-card h3 {
-		color: var(--accent-yellow);
-	}
+  .fun-fact-card h3 {
+    color: var(--accent-yellow);
+  }
 
-	.fun-fact-card p {
-		color: var(--text-secondary);
-		font-size: 0.9rem;
-		font-style: italic;
-		line-height: 1.6;
-	}
+  .fun-fact-card p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-style: italic;
+    line-height: 1.6;
+  }
 
-	@media (max-width: 768px) {
-		.profile-header {
-			flex-direction: column;
-			text-align: center;
-		}
-		.profile-grid {
-			grid-template-columns: 1fr;
-		}
-		.profile-info h1 {
-			font-size: 2rem;
-		}
-	}
+  @media (max-width: 768px) {
+    .profile-header {
+      flex-direction: column;
+      text-align: center;
+    }
+    .profile-grid {
+      grid-template-columns: 1fr;
+    }
+    .profile-info h1 {
+      font-size: 2rem;
+    }
+  }
 </style>

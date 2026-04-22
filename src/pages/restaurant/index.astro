@@ -1,12 +1,17 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import { sections as sectionsApi, items as itemsApi, itemLabels, menus as menusApi } from '@wix/restaurants';
-import { i18n, auth } from '@wix/essentials';
-import { getRelativeLocaleUrl } from 'wix:astro:i18n';
-import { getShapeUrl } from '../../utils/image';
-import { getSiteCurrency } from '../../utils/site';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import {
+  sections as sectionsApi,
+  items as itemsApi,
+  itemLabels,
+  menus as menusApi,
+} from "@wix/restaurants";
+import { i18n, auth } from "@wix/essentials";
+import { getRelativeLocaleUrl } from "wix:astro:i18n";
+import { getShapeUrl } from "../../utils/image";
+import { getSiteCurrency } from "../../utils/site";
 
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
@@ -28,385 +33,409 @@ const allItems = itemsResult.items || [];
 const itemById = new Map(allItems.map((i) => [i._id!, i]));
 
 interface LabelInfo {
-	name: string;
-	icon: string | null;
+  name: string;
+  icon: string | null;
 }
 const elevatedListLabels = auth.elevate(itemLabels.listLabels);
 const labelMap = new Map<string, LabelInfo>();
 try {
-	const labelsResult = await elevatedListLabels();
-	for (const label of (labelsResult as { labels?: Array<{ _id?: string; name?: string; icon?: unknown }> })?.labels ||
-		[]) {
-		if (label._id && label.name) {
-			labelMap.set(label._id, { name: label.name, icon: getShapeUrl(label.icon) });
-		}
-	}
+  const labelsResult = await elevatedListLabels();
+  for (const label of (
+    labelsResult as {
+      labels?: Array<{ _id?: string; name?: string; icon?: unknown }>;
+    }
+  )?.labels || []) {
+    if (label._id && label.name) {
+      labelMap.set(label._id, {
+        name: label.name,
+        icon: getShapeUrl(label.icon),
+      });
+    }
+  }
 } catch {}
 
 interface ItemDisplay {
-	_id: string;
-	name: string;
-	description: string;
-	price: string;
-	labels: LabelInfo[];
+  _id: string;
+  name: string;
+  description: string;
+  price: string;
+  labels: LabelInfo[];
 }
 interface SectionDisplay {
-	_id: string;
-	name: string;
-	description: string;
-	items: ItemDisplay[];
+  _id: string;
+  name: string;
+  description: string;
+  items: ItemDisplay[];
 }
 interface MenuDisplay {
-	_id: string;
-	name: string;
-	description: string;
-	sections: SectionDisplay[];
+  _id: string;
+  name: string;
+  description: string;
+  sections: SectionDisplay[];
 }
 
 interface PriceSource {
-	priceVariants?: {
-		variants?: Array<{ priceInfo?: { price?: string | null } | null; price?: string | null }> | null;
-	} | null;
-	priceInfo?: { price?: string | null } | null;
+  priceVariants?: {
+    variants?: Array<{
+      priceInfo?: { price?: string | null } | null;
+      price?: string | null;
+    }> | null;
+  } | null;
+  priceInfo?: { price?: string | null } | null;
 }
 interface LabelSource {
-	labels?: Array<{ id?: string | null; _id?: string | null }> | null;
+  labels?: Array<{ id?: string | null; _id?: string | null }> | null;
 }
 
-const priceFormatter = new Intl.NumberFormat(locale, { style: 'currency', currency });
+const priceFormatter = new Intl.NumberFormat(locale, {
+  style: "currency",
+  currency,
+});
 
 function formatPrice(item: PriceSource): string {
-	const variants = item.priceVariants?.variants;
-	if (variants?.length) {
-		const prices = variants.map((v) => parseFloat(v.priceInfo?.price || v.price || '0'));
-		const min = Math.min(...prices);
-		const max = Math.max(...prices);
-		return min === max ? priceFormatter.format(min) : `${priceFormatter.format(min)} – ${priceFormatter.format(max)}`;
-	}
-	if (item.priceInfo?.price) return priceFormatter.format(parseFloat(item.priceInfo.price));
-	return '';
+  const variants = item.priceVariants?.variants;
+  if (variants?.length) {
+    const prices = variants.map((v) =>
+      parseFloat(v.priceInfo?.price || v.price || "0"),
+    );
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return min === max
+      ? priceFormatter.format(min)
+      : `${priceFormatter.format(min)} – ${priceFormatter.format(max)}`;
+  }
+  if (item.priceInfo?.price)
+    return priceFormatter.format(parseFloat(item.priceInfo.price));
+  return "";
 }
 
 function getItemLabels(item: LabelSource): LabelInfo[] {
-	return (item.labels || [])
-		.map((l) => {
-			const id = l?.id || l?._id;
-			return id ? labelMap.get(id) : null;
-		})
-		.filter((l): l is LabelInfo => !!l);
+  return (item.labels || [])
+    .map((l) => {
+      const id = l?.id || l?._id;
+      return id ? labelMap.get(id) : null;
+    })
+    .filter((l): l is LabelInfo => !!l);
 }
 
 const menuDisplays: MenuDisplay[] = allMenus
-	.map((menu) => {
-		const sectionIds = menu.sectionIds || [];
-		const sections: SectionDisplay[] = sectionIds
-			.map((id) => sectionById.get(id))
-			.filter((s): s is NonNullable<typeof s> => !!s && s.visible !== false)
-			.map((section) => {
-				const items: ItemDisplay[] = (section.itemIds || [])
-					.map((id) => itemById.get(id))
-					.filter((i): i is NonNullable<typeof i> => !!i && i.visible !== false)
-					.map((item) => ({
-						_id: item._id!,
-						name: item.name || '',
-						description: item.description || '',
-						price: formatPrice(item as PriceSource),
-						labels: getItemLabels(item as LabelSource),
-					}));
-				return {
-					_id: section._id!,
-					name: section.name || '',
-					description: section.description || '',
-					items,
-				};
-			})
-			.filter((s) => s.items.length > 0);
-		return {
-			_id: menu._id!,
-			name: menu.name || '',
-			description: menu.description || '',
-			sections,
-		};
-	})
-	.filter((m) => m.sections.length > 0);
+  .map((menu) => {
+    const sectionIds = menu.sectionIds || [];
+    const sections: SectionDisplay[] = sectionIds
+      .map((id) => sectionById.get(id))
+      .filter((s): s is NonNullable<typeof s> => !!s && s.visible !== false)
+      .map((section) => {
+        const items: ItemDisplay[] = (section.itemIds || [])
+          .map((id) => itemById.get(id))
+          .filter((i): i is NonNullable<typeof i> => !!i && i.visible !== false)
+          .map((item) => ({
+            _id: item._id!,
+            name: item.name || "",
+            description: item.description || "",
+            price: formatPrice(item as PriceSource),
+            labels: getItemLabels(item as LabelSource),
+          }));
+        return {
+          _id: section._id!,
+          name: section.name || "",
+          description: section.description || "",
+          items,
+        };
+      })
+      .filter((s) => s.items.length > 0);
+    return {
+      _id: menu._id!,
+      name: menu.name || "",
+      description: menu.description || "",
+      sections,
+    };
+  })
+  .filter((m) => m.sections.length > 0);
 ---
 
-<Layout title={`${t('restaurant.pageTitle')} - ${t('home.title')}`}>
-	<Nav />
-	<section class="page-header">
-		<div class="container">
-			<div class="menu-ctas">
-				<a class="menu-cta" href={getRelativeLocaleUrl('/restaurant/reserve')}>
-					<span class="menu-cta-icon" aria-hidden="true">🪑</span>
-					<span class="menu-cta-label">{t('restaurant.reserve')}</span>
-				</a>
-				<a class="menu-cta menu-cta-primary" href={getRelativeLocaleUrl('/restaurant/order')}>
-					<span class="menu-cta-icon" aria-hidden="true">🚗</span>
-					<span class="menu-cta-label">{t('restaurant.order')}</span>
-				</a>
-			</div>
-		</div>
-	</section>
+<Layout title={`${t("restaurant.pageTitle")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="page-header">
+    <div class="container">
+      <div class="menu-ctas">
+        <a class="menu-cta" href={getRelativeLocaleUrl("/restaurant/reserve")}>
+          <span class="menu-cta-icon" aria-hidden="true">🪑</span>
+          <span class="menu-cta-label">{t("restaurant.reserve")}</span>
+        </a>
+        <a
+          class="menu-cta menu-cta-primary"
+          href={getRelativeLocaleUrl("/restaurant/order")}
+        >
+          <span class="menu-cta-icon" aria-hidden="true">🚗</span>
+          <span class="menu-cta-label">{t("restaurant.order")}</span>
+        </a>
+      </div>
+    </div>
+  </section>
 
-	<section class="menu-content">
-		<div class="container menu-container">
-			{
-				menuDisplays.length === 0 && (
-					<div class="empty-menu">
-						<p>{t('restaurant.noItems')}</p>
-					</div>
-				)
-			}
+  <section class="menu-content">
+    <div class="container menu-container">
+      {
+        menuDisplays.length === 0 && (
+          <div class="empty-menu">
+            <p>{t("restaurant.noItems")}</p>
+          </div>
+        )
+      }
 
-			{
-				menuDisplays.map((menu) => (
-					<article class="menu">
-						<header class="menu-header">
-							<h2 class="menu-name">{menu.name}</h2>
-							{menu.description && <p class="menu-desc">{menu.description}</p>}
-						</header>
+      {
+        menuDisplays.map((menu) => (
+          <article class="menu">
+            <header class="menu-header">
+              <h2 class="menu-name">{menu.name}</h2>
+              {menu.description && <p class="menu-desc">{menu.description}</p>}
+            </header>
 
-						{menu.sections.map((section) => (
-							<section class="menu-section">
-								<h3 class="menu-section-name">{section.name}</h3>
-								{section.description && <p class="menu-section-desc">{section.description}</p>}
-								<ul class="dish-list">
-									{section.items.map((item) => (
-										<li class="dish">
-											<div class="dish-head">
-												<h4 class="dish-name">{item.name}</h4>
-												<span class="dish-dots" aria-hidden="true" />
-												<span class="dish-price">{item.price}</span>
-											</div>
-											{item.description && <p class="dish-desc">{item.description}</p>}
-											{item.labels.length > 0 && (
-												<div class="dish-labels">
-													{item.labels.map((label) => (
-														<span class="dish-label" title={label.name}>
-															{label.icon && (
-																<span
-																	class="dish-label-icon"
-																	style={`-webkit-mask-image:url(${label.icon});mask-image:url(${label.icon})`}
-																/>
-															)}
-															<span>{label.name}</span>
-														</span>
-													))}
-												</div>
-											)}
-										</li>
-									))}
-								</ul>
-							</section>
-						))}
-					</article>
-				))
-			}
-		</div>
-	</section>
-	<Footer />
+            {menu.sections.map((section) => (
+              <section class="menu-section">
+                <h3 class="menu-section-name">{section.name}</h3>
+                {section.description && (
+                  <p class="menu-section-desc">{section.description}</p>
+                )}
+                <ul class="dish-list">
+                  {section.items.map((item) => (
+                    <li class="dish">
+                      <div class="dish-head">
+                        <h4 class="dish-name">{item.name}</h4>
+                        <span class="dish-dots" aria-hidden="true" />
+                        <span class="dish-price">{item.price}</span>
+                      </div>
+                      {item.description && (
+                        <p class="dish-desc">{item.description}</p>
+                      )}
+                      {item.labels.length > 0 && (
+                        <div class="dish-labels">
+                          {item.labels.map((label) => (
+                            <span class="dish-label" title={label.name}>
+                              {label.icon && (
+                                <span
+                                  class="dish-label-icon"
+                                  style={`-webkit-mask-image:url(${label.icon});mask-image:url(${label.icon})`}
+                                />
+                              )}
+                              <span>{label.name}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </article>
+        ))
+      }
+    </div>
+  </section>
+  <Footer />
 </Layout>
 
 <style>
-	.page-header {
-		padding: 48px 0 32px;
-	}
+  .page-header {
+    padding: 48px 0 32px;
+  }
 
-	.menu-ctas {
-		display: flex;
-		gap: 12px;
-		justify-content: center;
-		flex-wrap: wrap;
-	}
+  .menu-ctas {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
 
-	.menu-cta {
-		display: inline-flex;
-		align-items: center;
-		gap: 10px;
-		padding: 12px 22px;
-		background: rgba(255, 255, 255, 0.03);
-		border: 1px solid var(--border-card);
-		border-radius: 999px;
-		color: var(--text-primary);
-		font-family: var(--font-heading);
-		font-size: 0.9rem;
-		letter-spacing: 1px;
-		text-decoration: none;
-		transition: all 0.15s;
-	}
+  .menu-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 22px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-card);
+    border-radius: 999px;
+    color: var(--text-primary);
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
 
-	.menu-cta:hover {
-		border-color: var(--accent);
-		color: var(--accent);
-	}
+  .menu-cta:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
 
-	.menu-cta-primary {
-		background: var(--accent);
-		color: #000;
-		border-color: var(--accent);
-	}
+  .menu-cta-primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
 
-	.menu-cta-primary:hover {
-		background: var(--accent-yellow);
-		border-color: var(--accent-yellow);
-		color: #000;
-	}
+  .menu-cta-primary:hover {
+    background: var(--accent-yellow);
+    border-color: var(--accent-yellow);
+    color: #000;
+  }
 
-	.menu-cta-icon {
-		font-size: 1rem;
-	}
+  .menu-cta-icon {
+    font-size: 1rem;
+  }
 
-	.menu-content {
-		padding-bottom: 80px;
-	}
+  .menu-content {
+    padding-bottom: 80px;
+  }
 
-	.menu-container {
-		max-width: 800px;
-	}
+  .menu-container {
+    max-width: 800px;
+  }
 
-	.menu {
-		margin-bottom: 72px;
-	}
+  .menu {
+    margin-bottom: 72px;
+  }
 
-	.menu-header {
-		text-align: center;
-		margin-bottom: 40px;
-		padding-bottom: 24px;
-		border-bottom: 2px solid var(--accent);
-	}
+  .menu-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid var(--accent);
+  }
 
-	.menu-name {
-		font-family: var(--font-title);
-		font-size: 2.2rem;
-		color: var(--accent);
-		letter-spacing: 3px;
-		text-transform: uppercase;
-		text-shadow: 0 0 20px var(--accent-glow);
-	}
+  .menu-name {
+    font-family: var(--font-title);
+    font-size: 2.2rem;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    text-shadow: 0 0 20px var(--accent-glow);
+  }
 
-	.menu-desc {
-		color: var(--text-secondary);
-		font-style: italic;
-		margin-top: 8px;
-		line-height: 1.5;
-	}
+  .menu-desc {
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 8px;
+    line-height: 1.5;
+  }
 
-	.menu-section {
-		margin-bottom: 48px;
-	}
+  .menu-section {
+    margin-bottom: 48px;
+  }
 
-	.menu-section-name {
-		font-family: var(--font-heading);
-		font-size: 1.3rem;
-		color: var(--accent-yellow);
-		letter-spacing: 2px;
-		text-transform: uppercase;
-		margin-bottom: 4px;
-	}
+  .menu-section-name {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--accent-yellow);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
 
-	.menu-section-desc {
-		color: var(--text-muted);
-		font-size: 0.85rem;
-		font-style: italic;
-		margin-bottom: 20px;
-	}
+  .menu-section-desc {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-style: italic;
+    margin-bottom: 20px;
+  }
 
-	.dish-list {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 22px;
-	}
+  .dish-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
 
-	.dish {
-		color: var(--text-primary);
-	}
+  .dish {
+    color: var(--text-primary);
+  }
 
-	.dish-head {
-		display: flex;
-		align-items: baseline;
-		gap: 8px;
-	}
+  .dish-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
 
-	.dish-name {
-		font-family: var(--font-heading);
-		font-size: 1rem;
-		color: var(--text-primary);
-		letter-spacing: 0.5px;
-		flex-shrink: 0;
-	}
+  .dish-name {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
 
-	.dish-dots {
-		flex: 1;
-		border-bottom: 1px dotted #444;
-		margin: 0 6px 4px;
-		min-width: 20px;
-	}
+  .dish-dots {
+    flex: 1;
+    border-bottom: 1px dotted #444;
+    margin: 0 6px 4px;
+    min-width: 20px;
+  }
 
-	.dish-price {
-		font-family: var(--font-heading);
-		font-size: 1rem;
-		color: var(--accent-yellow);
-		letter-spacing: 0.5px;
-		flex-shrink: 0;
-	}
+  .dish-price {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    color: var(--accent-yellow);
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
 
-	.dish-desc {
-		color: var(--text-muted);
-		font-size: 0.85rem;
-		line-height: 1.5;
-		margin-top: 4px;
-		padding-inline-end: 48px;
-	}
+  .dish-desc {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin-top: 4px;
+    padding-inline-end: 48px;
+  }
 
-	.dish-labels {
-		display: flex;
-		gap: 6px;
-		flex-wrap: wrap;
-		margin-top: 6px;
-	}
+  .dish-labels {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
 
-	.dish-label {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		font-family: var(--font-heading);
-		font-size: 0.65rem;
-		padding: 2px 8px;
-		background: rgba(255, 102, 0, 0.1);
-		color: var(--accent);
-		border-radius: 999px;
-		letter-spacing: 1px;
-	}
+  .dish-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-heading);
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    background: rgba(255, 102, 0, 0.1);
+    color: var(--accent);
+    border-radius: 999px;
+    letter-spacing: 1px;
+  }
 
-	.dish-label-icon {
-		display: inline-block;
-		width: 14px;
-		height: 14px;
-		background-color: var(--accent);
-		-webkit-mask-repeat: no-repeat;
-		mask-repeat: no-repeat;
-		-webkit-mask-size: contain;
-		mask-size: contain;
-		-webkit-mask-position: center;
-		mask-position: center;
-	}
+  .dish-label-icon {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    background-color: var(--accent);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
 
-	.empty-menu {
-		text-align: center;
-		padding: 60px 20px;
-		color: var(--text-muted);
-	}
+  .empty-menu {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
 
-	@media (max-width: 640px) {
-		.menu-name {
-			font-size: 1.7rem;
-		}
+  @media (max-width: 640px) {
+    .menu-name {
+      font-size: 1.7rem;
+    }
 
-		.dish-desc {
-			padding-inline-end: 0;
-		}
-	}
+    .dish-desc {
+      padding-inline-end: 0;
+    }
+  }
 </style>

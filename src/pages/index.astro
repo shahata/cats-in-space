@@ -1,647 +1,679 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import Nav from '../components/Nav.astro';
-import Footer from '../components/Footer.astro';
-import { items } from '@wix/data';
-import { getImageUrl } from '../utils/image';
-import { i18n } from '@wix/essentials';
+import Layout from "../layouts/Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import { items } from "@wix/data";
+import { getImageUrl } from "../utils/image";
+import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
-const planetsResult = await items.query('Planets').descending('habitabilityScore').limit(3).find();
+const planetsResult = await items
+  .query("Planets")
+  .descending("habitabilityScore")
+  .limit(3)
+  .find();
 const planets = planetsResult.items;
 
-const crewResult = await items.query('CatExplorers').limit(6).find();
+const crewResult = await items.query("CatExplorers").limit(6).find();
 const crew = crewResult.items;
 
-const missionsResult = await items.query('Missions').limit(4).find();
+const missionsResult = await items.query("Missions").limit(4).find();
 const missions = missionsResult.items;
 
 function getStatusBadge(status: string) {
-	const map: Record<string, string> = {
-		'Top Candidate': 'badge-green',
-		Exploring: 'badge-blue',
-		Candidate: 'badge-purple',
-		Rejected: 'badge-pink',
-		Active: 'badge-green',
-		'On Mission': 'badge-gold',
-		Retired: 'badge-pink',
-		'In Progress': 'badge-blue',
-		'Launching Soon': 'badge-gold',
-		Planning: 'badge-purple',
-		Planned: 'badge-purple',
-	};
-	return map[status] || 'badge-blue';
+  const map: Record<string, string> = {
+    "Top Candidate": "badge-green",
+    Exploring: "badge-blue",
+    Candidate: "badge-purple",
+    Rejected: "badge-pink",
+    Active: "badge-green",
+    "On Mission": "badge-gold",
+    Retired: "badge-pink",
+    "In Progress": "badge-blue",
+    "Launching Soon": "badge-gold",
+    Planning: "badge-purple",
+    Planned: "badge-purple",
+  };
+  return map[status] || "badge-blue";
 }
 ---
 
-<Layout title={`${t('home.title')} - ${t('home.titleTagline')}`}>
-	<Nav />
+<Layout title={`${t("home.title")} - ${t("home.titleTagline")}`}>
+  <Nav />
 
-	<!-- Ticker -->
-	<div class="ticker">
-		<div class="ticker-content">
-			{t('home.ticker')}
-		</div>
-	</div>
+  <!-- Ticker -->
+  <div class="ticker">
+    <div class="ticker-content">
+      {t("home.ticker")}
+    </div>
+  </div>
 
-	<!-- Hero -->
-	<section class="hero">
-		{
-			planets[0] && getImageUrl(planets[0].image) && (
-				<div class="hero-bg" style={`background-image: url(${getImageUrl(planets[0].image, 1200, 800)})`} />
-			)
-		}
-		<div class="hero-content container">
-			<h1>{t('home.title')}</h1>
-			<p class="hero-subtitle">{t('home.subtitle')}</p>
-			<p class="hero-desc">
-				{t('home.description')}
-			</p>
-			<div class="hero-actions">
-				<a href="/aboard" class="btn">{t('home.exploreShip')}</a>
-				<a href="/planets" class="btn btn-outline">{t('home.explorePlanets')}</a>
-				<a href="/crew" class="btn btn-outline">{t('home.meetCrew')}</a>
-			</div>
-		</div>
-	</section>
+  <!-- Hero -->
+  <section class="hero">
+    {
+      planets[0] && getImageUrl(planets[0].image) && (
+        <div
+          class="hero-bg"
+          style={`background-image: url(${getImageUrl(planets[0].image, 1200, 800)})`}
+        />
+      )
+    }
+    <div class="hero-content container">
+      <h1>{t("home.title")}</h1>
+      <p class="hero-subtitle">{t("home.subtitle")}</p>
+      <p class="hero-desc">
+        {t("home.description")}
+      </p>
+      <div class="hero-actions">
+        <a href="/aboard" class="btn">{t("home.exploreShip")}</a>
+        <a href="/planets" class="btn btn-outline">{t("home.explorePlanets")}</a
+        >
+        <a href="/crew" class="btn btn-outline">{t("home.meetCrew")}</a>
+      </div>
+    </div>
+  </section>
 
-	<!-- Stats -->
-	<section class="stats">
-		<div class="container">
-			<div class="stats-grid">
-				<div class="stat-box">
-					<div class="stat-num">{planets.length}+</div>
-					<div class="stat-label">{t('home.planetsScanned')}</div>
-				</div>
-				<div class="stat-box">
-					<div class="stat-num">{crew.length}</div>
-					<div class="stat-label">{t('home.braveExplorers')}</div>
-				</div>
-				<div class="stat-box">
-					<div class="stat-num">{missions.length}</div>
-					<div class="stat-label">{t('home.activeMissions')}</div>
-				</div>
-				<div class="stat-box">
-					<div class="stat-num">0</div>
-					<div class="stat-label">{t('home.vacuumCleaners')}</div>
-				</div>
-			</div>
-		</div>
-	</section>
+  <!-- Stats -->
+  <section class="stats">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-num">{planets.length}+</div>
+          <div class="stat-label">{t("home.planetsScanned")}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">{crew.length}</div>
+          <div class="stat-label">{t("home.braveExplorers")}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">{missions.length}</div>
+          <div class="stat-label">{t("home.activeMissions")}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">0</div>
+          <div class="stat-label">{t("home.vacuumCleaners")}</div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-	<!-- Story Cards: Planets -->
-	<section class="stories">
-		<div class="container">
-			<h2 class="section-title">{t('home.topPlanets')}</h2>
-			<p class="section-subtitle">{t('home.topPlanetsSubtitle')}</p>
+  <!-- Story Cards: Planets -->
+  <section class="stories">
+    <div class="container">
+      <h2 class="section-title">{t("home.topPlanets")}</h2>
+      <p class="section-subtitle">{t("home.topPlanetsSubtitle")}</p>
 
-			{
-				planets.map((planet, i) => (
-					<a href={`/planets/${planet.slug}`} class:list={['story-card', { reverse: i % 2 !== 0 }]}>
-						{getImageUrl(planet.image) && <img src={getImageUrl(planet.image, 600, 450)!} alt={planet.title} />}
-						<div class="story-content">
-							<div class="story-top">
-								<span class={`badge ${getStatusBadge(planet.status)}`}>{planet.status}</span>
-							</div>
-							<h3>{planet.title}</h3>
-							<p class="story-tagline">{planet.tagline}</p>
-							<p class="story-desc">{planet.description.slice(0, 200)}...</p>
-							<div class="story-stats">
-								<div class="story-stat">
-									<span class="story-stat-num">{planet.habitabilityScore}%</span>
-									<span class="story-stat-label">{t('home.habitable')}</span>
-								</div>
-								<div class="story-stat">
-									<span class="story-stat-num">
-										{planet.distance} {t('planets.ly')}
-									</span>
-									<span class="story-stat-label">{t('home.distance')}</span>
-								</div>
-							</div>
-						</div>
-					</a>
-				))
-			}
-		</div>
-	</section>
+      {
+        planets.map((planet, i) => (
+          <a
+            href={`/planets/${planet.slug}`}
+            class:list={["story-card", { reverse: i % 2 !== 0 }]}
+          >
+            {getImageUrl(planet.image) && (
+              <img
+                src={getImageUrl(planet.image, 600, 450)!}
+                alt={planet.title}
+              />
+            )}
+            <div class="story-content">
+              <div class="story-top">
+                <span class={`badge ${getStatusBadge(planet.status)}`}>
+                  {planet.status}
+                </span>
+              </div>
+              <h3>{planet.title}</h3>
+              <p class="story-tagline">{planet.tagline}</p>
+              <p class="story-desc">{planet.description.slice(0, 200)}...</p>
+              <div class="story-stats">
+                <div class="story-stat">
+                  <span class="story-stat-num">
+                    {planet.habitabilityScore}%
+                  </span>
+                  <span class="story-stat-label">{t("home.habitable")}</span>
+                </div>
+                <div class="story-stat">
+                  <span class="story-stat-num">
+                    {planet.distance} {t("planets.ly")}
+                  </span>
+                  <span class="story-stat-label">{t("home.distance")}</span>
+                </div>
+              </div>
+            </div>
+          </a>
+        ))
+      }
+    </div>
+  </section>
 
-	<!-- Crew Grid -->
-	<section class="crew-section">
-		<div class="container">
-			<h2 class="section-title">{t('home.theCrew')}</h2>
-			<p class="section-subtitle">{t('home.theCrewSubtitle')}</p>
-			<div class="crew-grid">
-				{
-					crew.map((cat) => (
-						<a href={`/crew/${cat.slug}`} class="crew-card">
-							{getImageUrl(cat.image) ? (
-								<img src={getImageUrl(cat.image, 300, 300)!} alt={cat.name} class="crew-img" />
-							) : (
-								<div class="crew-placeholder">?</div>
-							)}
-							<div class="crew-info">
-								<span class={`badge ${getStatusBadge(cat.status)}`}>{cat.status}</span>
-								<h3>{cat.name}</h3>
-								<p class="crew-role">{cat.role}</p>
-								<p class="crew-skill">{cat.specialSkill}</p>
-							</div>
-						</a>
-					))
-				}
-			</div>
-			<div class="section-cta">
-				<a href="/crew" class="btn btn-outline">{t('home.fullCrewRoster')} <span class="rtl-flip">→</span></a>
-			</div>
-		</div>
-	</section>
+  <!-- Crew Grid -->
+  <section class="crew-section">
+    <div class="container">
+      <h2 class="section-title">{t("home.theCrew")}</h2>
+      <p class="section-subtitle">{t("home.theCrewSubtitle")}</p>
+      <div class="crew-grid">
+        {
+          crew.map((cat) => (
+            <a href={`/crew/${cat.slug}`} class="crew-card">
+              {getImageUrl(cat.image) ? (
+                <img
+                  src={getImageUrl(cat.image, 300, 300)!}
+                  alt={cat.name}
+                  class="crew-img"
+                />
+              ) : (
+                <div class="crew-placeholder">?</div>
+              )}
+              <div class="crew-info">
+                <span class={`badge ${getStatusBadge(cat.status)}`}>
+                  {cat.status}
+                </span>
+                <h3>{cat.name}</h3>
+                <p class="crew-role">{cat.role}</p>
+                <p class="crew-skill">{cat.specialSkill}</p>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+      <div class="section-cta">
+        <a href="/crew" class="btn btn-outline"
+          >{t("home.fullCrewRoster")} <span class="rtl-flip">→</span></a
+        >
+      </div>
+    </div>
+  </section>
 
-	<!-- Missions Timeline -->
-	<section class="missions-section">
-		<div class="container">
-			<h2 class="section-title">{t('home.missionLog')}</h2>
-			<p class="section-subtitle">{t('home.missionLogSubtitle')}</p>
-			<div class="timeline">
-				{
-					missions.map((mission) => (
-						<a href={`/missions/${mission.slug}`} class="timeline-item">
-							<div class="timeline-date">{mission.launchDate}</div>
-							<h4>{mission.title}</h4>
-							<p>{mission.description}</p>
-							<div class="timeline-meta">
-								<span class={`badge ${getStatusBadge(mission.status)}`}>{mission.status}</span>
-								<span class="timeline-dest">
-									{t('home.destination')}: {mission.planet}
-								</span>
-							</div>
-						</a>
-					))
-				}
-			</div>
-			<div class="section-cta">
-				<a href="/missions" class="btn btn-outline">{t('home.allMissions')} <span class="rtl-flip">→</span></a>
-			</div>
-		</div>
-	</section>
+  <!-- Missions Timeline -->
+  <section class="missions-section">
+    <div class="container">
+      <h2 class="section-title">{t("home.missionLog")}</h2>
+      <p class="section-subtitle">{t("home.missionLogSubtitle")}</p>
+      <div class="timeline">
+        {
+          missions.map((mission) => (
+            <a href={`/missions/${mission.slug}`} class="timeline-item">
+              <div class="timeline-date">{mission.launchDate}</div>
+              <h4>{mission.title}</h4>
+              <p>{mission.description}</p>
+              <div class="timeline-meta">
+                <span class={`badge ${getStatusBadge(mission.status)}`}>
+                  {mission.status}
+                </span>
+                <span class="timeline-dest">
+                  {t("home.destination")}: {mission.planet}
+                </span>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+      <div class="section-cta">
+        <a href="/missions" class="btn btn-outline"
+          >{t("home.allMissions")} <span class="rtl-flip">→</span></a
+        >
+      </div>
+    </div>
+  </section>
 
-	<!-- Quote -->
-	<section class="quotes">
-		<div class="container">
-			<p class="quote">"{t('home.quote')}"</p>
-			<p class="quote-author">&mdash; {t('home.quoteAuthor')}</p>
-		</div>
-	</section>
+  <!-- Quote -->
+  <section class="quotes">
+    <div class="container">
+      <p class="quote">"{t("home.quote")}"</p>
+      <p class="quote-author">&mdash; {t("home.quoteAuthor")}</p>
+    </div>
+  </section>
 
-	<Footer />
+  <Footer />
 </Layout>
 
 <style>
-	/* Ticker */
-	.ticker {
-		background: #cc0000;
-		color: white;
-		padding: 8px 0;
-		overflow: hidden;
-		white-space: nowrap;
-		font-family: var(--font-body);
-		font-weight: 700;
-		font-size: 0.85rem;
-		letter-spacing: 1px;
-	}
+  /* Ticker */
+  .ticker {
+    background: #cc0000;
+    color: white;
+    padding: 8px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+  }
 
-	.ticker-content {
-		display: inline-block;
-		animation: scroll 40s linear infinite;
-	}
+  .ticker-content {
+    display: inline-block;
+    animation: scroll 40s linear infinite;
+  }
 
-	@keyframes scroll {
-		from {
-			transform: translateX(100vw);
-		}
-		to {
-			transform: translateX(-200%);
-		}
-	}
+  @keyframes scroll {
+    from {
+      transform: translateX(100vw);
+    }
+    to {
+      transform: translateX(-200%);
+    }
+  }
 
-	/* Hero */
-	.hero {
-		min-height: 90vh;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		position: relative;
-		background: linear-gradient(135deg, #1a0a00 0%, #0a0a0a 50%, #000a1a 100%);
-		overflow: hidden;
-	}
+  /* Hero */
+  .hero {
+    min-height: 90vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: linear-gradient(135deg, #1a0a00 0%, #0a0a0a 50%, #000a1a 100%);
+    overflow: hidden;
+  }
 
-	.hero-bg {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-size: cover;
-		background-position: center;
-		opacity: 0.15;
-		filter: blur(3px);
-	}
+  .hero-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.15;
+    filter: blur(3px);
+  }
 
-	.hero-content {
-		text-align: center;
-		position: relative;
-		z-index: 1;
-		padding: 80px 20px;
-	}
+  .hero-content {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    padding: 80px 20px;
+  }
 
-	.hero-content h1 {
-		font-family: var(--font-title);
-		font-size: clamp(2.5rem, 7vw, 5rem);
-		color: var(--accent);
-		text-shadow:
-			3px 3px 0 #000,
-			0 0 30px var(--accent-glow-strong);
-		margin-bottom: 20px;
-		letter-spacing: 4px;
-	}
+  .hero-content h1 {
+    font-family: var(--font-title);
+    font-size: clamp(2.5rem, 7vw, 5rem);
+    color: var(--accent);
+    text-shadow:
+      3px 3px 0 #000,
+      0 0 30px var(--accent-glow-strong);
+    margin-bottom: 20px;
+    letter-spacing: 4px;
+  }
 
-	.hero-subtitle {
-		font-family: var(--font-heading);
-		font-size: clamp(1.2rem, 3vw, 2rem);
-		color: var(--accent-yellow);
-		letter-spacing: 2px;
-		margin-bottom: 20px;
-	}
+  .hero-subtitle {
+    font-family: var(--font-heading);
+    font-size: clamp(1.2rem, 3vw, 2rem);
+    color: var(--accent-yellow);
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
 
-	.hero-desc {
-		color: var(--text-secondary);
-		font-size: 1.1rem;
-		max-width: 600px;
-		margin: 0 auto 30px;
-		line-height: 1.7;
-	}
+  .hero-desc {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: 0 auto 30px;
+    line-height: 1.7;
+  }
 
-	.hero-actions {
-		display: flex;
-		gap: 16px;
-		justify-content: center;
-		flex-wrap: wrap;
-	}
+  .hero-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
 
-	.btn {
-		display: inline-block;
-		padding: 12px 32px;
-		background: var(--accent);
-		color: #000;
-		font-family: var(--font-heading);
-		font-size: 1.1rem;
-		letter-spacing: 2px;
-		border-radius: 8px;
-		transition: all 0.3s;
-		border: 2px solid var(--accent);
-	}
+  .btn {
+    display: inline-block;
+    padding: 12px 32px;
+    background: var(--accent);
+    color: #000;
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    border-radius: 8px;
+    transition: all 0.3s;
+    border: 2px solid var(--accent);
+  }
 
-	.btn:hover {
-		background: var(--accent-yellow);
-		border-color: var(--accent-yellow);
-		color: #000;
-		transform: translateY(-2px);
-		box-shadow: 0 0 20px var(--accent-glow);
-	}
+  .btn:hover {
+    background: var(--accent-yellow);
+    border-color: var(--accent-yellow);
+    color: #000;
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
 
-	.btn-outline {
-		background: transparent;
-		color: var(--accent);
-	}
+  .btn-outline {
+    background: transparent;
+    color: var(--accent);
+  }
 
-	.btn-outline:hover {
-		background: var(--accent);
-		color: #000;
-	}
+  .btn-outline:hover {
+    background: var(--accent);
+    color: #000;
+  }
 
-	/* Stats */
-	.stats {
-		padding: 60px 20px;
-		background: var(--bg-primary);
-	}
+  /* Stats */
+  .stats {
+    padding: 60px 20px;
+    background: var(--bg-primary);
+  }
 
-	.stats-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: 20px;
-	}
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+  }
 
-	.stat-box {
-		text-align: center;
-		padding: 30px 20px;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-	}
+  .stat-box {
+    text-align: center;
+    padding: 30px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+  }
 
-	.stat-num {
-		font-family: var(--font-title);
-		font-size: 2.5rem;
-		color: var(--accent);
-		text-shadow: 0 0 15px var(--accent-glow);
-	}
+  .stat-num {
+    font-family: var(--font-title);
+    font-size: 2.5rem;
+    color: var(--accent);
+    text-shadow: 0 0 15px var(--accent-glow);
+  }
 
-	.stat-label {
-		font-family: var(--font-heading);
-		color: var(--text-muted);
-		font-size: 1rem;
-		letter-spacing: 1px;
-		margin-top: 4px;
-	}
+  .stat-label {
+    font-family: var(--font-heading);
+    color: var(--text-muted);
+    font-size: 1rem;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
 
-	/* Story Cards */
-	.stories {
-		padding: 80px 20px;
-	}
+  /* Story Cards */
+  .stories {
+    padding: 80px 20px;
+  }
 
-	.story-card {
-		display: flex;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 16px;
-		overflow: hidden;
-		margin-bottom: 40px;
-		transition: transform 0.3s;
-		color: var(--text-primary);
-	}
+  .story-card {
+    display: flex;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 40px;
+    transition: transform 0.3s;
+    color: var(--text-primary);
+  }
 
-	.story-card:hover {
-		transform: translateY(-4px);
-		color: var(--text-primary);
-		box-shadow: 0 0 40px var(--accent-glow);
-	}
+  .story-card:hover {
+    transform: translateY(-4px);
+    color: var(--text-primary);
+    box-shadow: 0 0 40px var(--accent-glow);
+  }
 
-	.story-card.reverse {
-		flex-direction: row-reverse;
-	}
+  .story-card.reverse {
+    flex-direction: row-reverse;
+  }
 
-	.story-card img {
-		width: 400px;
-		min-height: 300px;
-		object-fit: cover;
-		flex-shrink: 0;
-	}
+  .story-card img {
+    width: 400px;
+    min-height: 300px;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
 
-	.story-content {
-		padding: 40px;
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-	}
+  .story-content {
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
 
-	.story-top {
-		margin-bottom: 12px;
-	}
+  .story-top {
+    margin-bottom: 12px;
+  }
 
-	.story-content h3 {
-		font-family: var(--font-heading);
-		font-size: 1.8rem;
-		color: var(--accent-yellow);
-		letter-spacing: 2px;
-		margin-bottom: 8px;
-	}
+  .story-content h3 {
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+    color: var(--accent-yellow);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
 
-	.story-tagline {
-		color: var(--accent);
-		font-style: italic;
-		font-size: 1rem;
-		margin-bottom: 12px;
-	}
+  .story-tagline {
+    color: var(--accent);
+    font-style: italic;
+    font-size: 1rem;
+    margin-bottom: 12px;
+  }
 
-	.story-desc {
-		color: var(--text-secondary);
-		font-size: 0.95rem;
-		line-height: 1.7;
-		margin-bottom: 20px;
-	}
+  .story-desc {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 20px;
+  }
 
-	.story-stats {
-		display: flex;
-		gap: 30px;
-	}
+  .story-stats {
+    display: flex;
+    gap: 30px;
+  }
 
-	.story-stat-num {
-		font-family: var(--font-title);
-		font-size: 1.3rem;
-		color: var(--accent);
-	}
+  .story-stat-num {
+    font-family: var(--font-title);
+    font-size: 1.3rem;
+    color: var(--accent);
+  }
 
-	.story-stat-label {
-		font-size: 0.75rem;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 1px;
-		margin-left: 6px;
-	}
+  .story-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-left: 6px;
+  }
 
-	/* Crew Grid */
-	.crew-section {
-		padding: 80px 20px;
-		background: #111;
-	}
+  /* Crew Grid */
+  .crew-section {
+    padding: 80px 20px;
+    background: #111;
+  }
 
-	.crew-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: 20px;
-	}
+  .crew-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
 
-	.crew-card {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 16px;
-		overflow: hidden;
-		transition: transform 0.3s;
-		color: var(--text-primary);
-		display: block;
-	}
+  .crew-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: transform 0.3s;
+    color: var(--text-primary);
+    display: block;
+  }
 
-	.crew-card:hover {
-		transform: translateY(-4px);
-		color: var(--text-primary);
-		box-shadow: 0 0 30px var(--accent-glow);
-	}
+  .crew-card:hover {
+    transform: translateY(-4px);
+    color: var(--text-primary);
+    box-shadow: 0 0 30px var(--accent-glow);
+  }
 
-	.crew-img {
-		width: 100%;
-		height: 250px;
-		object-fit: cover;
-	}
+  .crew-img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+  }
 
-	.crew-placeholder {
-		width: 100%;
-		height: 250px;
-		background: #1a1a1a;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-family: var(--font-title);
-		font-size: 3rem;
-		color: var(--text-dark);
-	}
+  .crew-placeholder {
+    width: 100%;
+    height: 250px;
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-title);
+    font-size: 3rem;
+    color: var(--text-dark);
+  }
 
-	.crew-info {
-		padding: 20px;
-	}
+  .crew-info {
+    padding: 20px;
+  }
 
-	.crew-info h3 {
-		font-family: var(--font-heading);
-		font-size: 1.4rem;
-		color: var(--accent-yellow);
-		letter-spacing: 1px;
-		margin-top: 8px;
-	}
+  .crew-info h3 {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+    margin-top: 8px;
+  }
 
-	.crew-role {
-		font-family: var(--font-heading);
-		color: var(--accent);
-		font-size: 0.95rem;
-		letter-spacing: 1px;
-	}
+  .crew-role {
+    font-family: var(--font-heading);
+    color: var(--accent);
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+  }
 
-	.crew-skill {
-		color: var(--text-muted);
-		font-size: 0.85rem;
-		font-style: italic;
-		margin-top: 8px;
-	}
+  .crew-skill {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-style: italic;
+    margin-top: 8px;
+  }
 
-	.section-cta {
-		text-align: center;
-		margin-top: 40px;
-	}
+  .section-cta {
+    text-align: center;
+    margin-top: 40px;
+  }
 
-	/* Timeline */
-	.missions-section {
-		padding: 80px 20px;
-	}
+  /* Timeline */
+  .missions-section {
+    padding: 80px 20px;
+  }
 
-	.timeline {
-		position: relative;
-		padding-left: 40px;
-	}
+  .timeline {
+    position: relative;
+    padding-left: 40px;
+  }
 
-	.timeline::before {
-		content: '';
-		position: absolute;
-		left: 8px;
-		top: 0;
-		bottom: 0;
-		width: 3px;
-		background: var(--accent);
-		box-shadow: 0 0 10px var(--accent-glow);
-	}
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
 
-	.timeline-item {
-		position: relative;
-		margin-bottom: 40px;
-		padding: 24px;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		transition: transform 0.3s;
-		display: block;
-		color: var(--text-primary);
-	}
+  .timeline-item {
+    position: relative;
+    margin-bottom: 40px;
+    padding: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    transition: transform 0.3s;
+    display: block;
+    color: var(--text-primary);
+  }
 
-	.timeline-item:hover {
-		transform: translateX(4px);
-		box-shadow: 0 0 20px var(--accent-glow);
-		color: var(--text-primary);
-	}
+  .timeline-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 0 20px var(--accent-glow);
+    color: var(--text-primary);
+  }
 
-	.timeline-item::before {
-		content: '';
-		position: absolute;
-		left: -36px;
-		top: 30px;
-		width: 12px;
-		height: 12px;
-		background: var(--accent);
-		border-radius: 50%;
-		box-shadow: 0 0 10px var(--accent-glow);
-	}
+  .timeline-item::before {
+    content: "";
+    position: absolute;
+    left: -36px;
+    top: 30px;
+    width: 12px;
+    height: 12px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
 
-	.timeline-date {
-		font-family: var(--font-title);
-		color: var(--accent);
-		font-size: 0.85rem;
-		margin-bottom: 4px;
-	}
+  .timeline-date {
+    font-family: var(--font-title);
+    color: var(--accent);
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+  }
 
-	.timeline-item h4 {
-		font-family: var(--font-heading);
-		font-size: 1.3rem;
-		color: var(--accent-yellow);
-		letter-spacing: 1px;
-		margin-bottom: 8px;
-	}
+  .timeline-item h4 {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
 
-	.timeline-item p {
-		color: var(--text-secondary);
-		font-size: 0.9rem;
-		line-height: 1.6;
-	}
+  .timeline-item p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
 
-	.timeline-meta {
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		margin-top: 12px;
-	}
+  .timeline-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 12px;
+  }
 
-	.timeline-dest {
-		font-size: 0.8rem;
-		color: var(--text-muted);
-		font-family: var(--font-heading);
-		letter-spacing: 1px;
-	}
+  .timeline-dest {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+    letter-spacing: 1px;
+  }
 
-	/* Quotes */
-	.quotes {
-		padding: 80px 20px;
-		background: #111;
-		text-align: center;
-	}
+  /* Quotes */
+  .quotes {
+    padding: 80px 20px;
+    background: #111;
+    text-align: center;
+  }
 
-	.quote {
-		font-size: clamp(1.3rem, 3vw, 1.8rem);
-		font-style: italic;
-		color: var(--text-primary);
-		max-width: 700px;
-		margin: 0 auto 20px;
-		line-height: 1.6;
-	}
+  .quote {
+    font-size: clamp(1.3rem, 3vw, 1.8rem);
+    font-style: italic;
+    color: var(--text-primary);
+    max-width: 700px;
+    margin: 0 auto 20px;
+    line-height: 1.6;
+  }
 
-	.quote-author {
-		font-family: var(--font-heading);
-		color: var(--accent);
-		font-size: 1.1rem;
-		letter-spacing: 2px;
-	}
+  .quote-author {
+    font-family: var(--font-heading);
+    color: var(--accent);
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+  }
 
-	/* Responsive */
-	@media (max-width: 768px) {
-		.story-card,
-		.story-card.reverse {
-			flex-direction: column;
-		}
+  /* Responsive */
+  @media (max-width: 768px) {
+    .story-card,
+    .story-card.reverse {
+      flex-direction: column;
+    }
 
-		.story-card img {
-			width: 100%;
-			min-height: 250px;
-		}
+    .story-card img {
+      width: 100%;
+      min-height: 250px;
+    }
 
-		.crew-grid {
-			grid-template-columns: 1fr;
-		}
+    .crew-grid {
+      grid-template-columns: 1fr;
+    }
 
-		.hero-actions {
-			flex-direction: column;
-			align-items: center;
-		}
-	}
+    .hero-actions {
+      flex-direction: column;
+      align-items: center;
+    }
+  }
 </style>

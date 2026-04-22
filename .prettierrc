@@ -1,9 +1,4 @@
 {
-	"useTabs": true,
-	"tabWidth": 2,
-	"singleQuote": true,
-	"printWidth": 120,
-	"trailingComma": "all",
-	"plugins": ["prettier-plugin-astro"],
-	"overrides": [{ "files": "*.astro", "options": { "parser": "astro" } }]
+  "plugins": ["prettier-plugin-astro"],
+  "overrides": [{ "files": "*.astro", "options": { "parser": "astro" } }]
 }

@@ -1,767 +1,913 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import MemberProfile from '../../components/MemberProfile';
-import CancelSubscription from '../../components/CancelSubscription';
-import SavedPaymentMethods from '../../components/SavedPaymentMethods';
-import MyBookings from '../../components/MyBookings';
-import { members, membersAbout } from '@wix/members';
-import { savedPaymentMethods } from '@wix/payments';
-import { i18n } from '@wix/essentials';
-import { formatCurrency, cyclePeriodKey } from '../../utils/format';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import MemberProfile from "../../components/MemberProfile";
+import CancelSubscription from "../../components/CancelSubscription";
+import SavedPaymentMethods from "../../components/SavedPaymentMethods";
+import MyBookings from "../../components/MyBookings";
+import { members, membersAbout } from "@wix/members";
+import { savedPaymentMethods } from "@wix/payments";
+import { i18n } from "@wix/essentials";
+import { formatCurrency, cyclePeriodKey } from "../../utils/format";
 const t = i18n.getTranslationFunction();
 const locale = i18n.getLocale();
-import type { members as membersTypes } from '@wix/members';
-import { orders } from '@wix/pricing-plans';
-import { orders as ecomOrders } from '@wix/ecom';
-import { getImageUrl } from '../../utils/image';
+import type { members as membersTypes } from "@wix/members";
+import { orders } from "@wix/pricing-plans";
+import { orders as ecomOrders } from "@wix/ecom";
+import { getImageUrl } from "../../utils/image";
 import {
-	DONATIONS_APP_ID,
-	STORES_APP_ID,
-	ECOM_PLATFORM_APP_ID,
-	RESTAURANTS_APP_ID,
-	RISE_GIFT_CARDS_APP_ID,
-	EVENTS_APP_ID,
-	BOOKING_APP_ID,
-	PRICING_PLANS_APP_ID,
-} from '../../utils/appIds';
+  DONATIONS_APP_ID,
+  STORES_APP_ID,
+  ECOM_PLATFORM_APP_ID,
+  RESTAURANTS_APP_ID,
+  RISE_GIFT_CARDS_APP_ID,
+  EVENTS_APP_ID,
+  BOOKING_APP_ID,
+  PRICING_PLANS_APP_ID,
+} from "../../utils/appIds";
 
 let member: membersTypes.Member | null = null;
 try {
-	const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
-	member = res.member ?? null;
+  const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
+  member = res.member ?? null;
 } catch {}
 
-if (!member) return Astro.redirect(`/api/auth/login?returnToUrl=${encodeURIComponent('/member')}`);
+if (!member)
+  return Astro.redirect(
+    `/api/auth/login?returnToUrl=${encodeURIComponent("/member")}`,
+  );
 
 let myOrders: Record<string, any>[] = [];
 try {
-	const result = (await orders.memberListOrders()) as { orders?: Record<string, any>[] };
-	const today = new Date().toISOString().split('T')[0]!;
-	myOrders = (result.orders || []).filter(
-		(o) => o.status !== 'DRAFT' && !(o.endDate && new Date(o.endDate as string).toISOString().split('T')[0]! < today),
-	);
+  const result = (await orders.memberListOrders()) as {
+    orders?: Record<string, any>[];
+  };
+  const today = new Date().toISOString().split("T")[0]!;
+  myOrders = (result.orders || []).filter(
+    (o) =>
+      o.status !== "DRAFT" &&
+      !(
+        o.endDate &&
+        new Date(o.endDate as string).toISOString().split("T")[0]! < today
+      ),
+  );
 } catch {}
 
 // Fetch member about
-let aboutData: { id: string | null; revision: string | null; text: string } = { id: null, revision: null, text: '' };
+let aboutData: { id: string | null; revision: string | null; text: string } = {
+  id: null,
+  revision: null,
+  text: "",
+};
 try {
-	const res = await membersAbout.getMyMemberAbout();
-	const ma = res.memberAbout;
-	if (ma) {
-		aboutData.id = ma._id || null;
-		aboutData.revision = ma.revision || null;
-		const texts: string[] = [];
-		for (const node of ma.content?.nodes || []) {
-			if (node.type === 'PARAGRAPH') {
-				for (const child of node.nodes || []) {
-					if (child.type === 'TEXT' && child.textData?.text) texts.push(child.textData.text);
-				}
-			}
-		}
-		aboutData.text = texts.join('\n');
-	}
+  const res = await membersAbout.getMyMemberAbout();
+  const ma = res.memberAbout;
+  if (ma) {
+    aboutData.id = ma._id || null;
+    aboutData.revision = ma.revision || null;
+    const texts: string[] = [];
+    for (const node of ma.content?.nodes || []) {
+      if (node.type === "PARAGRAPH") {
+        for (const child of node.nodes || []) {
+          if (child.type === "TEXT" && child.textData?.text)
+            texts.push(child.textData.text);
+        }
+      }
+    }
+    aboutData.text = texts.join("\n");
+  }
 } catch {}
 
-const storeOrdersResult = await ecomOrders.searchOrders({ cursorPaging: { limit: 50 } }).catch(() => null);
-const storeOrders = (storeOrdersResult?.orders || []).filter((o) => o.status !== 'INITIALIZED');
+const storeOrdersResult = await ecomOrders
+  .searchOrders({ cursorPaging: { limit: 50 } })
+  .catch(() => null);
+const storeOrders = (storeOrdersResult?.orders || []).filter(
+  (o) => o.status !== "INITIALIZED",
+);
 
 let paymentMethodsList: any[] = [];
 try {
-	const pmResult = await savedPaymentMethods.listSavedPaymentMethods({ siteMemberId: member._id! });
-	paymentMethodsList = pmResult.savedPaymentMethods || [];
+  const pmResult = await savedPaymentMethods.listSavedPaymentMethods({
+    siteMemberId: member._id!,
+  });
+  paymentMethodsList = pmResult.savedPaymentMethods || [];
 } catch {}
 
 const fmtDate = (d: string | Date | null | undefined) =>
-	d
-		? new Date(d as string).toLocaleDateString(i18n.getLocale(), { year: 'numeric', month: 'short', day: 'numeric' })
-		: null;
+  d
+    ? new Date(d as string).toLocaleDateString(i18n.getLocale(), {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : null;
 const ts = (status: string) => {
-	const statusKey = status.toLowerCase().replace(/[_\s]+(.)/g, (_, c: string) => c.toUpperCase());
-	return t(`status.${statusKey}`) || status;
+  const statusKey = status
+    .toLowerCase()
+    .replace(/[_\s]+(.)/g, (_, c: string) => c.toUpperCase());
+  return t(`status.${statusKey}`) || status;
 };
 const statusColors = {
-	APPROVED: '#4caf50',
-	FULFILLED: '#4caf50',
-	CANCELED: '#f44336',
-	PARTIALLY_FULFILLED: '#ff9800',
-	PENDING: '#2196f3',
+  APPROVED: "#4caf50",
+  FULFILLED: "#4caf50",
+  CANCELED: "#f44336",
+  PARTIALLY_FULFILLED: "#ff9800",
+  PENDING: "#2196f3",
 } as const;
 type StatusKey = keyof typeof statusColors;
 
 const itemTypes: Record<string, { key: string; color: string }> = {
-	[DONATIONS_APP_ID]: { key: 'member.itemTypeDonation', color: '#e91e63' },
-	[STORES_APP_ID]: { key: 'member.itemTypeStore', color: '#2196f3' },
-	[ECOM_PLATFORM_APP_ID]: { key: 'member.itemTypeStore', color: '#2196f3' },
-	[RESTAURANTS_APP_ID]: { key: 'member.itemTypeRestaurant', color: '#ff9800' },
-	[RISE_GIFT_CARDS_APP_ID]: { key: 'member.itemTypeGiftCard', color: '#9c27b0' },
-	[BOOKING_APP_ID]: { key: 'member.itemTypeMedicalBay', color: '#4caf50' },
-	[EVENTS_APP_ID]: { key: 'member.itemTypeCinema', color: '#673ab7' },
-	[PRICING_PLANS_APP_ID]: { key: 'member.itemTypePlan', color: '#00bcd4' },
+  [DONATIONS_APP_ID]: { key: "member.itemTypeDonation", color: "#e91e63" },
+  [STORES_APP_ID]: { key: "member.itemTypeStore", color: "#2196f3" },
+  [ECOM_PLATFORM_APP_ID]: { key: "member.itemTypeStore", color: "#2196f3" },
+  [RESTAURANTS_APP_ID]: { key: "member.itemTypeRestaurant", color: "#ff9800" },
+  [RISE_GIFT_CARDS_APP_ID]: {
+    key: "member.itemTypeGiftCard",
+    color: "#9c27b0",
+  },
+  [BOOKING_APP_ID]: { key: "member.itemTypeMedicalBay", color: "#4caf50" },
+  [EVENTS_APP_ID]: { key: "member.itemTypeCinema", color: "#673ab7" },
+  [PRICING_PLANS_APP_ID]: { key: "member.itemTypePlan", color: "#00bcd4" },
 };
-const getItemType = (appId: string | undefined) => (appId ? (itemTypes[appId] ?? null) : null);
+const getItemType = (appId: string | undefined) =>
+  appId ? (itemTypes[appId] ?? null) : null;
 
 const tabs = [
-	{ id: 'profile', label: t('member.tabProfile'), icon: '&#9734;' },
-	{ id: 'personal', label: t('member.tabPersonalInfo'), icon: '&#9998;' },
-	{ id: 'bookings', label: t('member.tabBookings'), icon: '&#128137;' },
-	{ id: 'orders', label: t('member.tabOrders'), icon: '&#9733;' },
-	{ id: 'subscriptions', label: t('member.tabSubscriptions'), icon: '&#9830;' },
-	{ id: 'payment', label: t('member.tabPayment'), icon: '&#128179;' },
-	{ id: 'account', label: t('member.tabAccount'), icon: '&#9881;' },
+  { id: "profile", label: t("member.tabProfile"), icon: "&#9734;" },
+  { id: "personal", label: t("member.tabPersonalInfo"), icon: "&#9998;" },
+  { id: "bookings", label: t("member.tabBookings"), icon: "&#128137;" },
+  { id: "orders", label: t("member.tabOrders"), icon: "&#9733;" },
+  { id: "subscriptions", label: t("member.tabSubscriptions"), icon: "&#9830;" },
+  { id: "payment", label: t("member.tabPayment"), icon: "&#128179;" },
+  { id: "account", label: t("member.tabAccount"), icon: "&#9881;" },
 ];
 ---
 
-<Layout title={`${t('member.pageTitle')} - ${t('home.title')}`}>
-	<Nav />
-	<section class="page-header">
-		<div class="container">
-			<h1 class="section-title">{t('member.pageTitle')}</h1>
-			<p class="section-subtitle">{t('member.pageSubtitle')}</p>
-		</div>
-	</section>
+<Layout title={`${t("member.pageTitle")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="page-header">
+    <div class="container">
+      <h1 class="section-title">{t("member.pageTitle")}</h1>
+      <p class="section-subtitle">{t("member.pageSubtitle")}</p>
+    </div>
+  </section>
 
-	<section class="content">
-		<div class="container member-layout">
-			<nav class="tab-nav">
-				{
-					tabs.map((tab) => (
-						<a href={`#${tab.id}`} class="tab" data-tab={tab.id}>
-							<span class="tab-icon" set:html={tab.icon} />
-							<span class="tab-label">{tab.label}</span>
-						</a>
-					))
-				}
-			</nav>
+  <section class="content">
+    <div class="container member-layout">
+      <nav class="tab-nav">
+        {
+          tabs.map((tab) => (
+            <a href={`#${tab.id}`} class="tab" data-tab={tab.id}>
+              <span class="tab-icon" set:html={tab.icon} />
+              <span class="tab-label">{tab.label}</span>
+            </a>
+          ))
+        }
+      </nav>
 
-			<div class="tab-panels">
-				<div class="tab-panel" id="panel-profile">
-					<MemberProfile member={member} aboutData={aboutData} tab="profile" client:load />
-				</div>
+      <div class="tab-panels">
+        <div class="tab-panel" id="panel-profile">
+          <MemberProfile
+            member={member}
+            aboutData={aboutData}
+            tab="profile"
+            client:load
+          />
+        </div>
 
-				<div class="tab-panel" id="panel-personal" style="display:none">
-					<MemberProfile member={member} aboutData={aboutData} tab="personal" client:load />
-				</div>
+        <div class="tab-panel" id="panel-personal" style="display:none">
+          <MemberProfile
+            member={member}
+            aboutData={aboutData}
+            tab="personal"
+            client:load
+          />
+        </div>
 
-				<div class="tab-panel" id="panel-bookings" style="display:none">
-					<MyBookings client:load />
-				</div>
+        <div class="tab-panel" id="panel-bookings" style="display:none">
+          <MyBookings client:load />
+        </div>
 
-				<div class="tab-panel" id="panel-orders" style="display:none">
-					{
-						storeOrders.length === 0 ? (
-							<div class="empty-subs">
-								<p>{t('member.emptyOrders')}</p>
-								<a href="/store">{t('member.browseStore')}</a>
-							</div>
-						) : (
-							<div class="subs-list">
-								{storeOrders.map((sOrder) => {
-									const sCurr = sOrder.currency || '';
-									const sColor =
-										statusColors[sOrder.fulfillmentStatus as StatusKey] ||
-										statusColors[sOrder.status as StatusKey] ||
-										'#888';
+        <div class="tab-panel" id="panel-orders" style="display:none">
+          {
+            storeOrders.length === 0 ? (
+              <div class="empty-subs">
+                <p>{t("member.emptyOrders")}</p>
+                <a href="/store">{t("member.browseStore")}</a>
+              </div>
+            ) : (
+              <div class="subs-list">
+                {storeOrders.map((sOrder) => {
+                  const sCurr = sOrder.currency || "";
+                  const sColor =
+                    statusColors[sOrder.fulfillmentStatus as StatusKey] ||
+                    statusColors[sOrder.status as StatusKey] ||
+                    "#888";
 
-									return (
-										<div class="sub-card">
-											<div class="sub-header">
-												<div>
-													<div class="sub-plan-name">
-														{t('member.orderNumber', { number: String(sOrder.number || sOrder._id?.slice(-8)) })}
-													</div>
-													<div class="sub-plan-desc">{fmtDate(sOrder._createdDate)}</div>
-												</div>
-												<div class="sub-badges">
-													{sOrder.paymentStatus && (
-														<span
-															class="sub-badge"
-															style={`background: ${sOrder.paymentStatus === 'PAID' ? '#4caf50' : '#ff9800'}`}
-														>
-															{ts(sOrder.paymentStatus)}
-														</span>
-													)}
-													<span class="sub-badge" style={`background: ${sColor}`}>
-														{ts(sOrder.fulfillmentStatus || sOrder.status || 'PROCESSING')}
-													</span>
-												</div>
-											</div>
+                  return (
+                    <div class="sub-card">
+                      <div class="sub-header">
+                        <div>
+                          <div class="sub-plan-name">
+                            {t("member.orderNumber", {
+                              number: String(
+                                sOrder.number || sOrder._id?.slice(-8),
+                              ),
+                            })}
+                          </div>
+                          <div class="sub-plan-desc">
+                            {fmtDate(sOrder._createdDate)}
+                          </div>
+                        </div>
+                        <div class="sub-badges">
+                          {sOrder.paymentStatus && (
+                            <span
+                              class="sub-badge"
+                              style={`background: ${sOrder.paymentStatus === "PAID" ? "#4caf50" : "#ff9800"}`}
+                            >
+                              {ts(sOrder.paymentStatus)}
+                            </span>
+                          )}
+                          <span
+                            class="sub-badge"
+                            style={`background: ${sColor}`}
+                          >
+                            {ts(
+                              sOrder.fulfillmentStatus ||
+                                sOrder.status ||
+                                "PROCESSING",
+                            )}
+                          </span>
+                        </div>
+                      </div>
 
-											<div class="order-items">
-												{(sOrder.lineItems || []).map((li) => {
-													const type = getItemType(li.catalogReference?.appId);
-													return (
-														<div class="order-item">
-															<div class="order-item-img">
-																{getImageUrl(li.image, 80, 80) ? (
-																	<img
-																		src={getImageUrl(li.image, 80, 80)!}
-																		alt={li.productName?.translated || li.productName?.original}
-																	/>
-																) : (
-																	<span class="order-item-emoji">&#128049;</span>
-																)}
-															</div>
-															<div class="order-item-info">
-																<div class="order-item-name-row">
-																	<span class="order-item-name">
-																		{li.productName?.translated || li.productName?.original || 'Item'}
-																	</span>
-																	{type && (
-																		<span class="item-type-badge" style={`background: ${type.color}`}>
-																			{t(type.key)}
-																		</span>
-																	)}
-																</div>
-																<span class="order-item-qty">x{li.quantity}</span>
-															</div>
-															<div class="order-item-price">
-																{li.totalPriceAfterTax?.formattedAmount || li.price?.formattedAmount || ''}
-															</div>
-														</div>
-													);
-												})}
-											</div>
+                      <div class="order-items">
+                        {(sOrder.lineItems || []).map((li) => {
+                          const type = getItemType(li.catalogReference?.appId);
+                          return (
+                            <div class="order-item">
+                              <div class="order-item-img">
+                                {getImageUrl(li.image, 80, 80) ? (
+                                  <img
+                                    src={getImageUrl(li.image, 80, 80)!}
+                                    alt={
+                                      li.productName?.translated ||
+                                      li.productName?.original
+                                    }
+                                  />
+                                ) : (
+                                  <span class="order-item-emoji">
+                                    &#128049;
+                                  </span>
+                                )}
+                              </div>
+                              <div class="order-item-info">
+                                <div class="order-item-name-row">
+                                  <span class="order-item-name">
+                                    {li.productName?.translated ||
+                                      li.productName?.original ||
+                                      "Item"}
+                                  </span>
+                                  {type && (
+                                    <span
+                                      class="item-type-badge"
+                                      style={`background: ${type.color}`}
+                                    >
+                                      {t(type.key)}
+                                    </span>
+                                  )}
+                                </div>
+                                <span class="order-item-qty">
+                                  x{li.quantity}
+                                </span>
+                              </div>
+                              <div class="order-item-price">
+                                {li.totalPriceAfterTax?.formattedAmount ||
+                                  li.price?.formattedAmount ||
+                                  ""}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
 
-											<div class="sub-details">
-												{sOrder.priceSummary?.total && (
-													<div class="sub-detail">
-														<span class="sub-detail-label">{t('member.total')}</span>
-														<span class="sub-detail-value">
-															{sOrder.priceSummary.total.formattedAmount ||
-																`${sCurr}${sOrder.priceSummary.total.amount}`}
-														</span>
-													</div>
-												)}
-												{sOrder.shippingInfo?.logistics?.deliveryTime && (
-													<div class="sub-detail">
-														<span class="sub-detail-label">{t('member.delivery')}</span>
-														<span class="sub-detail-value">{sOrder.shippingInfo.logistics.deliveryTime}</span>
-													</div>
-												)}
-											</div>
-										</div>
-									);
-								})}
-							</div>
-						)
-					}
-				</div>
+                      <div class="sub-details">
+                        {sOrder.priceSummary?.total && (
+                          <div class="sub-detail">
+                            <span class="sub-detail-label">
+                              {t("member.total")}
+                            </span>
+                            <span class="sub-detail-value">
+                              {sOrder.priceSummary.total.formattedAmount ||
+                                `${sCurr}${sOrder.priceSummary.total.amount}`}
+                            </span>
+                          </div>
+                        )}
+                        {sOrder.shippingInfo?.logistics?.deliveryTime && (
+                          <div class="sub-detail">
+                            <span class="sub-detail-label">
+                              {t("member.delivery")}
+                            </span>
+                            <span class="sub-detail-value">
+                              {sOrder.shippingInfo.logistics.deliveryTime}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          }
+        </div>
 
-				<div class="tab-panel" id="panel-subscriptions" style="display:none">
-					{
-						myOrders.length === 0 ? (
-							<div class="empty-subs">
-								<p>{t('member.emptySubscriptions')}</p>
-								<a href="/plans">{t('member.browsePlans')}</a>
-							</div>
-						) : (
-							<div class="subs-list">
-								{(myOrders || []).map((order) => {
-									const fmt = fmtDate;
-									const isFree = parseFloat(order.priceDetails?.planPrice || '0') === 0;
-									const currCode = order.priceDetails?.currency;
-									const planPrice = order.priceDetails?.planPrice || '0';
-									const fmtPrice = (v: string) => (currCode ? formatCurrency(v, currCode, locale) : '');
-									const discount =
-										order.priceDetails?.discount && parseFloat(order.priceDetails.discount) > 0
-											? order.priceDetails.discount
-											: null;
-									const couponCode = order.priceDetails?.coupon?.code;
-									const total = order.priceDetails?.total || planPrice;
-									const startDate = fmt(order.startDate);
-									const endDate = fmt(order.endDate);
-									const cancellable = order.status === 'ACTIVE' && !order.autoRenewCanceled;
-									const inTrial = order.freeTrialDays && order.currentCycle?.index === 0;
-									const nextBilling = fmt(order.currentCycle?.endedDate);
-									const sub = order.priceDetails?.subscription;
-									const cycleDuration = sub?.cycleDuration;
-									const cycleLabel = cycleDuration
-										? `${t('plans.every')} ${cycleDuration.count > 1 ? cycleDuration.count + ' ' : ''}${t(cyclePeriodKey(cycleDuration.unit || ''))}`
-										: null;
-									const paymentStatus = order.lastPaymentStatus;
-									const cancellation = order.cancellation;
+        <div class="tab-panel" id="panel-subscriptions" style="display:none">
+          {
+            myOrders.length === 0 ? (
+              <div class="empty-subs">
+                <p>{t("member.emptySubscriptions")}</p>
+                <a href="/plans">{t("member.browsePlans")}</a>
+              </div>
+            ) : (
+              <div class="subs-list">
+                {(myOrders || []).map((order) => {
+                  const fmt = fmtDate;
+                  const isFree =
+                    parseFloat(order.priceDetails?.planPrice || "0") === 0;
+                  const currCode = order.priceDetails?.currency;
+                  const planPrice = order.priceDetails?.planPrice || "0";
+                  const fmtPrice = (v: string) =>
+                    currCode ? formatCurrency(v, currCode, locale) : "";
+                  const discount =
+                    order.priceDetails?.discount &&
+                    parseFloat(order.priceDetails.discount) > 0
+                      ? order.priceDetails.discount
+                      : null;
+                  const couponCode = order.priceDetails?.coupon?.code;
+                  const total = order.priceDetails?.total || planPrice;
+                  const startDate = fmt(order.startDate);
+                  const endDate = fmt(order.endDate);
+                  const cancellable =
+                    order.status === "ACTIVE" && !order.autoRenewCanceled;
+                  const inTrial =
+                    order.freeTrialDays && order.currentCycle?.index === 0;
+                  const nextBilling = fmt(order.currentCycle?.endedDate);
+                  const sub = order.priceDetails?.subscription;
+                  const cycleDuration = sub?.cycleDuration;
+                  const cycleLabel = cycleDuration
+                    ? `${t("plans.every")} ${cycleDuration.count > 1 ? cycleDuration.count + " " : ""}${t(cyclePeriodKey(cycleDuration.unit || ""))}`
+                    : null;
+                  const paymentStatus = order.lastPaymentStatus;
+                  const cancellation = order.cancellation;
 
-									return (
-										<div class="sub-card">
-											<div class="sub-header">
-												<div>
-													<div class="sub-plan-name">{order.planName || t('member.unknownPlan')}</div>
-													{order.planDescription && <div class="sub-plan-desc">{order.planDescription}</div>}
-												</div>
-												<div class="sub-badges">
-													{inTrial && <span class="sub-badge sub-badge-trial">{t('member.freeTrial')}</span>}
-													<span
-														class:list={[
-															'sub-badge',
-															`sub-badge-${order.autoRenewCanceled ? 'canceling' : (order.status || 'unknown').toLowerCase()}`,
-														]}
-													>
-														{order.autoRenewCanceled ? t('status.canceling') : ts(order.status)}
-													</span>
-												</div>
-											</div>
+                  return (
+                    <div class="sub-card">
+                      <div class="sub-header">
+                        <div>
+                          <div class="sub-plan-name">
+                            {order.planName || t("member.unknownPlan")}
+                          </div>
+                          {order.planDescription && (
+                            <div class="sub-plan-desc">
+                              {order.planDescription}
+                            </div>
+                          )}
+                        </div>
+                        <div class="sub-badges">
+                          {inTrial && (
+                            <span class="sub-badge sub-badge-trial">
+                              {t("member.freeTrial")}
+                            </span>
+                          )}
+                          <span
+                            class:list={[
+                              "sub-badge",
+                              `sub-badge-${order.autoRenewCanceled ? "canceling" : (order.status || "unknown").toLowerCase()}`,
+                            ]}
+                          >
+                            {order.autoRenewCanceled
+                              ? t("status.canceling")
+                              : ts(order.status)}
+                          </span>
+                        </div>
+                      </div>
 
-											<div class="sub-details">
-												<div class="sub-detail">
-													<span class="sub-detail-label">{t('member.price')}</span>
-													<span class="sub-detail-value">
-														{isFree ? t('plans.free') : fmtPrice(planPrice)}
-														{cycleLabel && !isFree && <span class="sub-cycle"> / {cycleLabel}</span>}
-													</span>
-												</div>
-												{discount && (
-													<div class="sub-detail">
-														<span class="sub-detail-label">{t('member.discount')}</span>
-														<span class="sub-detail-value sub-discount">
-															-{fmtPrice(discount)}
-															{couponCode && ` (${couponCode})`}
-														</span>
-													</div>
-												)}
-												{discount && (
-													<div class="sub-detail">
-														<span class="sub-detail-label">{t('member.totalPaid')}</span>
-														<span class="sub-detail-value">{fmtPrice(total)}</span>
-													</div>
-												)}
-												{inTrial && order.freeTrialDays && (
-													<div class="sub-detail">
-														<span class="sub-detail-label">{t('member.trial')}</span>
-														<span class="sub-detail-value">
-															{order.freeTrialDays} {t('member.days')}
-														</span>
-													</div>
-												)}
-												<div class="sub-detail">
-													<span class="sub-detail-label">{t('member.started')}</span>
-													<span class="sub-detail-value">{startDate || '—'}</span>
-												</div>
-												{nextBilling && order.status === 'ACTIVE' && !order.autoRenewCanceled && (
-													<div class="sub-detail">
-														<span class="sub-detail-label">{t('member.nextBilling')}</span>
-														<span class="sub-detail-value">{nextBilling}</span>
-													</div>
-												)}
-												{endDate && (
-													<div class="sub-detail">
-														<span class="sub-detail-label">
-															{order.status === 'CANCELED' || order.autoRenewCanceled
-																? t('member.expires')
-																: t('member.ends')}
-														</span>
-														<span class="sub-detail-value">{endDate}</span>
-													</div>
-												)}
-												{order.currentCycle && order.currentCycle.index > 0 && (
-													<div class="sub-detail">
-														<span class="sub-detail-label">{t('member.billingCycle')}</span>
-														<span class="sub-detail-value">#{order.currentCycle.index}</span>
-													</div>
-												)}
-												{paymentStatus && (
-													<div class="sub-detail">
-														<span class="sub-detail-label">{t('member.lastPayment')}</span>
-														<span
-															class:list={[
-																'sub-detail-value',
-																{
-																	'sub-payment-paid': paymentStatus === 'PAID',
-																	'sub-payment-unpaid': paymentStatus === 'UNPAID' || paymentStatus === 'FAILED',
-																},
-															]}
-														>
-															{paymentStatus === 'PAID'
-																? t('member.paid')
-																: paymentStatus === 'NOT_APPLICABLE'
-																	? t('member.notApplicable')
-																	: ts(paymentStatus)}
-														</span>
-													</div>
-												)}
-											</div>
+                      <div class="sub-details">
+                        <div class="sub-detail">
+                          <span class="sub-detail-label">
+                            {t("member.price")}
+                          </span>
+                          <span class="sub-detail-value">
+                            {isFree ? t("plans.free") : fmtPrice(planPrice)}
+                            {cycleLabel && !isFree && (
+                              <span class="sub-cycle"> / {cycleLabel}</span>
+                            )}
+                          </span>
+                        </div>
+                        {discount && (
+                          <div class="sub-detail">
+                            <span class="sub-detail-label">
+                              {t("member.discount")}
+                            </span>
+                            <span class="sub-detail-value sub-discount">
+                              -{fmtPrice(discount)}
+                              {couponCode && ` (${couponCode})`}
+                            </span>
+                          </div>
+                        )}
+                        {discount && (
+                          <div class="sub-detail">
+                            <span class="sub-detail-label">
+                              {t("member.totalPaid")}
+                            </span>
+                            <span class="sub-detail-value">
+                              {fmtPrice(total)}
+                            </span>
+                          </div>
+                        )}
+                        {inTrial && order.freeTrialDays && (
+                          <div class="sub-detail">
+                            <span class="sub-detail-label">
+                              {t("member.trial")}
+                            </span>
+                            <span class="sub-detail-value">
+                              {order.freeTrialDays} {t("member.days")}
+                            </span>
+                          </div>
+                        )}
+                        <div class="sub-detail">
+                          <span class="sub-detail-label">
+                            {t("member.started")}
+                          </span>
+                          <span class="sub-detail-value">
+                            {startDate || "—"}
+                          </span>
+                        </div>
+                        {nextBilling &&
+                          order.status === "ACTIVE" &&
+                          !order.autoRenewCanceled && (
+                            <div class="sub-detail">
+                              <span class="sub-detail-label">
+                                {t("member.nextBilling")}
+                              </span>
+                              <span class="sub-detail-value">
+                                {nextBilling}
+                              </span>
+                            </div>
+                          )}
+                        {endDate && (
+                          <div class="sub-detail">
+                            <span class="sub-detail-label">
+                              {order.status === "CANCELED" ||
+                              order.autoRenewCanceled
+                                ? t("member.expires")
+                                : t("member.ends")}
+                            </span>
+                            <span class="sub-detail-value">{endDate}</span>
+                          </div>
+                        )}
+                        {order.currentCycle && order.currentCycle.index > 0 && (
+                          <div class="sub-detail">
+                            <span class="sub-detail-label">
+                              {t("member.billingCycle")}
+                            </span>
+                            <span class="sub-detail-value">
+                              #{order.currentCycle.index}
+                            </span>
+                          </div>
+                        )}
+                        {paymentStatus && (
+                          <div class="sub-detail">
+                            <span class="sub-detail-label">
+                              {t("member.lastPayment")}
+                            </span>
+                            <span
+                              class:list={[
+                                "sub-detail-value",
+                                {
+                                  "sub-payment-paid": paymentStatus === "PAID",
+                                  "sub-payment-unpaid":
+                                    paymentStatus === "UNPAID" ||
+                                    paymentStatus === "FAILED",
+                                },
+                              ]}
+                            >
+                              {paymentStatus === "PAID"
+                                ? t("member.paid")
+                                : paymentStatus === "NOT_APPLICABLE"
+                                  ? t("member.notApplicable")
+                                  : ts(paymentStatus)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
 
-											{cancellation && (
-												<div class="sub-cancellation">
-													<span class="sub-detail-label">{t('member.cancellation')}</span>
-													<span class="sub-detail-value">
-														{cancellation.cause === 'OWNER_ACTION'
-															? t('member.canceledByYou')
-															: cancellation.cause === 'UNDEFINED'
-																? t('status.canceled')
-																: cancellation.cause}
-														{cancellation.requestedDate &&
-															` — ${t('member.canceledOn', { date: fmt(cancellation.requestedDate) || '' })}`}
-														{cancellation.effectiveAt === 'NEXT_PAYMENT_DATE' &&
-															' — ' + t('member.activeUntilNextBilling')}
-														{cancellation.effectiveAt === 'IMMEDIATELY' && ' — ' + t('member.effectiveImmediately')}
-													</span>
-												</div>
-											)}
+                      {cancellation && (
+                        <div class="sub-cancellation">
+                          <span class="sub-detail-label">
+                            {t("member.cancellation")}
+                          </span>
+                          <span class="sub-detail-value">
+                            {cancellation.cause === "OWNER_ACTION"
+                              ? t("member.canceledByYou")
+                              : cancellation.cause === "UNDEFINED"
+                                ? t("status.canceled")
+                                : cancellation.cause}
+                            {cancellation.requestedDate &&
+                              ` — ${t("member.canceledOn", { date: fmt(cancellation.requestedDate) || "" })}`}
+                            {cancellation.effectiveAt === "NEXT_PAYMENT_DATE" &&
+                              " — " + t("member.activeUntilNextBilling")}
+                            {cancellation.effectiveAt === "IMMEDIATELY" &&
+                              " — " + t("member.effectiveImmediately")}
+                          </span>
+                        </div>
+                      )}
 
-											{order.pausePeriods?.length > 0 && (
-												<div class="sub-pauses">
-													<span class="sub-detail-label">{t('member.pauseHistory')}</span>
-													{order.pausePeriods.map((p: { pauseDate?: string; resumeDate?: string }) => (
-														<span class="sub-detail-value">
-															{fmt(String(p.pauseDate))} —{' '}
-															{p.resumeDate ? fmt(String(p.resumeDate)) : t('member.ongoing')}
-														</span>
-													))}
-												</div>
-											)}
+                      {order.pausePeriods?.length > 0 && (
+                        <div class="sub-pauses">
+                          <span class="sub-detail-label">
+                            {t("member.pauseHistory")}
+                          </span>
+                          {order.pausePeriods.map(
+                            (p: {
+                              pauseDate?: string;
+                              resumeDate?: string;
+                            }) => (
+                              <span class="sub-detail-value">
+                                {fmt(String(p.pauseDate))} —{" "}
+                                {p.resumeDate
+                                  ? fmt(String(p.resumeDate))
+                                  : t("member.ongoing")}
+                              </span>
+                            ),
+                          )}
+                        </div>
+                      )}
 
-											{cancellable && (
-												<div class="sub-footer">
-													<CancelSubscription orderId={order._id!} client:load />
-												</div>
-											)}
-										</div>
-									);
-								})}
-							</div>
-						)
-					}
-				</div>
+                      {cancellable && (
+                        <div class="sub-footer">
+                          <CancelSubscription
+                            orderId={order._id!}
+                            client:load
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          }
+        </div>
 
-				<div class="tab-panel" id="panel-payment" style="display:none">
-					<SavedPaymentMethods initial={paymentMethodsList} client:load />
-				</div>
+        <div class="tab-panel" id="panel-payment" style="display:none">
+          <SavedPaymentMethods initial={paymentMethodsList} client:load />
+        </div>
 
-				<div class="tab-panel" id="panel-account" style="display:none">
-					<MemberProfile member={member} aboutData={aboutData} tab="account" client:load />
-				</div>
-			</div>
-		</div>
-	</section>
-	<Footer />
+        <div class="tab-panel" id="panel-account" style="display:none">
+          <MemberProfile
+            member={member}
+            aboutData={aboutData}
+            tab="account"
+            client:load
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+  <Footer />
 </Layout>
 
 <script>
-	function activateTab(tabId: string) {
-		document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-		document.querySelectorAll('.tab-panel').forEach((p) => ((p as HTMLElement).style.display = 'none'));
+  function activateTab(tabId: string) {
+    document
+      .querySelectorAll(".tab")
+      .forEach((t) => t.classList.remove("active"));
+    document
+      .querySelectorAll(".tab-panel")
+      .forEach((p) => ((p as HTMLElement).style.display = "none"));
 
-		const tab = document.querySelector(`.tab[data-tab="${tabId}"]`);
-		const panel = document.getElementById(`panel-${tabId}`);
-		if (tab) tab.classList.add('active');
-		if (panel) panel.style.display = 'block';
-	}
+    const tab = document.querySelector(`.tab[data-tab="${tabId}"]`);
+    const panel = document.getElementById(`panel-${tabId}`);
+    if (tab) tab.classList.add("active");
+    if (panel) panel.style.display = "block";
+  }
 
-	function onHashChange() {
-		const hash = window.location.hash.replace('#', '') || 'profile';
-		activateTab(hash);
-	}
+  function onHashChange() {
+    const hash = window.location.hash.replace("#", "") || "profile";
+    activateTab(hash);
+  }
 
-	document.querySelectorAll('.tab').forEach((tab) => {
-		tab.addEventListener('click', (e) => {
-			e.preventDefault();
-			const tabId = (tab as HTMLElement).dataset.tab!;
-			window.location.hash = tabId;
-		});
-	});
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.addEventListener("click", (e) => {
+      e.preventDefault();
+      const tabId = (tab as HTMLElement).dataset.tab!;
+      window.location.hash = tabId;
+    });
+  });
 
-	window.addEventListener('hashchange', onHashChange);
-	onHashChange();
+  window.addEventListener("hashchange", onHashChange);
+  onHashChange();
 </script>
 
 <style>
-	.page-header {
-		padding: 60px 0 40px;
-	}
+  .page-header {
+    padding: 60px 0 40px;
+  }
 
-	.content {
-		padding-bottom: 60px;
-	}
+  .content {
+    padding-bottom: 60px;
+  }
 
-	/* Tab navigation */
-	.tab-nav {
-		display: flex;
-		gap: 2px;
-		margin-bottom: 32px;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		padding: 6px;
-	}
+  /* Tab navigation */
+  .tab-nav {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 6px;
+  }
 
-	.tab {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 6px;
-		padding: 10px 12px;
-		font-family: var(--font-heading);
-		font-size: 0.8rem;
-		letter-spacing: 1px;
-		color: var(--text-muted);
-		text-decoration: none;
-		border-radius: 8px;
-		transition: all 0.2s;
-		cursor: pointer;
-	}
+  .tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
 
-	.tab:hover {
-		color: var(--text-secondary);
-		background: rgba(255, 255, 255, 0.03);
-	}
+  .tab:hover {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+  }
 
-	.tab.active {
-		color: #000;
-		background: var(--accent);
-	}
+  .tab.active {
+    color: #000;
+    background: var(--accent);
+  }
 
-	.tab-icon {
-		font-size: 1rem;
-	}
+  .tab-icon {
+    font-size: 1rem;
+  }
 
-	/* Subscriptions */
-	.empty-subs {
-		padding: 30px;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		text-align: center;
-	}
+  /* Subscriptions */
+  .empty-subs {
+    padding: 30px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    text-align: center;
+  }
 
-	.empty-subs p {
-		color: var(--text-muted);
-		margin-bottom: 12px;
-	}
+  .empty-subs p {
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
 
-	.empty-subs a {
-		color: var(--accent);
-		font-family: var(--font-heading);
-		font-size: 0.9rem;
-		letter-spacing: 1px;
-	}
+  .empty-subs a {
+    color: var(--accent);
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+  }
 
-	.sub-card {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		padding: 24px;
-		margin-bottom: 16px;
-	}
+  .sub-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
 
-	.sub-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: flex-start;
-		margin-bottom: 16px;
-		gap: 12px;
-	}
+  .sub-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    gap: 12px;
+  }
 
-	.sub-plan-name {
-		font-family: var(--font-heading);
-		font-size: 1.2rem;
-		color: var(--accent-yellow);
-		letter-spacing: 1px;
-	}
+  .sub-plan-name {
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+  }
 
-	.sub-plan-desc {
-		font-size: 0.8rem;
-		color: var(--text-muted);
-		margin-top: 4px;
-		line-height: 1.4;
-	}
+  .sub-plan-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
 
-	.sub-badge {
-		font-size: 0.7rem;
-		font-family: var(--font-heading);
-		letter-spacing: 1px;
-		padding: 4px 12px;
-		border-radius: 12px;
-		color: #000;
-		white-space: nowrap;
-		flex-shrink: 0;
-	}
+  .sub-badge {
+    font-size: 0.7rem;
+    font-family: var(--font-heading);
+    letter-spacing: 1px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    color: #000;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 
-	.sub-badge-active {
-		background: #4caf50;
-	}
-	.sub-badge-canceled {
-		background: #f44336;
-	}
-	.sub-badge-ended {
-		background: #888;
-	}
-	.sub-badge-paused,
-	.sub-badge-canceling {
-		background: #ff9800;
-	}
-	.sub-badge-pending {
-		background: #2196f3;
-	}
+  .sub-badge-active {
+    background: #4caf50;
+  }
+  .sub-badge-canceled {
+    background: #f44336;
+  }
+  .sub-badge-ended {
+    background: #888;
+  }
+  .sub-badge-paused,
+  .sub-badge-canceling {
+    background: #ff9800;
+  }
+  .sub-badge-pending {
+    background: #2196f3;
+  }
 
-	.sub-details {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 16px;
-		padding-top: 12px;
-		border-top: 1px solid #222;
-	}
+  .sub-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #222;
+  }
 
-	.sub-detail {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
+  .sub-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
 
-	.sub-detail-label {
-		font-size: 0.65rem;
-		color: #666;
-		text-transform: uppercase;
-		letter-spacing: 1px;
-	}
+  .sub-detail-label {
+    font-size: 0.65rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
 
-	.sub-detail-value {
-		font-size: 0.85rem;
-		color: var(--text-secondary);
-	}
+  .sub-detail-value {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
 
-	.sub-badges {
-		display: flex;
-		gap: 6px;
-		flex-shrink: 0;
-	}
+  .sub-badges {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
 
-	.sub-badge-trial {
-		background: #9c27b0;
-	}
+  .sub-badge-trial {
+    background: #9c27b0;
+  }
 
-	.sub-cycle {
-		font-size: 0.7rem;
-		color: var(--text-muted);
-	}
+  .sub-cycle {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
 
-	.sub-discount {
-		color: #4caf50;
-	}
+  .sub-discount {
+    color: #4caf50;
+  }
 
-	.sub-payment-paid {
-		color: #4caf50;
-	}
+  .sub-payment-paid {
+    color: #4caf50;
+  }
 
-	.sub-payment-unpaid {
-		color: #f44336;
-	}
+  .sub-payment-unpaid {
+    color: #f44336;
+  }
 
-	.sub-cancellation,
-	.sub-pauses {
-		margin-top: 12px;
-		padding-top: 12px;
-		border-top: 1px solid #222;
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
+  .sub-cancellation,
+  .sub-pauses {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #222;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
 
-	.sub-footer {
-		margin-top: 16px;
-		padding-top: 12px;
-		border-top: 1px solid #222;
-	}
+  .sub-footer {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #222;
+  }
 
-	/* Order items */
-	.order-items {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		margin-bottom: 12px;
-	}
+  /* Order items */
+  .order-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
 
-	.order-item {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 8px 0;
-	}
+  .order-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+  }
 
-	.order-item-img {
-		width: 40px;
-		height: 40px;
-		border-radius: 6px;
-		overflow: hidden;
-		background: #1a1a2e;
-		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
+  .order-item-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #1a1a2e;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
-	.order-item-img img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
+  .order-item-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
-	.order-item-emoji {
-		font-size: 1.2rem;
-	}
+  .order-item-emoji {
+    font-size: 1.2rem;
+  }
 
-	.order-item-info {
-		flex: 1;
-		min-width: 0;
-	}
+  .order-item-info {
+    flex: 1;
+    min-width: 0;
+  }
 
-	.order-item-name {
-		display: block;
-		font-size: 0.8rem;
-		color: var(--text-primary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
+  .order-item-name {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-	.order-item-qty {
-		font-size: 0.7rem;
-		color: var(--text-muted);
-	}
+  .order-item-qty {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
 
-	.order-item-price {
-		font-size: 0.8rem;
-		color: var(--accent-yellow);
-		font-weight: 600;
-		flex-shrink: 0;
-	}
+  .order-item-price {
+    font-size: 0.8rem;
+    color: var(--accent-yellow);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
 
-	.order-item-name-row {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		flex-wrap: wrap;
-	}
+  .order-item-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
 
-	.item-type-badge {
-		font-family: var(--font-heading);
-		font-size: 0.6rem;
-		letter-spacing: 1px;
-		padding: 2px 8px;
-		border-radius: 10px;
-		color: #fff;
-		text-transform: uppercase;
-		white-space: nowrap;
-	}
+  .item-type-badge {
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    color: #fff;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
 
-	@media (max-width: 640px) {
-		.tab-nav {
-			flex-wrap: wrap;
-		}
+  @media (max-width: 640px) {
+    .tab-nav {
+      flex-wrap: wrap;
+    }
 
-		.tab {
-			font-size: 0.7rem;
-			padding: 8px 6px;
-		}
+    .tab {
+      font-size: 0.7rem;
+      padding: 8px 6px;
+    }
 
-		.tab-label {
-			display: none;
-		}
+    .tab-label {
+      display: none;
+    }
 
-		.tab-icon {
-			font-size: 1.2rem;
-		}
-	}
+    .tab-icon {
+      font-size: 1.2rem;
+    }
+  }
 </style>

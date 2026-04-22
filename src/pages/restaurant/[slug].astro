@@ -1,12 +1,12 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import DishCustomizer from '../../components/DishCustomizer';
-import { items as itemsApi, itemLabels, itemVariants } from '@wix/restaurants';
-import { getSiteCurrency } from '../../utils/site';
-import { i18n, auth } from '@wix/essentials';
-import { getImageUrl, getShapeUrl } from '../../utils/image';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import DishCustomizer from "../../components/DishCustomizer";
+import { items as itemsApi, itemLabels, itemVariants } from "@wix/restaurants";
+import { getSiteCurrency } from "../../utils/site";
+import { i18n, auth } from "@wix/essentials";
+import { getImageUrl, getShapeUrl } from "../../utils/image";
 
 type Item = itemsApi.Item;
 type Label = itemLabels.Label;
@@ -17,250 +17,268 @@ const t = i18n.getTranslationFunction();
 const currency = await getSiteCurrency();
 
 const { slug } = Astro.params;
-if (!slug) return Astro.redirect('/restaurant');
+if (!slug) return Astro.redirect("/restaurant");
 
 function slugify(name: string): string {
-	return name
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/(^-|-$)/g, '');
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
 const itemsResult = await elevatedQueryItems().limit(100).find();
 const allItems: Item[] = itemsResult.items || [];
 
-const item = allItems.find((i) => slugify(i.name || '') === slug);
-if (!item) return Astro.redirect('/restaurant');
+const item = allItems.find((i) => slugify(i.name || "") === slug);
+if (!item) return Astro.redirect("/restaurant");
 
 const img = getImageUrl(item.image, 800, 600);
 
 interface LabelInfo {
-	name: string;
-	icon: string | null;
+  name: string;
+  icon: string | null;
 }
 const elevatedListLabels = auth.elevate(itemLabels.listLabels);
 const labelMap = new Map<string, LabelInfo>();
 try {
-	const labelsResult = await elevatedListLabels();
-	for (const label of labelsResult.labels || []) {
-		if (label._id && label.name) labelMap.set(label._id, { name: label.name, icon: getShapeUrl(label.icon) });
-	}
+  const labelsResult = await elevatedListLabels();
+  for (const label of labelsResult.labels || []) {
+    if (label._id && label.name)
+      labelMap.set(label._id, {
+        name: label.name,
+        icon: getShapeUrl(label.icon),
+      });
+  }
 } catch {}
 const labels: LabelInfo[] = (item.labels || [])
-	.map((l: Label) => (l._id ? labelMap.get(l._id) : undefined))
-	.filter((l): l is LabelInfo => !!l);
+  .map((l: Label) => (l._id ? labelMap.get(l._id) : undefined))
+  .filter((l): l is LabelInfo => !!l);
 
 const variantMap = new Map<string, string>();
 try {
-	const elevatedListVariants = auth.elevate(itemVariants.listVariants);
-	const variantsResult = await elevatedListVariants();
-	for (const v of variantsResult.variants || []) {
-		if (v._id && v.name) variantMap.set(v._id, v.name);
-	}
+  const elevatedListVariants = auth.elevate(itemVariants.listVariants);
+  const variantsResult = await elevatedListVariants();
+  for (const v of variantsResult.variants || []) {
+    if (v._id && v.name) variantMap.set(v._id, v.name);
+  }
 } catch {}
 
-const priceFormatter = new Intl.NumberFormat(locale, { style: 'currency', currency });
+const priceFormatter = new Intl.NumberFormat(locale, {
+  style: "currency",
+  currency,
+});
 
 function getItemPrice(it: Item): string {
-	const variants = it.priceVariants?.variants;
-	if (variants?.length) {
-		const prices = variants.map((v) => parseFloat(v.priceInfo?.price || v.price || '0'));
-		const min = Math.min(...prices);
-		const max = Math.max(...prices);
-		return min === max ? priceFormatter.format(min) : `${priceFormatter.format(min)} - ${priceFormatter.format(max)}`;
-	}
-	if (it.priceInfo?.price) return priceFormatter.format(parseFloat(it.priceInfo.price));
-	return '';
+  const variants = it.priceVariants?.variants;
+  if (variants?.length) {
+    const prices = variants.map((v) =>
+      parseFloat(v.priceInfo?.price || v.price || "0"),
+    );
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return min === max
+      ? priceFormatter.format(min)
+      : `${priceFormatter.format(min)} - ${priceFormatter.format(max)}`;
+  }
+  if (it.priceInfo?.price)
+    return priceFormatter.format(parseFloat(it.priceInfo.price));
+  return "";
 }
 
 const dishData = {
-	_id: item._id || '',
-	name: item.name || '',
-	price: item.priceInfo?.price ? { amount: item.priceInfo.price, currency } : null,
-	priceVariants: (item.priceVariants?.variants || []).map((v) => ({
-		_id: v.variantId || '',
-		name: (v.variantId && variantMap.get(v.variantId)) || '',
-		price: { amount: v.priceInfo?.price || v.price || '0', currency },
-	})),
-	modifierGroups: [],
+  _id: item._id || "",
+  name: item.name || "",
+  price: item.priceInfo?.price
+    ? { amount: item.priceInfo.price, currency }
+    : null,
+  priceVariants: (item.priceVariants?.variants || []).map((v) => ({
+    _id: v.variantId || "",
+    name: (v.variantId && variantMap.get(v.variantId)) || "",
+    price: { amount: v.priceInfo?.price || v.price || "0", currency },
+  })),
+  modifierGroups: [],
 };
 ---
 
-<Layout title={`${item.name} - ${t('restaurant.pageTitle')} - ${t('home.title')}`}>
-	<Nav />
-	<section class="dish-page">
-		<div class="container">
-			<a href="/restaurant" class="back-link"><span class="rtl-flip">←</span> {t('restaurant.backToMenu')}</a>
+<Layout
+  title={`${item.name} - ${t("restaurant.pageTitle")} - ${t("home.title")}`}
+>
+  <Nav />
+  <section class="dish-page">
+    <div class="container">
+      <a href="/restaurant" class="back-link"
+        ><span class="rtl-flip">←</span> {t("restaurant.backToMenu")}</a
+      >
 
-			<div class="dish-layout">
-				<div class="dish-gallery">
-					{
-						img ? (
-							<div class="gallery-main">
-								<img src={img} alt={item.name} />
-							</div>
-						) : (
-							<div class="gallery-placeholder">
-								<span>&#127869;</span>
-							</div>
-						)
-					}
-				</div>
+      <div class="dish-layout">
+        <div class="dish-gallery">
+          {
+            img ? (
+              <div class="gallery-main">
+                <img src={img} alt={item.name} />
+              </div>
+            ) : (
+              <div class="gallery-placeholder">
+                <span>&#127869;</span>
+              </div>
+            )
+          }
+        </div>
 
-				<div class="dish-details">
-					{
-						labels.length > 0 && (
-							<div class="dish-labels">
-								{labels.map((label) => (
-									<span class="dish-label" title={label.name}>
-										{label.icon && (
-											<span
-												class="dish-label-icon"
-												style={`-webkit-mask-image:url(${label.icon});mask-image:url(${label.icon})`}
-											/>
-										)}
-										<span>{label.name}</span>
-									</span>
-								))}
-							</div>
-						)
-					}
+        <div class="dish-details">
+          {
+            labels.length > 0 && (
+              <div class="dish-labels">
+                {labels.map((label) => (
+                  <span class="dish-label" title={label.name}>
+                    {label.icon && (
+                      <span
+                        class="dish-label-icon"
+                        style={`-webkit-mask-image:url(${label.icon});mask-image:url(${label.icon})`}
+                      />
+                    )}
+                    <span>{label.name}</span>
+                  </span>
+                ))}
+              </div>
+            )
+          }
 
-					<h1 class="dish-title">{item.name}</h1>
-					<div class="dish-price">{getItemPrice(item)}</div>
+          <h1 class="dish-title">{item.name}</h1>
+          <div class="dish-price">{getItemPrice(item)}</div>
 
-					{
-						item.description && (
-							<div class="dish-description">
-								<p>{item.description}</p>
-							</div>
-						)
-					}
+          {
+            item.description && (
+              <div class="dish-description">
+                <p>{item.description}</p>
+              </div>
+            )
+          }
 
-					<DishCustomizer item={dishData} client:load />
-				</div>
-			</div>
-		</div>
-	</section>
-	<Footer />
+          <DishCustomizer item={dishData} client:load />
+        </div>
+      </div>
+    </div>
+  </section>
+  <Footer />
 </Layout>
 
 <style>
-	.dish-page {
-		padding: 30px 0 60px;
-	}
+  .dish-page {
+    padding: 30px 0 60px;
+  }
 
-	.back-link {
-		display: inline-block;
-		margin-bottom: 24px;
-		font-family: var(--font-heading);
-		font-size: 0.85rem;
-		letter-spacing: 1px;
-		color: var(--text-muted);
-	}
+  .back-link {
+    display: inline-block;
+    margin-bottom: 24px;
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+  }
 
-	.back-link:hover {
-		color: var(--accent);
-	}
+  .back-link:hover {
+    color: var(--accent);
+  }
 
-	.dish-layout {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 48px;
-		align-items: start;
-	}
+  .dish-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+  }
 
-	.dish-gallery {
-		min-width: 0;
-		overflow: hidden;
-	}
+  .dish-gallery {
+    min-width: 0;
+    overflow: hidden;
+  }
 
-	.gallery-main {
-		border-radius: 12px;
-		background: #111;
-		overflow: hidden;
-		aspect-ratio: 4/3;
-	}
+  .gallery-main {
+    border-radius: 12px;
+    background: #111;
+    overflow: hidden;
+    aspect-ratio: 4/3;
+  }
 
-	.gallery-main img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
+  .gallery-main img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
-	.gallery-placeholder {
-		border-radius: 12px;
-		background: linear-gradient(135deg, #1a1a2e, #16213e);
-		aspect-ratio: 4/3;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 6rem;
-		opacity: 0.7;
-	}
+  .gallery-placeholder {
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    aspect-ratio: 4/3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 6rem;
+    opacity: 0.7;
+  }
 
-	.dish-labels {
-		display: flex;
-		gap: 6px;
-		margin-bottom: 12px;
-		flex-wrap: wrap;
-	}
+  .dish-labels {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
 
-	.dish-label {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		background: var(--accent);
-		color: #000;
-		padding: 4px 10px;
-		border-radius: 6px;
-		font-family: var(--font-heading);
-		font-size: 0.7rem;
-		letter-spacing: 1px;
-	}
+  .dish-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent);
+    color: #000;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+  }
 
-	.dish-label-icon {
-		display: inline-block;
-		width: 14px;
-		height: 14px;
-		background-color: #000;
-		-webkit-mask-repeat: no-repeat;
-		mask-repeat: no-repeat;
-		-webkit-mask-size: contain;
-		mask-size: contain;
-		-webkit-mask-position: center;
-		mask-position: center;
-	}
+  .dish-label-icon {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    background-color: #000;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
 
-	.dish-title {
-		font-family: var(--font-heading);
-		font-size: clamp(1.5rem, 3vw, 2.2rem);
-		color: var(--text-primary);
-		letter-spacing: 1px;
-		margin-bottom: 12px;
-	}
+  .dish-title {
+    font-family: var(--font-heading);
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    color: var(--text-primary);
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
 
-	.dish-price {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: var(--accent-yellow);
-		margin-bottom: 16px;
-	}
+  .dish-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent-yellow);
+    margin-bottom: 16px;
+  }
 
-	.dish-description {
-		color: var(--text-secondary);
-		font-size: 0.95rem;
-		line-height: 1.7;
-		margin-bottom: 24px;
-		padding-bottom: 24px;
-		border-bottom: 1px solid #222;
-	}
+  .dish-description {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #222;
+  }
 
-	@media (max-width: 768px) {
-		.dish-layout {
-			grid-template-columns: 1fr;
-			gap: 24px;
-		}
-	}
+  @media (max-width: 768px) {
+    .dish-layout {
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+  }
 </style>

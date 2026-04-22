@@ -1,13 +1,13 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import RichContentViewer from '../../components/RichContentViewer';
-import PremiumContentResolver from '../../components/PremiumContentResolver';
-import BlogEngagement from '../../components/BlogEngagement';
-import { posts, tags as tagsApi } from '@wix/blog';
-import { members } from '@wix/members';
-import { auth, i18n } from '@wix/essentials';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import RichContentViewer from "../../components/RichContentViewer";
+import PremiumContentResolver from "../../components/PremiumContentResolver";
+import BlogEngagement from "../../components/BlogEngagement";
+import { posts, tags as tagsApi } from "@wix/blog";
+import { members } from "@wix/members";
+import { auth, i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
 type Post = posts.Post;
@@ -17,46 +17,49 @@ type Member = members.Member;
 const { slug } = Astro.params;
 let post: Post | undefined;
 try {
-	const result = await posts.getPostBySlug(slug!, {
-		fieldsets: [
-			posts.PostFieldField.RICH_CONTENT,
-			posts.PostFieldField.URL,
-			posts.PostFieldField.METRICS,
-			posts.PostFieldField.CONTACT_ID,
-			posts.PostFieldField.REFERENCE_ID,
-			posts.PostFieldField.SEO,
-		],
-	});
-	post = result.post;
+  const result = await posts.getPostBySlug(slug!, {
+    fieldsets: [
+      posts.PostFieldField.RICH_CONTENT,
+      posts.PostFieldField.URL,
+      posts.PostFieldField.METRICS,
+      posts.PostFieldField.CONTACT_ID,
+      posts.PostFieldField.REFERENCE_ID,
+      posts.PostFieldField.SEO,
+    ],
+  });
+  post = result.post;
 } catch {}
 
-if (!post) return Astro.redirect('/blog');
+if (!post) return Astro.redirect("/blog");
 
 // Fetch writer info
 let writer: Member | undefined;
 if (post.memberId) {
-	try {
-		writer = await members.getMember(post.memberId, { fieldsets: [members.Set.FULL] });
-	} catch {}
+  try {
+    writer = await members.getMember(post.memberId, {
+      fieldsets: [members.Set.FULL],
+    });
+  } catch {}
 }
 
 // Fetch current member (for comment form)
 let currentMemberName: string | undefined;
 let currentMemberPhoto: string | undefined;
 try {
-	const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
-	if (res.member) {
-		currentMemberName = res.member.profile?.nickname || res.member.contact?.firstName || 'Member';
-		currentMemberPhoto = res.member.profile?.photo?.url ?? undefined;
-	}
+  const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
+  if (res.member) {
+    currentMemberName =
+      res.member.profile?.nickname || res.member.contact?.firstName || "Member";
+    currentMemberPhoto = res.member.profile?.photo?.url ?? undefined;
+  }
 } catch {}
 
 // Get current visitor/member identity for comment ownership
 let currentIdentityId: string | undefined;
 try {
-	const elevatedGetTokenInfo = auth.elevate(auth.getTokenInfo);
-	const tokenInfo = await elevatedGetTokenInfo();
-	currentIdentityId = tokenInfo.subjectId;
+  const elevatedGetTokenInfo = auth.elevate(auth.getTokenInfo);
+  const tokenInfo = await elevatedGetTokenInfo();
+  currentIdentityId = tokenInfo.subjectId;
 } catch {}
 
 // Fetch tags
@@ -65,482 +68,512 @@ const allTags = tagsResult.tags || [];
 const tagsMap = new Map<string, BlogTag>(allTags.map((t) => [t._id!, t]));
 const tagOrder = new Map(allTags.map((t, i) => [t._id!, i]));
 const postTags: BlogTag[] = (post.tagIds || [])
-	.map((id) => tagsMap.get(id))
-	.filter((t): t is BlogTag => !!t)
-	.sort((a, b) => (tagOrder.get(a._id!) ?? 999) - (tagOrder.get(b._id!) ?? 999));
+  .map((id) => tagsMap.get(id))
+  .filter((t): t is BlogTag => !!t)
+  .sort(
+    (a, b) => (tagOrder.get(a._id!) ?? 999) - (tagOrder.get(b._id!) ?? 999),
+  );
 
 function formatDate(dateStr: string | Date | null | undefined) {
-	if (!dateStr) return '';
-	return new Date(dateStr).toLocaleDateString(i18n.getLocale(), {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric',
-	});
+  if (!dateStr) return "";
+  return new Date(dateStr).toLocaleDateString(i18n.getLocale(), {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
-const writerName = writer?.profile?.nickname || writer?.contact?.firstName || 'Anonymous Cat';
-const writerTitle = writer?.profile?.title || '';
+const writerName =
+  writer?.profile?.nickname || writer?.contact?.firstName || "Anonymous Cat";
+const writerTitle = writer?.profile?.title || "";
 const writerPhoto = writer?.profile?.photo?.url;
 const writerSlug = writer?.profile?.slug;
 
 const seoTags = post.seoData?.tags || [];
 ---
 
-<Layout title={`${post.title} - ${t('blog.pageTitle')}`} seoTags={seoTags}>
-	<Nav />
-	<article class="blog-post">
-		<div class="container">
-			<a href="/blog" class="back-link"><span class="rtl-flip">←</span> {t('blog.backToLog')}</a>
+<Layout title={`${post.title} - ${t("blog.pageTitle")}`} seoTags={seoTags}>
+  <Nav />
+  <article class="blog-post">
+    <div class="container">
+      <a href="/blog" class="back-link"
+        ><span class="rtl-flip">←</span> {t("blog.backToLog")}</a
+      >
 
-			<header class="post-header">
-				<div class="post-meta-row">
-					<div class="writer-info">
-						{
-							writerPhoto && (
-								<a href={writerSlug ? `/member/${writerSlug}` : '#'}>
-									<img src={writerPhoto} alt={writerName} class="writer-avatar" referrerpolicy="no-referrer" />
-								</a>
-							)
-						}
-						<div>
-							<a href={writerSlug ? `/member/${writerSlug}` : '#'} class="writer-name-link"
-								><span class="writer-name">{writerName}</span></a
-							>
-							{writerTitle && <span class="writer-title">{writerTitle}</span>}
-						</div>
-					</div>
-					<div class="post-date-info">
-						<span class="post-date">{formatDate(post.firstPublishedDate)}</span>
-						{
-							post.minutesToRead && (
-								<span class="read-time">
-									{post.minutesToRead} {t('blog.minRead')}
-								</span>
-							)
-						}
-					</div>
-				</div>
-				{post.pinned && <div class="pinned-indicator">&#128204; {t('blog.pinnedPost')}</div>}
-				<h1>{post.title}</h1>
-				{
-					postTags.length > 0 && (
-						<div class="post-tags">
-							{postTags.map((tag) => (
-								<a href={`/blog?tag=${tag._id}`} class="tag">
-									{tag.label}
-								</a>
-							))}
-						</div>
-					)
-				}
-			</header>
+      <header class="post-header">
+        <div class="post-meta-row">
+          <div class="writer-info">
+            {
+              writerPhoto && (
+                <a href={writerSlug ? `/member/${writerSlug}` : "#"}>
+                  <img
+                    src={writerPhoto}
+                    alt={writerName}
+                    class="writer-avatar"
+                    referrerpolicy="no-referrer"
+                  />
+                </a>
+              )
+            }
+            <div>
+              <a
+                href={writerSlug ? `/member/${writerSlug}` : "#"}
+                class="writer-name-link"
+                ><span class="writer-name">{writerName}</span></a
+              >
+              {writerTitle && <span class="writer-title">{writerTitle}</span>}
+            </div>
+          </div>
+          <div class="post-date-info">
+            <span class="post-date">{formatDate(post.firstPublishedDate)}</span>
+            {
+              post.minutesToRead && (
+                <span class="read-time">
+                  {post.minutesToRead} {t("blog.minRead")}
+                </span>
+              )
+            }
+          </div>
+        </div>
+        {
+          post.pinned && (
+            <div class="pinned-indicator">&#128204; {t("blog.pinnedPost")}</div>
+          )
+        }
+        <h1>{post.title}</h1>
+        {
+          postTags.length > 0 && (
+            <div class="post-tags">
+              {postTags.map((tag) => (
+                <a href={`/blog?tag=${tag._id}`} class="tag">
+                  {tag.label}
+                </a>
+              ))}
+            </div>
+          )
+        }
+      </header>
 
-			{
-				post.preview ? (
-					<div class="post-content">
-						<PremiumContentResolver
-							slug={slug!}
-							{...(post.richContent ? { previewContent: post.richContent } : {})}
-							client:load
-						/>
-					</div>
-				) : (
-					<div class="post-content">
-						{post.richContent && <RichContentViewer content={post.richContent} client:load />}
-					</div>
-				)
-			}
+      {
+        post.preview ? (
+          <div class="post-content">
+            <PremiumContentResolver
+              slug={slug!}
+              {...(post.richContent
+                ? { previewContent: post.richContent }
+                : {})}
+              client:load
+            />
+          </div>
+        ) : (
+          <div class="post-content">
+            {post.richContent && (
+              <RichContentViewer content={post.richContent} client:load />
+            )}
+          </div>
+        )
+      }
 
-			<div class="writer-card">
-				{
-					writerPhoto && (
-						<a href={writerSlug ? `/member/${writerSlug}` : '#'}>
-							<img src={writerPhoto} alt={writerName} class="writer-card-photo" referrerpolicy="no-referrer" />
-						</a>
-					)
-				}
-				<div class="writer-card-info">
-					<span class="writer-card-label">{t('blog.writtenBy')}</span>
-					<a href={writerSlug ? `/member/${writerSlug}` : '#'} class="writer-card-name">{writerName}</a>
-					{writerTitle && <span class="writer-card-title">{writerTitle}</span>}
-				</div>
-			</div>
+      <div class="writer-card">
+        {
+          writerPhoto && (
+            <a href={writerSlug ? `/member/${writerSlug}` : "#"}>
+              <img
+                src={writerPhoto}
+                alt={writerName}
+                class="writer-card-photo"
+                referrerpolicy="no-referrer"
+              />
+            </a>
+          )
+        }
+        <div class="writer-card-info">
+          <span class="writer-card-label">{t("blog.writtenBy")}</span>
+          <a
+            href={writerSlug ? `/member/${writerSlug}` : "#"}
+            class="writer-card-name">{writerName}</a
+          >
+          {writerTitle && <span class="writer-card-title">{writerTitle}</span>}
+        </div>
+      </div>
 
-			<BlogEngagement
-				postId={post._id!}
-				referenceId={post.referenceId || post._id!}
-				{...currentMemberName ? { memberName: currentMemberName } : {}}
-				{...currentMemberPhoto ? { memberPhoto: currentMemberPhoto } : {}}
-				{...currentIdentityId ? { identityId: currentIdentityId } : {}}
-				commentingEnabled={post.commentingEnabled !== false}
-				client:load
-			/>
+      <BlogEngagement
+        postId={post._id!}
+        referenceId={post.referenceId || post._id!}
+        {...currentMemberName ? { memberName: currentMemberName } : {}}
+        {...currentMemberPhoto ? { memberPhoto: currentMemberPhoto } : {}}
+        {...currentIdentityId ? { identityId: currentIdentityId } : {}}
+        commentingEnabled={post.commentingEnabled !== false}
+        client:load
+      />
 
-			<footer class="post-footer">
-				<a href="/blog" class="btn btn-outline"><span class="rtl-flip">←</span> {t('blog.moreTransmissions')}</a>
-			</footer>
-		</div>
-	</article>
-	<Footer />
+      <footer class="post-footer">
+        <a href="/blog" class="btn btn-outline"
+          ><span class="rtl-flip">←</span> {t("blog.moreTransmissions")}</a
+        >
+      </footer>
+    </div>
+  </article>
+  <Footer />
 </Layout>
 
 <style>
-	.blog-post {
-		padding: 40px 0 80px;
-	}
+  .blog-post {
+    padding: 40px 0 80px;
+  }
 
-	.back-link {
-		display: inline-block;
-		font-family: var(--font-heading);
-		color: var(--text-muted);
-		font-size: 0.9rem;
-		letter-spacing: 1px;
-		margin-bottom: 30px;
-		transition: color 0.2s;
-	}
+  .back-link {
+    display: inline-block;
+    font-family: var(--font-heading);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    margin-bottom: 30px;
+    transition: color 0.2s;
+  }
 
-	.back-link:hover {
-		color: var(--accent);
-	}
+  .back-link:hover {
+    color: var(--accent);
+  }
 
-	.post-header {
-		margin-bottom: 40px;
-		padding-bottom: 30px;
-		border-bottom: 1px solid var(--border-card);
-	}
+  .post-header {
+    margin-bottom: 40px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid var(--border-card);
+  }
 
-	.post-meta-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 16px;
-		flex-wrap: wrap;
-		gap: 12px;
-	}
+  .post-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
 
-	.writer-info {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-	}
+  .writer-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
 
-	.writer-avatar {
-		width: 36px;
-		height: 36px;
-		border-radius: 50%;
-		object-fit: cover;
-		border: 2px solid var(--accent);
-	}
+  .writer-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent);
+  }
 
-	.post-date-info {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-		gap: 2px;
-	}
+  .post-date-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
 
-	.read-time {
-		font-size: 0.75rem;
-		color: var(--text-muted);
-	}
+  .read-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
 
-	.pinned-indicator {
-		font-size: 0.8rem;
-		color: var(--accent-yellow);
-		font-family: var(--font-heading);
-		letter-spacing: 1px;
-		margin-bottom: 12px;
-	}
+  .pinned-indicator {
+    font-size: 0.8rem;
+    color: var(--accent-yellow);
+    font-family: var(--font-heading);
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
 
-	.writer-name-link {
-		text-decoration: none;
-	}
+  .writer-name-link {
+    text-decoration: none;
+  }
 
-	.writer-name-link:hover .writer-name {
-		color: var(--accent);
-	}
+  .writer-name-link:hover .writer-name {
+    color: var(--accent);
+  }
 
-	.writer-name {
-		font-family: var(--font-heading);
-		font-size: 1rem;
-		color: var(--accent-yellow);
-		letter-spacing: 1px;
-		transition: color 0.2s;
-	}
+  .writer-name {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+    transition: color 0.2s;
+  }
 
-	.writer-title {
-		font-size: 0.8rem;
-		color: var(--text-muted);
-		font-style: italic;
-	}
+  .writer-title {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
 
-	.post-date {
-		font-family: var(--font-title);
-		font-size: 0.8rem;
-		color: var(--accent);
-		letter-spacing: 1px;
-	}
+  .post-date {
+    font-family: var(--font-title);
+    font-size: 0.8rem;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
 
-	h1 {
-		font-family: var(--font-heading);
-		font-size: clamp(1.8rem, 4vw, 2.8rem);
-		color: var(--accent-yellow);
-		letter-spacing: 2px;
-		line-height: 1.2;
-		text-shadow:
-			2px 2px 0 #000,
-			0 0 20px var(--accent-glow);
-		margin-bottom: 16px;
-	}
+  h1 {
+    font-family: var(--font-heading);
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    color: var(--accent-yellow);
+    letter-spacing: 2px;
+    line-height: 1.2;
+    text-shadow:
+      2px 2px 0 #000,
+      0 0 20px var(--accent-glow);
+    margin-bottom: 16px;
+  }
 
-	.post-tags {
-		display: flex;
-		gap: 8px;
-		flex-wrap: wrap;
-	}
+  .post-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
 
-	.tag {
-		display: inline-block;
-		padding: 4px 14px;
-		background: rgba(255, 102, 0, 0.1);
-		border: 1px solid rgba(255, 102, 0, 0.2);
-		border-radius: 14px;
-		font-size: 0.75rem;
-		color: var(--accent);
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		transition:
-			background 0.2s,
-			border-color 0.2s;
-	}
+  .tag {
+    display: inline-block;
+    padding: 4px 14px;
+    background: rgba(255, 102, 0, 0.1);
+    border: 1px solid rgba(255, 102, 0, 0.2);
+    border-radius: 14px;
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition:
+      background 0.2s,
+      border-color 0.2s;
+  }
 
-	.tag:hover {
-		background: rgba(255, 102, 0, 0.2);
-		border-color: var(--accent);
-	}
+  .tag:hover {
+    background: rgba(255, 102, 0, 0.2);
+    border-color: var(--accent);
+  }
 
-	.post-content {
-		max-width: 750px;
-		font-size: 1.05rem;
-		line-height: 1.8;
-		color: var(--text-secondary);
-	}
+  .post-content {
+    max-width: 750px;
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: var(--text-secondary);
+  }
 
-	.post-content :global(*) {
-		color: inherit;
-	}
+  .post-content :global(*) {
+    color: inherit;
+  }
 
-	.post-content :global(span),
-	.post-content :global(div),
-	.post-content :global(p) {
-		color: var(--text-secondary) !important;
-	}
+  .post-content :global(span),
+  .post-content :global(div),
+  .post-content :global(p) {
+    color: var(--text-secondary) !important;
+  }
 
-	.post-content :global(h2),
-	.post-content :global(h2 *) {
-		font-family: var(--font-heading);
-		font-size: 1.6rem;
-		color: var(--accent) !important;
-		letter-spacing: 1px;
-		margin: 40px 0 16px;
-		text-shadow: 0 0 10px var(--accent-glow);
-	}
+  .post-content :global(h2),
+  .post-content :global(h2 *) {
+    font-family: var(--font-heading);
+    font-size: 1.6rem;
+    color: var(--accent) !important;
+    letter-spacing: 1px;
+    margin: 40px 0 16px;
+    text-shadow: 0 0 10px var(--accent-glow);
+  }
 
-	.post-content :global(h3),
-	.post-content :global(h3 *) {
-		font-family: var(--font-heading);
-		font-size: 1.3rem;
-		color: var(--accent-yellow) !important;
-		letter-spacing: 1px;
-		margin: 30px 0 12px;
-	}
+  .post-content :global(h3),
+  .post-content :global(h3 *) {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--accent-yellow) !important;
+    letter-spacing: 1px;
+    margin: 30px 0 12px;
+  }
 
-	.post-content :global(p) {
-		margin-bottom: 18px;
-	}
+  .post-content :global(p) {
+    margin-bottom: 18px;
+  }
 
-	.post-content :global(ul),
-	.post-content :global(ol) {
-		margin: 16px 0 24px 24px;
-	}
+  .post-content :global(ul),
+  .post-content :global(ol) {
+    margin: 16px 0 24px 24px;
+  }
 
-	.post-content :global(li) {
-		margin-bottom: 10px;
-		padding-left: 8px;
-		color: var(--text-secondary) !important;
-	}
+  .post-content :global(li) {
+    margin-bottom: 10px;
+    padding-left: 8px;
+    color: var(--text-secondary) !important;
+  }
 
-	.post-content :global(li::marker) {
-		color: var(--accent);
-	}
+  .post-content :global(li::marker) {
+    color: var(--accent);
+  }
 
-	.post-content :global(blockquote) {
-		border-left: 3px solid var(--accent);
-		padding: 16px 24px;
-		margin: 24px 0;
-		background: rgba(255, 102, 0, 0.05);
-		border-radius: 0 12px 12px 0;
-		font-style: italic;
-		color: var(--text-primary) !important;
-	}
+  .post-content :global(blockquote) {
+    border-left: 3px solid var(--accent);
+    padding: 16px 24px;
+    margin: 24px 0;
+    background: rgba(255, 102, 0, 0.05);
+    border-radius: 0 12px 12px 0;
+    font-style: italic;
+    color: var(--text-primary) !important;
+  }
 
-	.post-content :global(blockquote *) {
-		color: var(--text-primary) !important;
-	}
+  .post-content :global(blockquote *) {
+    color: var(--text-primary) !important;
+  }
 
-	.post-content :global(img) {
-		max-width: 100%;
-		border-radius: 12px;
-		margin: 24px 0;
-	}
+  .post-content :global(img) {
+    max-width: 100%;
+    border-radius: 12px;
+    margin: 24px 0;
+  }
 
-	.post-content :global(strong) {
-		color: var(--text-primary) !important;
-	}
+  .post-content :global(strong) {
+    color: var(--text-primary) !important;
+  }
 
-	/* Writer Card */
-	.writer-card {
-		margin-top: 30px;
-		padding: 20px 24px;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		max-width: 400px;
-	}
+  /* Writer Card */
+  .writer-card {
+    margin-top: 30px;
+    padding: 20px 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: 400px;
+  }
 
-	.writer-card-photo {
-		width: 50px;
-		height: 50px;
-		border-radius: 50%;
-		object-fit: cover;
-		border: 2px solid var(--accent);
-		flex-shrink: 0;
-	}
+  .writer-card-photo {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent);
+    flex-shrink: 0;
+  }
 
-	.writer-card-label {
-		font-size: 0.7rem;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 1px;
-		display: block;
-		margin-bottom: 4px;
-	}
+  .writer-card-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 4px;
+  }
 
-	.writer-card-name {
-		font-family: var(--font-heading);
-		font-size: 1.2rem;
-		color: var(--accent-yellow);
-		letter-spacing: 1px;
-		display: block;
-	}
+  .writer-card-name {
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+    display: block;
+  }
 
-	.writer-card-title {
-		font-size: 0.85rem;
-		color: var(--text-secondary);
-		font-style: italic;
-		display: block;
-		margin-top: 2px;
-	}
+  .writer-card-title {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    display: block;
+    margin-top: 2px;
+  }
 
-	.post-footer {
-		margin-top: 40px;
-		padding-top: 30px;
-		border-top: 1px solid var(--border-card);
-	}
+  .post-footer {
+    margin-top: 40px;
+    padding-top: 30px;
+    border-top: 1px solid var(--border-card);
+  }
 
-	.btn-outline {
-		display: inline-block;
-		padding: 12px 32px;
-		background: transparent;
-		color: var(--accent);
-		font-family: var(--font-heading);
-		font-size: 1.1rem;
-		letter-spacing: 2px;
-		border-radius: 8px;
-		border: 2px solid var(--accent);
-		transition: all 0.3s;
-	}
+  .btn-outline {
+    display: inline-block;
+    padding: 12px 32px;
+    background: transparent;
+    color: var(--accent);
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    border-radius: 8px;
+    border: 2px solid var(--accent);
+    transition: all 0.3s;
+  }
 
-	.btn-outline:hover {
-		background: var(--accent);
-		color: #000;
-		transform: translateY(-2px);
-		box-shadow: 0 0 20px var(--accent-glow);
-	}
+  .btn-outline:hover {
+    background: var(--accent);
+    color: #000;
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
 
-	:global(.post-preview) {
-		position: relative;
-		max-height: 600px;
-		overflow: hidden;
-	}
+  :global(.post-preview) {
+    position: relative;
+    max-height: 600px;
+    overflow: hidden;
+  }
 
-	:global(.paywall) {
-		position: relative;
-		margin-top: -120px;
-		padding-top: 120px;
-		text-align: center;
-		margin-bottom: 30px;
-	}
+  :global(.paywall) {
+    position: relative;
+    margin-top: -120px;
+    padding-top: 120px;
+    text-align: center;
+    margin-bottom: 30px;
+  }
 
-	:global(.paywall-fade) {
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 120px;
-		background: linear-gradient(to bottom, transparent, var(--bg-main));
-		pointer-events: none;
-	}
+  :global(.paywall-fade) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 120px;
+    background: linear-gradient(to bottom, transparent, var(--bg-main));
+    pointer-events: none;
+  }
 
-	:global(.paywall-content) {
-		position: relative;
-		padding: 40px;
-		background: var(--bg-card);
-		border: 2px solid var(--accent);
-		border-radius: 16px;
-		box-shadow: 0 0 40px var(--accent-glow);
-	}
+  :global(.paywall-content) {
+    position: relative;
+    padding: 40px;
+    background: var(--bg-card);
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    box-shadow: 0 0 40px var(--accent-glow);
+  }
 
-	:global(.paywall-content h3) {
-		font-family: var(--font-heading);
-		font-size: 1.4rem;
-		color: var(--accent-yellow);
-		letter-spacing: 1px;
-		margin-bottom: 8px;
-	}
+  :global(.paywall-content h3) {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
 
-	:global(.paywall-content p) {
-		color: var(--text-muted);
-		font-size: 0.9rem;
-		margin-bottom: 20px;
-	}
+  :global(.paywall-content p) {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+  }
 
-	:global(.paywall-btn) {
-		display: inline-block;
-		padding: 12px 32px;
-		background: var(--accent);
-		color: #000 !important;
-		font-family: var(--font-heading);
-		font-size: 1rem;
-		letter-spacing: 1px;
-		border-radius: 8px;
-		transition: all 0.2s;
-		font-weight: bold;
-		text-decoration: none;
-	}
+  :global(.paywall-btn) {
+    display: inline-block;
+    padding: 12px 32px;
+    background: var(--accent);
+    color: #000 !important;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    letter-spacing: 1px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    font-weight: bold;
+    text-decoration: none;
+  }
 
-	:global(.paywall-btn:hover) {
-		background: var(--accent-yellow);
-		transform: translateY(-2px);
-	}
+  :global(.paywall-btn:hover) {
+    background: var(--accent-yellow);
+    transform: translateY(-2px);
+  }
 
-	@media (max-width: 768px) {
-		.engagement-stats {
-			gap: 24px;
-		}
-	}
+  @media (max-width: 768px) {
+    .engagement-stats {
+      gap: 24px;
+    }
+  }
 </style>

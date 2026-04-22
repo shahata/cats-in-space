@@ -1,336 +1,353 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import { items } from '@wix/data';
-import { getImageUrl } from '../../utils/image';
-import { i18n } from '@wix/essentials';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { items } from "@wix/data";
+import { getImageUrl } from "../../utils/image";
+import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
 const { slug } = Astro.params;
-const result = await items.query('Missions').eq('slug', slug).include('planetRef', 'crew').find();
+const result = await items
+  .query("Missions")
+  .eq("slug", slug)
+  .include("planetRef", "crew")
+  .find();
 
 if (result.items.length === 0) {
-	return Astro.redirect('/missions');
+  return Astro.redirect("/missions");
 }
 
 const mission = result.items[0]!;
 
 function getStatusBadge(status: string) {
-	const map: Record<string, string> = {
-		'In Progress': 'badge-blue',
-		'Launching Soon': 'badge-gold',
-		Planning: 'badge-purple',
-		Planned: 'badge-purple',
-		Completed: 'badge-green',
-	};
-	return map[status] || 'badge-blue';
+  const map: Record<string, string> = {
+    "In Progress": "badge-blue",
+    "Launching Soon": "badge-gold",
+    Planning: "badge-purple",
+    Planned: "badge-purple",
+    Completed: "badge-green",
+  };
+  return map[status] || "badge-blue";
 }
 ---
 
-<Layout title={`${mission.title} - ${t('home.title')}`}>
-	<Nav />
-	<div class="detail-page">
-		<div class="container">
-			<a href="/missions" class="back-link"><span class="rtl-flip">←</span> {t('missions.backToAll')}</a>
+<Layout title={`${mission.title} - ${t("home.title")}`}>
+  <Nav />
+  <div class="detail-page">
+    <div class="container">
+      <a href="/missions" class="back-link"
+        ><span class="rtl-flip">←</span> {t("missions.backToAll")}</a
+      >
 
-			<div class="mission-hero">
-				<div class="mission-icon">
-					{
-						mission.status === 'In Progress'
-							? '🛸'
-							: mission.status === 'Launching Soon'
-								? '🚀'
-								: mission.status === 'Planning'
-									? '📋'
-									: '🗺️'
-					}
-				</div>
-				<h1>{mission.title}</h1>
-				<span class={`badge ${getStatusBadge(mission.status)}`}>{mission.status}</span>
-			</div>
+      <div class="mission-hero">
+        <div class="mission-icon">
+          {
+            mission.status === "In Progress"
+              ? "🛸"
+              : mission.status === "Launching Soon"
+                ? "🚀"
+                : mission.status === "Planning"
+                  ? "📋"
+                  : "🗺️"
+          }
+        </div>
+        <h1>{mission.title}</h1>
+        <span class={`badge ${getStatusBadge(mission.status)}`}
+          >{mission.status}</span
+        >
+      </div>
 
-			<div class="detail-grid">
-				<div class="detail-main">
-					<h2>{t('missions.missionBrief')}</h2>
-					<p class="description">{mission.description}</p>
+      <div class="detail-grid">
+        <div class="detail-main">
+          <h2>{t("missions.missionBrief")}</h2>
+          <p class="description">{mission.description}</p>
 
-					<div class="log-section">
-						<h2>{t('missions.missionLog')}</h2>
-						<div class="log-card">
-							<div class="log-dot"></div>
-							<p>{mission.missionLog}</p>
-						</div>
-					</div>
-				</div>
+          <div class="log-section">
+            <h2>{t("missions.missionLog")}</h2>
+            <div class="log-card">
+              <div class="log-dot"></div>
+              <p>{mission.missionLog}</p>
+            </div>
+          </div>
+        </div>
 
-				<div class="detail-sidebar">
-					<div class="info-card">
-						<h3>{t('missions.missionDetails')}</h3>
-						<div class="info-row">
-							<span class="info-label">{t('missions.destination')}</span>
-							{
-								mission.planetRef ? (
-									<a href={`/planets/${mission.planetRef.slug}`} class="info-planet-link">
-										{getImageUrl(mission.planetRef.image, 28, 28) && (
-											<img
-												src={getImageUrl(mission.planetRef.image, 28, 28)!}
-												alt={mission.planetRef.title}
-												class="info-planet-img"
-											/>
-										)}
-										<span class="info-value">{mission.planetRef.title}</span>
-									</a>
-								) : (
-									<span class="info-value">{mission.planet}</span>
-								)
-							}
-						</div>
-						<div class="info-row">
-							<span class="info-label">{t('missions.launchDate')}</span>
-							<span class="info-value">{mission.launchDate}</span>
-						</div>
-						<div class="info-row">
-							<span class="info-label">{t('missions.status')}</span>
-							<span class="info-value">{mission.status}</span>
-						</div>
-					</div>
+        <div class="detail-sidebar">
+          <div class="info-card">
+            <h3>{t("missions.missionDetails")}</h3>
+            <div class="info-row">
+              <span class="info-label">{t("missions.destination")}</span>
+              {
+                mission.planetRef ? (
+                  <a
+                    href={`/planets/${mission.planetRef.slug}`}
+                    class="info-planet-link"
+                  >
+                    {getImageUrl(mission.planetRef.image, 28, 28) && (
+                      <img
+                        src={getImageUrl(mission.planetRef.image, 28, 28)!}
+                        alt={mission.planetRef.title}
+                        class="info-planet-img"
+                      />
+                    )}
+                    <span class="info-value">{mission.planetRef.title}</span>
+                  </a>
+                ) : (
+                  <span class="info-value">{mission.planet}</span>
+                )
+              }
+            </div>
+            <div class="info-row">
+              <span class="info-label">{t("missions.launchDate")}</span>
+              <span class="info-value">{mission.launchDate}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">{t("missions.status")}</span>
+              <span class="info-value">{mission.status}</span>
+            </div>
+          </div>
 
-					{
-						mission.crew && mission.crew.length > 0 && (
-							<div class="info-card crew-card">
-								<h3>
-									{t('missions.crew')} ({mission.crew.length})
-								</h3>
-								<div class="crew-list">
-									{mission.crew.map((cat: any) => (
-										<a href={`/crew/${cat.slug}`} class="crew-member">
-											{getImageUrl(cat.image, 40, 40) ? (
-												<img src={getImageUrl(cat.image, 40, 40)!} alt={cat.name} class="crew-member-img" />
-											) : (
-												<span class="crew-member-img crew-member-fallback">🐱</span>
-											)}
-											<div class="crew-member-info">
-												<span class="crew-member-name">{cat.name}</span>
-												<span class="crew-member-role">{cat.role}</span>
-											</div>
-										</a>
-									))}
-								</div>
-							</div>
-						)
-					}
-				</div>
-			</div>
-		</div>
-	</div>
-	<Footer />
+          {
+            mission.crew && mission.crew.length > 0 && (
+              <div class="info-card crew-card">
+                <h3>
+                  {t("missions.crew")} ({mission.crew.length})
+                </h3>
+                <div class="crew-list">
+                  {mission.crew.map((cat: any) => (
+                    <a href={`/crew/${cat.slug}`} class="crew-member">
+                      {getImageUrl(cat.image, 40, 40) ? (
+                        <img
+                          src={getImageUrl(cat.image, 40, 40)!}
+                          alt={cat.name}
+                          class="crew-member-img"
+                        />
+                      ) : (
+                        <span class="crew-member-img crew-member-fallback">
+                          🐱
+                        </span>
+                      )}
+                      <div class="crew-member-info">
+                        <span class="crew-member-name">{cat.name}</span>
+                        <span class="crew-member-role">{cat.role}</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+  <Footer />
 </Layout>
 
 <style>
-	.detail-page {
-		position: relative;
-		z-index: 1;
-		padding: 60px 0 40px;
-	}
+  .detail-page {
+    position: relative;
+    z-index: 1;
+    padding: 60px 0 40px;
+  }
 
-	.back-link {
-		font-size: 0.85rem;
-		color: var(--text-muted);
-		display: inline-block;
-		margin-bottom: 2rem;
-		transition: color 0.2s;
-	}
-	.back-link:hover {
-		color: var(--accent);
-	}
+  .back-link {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    display: inline-block;
+    margin-bottom: 2rem;
+    transition: color 0.2s;
+  }
+  .back-link:hover {
+    color: var(--accent);
+  }
 
-	.mission-hero {
-		text-align: center;
-		margin-bottom: 3rem;
-	}
+  .mission-hero {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
 
-	.mission-icon {
-		font-size: 3rem;
-		margin-bottom: 1rem;
-	}
+  .mission-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
 
-	.mission-hero h1 {
-		font-family: var(--font-title);
-		font-size: 2.5rem;
-		color: var(--accent);
-		text-shadow:
-			2px 2px 0 #000,
-			0 0 20px var(--accent-glow);
-		margin-bottom: 0.75rem;
-	}
+  .mission-hero h1 {
+    font-family: var(--font-title);
+    font-size: 2.5rem;
+    color: var(--accent);
+    text-shadow:
+      2px 2px 0 #000,
+      0 0 20px var(--accent-glow);
+    margin-bottom: 0.75rem;
+  }
 
-	.detail-grid {
-		display: grid;
-		grid-template-columns: 1fr 340px;
-		gap: 2rem;
-		align-items: start;
-	}
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 2rem;
+    align-items: start;
+  }
 
-	.detail-main h2 {
-		font-family: var(--font-heading);
-		font-size: 1.3rem;
-		color: var(--accent);
-		letter-spacing: 1px;
-		text-shadow:
-			2px 2px 0 #000,
-			0 0 20px var(--accent-glow);
-		margin-bottom: 1rem;
-	}
+  .detail-main h2 {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-shadow:
+      2px 2px 0 #000,
+      0 0 20px var(--accent-glow);
+    margin-bottom: 1rem;
+  }
 
-	.description {
-		color: var(--text-secondary);
-		font-size: 1rem;
-		line-height: 1.8;
-		margin-bottom: 2.5rem;
-	}
+  .description {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.8;
+    margin-bottom: 2.5rem;
+  }
 
-	.log-card {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 16px;
-		padding: 1.25rem 1.5rem;
-		display: flex;
-		gap: 1rem;
-		align-items: flex-start;
-	}
+  .log-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
 
-	.log-dot {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		background: var(--accent);
-		box-shadow: 0 0 8px var(--accent);
-		flex-shrink: 0;
-		margin-top: 0.4rem;
-	}
+  .log-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    flex-shrink: 0;
+    margin-top: 0.4rem;
+  }
 
-	.log-card p {
-		color: var(--text-secondary);
-		font-size: 0.9rem;
-		line-height: 1.7;
-		font-family: var(--font-body);
-	}
+  .log-card p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.7;
+    font-family: var(--font-body);
+  }
 
-	.info-card {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 16px;
-		padding: 1.5rem;
-	}
+  .info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    padding: 1.5rem;
+  }
 
-	.info-card h3 {
-		font-family: var(--font-heading);
-		font-size: 1rem;
-		margin-bottom: 1rem;
-		color: var(--accent-yellow);
-		letter-spacing: 1px;
-	}
+  .info-card h3 {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+  }
 
-	.info-row {
-		display: flex;
-		justify-content: space-between;
-		padding: 0.6rem 0;
-		border-bottom: 1px solid var(--border-card);
-	}
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border-card);
+  }
 
-	.info-label {
-		color: var(--text-muted);
-		font-size: 0.85rem;
-	}
-	.info-value {
-		color: var(--accent);
-		font-family: var(--font-title);
-		font-size: 0.8rem;
-	}
+  .info-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+  .info-value {
+    color: var(--accent);
+    font-family: var(--font-title);
+    font-size: 0.8rem;
+  }
 
-	.info-planet-link {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		text-decoration: none;
-		transition: opacity 0.2s;
-	}
-	.info-planet-link:hover {
-		opacity: 0.8;
-	}
-	.info-planet-img {
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		object-fit: cover;
-		border: 1px solid var(--accent);
-	}
+  .info-planet-link {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  .info-planet-link:hover {
+    opacity: 0.8;
+  }
+  .info-planet-img {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--accent);
+  }
 
-	.crew-card {
-		margin-top: 1rem;
-	}
+  .crew-card {
+    margin-top: 1rem;
+  }
 
-	.crew-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
+  .crew-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
 
-	.crew-member {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.5rem;
-		border-radius: 12px;
-		transition: background 0.2s;
-		text-decoration: none;
-		color: inherit;
-	}
+  .crew-member {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    border-radius: 12px;
+    transition: background 0.2s;
+    text-decoration: none;
+    color: inherit;
+  }
 
-	.crew-member:hover {
-		background: rgba(255, 102, 0, 0.08);
-	}
+  .crew-member:hover {
+    background: rgba(255, 102, 0, 0.08);
+  }
 
-	.crew-member-img {
-		width: 36px;
-		height: 36px;
-		border-radius: 50%;
-		object-fit: cover;
-		border: 1px solid rgba(255, 102, 0, 0.3);
-		flex-shrink: 0;
-	}
+  .crew-member-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid rgba(255, 102, 0, 0.3);
+    flex-shrink: 0;
+  }
 
-	.crew-member-fallback {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: rgba(255, 102, 0, 0.1);
-		font-size: 1rem;
-	}
+  .crew-member-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 102, 0, 0.1);
+    font-size: 1rem;
+  }
 
-	.crew-member-info {
-		display: flex;
-		flex-direction: column;
-	}
+  .crew-member-info {
+    display: flex;
+    flex-direction: column;
+  }
 
-	.crew-member-name {
-		font-family: var(--font-title);
-		font-size: 0.8rem;
-		color: var(--accent);
-	}
+  .crew-member-name {
+    font-family: var(--font-title);
+    font-size: 0.8rem;
+    color: var(--accent);
+  }
 
-	.crew-member-role {
-		font-size: 0.7rem;
-		color: var(--text-muted);
-	}
+  .crew-member-role {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
 
-	@media (max-width: 768px) {
-		.detail-grid {
-			grid-template-columns: 1fr;
-		}
-		.mission-hero h1 {
-			font-size: 2rem;
-		}
-	}
+  @media (max-width: 768px) {
+    .detail-grid {
+      grid-template-columns: 1fr;
+    }
+    .mission-hero h1 {
+      font-size: 2rem;
+    }
+  }
 </style>

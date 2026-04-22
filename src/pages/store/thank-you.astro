@@ -1,272 +1,288 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import { orders as ecomOrders } from '@wix/ecom';
-import { i18n } from '@wix/essentials';
-import { getImageUrl } from '../../utils/image';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { orders as ecomOrders } from "@wix/ecom";
+import { i18n } from "@wix/essentials";
+import { getImageUrl } from "../../utils/image";
 
-const orderId = Astro.url.searchParams.get('orderId');
+const orderId = Astro.url.searchParams.get("orderId");
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
 let order: Record<string, any> | null = null;
 if (orderId) {
-	try {
-		const result = await ecomOrders.getOrder(orderId);
-		order = result as Record<string, any>;
-	} catch {}
+  try {
+    const result = await ecomOrders.getOrder(orderId);
+    order = result as Record<string, any>;
+  } catch {}
 }
 
 const fmt = (amount: number, currency: string) =>
-	new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
+  new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
 ---
 
-<Layout title={`${t('store.thankYouTitle')} - ${t('home.title')}`}>
-	<Nav />
-	<section class="thank-you">
-		<div class="container">
-			<div class="ty-hero">
-				<div class="ty-icon">&#128640;</div>
-				<h1 class="section-title">{t('store.thankYouTitle')}</h1>
-				<p class="ty-subtitle">{t('store.thankYouSubtitle')}</p>
-			</div>
+<Layout title={`${t("store.thankYouTitle")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="thank-you">
+    <div class="container">
+      <div class="ty-hero">
+        <div class="ty-icon">&#128640;</div>
+        <h1 class="section-title">{t("store.thankYouTitle")}</h1>
+        <p class="ty-subtitle">{t("store.thankYouSubtitle")}</p>
+      </div>
 
-			{
-				order ? (
-					<div class="ty-order">
-						<div class="ty-order-header">
-							<div>
-								<span class="ty-label">{t('store.order')}</span>
-								<span class="ty-value">#{order.number || orderId?.slice(-8)}</span>
-							</div>
-							{order.priceSummary?.total && order.currency && (
-								<div>
-									<span class="ty-label">{t('store.total')}</span>
-									<span class="ty-value ty-total">
-										{fmt(parseFloat(order.priceSummary.total.amount), order.currency)}
-									</span>
-								</div>
-							)}
-						</div>
+      {
+        order ? (
+          <div class="ty-order">
+            <div class="ty-order-header">
+              <div>
+                <span class="ty-label">{t("store.order")}</span>
+                <span class="ty-value">
+                  #{order.number || orderId?.slice(-8)}
+                </span>
+              </div>
+              {order.priceSummary?.total && order.currency && (
+                <div>
+                  <span class="ty-label">{t("store.total")}</span>
+                  <span class="ty-value ty-total">
+                    {fmt(
+                      parseFloat(order.priceSummary.total.amount),
+                      order.currency,
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
 
-						{order.lineItems?.length > 0 && (
-							<div class="ty-items">
-								{order.lineItems.map(
-									(li: {
-										image?: string;
-										productName?: { translated?: string; original?: string };
-										quantity?: number;
-										price?: { formattedAmount?: string };
-									}) => {
-										const img = getImageUrl(li.image, 80, 80);
-										return (
-											<div class="ty-item">
-												<div class="ty-item-img">
-													{img ? (
-														<img src={img} alt={li.productName?.translated || li.productName?.original} />
-													) : (
-														<span>&#128049;</span>
-													)}
-												</div>
-												<div class="ty-item-info">
-													<div class="ty-item-name">{li.productName?.translated || li.productName?.original}</div>
-													<div class="ty-item-qty">
-														{t('store.qty')}: {li.quantity}
-													</div>
-												</div>
-												<div class="ty-item-price">{li.price?.formattedAmount}</div>
-											</div>
-										);
-									},
-								)}
-							</div>
-						)}
+            {order.lineItems?.length > 0 && (
+              <div class="ty-items">
+                {order.lineItems.map(
+                  (li: {
+                    image?: string;
+                    productName?: { translated?: string; original?: string };
+                    quantity?: number;
+                    price?: { formattedAmount?: string };
+                  }) => {
+                    const img = getImageUrl(li.image, 80, 80);
+                    return (
+                      <div class="ty-item">
+                        <div class="ty-item-img">
+                          {img ? (
+                            <img
+                              src={img}
+                              alt={
+                                li.productName?.translated ||
+                                li.productName?.original
+                              }
+                            />
+                          ) : (
+                            <span>&#128049;</span>
+                          )}
+                        </div>
+                        <div class="ty-item-info">
+                          <div class="ty-item-name">
+                            {li.productName?.translated ||
+                              li.productName?.original}
+                          </div>
+                          <div class="ty-item-qty">
+                            {t("store.qty")}: {li.quantity}
+                          </div>
+                        </div>
+                        <div class="ty-item-price">
+                          {li.price?.formattedAmount}
+                        </div>
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+            )}
 
-						<div class="ty-actions">
-							<a href="/store" class="ty-btn ty-btn-primary">
-								{t('store.continueShopping')}
-							</a>
-							<a href="/member#orders" class="ty-btn ty-btn-secondary">
-								{t('store.viewOrders')}
-							</a>
-						</div>
-					</div>
-				) : (
-					<div class="ty-actions">
-						<p class="ty-no-order">{t('store.orderProcessing')}</p>
-						<a href="/store" class="ty-btn ty-btn-primary">
-							{t('store.continueShopping')}
-						</a>
-						<a href="/member#orders" class="ty-btn ty-btn-secondary">
-							{t('store.viewOrders')}
-						</a>
-					</div>
-				)
-			}
-		</div>
-	</section>
-	<Footer />
+            <div class="ty-actions">
+              <a href="/store" class="ty-btn ty-btn-primary">
+                {t("store.continueShopping")}
+              </a>
+              <a href="/member#orders" class="ty-btn ty-btn-secondary">
+                {t("store.viewOrders")}
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div class="ty-actions">
+            <p class="ty-no-order">{t("store.orderProcessing")}</p>
+            <a href="/store" class="ty-btn ty-btn-primary">
+              {t("store.continueShopping")}
+            </a>
+            <a href="/member#orders" class="ty-btn ty-btn-secondary">
+              {t("store.viewOrders")}
+            </a>
+          </div>
+        )
+      }
+    </div>
+  </section>
+  <Footer />
 </Layout>
 
 <style>
-	.thank-you {
-		padding: 60px 0;
-		min-height: 60vh;
-	}
+  .thank-you {
+    padding: 60px 0;
+    min-height: 60vh;
+  }
 
-	.ty-hero {
-		text-align: center;
-		margin-bottom: 40px;
-	}
+  .ty-hero {
+    text-align: center;
+    margin-bottom: 40px;
+  }
 
-	.ty-icon {
-		font-size: 4rem;
-		margin-bottom: 16px;
-	}
+  .ty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+  }
 
-	.ty-subtitle {
-		color: var(--text-secondary);
-		font-size: 1.1rem;
-		margin-top: 8px;
-	}
+  .ty-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    margin-top: 8px;
+  }
 
-	.ty-order {
-		max-width: 600px;
-		margin: 0 auto;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 12px;
-		padding: 24px;
-	}
+  .ty-order {
+    max-width: 600px;
+    margin: 0 auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 24px;
+  }
 
-	.ty-order-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding-bottom: 16px;
-		border-bottom: 1px solid var(--border-card);
-		margin-bottom: 16px;
-	}
+  .ty-order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-card);
+    margin-bottom: 16px;
+  }
 
-	.ty-label {
-		font-size: 0.75rem;
-		color: var(--text-muted);
-		text-transform: uppercase;
-		letter-spacing: 1px;
-		display: block;
-		margin-bottom: 2px;
-	}
+  .ty-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 2px;
+  }
 
-	.ty-value {
-		font-family: var(--font-heading);
-		font-size: 1.1rem;
-		color: var(--text-primary);
-		letter-spacing: 1px;
-	}
+  .ty-value {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+  }
 
-	.ty-total {
-		color: var(--accent-yellow);
-	}
+  .ty-total {
+    color: var(--accent-yellow);
+  }
 
-	.ty-items {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-		margin-bottom: 24px;
-	}
+  .ty-items {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
 
-	.ty-item {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-	}
+  .ty-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 
-	.ty-item-img {
-		width: 56px;
-		height: 56px;
-		border-radius: 8px;
-		overflow: hidden;
-		background: #1a1a2e;
-		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 1.5rem;
-	}
+  .ty-item-img {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1a1a2e;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
 
-	.ty-item-img img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
+  .ty-item-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 
-	.ty-item-info {
-		flex: 1;
-		min-width: 0;
-	}
+  .ty-item-info {
+    flex: 1;
+    min-width: 0;
+  }
 
-	.ty-item-name {
-		font-family: var(--font-heading);
-		font-size: 0.85rem;
-		color: var(--text-primary);
-		letter-spacing: 0.5px;
-	}
+  .ty-item-name {
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+  }
 
-	.ty-item-qty {
-		font-size: 0.75rem;
-		color: var(--text-muted);
-	}
+  .ty-item-qty {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
 
-	.ty-item-price {
-		font-size: 0.9rem;
-		color: var(--accent-yellow);
-		font-weight: 700;
-		flex-shrink: 0;
-	}
+  .ty-item-price {
+    font-size: 0.9rem;
+    color: var(--accent-yellow);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
 
-	.ty-actions {
-		display: flex;
-		gap: 12px;
-		justify-content: center;
-		flex-wrap: wrap;
-	}
+  .ty-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
 
-	.ty-no-order {
-		color: var(--text-secondary);
-		text-align: center;
-		margin-bottom: 16px;
-		width: 100%;
-	}
+  .ty-no-order {
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 16px;
+    width: 100%;
+  }
 
-	.ty-btn {
-		padding: 12px 28px;
-		border-radius: 8px;
-		font-family: var(--font-heading);
-		font-size: 0.95rem;
-		letter-spacing: 1.5px;
-		text-decoration: none;
-		transition: all 0.2s;
-	}
+  .ty-btn {
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    letter-spacing: 1.5px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
 
-	.ty-btn-primary {
-		background: var(--accent);
-		color: #000;
-	}
+  .ty-btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
 
-	.ty-btn-primary:hover {
-		background: #ff8533;
-		color: #000;
-	}
+  .ty-btn-primary:hover {
+    background: #ff8533;
+    color: #000;
+  }
 
-	.ty-btn-secondary {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		color: var(--text-secondary);
-	}
+  .ty-btn-secondary {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    color: var(--text-secondary);
+  }
 
-	.ty-btn-secondary:hover {
-		border-color: var(--accent);
-		color: var(--accent);
-	}
+  .ty-btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
 </style>

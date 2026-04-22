@@ -1,353 +1,376 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import Nav from '../components/Nav.astro';
-import Footer from '../components/Footer.astro';
-import { i18n } from '@wix/essentials';
-import { getRelativeLocaleUrl } from 'wix:astro:i18n';
+import Layout from "../layouts/Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import { i18n } from "@wix/essentials";
+import { getRelativeLocaleUrl } from "wix:astro:i18n";
 
 const t = i18n.getTranslationFunction();
 
 // Deck numbering is a running theme in the ship's flavour text — if more
 // facilities get added later, bump these and update the copy.
 interface Facility {
-	key: 'store' | 'clinic' | 'restaurant' | 'cinema';
-	deck: string;
-	icon: string;
-	href: string;
+  key: "store" | "clinic" | "restaurant" | "cinema";
+  deck: string;
+  icon: string;
+  href: string;
 }
 
 const facilities: Facility[] = [
-	{ key: 'store', deck: 'Deck 2', icon: '🛒', href: '/store' },
-	{ key: 'clinic', deck: 'Deck 3', icon: '🩺', href: '/bookings' },
-	{ key: 'restaurant', deck: 'Deck 5', icon: '🍽️', href: '/restaurant' },
-	{ key: 'cinema', deck: 'Deck 7', icon: '🎬', href: '/cinema' },
+  { key: "store", deck: "Deck 2", icon: "🛒", href: "/store" },
+  { key: "clinic", deck: "Deck 3", icon: "🩺", href: "/bookings" },
+  { key: "restaurant", deck: "Deck 5", icon: "🍽️", href: "/restaurant" },
+  { key: "cinema", deck: "Deck 7", icon: "🎬", href: "/cinema" },
 ];
 ---
 
-<Layout title={`${t('aboard.pageTitle')} - ${t('home.title')}`}>
-	<Nav />
+<Layout title={`${t("aboard.pageTitle")} - ${t("home.title")}`}>
+  <Nav />
 
-	<section class="aboard-hero">
-		<div class="hero-glow"></div>
-		<div class="container hero-content">
-			<h1 class="section-title">{t('aboard.pageTitle')}</h1>
-			<p class="section-subtitle">{t('aboard.pageSubtitle')}</p>
-			<p class="aboard-copy">{t('aboard.heroCopy')}</p>
-		</div>
-	</section>
+  <section class="aboard-hero">
+    <div class="hero-glow"></div>
+    <div class="container hero-content">
+      <h1 class="section-title">{t("aboard.pageTitle")}</h1>
+      <p class="section-subtitle">{t("aboard.pageSubtitle")}</p>
+      <p class="aboard-copy">{t("aboard.heroCopy")}</p>
+    </div>
+  </section>
 
-	<section class="aboard-section">
-		<div class="container">
-			<h2 class="aboard-h2">{t('aboard.facilitiesTitle')}</h2>
-			<p class="aboard-h2-sub">{t('aboard.facilitiesSubtitle')}</p>
+  <section class="aboard-section">
+    <div class="container">
+      <h2 class="aboard-h2">{t("aboard.facilitiesTitle")}</h2>
+      <p class="aboard-h2-sub">{t("aboard.facilitiesSubtitle")}</p>
 
-			<div class="facilities-grid">
-				{
-					facilities.map((f) => (
-						<a href={getRelativeLocaleUrl(f.href)} class="facility-card">
-							<div class="facility-image" style={`background-image: url(/aboard/${f.key}.png)`}>
-								<span class="facility-icon">{f.icon}</span>
-								<span class="facility-deck">{f.deck}</span>
-							</div>
-							<div class="facility-body">
-								<h3 class="facility-title">{t(`aboard.${f.key}Title`)}</h3>
-								<p class="facility-desc">{t(`aboard.${f.key}Desc`)}</p>
-								<span class="facility-cta">
-									{t(`aboard.${f.key}Cta`)} <span class="rtl-flip">→</span>
-								</span>
-							</div>
-						</a>
-					))
-				}
-			</div>
-		</div>
-	</section>
+      <div class="facilities-grid">
+        {
+          facilities.map((f) => (
+            <a href={getRelativeLocaleUrl(f.href)} class="facility-card">
+              <div
+                class="facility-image"
+                style={`background-image: url(/aboard/${f.key}.png)`}
+              >
+                <span class="facility-icon">{f.icon}</span>
+                <span class="facility-deck">{f.deck}</span>
+              </div>
+              <div class="facility-body">
+                <h3 class="facility-title">{t(`aboard.${f.key}Title`)}</h3>
+                <p class="facility-desc">{t(`aboard.${f.key}Desc`)}</p>
+                <span class="facility-cta">
+                  {t(`aboard.${f.key}Cta`)} <span class="rtl-flip">→</span>
+                </span>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
 
-	<section class="aboard-section aboard-alt">
-		<div class="container split-grid">
-			<div class="split-block" style="background-image: url(/aboard/research.png)">
-				<div class="split-overlay">
-					<div class="split-icon">🔬</div>
-					<h2 class="split-title">{t('aboard.researchTitle')}</h2>
-					<p class="split-desc">{t('aboard.researchDesc')}</p>
-					<a href={getRelativeLocaleUrl('/research')} class="split-cta"
-						>{t('aboard.researchCta')} <span class="rtl-flip">→</span></a
-					>
-				</div>
-			</div>
-			<div class="split-block" style="background-image: url(/aboard/log.png)">
-				<div class="split-overlay">
-					<div class="split-icon">📡</div>
-					<h2 class="split-title">{t('aboard.logTitle')}</h2>
-					<p class="split-desc">{t('aboard.logDesc')}</p>
-					<a href={getRelativeLocaleUrl('/blog')} class="split-cta"
-						>{t('aboard.logCta')} <span class="rtl-flip">→</span></a
-					>
-				</div>
-			</div>
-		</div>
-	</section>
+  <section class="aboard-section aboard-alt">
+    <div class="container split-grid">
+      <div
+        class="split-block"
+        style="background-image: url(/aboard/research.png)"
+      >
+        <div class="split-overlay">
+          <div class="split-icon">🔬</div>
+          <h2 class="split-title">{t("aboard.researchTitle")}</h2>
+          <p class="split-desc">{t("aboard.researchDesc")}</p>
+          <a href={getRelativeLocaleUrl("/research")} class="split-cta"
+            >{t("aboard.researchCta")} <span class="rtl-flip">→</span></a
+          >
+        </div>
+      </div>
+      <div class="split-block" style="background-image: url(/aboard/log.png)">
+        <div class="split-overlay">
+          <div class="split-icon">📡</div>
+          <h2 class="split-title">{t("aboard.logTitle")}</h2>
+          <p class="split-desc">{t("aboard.logDesc")}</p>
+          <a href={getRelativeLocaleUrl("/blog")} class="split-cta"
+            >{t("aboard.logCta")} <span class="rtl-flip">→</span></a
+          >
+        </div>
+      </div>
+    </div>
+  </section>
 
-	<section class="aboard-section plans-cta-section">
-		<div class="container">
-			<div
-				class="plans-cta"
-				style="background-image: linear-gradient(135deg, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.7) 60%, rgba(255,102,0,0.3) 100%), url(/aboard/plans.png)"
-			>
-				<div class="plans-cta-badge">{t('aboard.plansSubtitle')}</div>
-				<h2 class="plans-cta-title">{t('aboard.plansTitle')}</h2>
-				<p class="plans-cta-desc">{t('aboard.plansDesc')}</p>
-				<a href={getRelativeLocaleUrl('/plans')} class="plans-cta-btn"
-					>{t('aboard.plansCta')} <span class="rtl-flip">→</span></a
-				>
-			</div>
-		</div>
-	</section>
+  <section class="aboard-section plans-cta-section">
+    <div class="container">
+      <div
+        class="plans-cta"
+        style="background-image: linear-gradient(135deg, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.7) 60%, rgba(255,102,0,0.3) 100%), url(/aboard/plans.png)"
+      >
+        <div class="plans-cta-badge">{t("aboard.plansSubtitle")}</div>
+        <h2 class="plans-cta-title">{t("aboard.plansTitle")}</h2>
+        <p class="plans-cta-desc">{t("aboard.plansDesc")}</p>
+        <a href={getRelativeLocaleUrl("/plans")} class="plans-cta-btn"
+          >{t("aboard.plansCta")} <span class="rtl-flip">→</span></a
+        >
+      </div>
+    </div>
+  </section>
 
-	<Footer />
+  <Footer />
 </Layout>
 
 <style>
-	.aboard-hero {
-		position: relative;
-		padding: 100px 20px 60px;
-		text-align: center;
-		background: linear-gradient(180deg, #1a0a00 0%, var(--bg-primary) 100%);
-		overflow: hidden;
-	}
-	.hero-glow {
-		position: absolute;
-		top: -100px;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 600px;
-		height: 400px;
-		background: radial-gradient(ellipse, rgba(255, 102, 0, 0.15) 0%, transparent 70%);
-		pointer-events: none;
-	}
-	.hero-content {
-		position: relative;
-		z-index: 1;
-	}
-	.aboard-copy {
-		color: var(--text-secondary);
-		font-size: 1.05rem;
-		line-height: 1.7;
-		max-width: 680px;
-		margin: 20px auto 0;
-	}
+  .aboard-hero {
+    position: relative;
+    padding: 100px 20px 60px;
+    text-align: center;
+    background: linear-gradient(180deg, #1a0a00 0%, var(--bg-primary) 100%);
+    overflow: hidden;
+  }
+  .hero-glow {
+    position: absolute;
+    top: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 400px;
+    background: radial-gradient(
+      ellipse,
+      rgba(255, 102, 0, 0.15) 0%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 1;
+  }
+  .aboard-copy {
+    color: var(--text-secondary);
+    font-size: 1.05rem;
+    line-height: 1.7;
+    max-width: 680px;
+    margin: 20px auto 0;
+  }
 
-	.aboard-section {
-		padding: 60px 20px;
-	}
-	.aboard-alt {
-		background: linear-gradient(180deg, transparent 0%, rgba(255, 102, 0, 0.03) 50%, transparent 100%);
-	}
-	.aboard-h2 {
-		font-family: var(--font-heading);
-		color: var(--accent);
-		font-size: clamp(1.5rem, 3vw, 2rem);
-		letter-spacing: 2px;
-		text-shadow: 0 0 20px var(--accent-glow);
-	}
-	.aboard-h2-sub {
-		color: var(--text-muted);
-		margin-bottom: 32px;
-	}
+  .aboard-section {
+    padding: 60px 20px;
+  }
+  .aboard-alt {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(255, 102, 0, 0.03) 50%,
+      transparent 100%
+    );
+  }
+  .aboard-h2 {
+    font-family: var(--font-heading);
+    color: var(--accent);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px var(--accent-glow);
+  }
+  .aboard-h2-sub {
+    color: var(--text-muted);
+    margin-bottom: 32px;
+  }
 
-	.facilities-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-		gap: 20px;
-	}
-	.facility-card {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 14px;
-		overflow: hidden;
-		color: inherit;
-		text-decoration: none;
-		transition: all 0.2s;
-		display: flex;
-		flex-direction: column;
-	}
-	.facility-card:hover {
-		border-color: var(--accent);
-		transform: translateY(-4px);
-		box-shadow: 0 12px 40px rgba(255, 102, 0, 0.15);
-	}
-	.facility-image {
-		aspect-ratio: 16 / 9;
-		background-size: cover;
-		background-position: center;
-		position: relative;
-		border-bottom: 1px solid var(--border-card);
-	}
-	.facility-image::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(180deg, transparent 40%, rgba(10, 10, 10, 0.65) 100%);
-	}
-	.facility-icon {
-		position: absolute;
-		top: 12px;
-		inset-inline-start: 12px;
-		font-size: 1.5rem;
-		line-height: 1;
-		padding: 6px 10px;
-		background: rgba(10, 10, 10, 0.75);
-		border: 1px solid rgba(255, 102, 0, 0.3);
-		border-radius: 999px;
-		z-index: 1;
-	}
-	.facility-deck {
-		position: absolute;
-		bottom: 12px;
-		inset-inline-start: 12px;
-		font-family: var(--font-heading);
-		font-size: 0.7rem;
-		letter-spacing: 2px;
-		color: var(--accent-yellow);
-		padding: 4px 10px;
-		background: rgba(0, 0, 0, 0.6);
-		border-radius: 999px;
-		z-index: 1;
-	}
-	.facility-body {
-		padding: 20px 24px 24px;
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		flex: 1;
-	}
-	.facility-title {
-		font-family: var(--font-heading);
-		font-size: 1.15rem;
-		letter-spacing: 1.5px;
-		color: var(--text-primary);
-	}
-	.facility-desc {
-		color: var(--text-secondary);
-		font-size: 0.9rem;
-		line-height: 1.55;
-	}
-	.facility-cta {
-		margin-top: auto;
-		font-family: var(--font-heading);
-		color: var(--accent);
-		font-size: 0.85rem;
-		letter-spacing: 1px;
-	}
+  .facilities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+  }
+  .facility-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 14px;
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+  }
+  .facility-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(255, 102, 0, 0.15);
+  }
+  .facility-image {
+    aspect-ratio: 16 / 9;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    border-bottom: 1px solid var(--border-card);
+  }
+  .facility-image::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      transparent 40%,
+      rgba(10, 10, 10, 0.65) 100%
+    );
+  }
+  .facility-icon {
+    position: absolute;
+    top: 12px;
+    inset-inline-start: 12px;
+    font-size: 1.5rem;
+    line-height: 1;
+    padding: 6px 10px;
+    background: rgba(10, 10, 10, 0.75);
+    border: 1px solid rgba(255, 102, 0, 0.3);
+    border-radius: 999px;
+    z-index: 1;
+  }
+  .facility-deck {
+    position: absolute;
+    bottom: 12px;
+    inset-inline-start: 12px;
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    color: var(--accent-yellow);
+    padding: 4px 10px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 999px;
+    z-index: 1;
+  }
+  .facility-body {
+    padding: 20px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+  }
+  .facility-title {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    letter-spacing: 1.5px;
+    color: var(--text-primary);
+  }
+  .facility-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+  .facility-cta {
+    margin-top: auto;
+    font-family: var(--font-heading);
+    color: var(--accent);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+  }
 
-	.split-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-		gap: 24px;
-	}
-	.split-block {
-		background-color: var(--bg-card);
-		background-size: cover;
-		background-position: center;
-		border: 1px solid var(--border-card);
-		border-radius: 14px;
-		overflow: hidden;
-		min-height: 280px;
-		display: flex;
-		position: relative;
-		transition:
-			border-color 0.2s,
-			transform 0.2s;
-	}
-	.split-block:hover {
-		border-color: var(--accent);
-		transform: translateY(-2px);
-	}
-	.split-overlay {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-		padding: 28px;
-		width: 100%;
-		background: linear-gradient(
-			0deg,
-			rgba(10, 10, 10, 0.92) 0%,
-			rgba(10, 10, 10, 0.7) 55%,
-			rgba(10, 10, 10, 0.35) 100%
-		);
-		justify-content: flex-end;
-	}
-	.split-icon {
-		font-size: 2.4rem;
-	}
-	.split-title {
-		font-family: var(--font-heading);
-		color: var(--accent);
-		font-size: 1.4rem;
-		letter-spacing: 1.5px;
-	}
-	.split-desc {
-		color: var(--text-secondary);
-		line-height: 1.6;
-	}
-	.split-cta {
-		font-family: var(--font-heading);
-		color: var(--accent);
-		letter-spacing: 1px;
-		margin-top: 8px;
-	}
+  .split-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+  }
+  .split-block {
+    background-color: var(--bg-card);
+    background-size: cover;
+    background-position: center;
+    border: 1px solid var(--border-card);
+    border-radius: 14px;
+    overflow: hidden;
+    min-height: 280px;
+    display: flex;
+    position: relative;
+    transition:
+      border-color 0.2s,
+      transform 0.2s;
+  }
+  .split-block:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .split-overlay {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 28px;
+    width: 100%;
+    background: linear-gradient(
+      0deg,
+      rgba(10, 10, 10, 0.92) 0%,
+      rgba(10, 10, 10, 0.7) 55%,
+      rgba(10, 10, 10, 0.35) 100%
+    );
+    justify-content: flex-end;
+  }
+  .split-icon {
+    font-size: 2.4rem;
+  }
+  .split-title {
+    font-family: var(--font-heading);
+    color: var(--accent);
+    font-size: 1.4rem;
+    letter-spacing: 1.5px;
+  }
+  .split-desc {
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  .split-cta {
+    font-family: var(--font-heading);
+    color: var(--accent);
+    letter-spacing: 1px;
+    margin-top: 8px;
+  }
 
-	.plans-cta-section {
-		padding-bottom: 100px;
-	}
-	.plans-cta {
-		background: linear-gradient(135deg, rgba(255, 102, 0, 0.1) 0%, rgba(255, 204, 0, 0.05) 100%);
-		border: 1px solid var(--accent);
-		border-radius: 16px;
-		padding: 44px;
-		text-align: center;
-		box-shadow: 0 8px 40px rgba(255, 102, 0, 0.1);
-	}
-	.plans-cta-badge {
-		display: inline-block;
-		padding: 6px 14px;
-		border-radius: 999px;
-		background: var(--accent-yellow);
-		color: #000;
-		font-family: var(--font-heading);
-		font-size: 0.7rem;
-		letter-spacing: 2px;
-	}
-	.plans-cta-title {
-		font-family: var(--font-title);
-		color: var(--accent);
-		font-size: clamp(1.8rem, 4vw, 2.6rem);
-		letter-spacing: 2px;
-		margin-top: 12px;
-		text-shadow:
-			2px 2px 0 #000,
-			0 0 30px var(--accent-glow);
-	}
-	.plans-cta-desc {
-		color: var(--text-secondary);
-		max-width: 600px;
-		margin: 16px auto 24px;
-		line-height: 1.7;
-	}
-	.plans-cta-btn {
-		display: inline-block;
-		padding: 14px 32px;
-		background: var(--accent);
-		color: #000;
-		font-family: var(--font-heading);
-		letter-spacing: 2px;
-		border-radius: 10px;
-		font-size: 1rem;
-		transition: all 0.2s;
-	}
-	.plans-cta-btn:hover {
-		background: var(--accent-yellow);
-		transform: translateY(-2px);
-		box-shadow: 0 6px 24px var(--accent-glow);
-	}
+  .plans-cta-section {
+    padding-bottom: 100px;
+  }
+  .plans-cta {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 102, 0, 0.1) 0%,
+      rgba(255, 204, 0, 0.05) 100%
+    );
+    border: 1px solid var(--accent);
+    border-radius: 16px;
+    padding: 44px;
+    text-align: center;
+    box-shadow: 0 8px 40px rgba(255, 102, 0, 0.1);
+  }
+  .plans-cta-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--accent-yellow);
+    color: #000;
+    font-family: var(--font-heading);
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+  }
+  .plans-cta-title {
+    font-family: var(--font-title);
+    color: var(--accent);
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    letter-spacing: 2px;
+    margin-top: 12px;
+    text-shadow:
+      2px 2px 0 #000,
+      0 0 30px var(--accent-glow);
+  }
+  .plans-cta-desc {
+    color: var(--text-secondary);
+    max-width: 600px;
+    margin: 16px auto 24px;
+    line-height: 1.7;
+  }
+  .plans-cta-btn {
+    display: inline-block;
+    padding: 14px 32px;
+    background: var(--accent);
+    color: #000;
+    font-family: var(--font-heading);
+    letter-spacing: 2px;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+  .plans-cta-btn:hover {
+    background: var(--accent-yellow);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px var(--accent-glow);
+  }
 </style>

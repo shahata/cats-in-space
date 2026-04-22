@@ -1,90 +1,94 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import Nav from '../../components/Nav.astro';
-import Footer from '../../components/Footer.astro';
-import { i18n } from '@wix/essentials';
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { i18n } from "@wix/essentials";
 
 const t = i18n.getTranslationFunction();
 ---
 
-<Layout title={`${t('research.thankYouTitle')} - ${t('home.title')}`}>
-	<Nav />
-	<section class="thank-you">
-		<div class="container">
-			<div class="ty-hero">
-				<div class="ty-icon">&#128293;</div>
-				<h1 class="section-title">{t('research.thankYouTitle')}</h1>
-				<p class="ty-subtitle">{t('research.thankYouSubtitle')}</p>
-			</div>
+<Layout title={`${t("research.thankYouTitle")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="thank-you">
+    <div class="container">
+      <div class="ty-hero">
+        <div class="ty-icon">&#128293;</div>
+        <h1 class="section-title">{t("research.thankYouTitle")}</h1>
+        <p class="ty-subtitle">{t("research.thankYouSubtitle")}</p>
+      </div>
 
-			<div class="ty-actions">
-				<a href="/member#orders" class="ty-btn ty-btn-primary">{t('research.viewOrders')}</a>
-				<a href="/research" class="ty-btn ty-btn-secondary">{t('research.backToResearch')}</a>
-			</div>
-		</div>
-	</section>
-	<Footer />
+      <div class="ty-actions">
+        <a href="/member#orders" class="ty-btn ty-btn-primary"
+          >{t("research.viewOrders")}</a
+        >
+        <a href="/research" class="ty-btn ty-btn-secondary"
+          >{t("research.backToResearch")}</a
+        >
+      </div>
+    </div>
+  </section>
+  <Footer />
 </Layout>
 
 <style>
-	.thank-you {
-		padding: 60px 0;
-		min-height: 60vh;
-	}
+  .thank-you {
+    padding: 60px 0;
+    min-height: 60vh;
+  }
 
-	.ty-hero {
-		text-align: center;
-		margin-bottom: 40px;
-	}
+  .ty-hero {
+    text-align: center;
+    margin-bottom: 40px;
+  }
 
-	.ty-icon {
-		font-size: 4rem;
-		margin-bottom: 16px;
-	}
+  .ty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+  }
 
-	.ty-subtitle {
-		color: var(--text-secondary);
-		font-size: 1.1rem;
-		margin-top: 8px;
-		max-width: 520px;
-		margin-inline: auto;
-	}
+  .ty-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    margin-top: 8px;
+    max-width: 520px;
+    margin-inline: auto;
+  }
 
-	.ty-actions {
-		display: flex;
-		gap: 12px;
-		justify-content: center;
-		flex-wrap: wrap;
-	}
+  .ty-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
 
-	.ty-btn {
-		padding: 12px 28px;
-		border-radius: 8px;
-		font-family: var(--font-heading);
-		font-size: 0.95rem;
-		letter-spacing: 1.5px;
-		text-decoration: none;
-		transition: all 0.2s;
-	}
+  .ty-btn {
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    letter-spacing: 1.5px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
 
-	.ty-btn-primary {
-		background: var(--accent);
-		color: #000;
-	}
+  .ty-btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
 
-	.ty-btn-primary:hover {
-		background: #ff8533;
-		color: #000;
-	}
+  .ty-btn-primary:hover {
+    background: #ff8533;
+    color: #000;
+  }
 
-	.ty-btn-secondary {
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		color: var(--text-secondary);
-	}
+  .ty-btn-secondary {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    color: var(--text-secondary);
+  }
 
-	.ty-btn-secondary:hover {
-		border-color: var(--accent);
-		color: var(--accent);
-	}
+  .ty-btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
 </style>
