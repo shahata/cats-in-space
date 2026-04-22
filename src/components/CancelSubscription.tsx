@@ -12,10 +12,16 @@ export default function CancelSubscription({ orderId }: { orderId: string }) {
     if (!confirm(t("cancelSub.confirm"))) return;
     setCancelling(true);
     try {
-      await orders.requestCancellation(orderId, "NEXT_PAYMENT_DATE");
+      await orders.requestCancellation(
+        orderId,
+        orders.CancellationEffectiveAt.NEXT_PAYMENT_DATE,
+      );
     } catch {
       try {
-        await orders.requestCancellation(orderId, "IMMEDIATELY");
+        await orders.requestCancellation(
+          orderId,
+          orders.CancellationEffectiveAt.IMMEDIATELY,
+        );
       } catch (e) {
         alert(e instanceof Error ? e.message : t("common.errorGeneric"));
         setCancelling(false);

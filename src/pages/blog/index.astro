@@ -71,7 +71,10 @@ function getExcerpt(post: Post): string {
   if (post.excerpt) return post.excerpt.slice(0, 200);
   const nodes = post.richContent?.nodes || [];
   for (const node of nodes) {
-    if (node.type === "PARAGRAPH" && node.nodes?.[0]?.textData?.text) {
+    if (
+      node.type === posts.NodeType.PARAGRAPH &&
+      node.nodes?.[0]?.textData?.text
+    ) {
       return node.nodes[0].textData.text.slice(0, 200);
     }
   }

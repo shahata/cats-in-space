@@ -4,6 +4,8 @@ import { extendedBookings, bookings } from "@wix/bookings";
 import type { extendedBookings as extendedBookingsTypes } from "@wix/bookings";
 import { i18n } from "@wix/essentials";
 
+const BookingStatus = bookings.BookingStatus;
+
 export default function MyBookings() {
   const t = i18n.getTranslationFunction();
   const [items, setItems] = useState<extendedBookingsTypes.ExtendedBooking[]>(
@@ -101,13 +103,13 @@ export default function MyBookings() {
     return {
       background: colors[s] || "#888",
       label:
-        s === "CONFIRMED"
+        s === BookingStatus.CONFIRMED
           ? t("bookings.confirmed")
-          : s === "PENDING"
+          : s === BookingStatus.PENDING
             ? t("bookings.pending")
-            : s === "CANCELED"
+            : s === BookingStatus.CANCELED
               ? t("bookings.canceled")
-              : s === "DECLINED"
+              : s === BookingStatus.DECLINED
                 ? t("bookings.declined")
                 : s,
     };
@@ -119,16 +121,16 @@ export default function MyBookings() {
     return (
       d &&
       d > now &&
-      b.booking?.status !== "CANCELED" &&
-      b.booking?.status !== "DECLINED"
+      b.booking?.status !== BookingStatus.CANCELED &&
+      b.booking?.status !== BookingStatus.DECLINED
     );
   });
   const past = items.filter((b) => {
     const d = getSlotDate(b);
     return (
       (d && d <= now) ||
-      b.booking?.status === "CANCELED" ||
-      b.booking?.status === "DECLINED"
+      b.booking?.status === BookingStatus.CANCELED ||
+      b.booking?.status === BookingStatus.DECLINED
     );
   });
 

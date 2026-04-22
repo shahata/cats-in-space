@@ -47,7 +47,7 @@ try {
   const today = new Date().toISOString().split("T")[0]!;
   myOrders = ((result.orders || []) as PlanOrder[]).filter(
     (o) =>
-      o.status !== "DRAFT" &&
+      o.status !== orders.OrderStatus.DRAFT &&
       !(
         o.endDate &&
         new Date(o.endDate as unknown as string).toISOString().split("T")[0]! <
@@ -70,9 +70,9 @@ try {
     aboutData.revision = ma.revision || null;
     const texts: string[] = [];
     for (const node of ma.content?.nodes || []) {
-      if (node.type === "PARAGRAPH") {
+      if (node.type === membersAbout.NodeType.PARAGRAPH) {
         for (const child of node.nodes || []) {
-          if (child.type === "TEXT" && child.textData?.text)
+          if (child.type === membersAbout.NodeType.TEXT && child.textData?.text)
             texts.push(child.textData.text);
         }
       }
@@ -85,7 +85,7 @@ const storeOrdersResult = await ecomOrders
   .searchOrders({ cursorPaging: { limit: 50 } })
   .catch(() => null);
 const storeOrders = (storeOrdersResult?.orders || []).filter(
-  (o) => o.status !== "INITIALIZED",
+  (o) => o.status !== ecomOrders.OrderStatus.INITIALIZED,
 );
 
 type SavedPaymentMethod = savedPaymentMethods.SavedPaymentMethod;
@@ -227,7 +227,7 @@ const tabs = [
                           {sOrder.paymentStatus && (
                             <span
                               class="sub-badge"
-                              style={`background: ${sOrder.paymentStatus === "PAID" ? "#4caf50" : "#ff9800"}`}
+                              style={`background: ${sOrder.paymentStatus === ecomOrders.PaymentStatusEnumPaymentStatus.PAID ? "#4caf50" : "#ff9800"}`}
                             >
                               {ts(sOrder.paymentStatus)}
                             </span>
@@ -353,7 +353,8 @@ const tabs = [
                   const startDate = fmt(order.startDate);
                   const endDate = fmt(order.endDate);
                   const cancellable =
-                    order.status === "ACTIVE" && !order.autoRenewCanceled;
+                    order.status === orders.OrderStatus.ACTIVE &&
+                    !order.autoRenewCanceled;
                   const inTrial =
                     order.freeTrialDays && order.currentCycle?.index === 0;
                   const nextBilling = fmt(order.currentCycle?.endedDate);
@@ -449,7 +450,7 @@ const tabs = [
                           </span>
                         </div>
                         {nextBilling &&
-                          order.status === "ACTIVE" &&
+                          order.status === orders.OrderStatus.ACTIVE &&
                           !order.autoRenewCanceled && (
                             <div class="sub-detail">
                               <span class="sub-detail-label">
@@ -463,7 +464,7 @@ const tabs = [
                         {endDate && (
                           <div class="sub-detail">
                             <span class="sub-detail-label">
-                              {order.status === "CANCELED" ||
+                              {order.status === orders.OrderStatus.CANCELED ||
                               order.autoRenewCanceled
                                 ? t("member.expires")
                                 : t("member.ends")}
@@ -491,16 +492,20 @@ const tabs = [
                               class:list={[
                                 "sub-detail-value",
                                 {
-                                  "sub-payment-paid": paymentStatus === "PAID",
+                                  "sub-payment-paid":
+                                    paymentStatus === orders.PaymentStatus.PAID,
                                   "sub-payment-unpaid":
-                                    paymentStatus === "UNPAID" ||
-                                    paymentStatus === "FAILED",
+                                    paymentStatus ===
+                                      orders.PaymentStatus.UNPAID ||
+                                    paymentStatus ===
+                                      orders.PaymentStatus.FAILED,
                                 },
                               ]}
                             >
-                              {paymentStatus === "PAID"
+                              {paymentStatus === orders.PaymentStatus.PAID
                                 ? t("member.paid")
-                                : paymentStatus === "NOT_APPLICABLE"
+                                : paymentStatus ===
+                                    orders.PaymentStatus.NOT_APPLICABLE
                                   ? t("member.notApplicable")
                                   : ts(paymentStatus)}
                             </span>
@@ -514,16 +519,21 @@ const tabs = [
                             {t("member.cancellation")}
                           </span>
                           <span class="sub-detail-value">
-                            {cancellation.cause === "OWNER_ACTION"
+                            {cancellation.cause ===
+                            orders.CancellationCause.OWNER_ACTION
                               ? t("member.canceledByYou")
-                              : cancellation.cause === "UNDEFINED"
+                              : cancellation.cause ===
+                                  orders.CancellationCause.UNDEFINED
                                 ? t("status.canceled")
                                 : cancellation.cause}
                             {cancellation.requestedDate &&
                               ` — ${t("member.canceledOn", { date: fmt(cancellation.requestedDate) || "" })}`}
-                            {cancellation.effectiveAt === "NEXT_PAYMENT_DATE" &&
+                            {cancellation.effectiveAt ===
+                              orders.CancellationEffectiveAt
+                                .NEXT_PAYMENT_DATE &&
                               " — " + t("member.activeUntilNextBilling")}
-                            {cancellation.effectiveAt === "IMMEDIATELY" &&
+                            {cancellation.effectiveAt ===
+                              orders.CancellationEffectiveAt.IMMEDIATELY &&
                               " — " + t("member.effectiveImmediately")}
                           </span>
                         </div>

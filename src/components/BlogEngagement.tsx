@@ -238,9 +238,12 @@ export default function BlogEngagement({
       richContent: {
         nodes: [
           {
-            type: "PARAGRAPH" as const,
+            type: posts.NodeType.PARAGRAPH,
             nodes: [
-              { type: "TEXT" as const, textData: { text, decorations: [] } },
+              {
+                type: posts.NodeType.TEXT,
+                textData: { text, decorations: [] },
+              },
             ],
             paragraphData: {},
           },
@@ -429,9 +432,9 @@ export default function BlogEngagement({
     const nodes = comment.content?.richContent?.nodes || [];
     const texts: string[] = [];
     for (const node of nodes) {
-      if (node.type === "PARAGRAPH") {
+      if (node.type === posts.NodeType.PARAGRAPH) {
         for (const child of node.nodes || []) {
-          if (child.type === "TEXT" && child.textData?.text)
+          if (child.type === posts.NodeType.TEXT && child.textData?.text)
             texts.push(child.textData.text);
         }
       }

@@ -112,7 +112,7 @@ export default function GiftCardActions({
       });
 
       const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
-        channelType: "WEB",
+        channelType: currentCart.ChannelType.WEB,
       });
 
       const { redirectSession } = await redirects.createRedirectSession({

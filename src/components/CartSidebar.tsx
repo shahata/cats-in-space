@@ -104,7 +104,7 @@ export default function CartSidebar() {
     setCheckingOut(true);
     try {
       const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
-        channelType: "WEB",
+        channelType: currentCart.ChannelType.WEB,
       });
       const { redirectSession } = await redirects.createRedirectSession({
         ecomCheckout: { checkoutId: checkoutId! },

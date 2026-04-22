@@ -105,7 +105,7 @@ export default function DonateCard({
       });
 
       const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
-        channelType: "WEB",
+        channelType: currentCart.ChannelType.WEB,
       });
 
       const trimmedNote = note.trim();

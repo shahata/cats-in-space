@@ -190,10 +190,10 @@ export default function MemberProfile({
         .split("\n")
         .filter(Boolean)
         .map((line) => ({
-          type: "PARAGRAPH" as const,
+          type: membersAbout.NodeType.PARAGRAPH,
           nodes: [
             {
-              type: "TEXT" as const,
+              type: membersAbout.NodeType.TEXT,
               textData: { text: line, decorations: [] },
             },
           ],

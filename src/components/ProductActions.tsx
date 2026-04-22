@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { currentCart, backInStockNotifications } from "@wix/ecom";
 import type { cart as cartTypes } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
-import type { productsV3 } from "@wix/stores";
+import { productsV3 } from "@wix/stores";
 import { i18n } from "@wix/essentials";
 import { STORES_APP_ID, ECOM_PLATFORM_APP_ID } from "../utils/appIds";
 
@@ -29,15 +29,16 @@ export default function ProductActions({ product }: Props) {
   const variants = product.variants || [];
   const modifiers = product.modifiers || [];
   const freeTextModifiers = modifiers.filter(
-    (m) => m.modifierRenderType === "FREE_TEXT",
+    (m) => m.modifierRenderType === productsV3.ModifierRenderType.FREE_TEXT,
   );
   const choiceModifiers = modifiers.filter(
     (m) =>
-      m.modifierRenderType === "TEXT_CHOICES" ||
-      m.modifierRenderType === "SWATCH_CHOICES",
+      m.modifierRenderType === productsV3.ModifierRenderType.TEXT_CHOICES ||
+      m.modifierRenderType === productsV3.ModifierRenderType.SWATCH_CHOICES,
   );
   const hasOptions = options.length > 0;
-  const isPreOrder = product.inventory?.preorderStatus === "ENABLED";
+  const isPreOrder =
+    product.inventory?.preorderStatus === productsV3.PreorderStatus.ENABLED;
 
   const [selections, setSelections] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -92,7 +93,8 @@ export default function ProductActions({ product }: Props) {
   const isInStock = selectedVariant
     ? selectedVariant.inventoryStatus?.inStock !== false ||
       variantPreorder === true
-    : product.inventory?.availabilityStatus !== "OUT_OF_STOCK" || isPreOrder;
+    : product.inventory?.availabilityStatus !==
+        productsV3.InventoryAvailabilityStatus.OUT_OF_STOCK || isPreOrder;
 
   const displayPrice =
     selectedVariant?.price?.actualPrice?.formattedAmount ||
@@ -197,7 +199,7 @@ export default function ProductActions({ product }: Props) {
         lineItems: [{ quantity, catalogReference: buildCatalogRef() }],
       });
       const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
-        channelType: "WEB",
+        channelType: currentCart.ChannelType.WEB,
       });
       const { redirectSession } = await redirects.createRedirectSession({
         ecomCheckout: { checkoutId: checkoutId! },
@@ -282,7 +284,9 @@ export default function ProductActions({ product }: Props) {
       {hasOptions && (
         <div className="pa-options">
           {options.map((opt) => {
-            const isSwatch = opt.optionRenderType === "SWATCH_CHOICES";
+            const isSwatch =
+              opt.optionRenderType ===
+              productsV3.ProductOptionRenderType.SWATCH_CHOICES;
             return (
               <div key={opt.name} className="pa-option">
                 <label className="pa-option-label">{opt.name}</label>
@@ -322,7 +326,9 @@ export default function ProductActions({ product }: Props) {
       {choiceModifiers.length > 0 && (
         <div className="pa-options">
           {choiceModifiers.map((mod) => {
-            const isSwatch = mod.modifierRenderType === "SWATCH_CHOICES";
+            const isSwatch =
+              mod.modifierRenderType ===
+              productsV3.ModifierRenderType.SWATCH_CHOICES;
             return (
               <div key={mod.key} className="pa-option">
                 <label className="pa-option-label">
