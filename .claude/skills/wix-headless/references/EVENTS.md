@@ -235,10 +235,6 @@ When the SDK is returning shapes that don't match your mental model, a 30-line r
 
 `curl --max-time 900` (15 min) is NOT enough for a 52-week × 6-movie seed — createEvent + 3 ticket tiers + 2 category assigns per sibling × 312 events easily takes 20+ minutes. Use `--max-time 1800` (30 min) and set up a file-mtime monitor instead of relying on curl's exit. Important: the Astro handler keeps running after curl disconnects, so if curl times out your endpoint may still finish server-side — verify by re-querying, don't assume failure.
 
-## `.env.local` and GitHub secret scanning
-
-GitHub's push-protection secret scanner blocks commits that contain real OpenAI/Wix/AWS tokens in `.env.local`. The fix is to commit a *template* version with the key commented out (`# OPENAI_API_KEY="sk-..."`) and restore the real value locally after pushing. Don't add `.env.local` to `.gitignore` mid-project if the project already tracks it for shared dev config (as this repo does for `WIX_CLIENT_SECRET`).
-
 ## Seed pattern (idempotent re-run)
 
 ```
@@ -266,21 +262,25 @@ Always present data as-is in the UI; if something looks off, fix the seed.
 - **Clear Vite's optimize cache (`node_modules/.vite`) and restart dev if you see `504 Outdated Optimize Dep` on client components.** This bites client-hydrated booking components hard — hydration silently fails, +/- buttons don't work.
 - **Locale-aware formatting.** Use `new Intl.DateTimeFormat(locale, ...)` and `new Intl.NumberFormat(locale, { style: 'currency', currency })` — never hardcode.
 
-## Image generation (DALL-E) for seed posters
+## Image generation for seed posters
 
-`OPENAI_API_KEY` must be in `.env.local` (the dev server loads it via dotenv — `process.env.OPENAI_API_KEY` works inside API routes).
+Wix ships a ready-to-use AI image generator in `@wix/ai-provider-runware` (Runware backend) wired through the Vercel `ai` SDK — no API key, no `.env` setup, authentication goes through Wix's gateway automatically:
 
 ```ts
-const res = await fetch('https://api.openai.com/v1/images/generations', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
-  body: JSON.stringify({ model: 'dall-e-3', prompt, size: '1024x1792', n: 1 }),
+import { runware } from '@wix/ai-provider-runware';
+import { experimental_generateImage as generateImage } from 'ai';
+
+const { image } = await generateImage({
+  model: runware.image('runware:100@1'),
+  prompt,
+  size: '1024x1792',
 });
-const { data } = await res.json();
-const imageUrl = data[0].url; // expires in ~1 hour — pipe straight to files.importFile
+// image.base64 / image.uint8Array — pipe straight into files.importFile
 ```
 
-Portrait (1024×1792) for posters. Prompts must explicitly say "vertical portrait orientation, subject upright, head at top of frame, feet at bottom" — otherwise DALL-E sometimes renders the subject sideways inside the portrait canvas and you end up with a rotated-looking poster. Also add "no text" to avoid garbled typography.
+Portrait (1024×1792) for posters. Prompts must explicitly say "vertical portrait orientation, subject upright, head at top of frame, feet at bottom" — otherwise image models often render the subject sideways inside a portrait canvas and you end up with a rotated-looking poster. Add "no text" to avoid garbled typography.
+
+Then feed the bytes/URL into `files.importFile` and `waitForFileReady` before attaching as `mainImage` (same flow as any other imported image).
 
 ## Known quirks / surprises, in one place
 
