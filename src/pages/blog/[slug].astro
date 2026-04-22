@@ -79,7 +79,7 @@ const seoTags = post.seoData?.tags || [];
 	<Nav />
 	<article class="blog-post">
 		<div class="container">
-			<a href="/blog" class="back-link">{t('blog.backToLog')}</a>
+			<a href="/blog" class="back-link"><span class="rtl-flip">←</span> {t('blog.backToLog')}</a>
 
 			<header class="post-header">
 				<div class="post-meta-row">
@@ -136,7 +136,7 @@ const seoTags = post.seoData?.tags || [];
 			<BlogEngagement postId={post._id!} referenceId={post.referenceId || post._id!} {...(currentMemberName ? { memberName: currentMemberName } : {})} {...(currentMemberPhoto ? { memberPhoto: currentMemberPhoto } : {})} {...(currentIdentityId ? { identityId: currentIdentityId } : {})} commentingEnabled={post.commentingEnabled !== false} client:load />
 
 			<footer class="post-footer">
-				<a href="/blog" class="btn btn-outline">{t('blog.moreTransmissions')}</a>
+				<a href="/blog" class="btn btn-outline"><span class="rtl-flip">←</span> {t('blog.moreTransmissions')}</a>
 			</footer>
 		</div>
 	</article>

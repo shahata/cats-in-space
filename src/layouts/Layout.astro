@@ -168,6 +168,19 @@ function renderSeoTag(tag: Tag): string {
 		max-width: 100%;
 	}
 
+	/* Arrow glyphs (→ ← ▶ ▸ etc.) don't auto-mirror in RTL via CSS `direction`
+	 * — browsers only bidi-mirror brackets/parens, not arrows. Wrap any
+	 * directional glyph in `<span class="rtl-flip">` (or `<i>` / `<b>` /
+	 * whatever) and it will flip horizontally in RTL pages while staying as
+	 * authored in LTR pages. Prefer this over baking arrows into translation
+	 * strings — the arrow becomes a decorative concern separate from copy. */
+	.rtl-flip {
+		display: inline-block;
+	}
+	[dir="rtl"] .rtl-flip {
+		transform: scaleX(-1);
+	}
+
 	/* RTL support — cart icon and sidebar stay on the right */
 
 	/* CartSidebar styles */

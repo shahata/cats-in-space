@@ -207,7 +207,7 @@ export default function ReservationFlow({ reservationLocationId, businessSchedul
             <SummaryRow label={t("restaurant.reserveParty")} value={`${partySize} ${t("restaurant.guests")}`} />
             <SummaryRow label={t("restaurant.guestName")} value={guestName} />
           </div>
-          <a href="/restaurant" style={styles.backLink}>{t("restaurant.backToMenu")}</a>
+          <a href="/restaurant" style={styles.backLink}><span className="rtl-flip">←</span> {t("restaurant.backToMenu")}</a>
         </div>
       </div>
     );

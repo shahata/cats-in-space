@@ -880,7 +880,7 @@ export default function MenuOrderView({ sections, currency, operationId, busines
                   ) : (
                     <>
                       <div className="mov-schedule-header">
-                        <button type="button" className="mov-schedule-icon-btn mov-schedule-back" onClick={() => setScheduleStep("when")} aria-label={t("restaurant.back")}>←</button>
+                        <button type="button" className="mov-schedule-icon-btn mov-schedule-back" onClick={() => setScheduleStep("when")} aria-label={t("restaurant.back")}><span className="rtl-flip">←</span></button>
                         <button type="button" className="mov-schedule-icon-btn" onClick={closeSchedule} aria-label={t("restaurant.close")}>×</button>
                       </div>
                       <h3 className="mov-schedule-title">{t("restaurant.scheduleTitle")}</h3>
@@ -1063,7 +1063,7 @@ export default function MenuOrderView({ sections, currency, operationId, busines
                         onClick={() => startAddAnother(modalItem)}
                         disabled={busy}
                       >
-                        {t("restaurant.addAnotherWithDifferent")}
+                        {t("restaurant.addAnotherWithDifferent")} <span className="rtl-flip">→</span>
                       </button>
                     </div>
                   )}

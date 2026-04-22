@@ -48,7 +48,7 @@ const facilities: Facility[] = [
 						<div class="facility-deck">{f.deck}</div>
 						<h3 class="facility-title">{t(`aboard.${f.key}Title`)}</h3>
 						<p class="facility-desc">{t(`aboard.${f.key}Desc`)}</p>
-						<span class="facility-cta">{t(`aboard.${f.key}Cta`)} →</span>
+						<span class="facility-cta">{t(`aboard.${f.key}Cta`)} <span class="rtl-flip">→</span></span>
 					</a>
 				))}
 			</div>
@@ -61,13 +61,13 @@ const facilities: Facility[] = [
 				<div class="split-icon">🔬</div>
 				<h2 class="split-title">{t('aboard.researchTitle')}</h2>
 				<p class="split-desc">{t('aboard.researchDesc')}</p>
-				<a href={getRelativeLocaleUrl('/research')} class="split-cta">{t('aboard.researchCta')} →</a>
+				<a href={getRelativeLocaleUrl('/research')} class="split-cta">{t('aboard.researchCta')} <span class="rtl-flip">→</span></a>
 			</div>
 			<div class="split-block">
 				<div class="split-icon">📡</div>
 				<h2 class="split-title">{t('aboard.logTitle')}</h2>
 				<p class="split-desc">{t('aboard.logDesc')}</p>
-				<a href={getRelativeLocaleUrl('/blog')} class="split-cta">{t('aboard.logCta')} →</a>
+				<a href={getRelativeLocaleUrl('/blog')} class="split-cta">{t('aboard.logCta')} <span class="rtl-flip">→</span></a>
 			</div>
 		</div>
 	</section>
@@ -78,7 +78,7 @@ const facilities: Facility[] = [
 				<div class="plans-cta-badge">{t('aboard.plansSubtitle')}</div>
 				<h2 class="plans-cta-title">{t('aboard.plansTitle')}</h2>
 				<p class="plans-cta-desc">{t('aboard.plansDesc')}</p>
-				<a href={getRelativeLocaleUrl('/plans')} class="plans-cta-btn">{t('aboard.plansCta')} →</a>
+				<a href={getRelativeLocaleUrl('/plans')} class="plans-cta-btn">{t('aboard.plansCta')} <span class="rtl-flip">→</span></a>
 			</div>
 		</div>
 	</section>
