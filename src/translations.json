@@ -637,6 +637,22 @@
     "backToMovies": "← Back to Movies",
     "noMovies": "No movies showing right now.",
     "thankYouTitle": "Enjoy the Show!",
-    "thankYouSubtitle": "Your tickets have been confirmed. See you at the theater!"
+    "thankYouSubtitle": "Your tickets have been confirmed. See you at the theater!",
+    "nextShowtime": "Next showtime",
+    "online": "Online",
+    "joinOnline": "Join online",
+    "addToGoogle": "Add to Google Calendar",
+    "downloadIcs": "Download .ics",
+    "yourDetails": "Your Details",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "email": "Email",
+    "total": "Total",
+    "ticket": "ticket",
+    "tickets": "tickets",
+    "free": "Free",
+    "bookFor": "Book for",
+    "noTickets": "No tickets available for this showtime yet.",
+    "bookingFailed": "Booking failed — please try again."
   }
 }

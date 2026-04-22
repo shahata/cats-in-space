@@ -2,136 +2,184 @@
 import Layout from '../../layouts/Layout.astro';
 import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
-import ShowtimeSelector from '../../components/ShowtimeSelector';
-import SeatMap from '../../components/SeatMap';
-import TicketCheckout from '../../components/TicketCheckout';
-import { wixEventsV2 } from '@wix/events';
+import TicketPicker from '../../components/TicketPicker';
+import { wixEventsV2, ticketDefinitionsV2 } from '@wix/events';
 import { auth, i18n } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
+import { getRelativeLocaleUrl } from 'wix:astro:i18n';
 
+// `Event.categories` is populated at runtime when the CATEGORIES fieldset is
+// requested but isn't part of the typed `Event` shape — extend it locally.
+type Event = wixEventsV2.Event & { categories?: wixEventsV2.EventCategories };
+type TicketDefinition = ticketDefinitionsV2.TicketDefinition;
+type EventCategory = wixEventsV2.EventCategory;
+
+const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
 const { slug } = Astro.params;
 
-const elevatedQuery = auth.elevate(wixEventsV2.queryEvents);
-const eventsResult = await elevatedQuery().eq('slug', slug).limit(1).find();
-let event: Record<string, any> | null = eventsResult.items?.[0] || null;
+// 1. Resolve the event from the slug. Also pull every other event in the same
+// recurring series so we can render showtime chips. DETAILS + CATEGORIES +
+// FORM fieldsets populate mainImage, categories, and the checkout form.
+// `.limit()` caps at 200; paginate through every page so a 52-week series
+// doesn't get its late siblings hidden.
+const queryEvents = auth.elevate(wixEventsV2.queryEvents);
+const events: Event[] = [];
+let page: wixEventsV2.EventsQueryResult | undefined
+	= await queryEvents({ fields: ['DETAILS', 'CATEGORIES', 'FORM'] })
+		.ne('status', 'CANCELED')
+		.limit(200)
+		.find();
+while (page) {
+	events.push(...((page.items ?? []) as Event[]));
+	if (!page.items || page.items.length < 200) break;
+	page = await page.next();
+}
 
-if (!event) {
-	const allResult = await elevatedQuery().ne('status', 'CANCELED').limit(50).find();
-	event = allResult.items?.find((e: Record<string, any>) => {
+let current = events.find(e => e.slug === slug);
+if (!current) {
+	current = events.find(e => {
 		const derived = e.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 		return derived === slug;
-	}) || null;
+	});
 }
+if (!current) return Astro.redirect('/cinema');
 
-if (!event) {
-	return Astro.redirect('/cinema');
-}
+const seriesCategoryId = current.dateAndTimeSettings?.recurringEvents?.categoryId;
+const siblings: Event[] = seriesCategoryId
+	? events.filter(e => e.dateAndTimeSettings?.recurringEvents?.categoryId === seriesCategoryId)
+	: [current];
 
-const img = getImageUrl(event.mainImage?.url || event.mainImage, 600, 900);
+const showtimes = siblings
+	.map(e => ({ ev: e, startMs: new Date(e.dateAndTimeSettings?.startDate ?? 0).getTime() }))
+	.sort((a, b) => a.startMs - b.startMs);
 
-function extractGenres(ev: Record<string, any>): string[] {
-	const cats = ev.categories?.map((c: any) => c.name || c) || [];
-	if (cats.length > 0) return cats;
-	const desc: string = ev.description || '';
-	const genreMap = ['Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Fantasy', 'Thriller', 'Romance', 'Animation', 'Documentary'];
-	return genreMap.filter(g => desc.toLowerCase().includes(g.toLowerCase()));
-}
+// 2. Ticket definitions for this specific showtime.
+const queryTickets = auth.elevate(ticketDefinitionsV2.queryAvailableTicketDefinitions);
+let ticketDefs: TicketDefinition[] = [];
+try {
+	const tdResult = await queryTickets({ filter: { eventId: current._id } });
+	ticketDefs = tdResult.ticketDefinitions ?? [];
+} catch {}
+
+const poster = typeof current.mainImage === 'string' ? getImageUrl(current.mainImage, 600, 900) : null;
+
+const genres: string[] = (current.categories?.categories ?? [])
+	.filter((c: EventCategory) => c._id !== seriesCategoryId)
+	.map((c: EventCategory) => c.name)
+	.filter((n): n is string => Boolean(n));
+
+const description = current.shortDescription ?? '';
+const eventLocation = current.location?.name ?? (current.location?.type === 'ONLINE' ? t('cinema.online') : '');
+
+const dateTimeFmt = new Intl.DateTimeFormat(locale, {
+	weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+});
+const chipFmt = new Intl.DateTimeFormat(locale, {
+	weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+});
+
+const currentStart = current.dateAndTimeSettings?.startDate;
+const onlineLink = current.onlineConferencing?.enabled ? current.onlineConferencing?.session?.guestLink : null;
+const calGoogle = current.calendarUrls?.google;
+const calIcs = current.calendarUrls?.ics;
 
 function genreBadgeClass(genre: string): string {
 	const map: Record<string, string> = {
 		'action': 'genre-action', 'comedy': 'genre-comedy', 'drama': 'genre-drama',
 		'horror': 'genre-horror', 'sci-fi': 'genre-scifi', 'fantasy': 'genre-fantasy',
+		'adventure': 'genre-adventure', 'family': 'genre-family',
 	};
 	return map[genre.toLowerCase()] || 'genre-default';
 }
 
-const genres = extractGenres(event);
-
-const ticketDefs = (event.registration?.ticketDefinitions || event.ticketDefinitions || []).map((td: any) => ({
-	id: td._id || td.id,
-	name: td.name || 'Standard',
-	price: parseFloat(td.price?.amount || td.price?.value || '15'),
-	currency: td.price?.currency || 'USD',
-	limit: td.limitPerCheckout || td.limit || 10,
-}));
-
-const startDate = event.scheduling?.startDate || event.dateAndTimeSettings?.startDate;
-const showtimes: string[] = [];
-if (startDate) {
-	showtimes.push(startDate);
-	const base = new Date(startDate);
-	for (let d = 1; d <= 6; d++) {
-		const next = new Date(base);
-		next.setDate(next.getDate() + d);
-		showtimes.push(next.toISOString());
-	}
+function slugOf(ev: Event): string {
+	return ev.slug
+		?? ev.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+		?? ev._id
+		?? '';
 }
 ---
 
-<Layout title={`${event.title} - ${t('cinema.pageTitle')}`}>
+<Layout title={`${current.title} - ${t('cinema.pageTitle')}`}>
 	<Nav />
 
 	<section class="movie-detail">
 		<div class="container">
-			<a href="/cinema" class="back-link">{t('cinema.backToMovies')}</a>
+			<a href={getRelativeLocaleUrl('/cinema')} class="back-link">← {t('cinema.backToMovies')}</a>
 
 			<div class="movie-hero">
 				<div class="movie-poster-wrap">
-					{img ? (
-						<img src={img} alt={event.title} class="movie-poster-img" />
+					{poster ? (
+						<img src={poster} alt={current.title} class="movie-poster-img" />
 					) : (
-						<div class="poster-empty">
-							<span>&#9733;</span>
-						</div>
+						<div class="poster-empty"><span>&#9733;</span></div>
 					)}
 				</div>
 				<div class="movie-meta">
-					<h1 class="movie-title">{event.title}</h1>
-					<div class="movie-genres">
-						{genres.map(g => (
-							<span class={`genre-badge ${genreBadgeClass(g)}`}>{g}</span>
-						))}
-					</div>
-					{event.description && (
-						<p class="movie-desc">{event.description}</p>
+					<h1 class="movie-title">{current.title}</h1>
+					{genres.length > 0 && (
+						<div class="movie-genres">
+							{genres.map(g => <span class={`genre-badge ${genreBadgeClass(g)}`}>{g}</span>)}
+						</div>
 					)}
-					{startDate && (
-						<div class="movie-next-show">
-							<span class="show-label">{t('cinema.showtime')}:</span>
-							{new Date(startDate).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+					{description && <p class="movie-desc">{description}</p>}
+					{eventLocation && (
+						<div class="movie-row">
+							<span class="movie-row-icon">📍</span>
+							<span>{eventLocation}</span>
+						</div>
+					)}
+					{currentStart && (
+						<div class="movie-row">
+							<span class="movie-row-icon">🕒</span>
+							<span>{dateTimeFmt.format(new Date(currentStart))}</span>
+						</div>
+					)}
+					{onlineLink && (
+						<div class="movie-row">
+							<span class="movie-row-icon">🎥</span>
+							<a href={onlineLink} target="_blank" rel="noopener">{t('cinema.joinOnline')}</a>
+						</div>
+					)}
+					{(calGoogle || calIcs) && (
+						<div class="movie-cal-links">
+							{calGoogle && <a href={calGoogle} target="_blank" rel="noopener" class="cal-link">📅 {t('cinema.addToGoogle')}</a>}
+							{calIcs && <a href={calIcs} class="cal-link">📆 {t('cinema.downloadIcs')}</a>}
 						</div>
 					)}
 				</div>
 			</div>
 
-			<div class="booking-sections">
+			{showtimes.length > 1 && (
 				<div class="booking-section">
 					<h2 class="booking-section-title">{t('cinema.selectShowtime')}</h2>
-					<ShowtimeSelector
-						eventId={event._id!}
-						showtimes={showtimes}
-						client:load
-					/>
+					<div class="showtime-chips">
+						{showtimes.map(({ ev, startMs }) => {
+							const active = ev._id === current._id;
+							return (
+								<a
+									href={getRelativeLocaleUrl(`/cinema/${slugOf(ev)}`)}
+									class={`showtime-chip ${active ? 'active' : ''}`}
+								>
+									{chipFmt.format(new Date(startMs))}
+								</a>
+							);
+						})}
+					</div>
 				</div>
+			)}
 
-				<div class="booking-section">
-					<h2 class="booking-section-title">{t('cinema.selectSeats')}</h2>
-					<SeatMap
-						eventId={event._id!}
-						ticketDefinitions={ticketDefs}
-						client:load
-					/>
-				</div>
-
-				<div class="booking-section">
-					<h2 class="booking-section-title">{t('cinema.buyTickets')}</h2>
-					<TicketCheckout
-						eventId={event._id!}
-						ticketDefinitions={ticketDefs}
-						client:load
-					/>
-				</div>
+			<div class="booking-section">
+				<h2 class="booking-section-title">{t('cinema.buyTickets')}</h2>
+				<TicketPicker
+					eventId={current._id!}
+					eventSlug={current.slug ?? slug ?? ''}
+					eventTitle={current.title ?? ''}
+					tickets={ticketDefs}
+					locale={locale}
+					client:load
+				/>
 			</div>
 		</div>
 	</section>
@@ -140,144 +188,117 @@ if (startDate) {
 </Layout>
 
 <style>
-	.movie-detail {
-		padding: 40px 20px 80px;
-	}
-
+	.movie-detail { padding: 40px 20px 80px; }
 	.back-link {
 		display: inline-block;
 		font-family: var(--font-heading);
-		font-size: 0.95rem;
+		font-size: 0.9rem;
 		letter-spacing: 1px;
 		color: var(--text-muted);
 		margin-bottom: 32px;
 		transition: color 0.2s;
 	}
-
-	.back-link:hover {
-		color: var(--accent);
-	}
+	.back-link:hover { color: var(--accent); }
 
 	.movie-hero {
-		display: flex;
-		gap: 40px;
-		margin-bottom: 60px;
+		display: flex; gap: 40px;
+		margin-bottom: 48px;
 	}
-
 	.movie-poster-wrap {
-		flex-shrink: 0;
-		width: 300px;
-		border-radius: 12px;
-		overflow: hidden;
+		flex-shrink: 0; width: 300px;
+		border-radius: 12px; overflow: hidden;
 		box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5), 0 0 60px rgba(255, 102, 0, 0.1);
 	}
-
-	.movie-poster-img {
-		width: 100%;
-		display: block;
-	}
-
+	.movie-poster-img { width: 100%; display: block; }
 	.poster-empty {
-		width: 100%;
-		aspect-ratio: 2 / 3;
-		background: linear-gradient(135deg, #1a1a2e 0%, #0a0a0a 100%);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 4rem;
-		color: var(--accent);
-		opacity: 0.3;
+		width: 100%; aspect-ratio: 2 / 3;
+		background: linear-gradient(135deg, #1a1a2e, #0a0a0a);
+		display: flex; align-items: center; justify-content: center;
+		font-size: 4rem; color: var(--accent); opacity: 0.3;
 	}
 
-	.movie-meta {
-		flex: 1;
-		padding-top: 16px;
-	}
-
+	.movie-meta { flex: 1; padding-top: 8px; }
 	.movie-title {
 		font-family: var(--font-title);
 		font-size: clamp(1.8rem, 4vw, 3rem);
 		color: var(--accent);
 		text-shadow: 2px 2px 0 #000, 0 0 30px var(--accent-glow);
-		margin-bottom: 16px;
-		letter-spacing: 2px;
+		margin-bottom: 16px; letter-spacing: 2px;
 	}
-
-	.movie-genres {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		margin-bottom: 20px;
-	}
-
+	.movie-genres { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
 	.genre-badge {
-		padding: 4px 12px;
-		border-radius: 4px;
-		font-size: 0.75rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
+		padding: 4px 12px; border-radius: 4px;
+		font-size: 0.75rem; font-weight: 700;
+		text-transform: uppercase; letter-spacing: 0.5px;
 	}
-
 	.genre-action { background: #cc0000; color: #fff; }
 	.genre-comedy { background: #2e7d32; color: #fff; }
 	.genre-drama { background: #1565c0; color: #fff; }
 	.genre-horror { background: #6a1b9a; color: #fff; }
 	.genre-scifi { background: #00838f; color: #fff; }
 	.genre-fantasy { background: #c6a700; color: #000; }
+	.genre-adventure { background: #ef6c00; color: #000; }
+	.genre-family { background: #7cb342; color: #000; }
 	.genre-default { background: #444; color: #e0e0e0; }
 
 	.movie-desc {
 		color: var(--text-secondary);
-		font-size: 1rem;
-		line-height: 1.8;
-		margin-bottom: 24px;
-		max-width: 600px;
+		font-size: 1rem; line-height: 1.7;
+		margin-bottom: 20px; max-width: 640px;
 	}
 
-	.movie-next-show {
-		font-size: 0.95rem;
-		color: var(--text-secondary);
+	.movie-row {
+		display: flex; align-items: center; gap: 8px;
+		font-size: 0.95rem; color: var(--text-secondary);
+		margin-bottom: 8px;
 	}
+	.movie-row-icon { font-size: 1rem; }
+	.movie-row a { color: var(--accent); }
 
-	.show-label {
-		color: var(--accent);
-		font-weight: 700;
+	.movie-cal-links {
+		display: flex; gap: 12px; margin-top: 16px;
 	}
-
-	.booking-sections {
-		display: flex;
-		flex-direction: column;
-		gap: 48px;
+	.cal-link {
+		font-size: 0.85rem; color: var(--text-muted);
+		padding: 6px 12px; border-radius: 6px;
+		border: 1px solid var(--border-card);
+		transition: all 0.15s;
 	}
+	.cal-link:hover { border-color: var(--accent); color: var(--accent); }
 
+	.booking-section {
+		margin-top: 48px;
+		padding-top: 32px;
+		border-top: 1px solid var(--border-card);
+	}
 	.booking-section-title {
 		font-family: var(--font-heading);
-		font-size: 1.6rem;
+		font-size: 1.3rem;
 		color: var(--accent);
 		letter-spacing: 2px;
 		margin-bottom: 20px;
-		text-shadow: 0 0 15px var(--accent-glow);
 	}
 
-	@media (max-width: 768px) {
-		.movie-hero {
-			flex-direction: column;
-			align-items: center;
-			text-align: center;
-		}
+	.showtime-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+	.showtime-chip {
+		padding: 10px 16px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 999px;
+		font-family: var(--font-heading);
+		font-size: 0.85rem; letter-spacing: 0.5px;
+		color: var(--text-secondary);
+		transition: all 0.15s;
+	}
+	.showtime-chip:hover { border-color: var(--accent); color: var(--accent); }
+	.showtime-chip.active {
+		background: var(--accent); color: #000; border-color: var(--accent);
+	}
 
-		.movie-poster-wrap {
-			width: 220px;
-		}
-
-		.movie-desc {
-			margin-left: auto;
-			margin-right: auto;
-		}
-
-		.movie-genres {
-			justify-content: center;
-		}
+	@media (max-width: 780px) {
+		.movie-hero { flex-direction: column; align-items: center; text-align: center; }
+		.movie-poster-wrap { width: 220px; }
+		.movie-genres { justify-content: center; }
+		.movie-desc { margin-left: auto; margin-right: auto; }
 	}
 </style>

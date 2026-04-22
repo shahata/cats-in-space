@@ -637,6 +637,22 @@
     "backToMovies": "← 映画一覧に戻る",
     "noMovies": "現在上映中の作品はありません。",
     "thankYouTitle": "映画をお楽しみください！",
-    "thankYouSubtitle": "チケットが確定しました。劇場でお会いしましょう！"
+    "thankYouSubtitle": "チケットが確定しました。劇場でお会いしましょう！",
+    "nextShowtime": "次回上映",
+    "online": "オンライン",
+    "joinOnline": "オンラインで参加",
+    "addToGoogle": "Googleカレンダーに追加",
+    "downloadIcs": ".icsをダウンロード",
+    "yourDetails": "お客様情報",
+    "firstName": "名",
+    "lastName": "姓",
+    "email": "メール",
+    "total": "合計",
+    "ticket": "チケット",
+    "tickets": "チケット",
+    "free": "無料",
+    "bookFor": "予約：",
+    "noTickets": "この回のチケットはまだありません。",
+    "bookingFailed": "予約に失敗しました。もう一度お試しください。"
   }
 }

@@ -637,6 +637,22 @@
     "backToMovies": "← חזרה לסרטים",
     "noMovies": "אין הקרנות כרגע.",
     "thankYouTitle": "צפייה מהנה!",
-    "thankYouSubtitle": "הכרטיסים אושרו. נתראה באולם!"
+    "thankYouSubtitle": "הכרטיסים אושרו. נתראה באולם!",
+    "nextShowtime": "הקרנה הבאה",
+    "online": "אונליין",
+    "joinOnline": "הצטרפות אונליין",
+    "addToGoogle": "הוספה ל-Google Calendar",
+    "downloadIcs": "הורדת .ics",
+    "yourDetails": "הפרטים שלכם",
+    "firstName": "שם פרטי",
+    "lastName": "שם משפחה",
+    "email": "אימייל",
+    "total": "סה\"כ",
+    "ticket": "כרטיס",
+    "tickets": "כרטיסים",
+    "free": "חינם",
+    "bookFor": "הזמנה ל-",
+    "noTickets": "אין כרטיסים זמינים להקרנה זו עדיין.",
+    "bookingFailed": "ההזמנה נכשלה — נסו שוב."
   }
 }

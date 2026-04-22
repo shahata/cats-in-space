@@ -637,6 +637,22 @@
     "backToMovies": "← К фильмам",
     "noMovies": "Сейчас нет показов.",
     "thankYouTitle": "Приятного просмотра!",
-    "thankYouSubtitle": "Билеты подтверждены. Ждём вас в зале!"
+    "thankYouSubtitle": "Билеты подтверждены. Ждём вас в зале!",
+    "nextShowtime": "Ближайший сеанс",
+    "online": "Онлайн",
+    "joinOnline": "Присоединиться онлайн",
+    "addToGoogle": "Добавить в Google Календарь",
+    "downloadIcs": "Скачать .ics",
+    "yourDetails": "Ваши данные",
+    "firstName": "Имя",
+    "lastName": "Фамилия",
+    "email": "Эл. почта",
+    "total": "Итого",
+    "ticket": "билет",
+    "tickets": "билетов",
+    "free": "Бесплатно",
+    "bookFor": "Купить на",
+    "noTickets": "Билеты на этот сеанс пока недоступны.",
+    "bookingFailed": "Не удалось оформить бронь — попробуйте снова."
   }
 }

@@ -4,52 +4,123 @@ import Nav from '../../components/Nav.astro';
 import Footer from '../../components/Footer.astro';
 import { wixEventsV2 } from '@wix/events';
 import { auth, i18n } from '@wix/essentials';
+import { getRelativeLocaleUrl } from 'wix:astro:i18n';
 import { getImageUrl } from '../../utils/image';
 
+// `Event.categories` is populated at runtime when the CATEGORIES fieldset is
+// requested but isn't part of the typed `Event` shape — extend it locally.
+type Event = wixEventsV2.Event & { categories?: wixEventsV2.EventCategories };
+type EventCategory = wixEventsV2.EventCategory;
+
+const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
+// Fetch every upcoming screening. Each showtime is an independent Event; Wix
+// ties them together via the hidden `recurringEvents.categoryId` (the "series
+// key"). We pull DETAILS (mainImage, recurringEvents.categoryId), FORM, and
+// CATEGORIES — empirically, the genre categories only come back when FORM
+// is also requested (undocumented field coupling in the events query).
+// `.limit()` caps at 200, so we paginate via `.next()` to pick up every
+// showtime across every series.
 const elevatedQuery = auth.elevate(wixEventsV2.queryEvents);
-const eventsResult = await elevatedQuery().ne('status', 'CANCELED').limit(20).find();
-const events = eventsResult.items || [];
-
-const now = new Date();
-
-function getSlug(event: Record<string, any>): string {
-	return event.slug || event.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || event._id;
+const events: Event[] = [];
+let page: wixEventsV2.EventsQueryResult | undefined
+	= await elevatedQuery({ fields: ['DETAILS', 'CATEGORIES', 'FORM'] })
+		.ne('status', 'CANCELED')
+		.limit(200)
+		.find();
+while (page) {
+	events.push(...((page.items ?? []) as Event[]));
+	if (!page.items || page.items.length < 200) break;
+	page = await page.next();
 }
 
-function getEventImage(event: Record<string, any>): string | null {
-	return getImageUrl(event.mainImage?.url || event.mainImage, 480, 680);
+// event.categories contains BOTH the user-added genre categories AND the
+// hidden RECURRING_EVENT series category (whose _id is the seriesCategoryId
+// and whose name duplicates the movie title). Filter that one out.
+function extractGenres(ev: Event): string[] {
+	const seriesCatId = ev.dateAndTimeSettings?.recurringEvents?.categoryId;
+	const cats: EventCategory[] = ev.categories?.categories ?? [];
+	return cats
+		.filter(c => c._id !== seriesCatId)
+		.map(c => c.name ?? '')
+		.filter(Boolean);
 }
 
-function isComingSoon(event: Record<string, any>): boolean {
-	const start = event.scheduling?.startDate || event.dateAndTimeSettings?.startDate;
-	if (!start) return false;
-	return new Date(start) > now;
+const now = Date.now();
+
+interface Series {
+	key: string;
+	title: string;
+	description: string;
+	posterUrl: string | null;
+	genres: string[];
+	nextEvent: Event;
+	nextSlug: string;
+	showtimeCount: number;
 }
 
-function getNextShowtime(event: Record<string, any>): string | null {
-	const start = event.scheduling?.startDate || event.dateAndTimeSettings?.startDate;
-	if (!start) return null;
-	return new Date(start).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+function eventStart(ev: Event): number {
+	const s = ev.dateAndTimeSettings?.startDate;
+	return s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
 }
 
-function extractGenres(event: Record<string, any>): string[] {
-	const cats = event.categories?.map((c: any) => c.name || c) || [];
-	if (cats.length > 0) return cats;
-	const desc: string = event.description || '';
-	const genreMap = ['Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Fantasy', 'Thriller', 'Romance', 'Animation', 'Documentary'];
-	return genreMap.filter(g => desc.toLowerCase().includes(g.toLowerCase()));
+function slugOf(ev: Event): string {
+	return ev.slug
+		?? ev.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+		?? ev._id
+		?? '';
 }
+
+const dateTimeFmt = new Intl.DateTimeFormat(locale, {
+	weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+});
+
+// Group events by series. The seed is responsible for producing canonical
+// data — every sibling in a series shares the same mainImage, genres, and
+// ticket tiers — so we pick one representative (the soonest upcoming
+// occurrence) and trust its fields directly.
+const seriesByKey = new Map<string, Series>();
+for (const ev of events) {
+	const start = eventStart(ev);
+	if (start < now) continue;
+	const seriesId = ev.dateAndTimeSettings?.recurringEvents?.categoryId || ev._id || '';
+	if (!seriesId) continue;
+	const existing = seriesByKey.get(seriesId);
+	if (existing) {
+		existing.showtimeCount += 1;
+		if (start < eventStart(existing.nextEvent)) {
+			existing.nextEvent = ev;
+			existing.nextSlug = slugOf(ev);
+			existing.posterUrl = typeof ev.mainImage === 'string' ? getImageUrl(ev.mainImage, 480, 680) : null;
+			existing.genres = extractGenres(ev);
+			existing.description = ev.shortDescription ?? '';
+		}
+	} else {
+		seriesByKey.set(seriesId, {
+			key: seriesId,
+			title: ev.title ?? '',
+			description: ev.shortDescription ?? '',
+			posterUrl: typeof ev.mainImage === 'string' ? getImageUrl(ev.mainImage, 480, 680) : null,
+			genres: extractGenres(ev),
+			nextEvent: ev,
+			nextSlug: slugOf(ev),
+			showtimeCount: 1,
+		});
+	}
+}
+
+const seriesList = [...seriesByKey.values()]
+	.sort((a, b) => eventStart(a.nextEvent) - eventStart(b.nextEvent));
 
 function genreBadgeClass(genre: string): string {
 	const map: Record<string, string> = {
 		'action': 'genre-action', 'comedy': 'genre-comedy', 'drama': 'genre-drama',
 		'horror': 'genre-horror', 'sci-fi': 'genre-scifi', 'fantasy': 'genre-fantasy',
+		'adventure': 'genre-adventure', 'family': 'genre-family',
 	};
 	return map[genre.toLowerCase()] || 'genre-default';
 }
-
 ---
 
 <Layout title={`${t('cinema.pageTitle')} - ${t('home.title')}`}>
@@ -65,49 +136,47 @@ function genreBadgeClass(genre: string): string {
 
 	<section class="cinema-content">
 		<div class="container">
-			<div class="filter-tabs" id="filter-tabs">
-				<button class="filter-tab active" data-filter="all">{t('cinema.allMovies')}</button>
-				<button class="filter-tab" data-filter="now">{t('cinema.nowShowing')}</button>
-				<button class="filter-tab" data-filter="soon">{t('cinema.comingSoon')}</button>
-			</div>
-
-			{events.length === 0 && (
+			{seriesList.length === 0 && (
 				<p class="no-movies">{t('cinema.noMovies')}</p>
 			)}
 
-			<div class="movies-grid" id="movies-grid">
-				{events.map((event) => {
-					const slug = getSlug(event);
-					const img = getEventImage(event);
-					const genres = extractGenres(event);
-					const showtime = getNextShowtime(event);
-					const coming = isComingSoon(event);
+			<div class="movies-grid">
+				{seriesList.map((s) => {
+					const nextStart = s.nextEvent.dateAndTimeSettings?.startDate;
+					const showtime = nextStart ? dateTimeFmt.format(new Date(nextStart)) : null;
 					return (
-						<a href={`/cinema/${slug}`} class="movie-card" data-category={coming ? 'soon' : 'now'}>
+						<a href={getRelativeLocaleUrl(`/cinema/${s.nextSlug}`)} class="movie-card">
 							<div class="movie-poster">
-								{img ? (
-									<img src={img} alt={event.title} loading="lazy" />
+								{s.posterUrl ? (
+									<img src={s.posterUrl} alt={s.title} loading="lazy" />
 								) : (
 									<div class="poster-placeholder">
 										<span class="poster-icon">&#9733;</span>
 									</div>
 								)}
-								{coming && <span class="coming-badge">{t('cinema.comingSoon')}</span>}
+								{s.showtimeCount > 1 && (
+									<span class="showtime-badge">{s.showtimeCount} {t('cinema.showtimes')}</span>
+								)}
 								<div class="poster-overlay">
 									<span class="play-icon">&#9654;</span>
 								</div>
 							</div>
 							<div class="movie-info">
-								<h3 class="movie-title">{event.title}</h3>
-								<div class="movie-genres">
-									{genres.slice(0, 3).map(g => (
-										<span class={`genre-badge ${genreBadgeClass(g)}`}>{g}</span>
-									))}
-								</div>
+								<h3 class="movie-title">{s.title}</h3>
+								{s.genres.length > 0 && (
+									<div class="movie-genres">
+										{s.genres.slice(0, 3).map(g => (
+											<span class={`genre-badge ${genreBadgeClass(g)}`}>{g}</span>
+										))}
+									</div>
+								)}
 								{showtime && (
 									<div class="movie-showtime">
-										<span class="showtime-label">{t('cinema.showtime')}:</span> {showtime}
+										<span class="showtime-label">{t('cinema.nextShowtime')}:</span> {showtime}
 									</div>
+								)}
+								{s.description && (
+									<p class="movie-desc">{s.description}</p>
 								)}
 							</div>
 						</a>
@@ -120,26 +189,6 @@ function genreBadgeClass(genre: string): string {
 	<Footer />
 </Layout>
 
-<script>
-	const tabs = document.querySelectorAll<HTMLButtonElement>('.filter-tab');
-	const cards = document.querySelectorAll<HTMLElement>('.movie-card');
-
-	tabs.forEach(tab => {
-		tab.addEventListener('click', () => {
-			tabs.forEach(t => t.classList.remove('active'));
-			tab.classList.add('active');
-			const filter = tab.dataset.filter;
-			cards.forEach(card => {
-				if (filter === 'all') {
-					card.style.display = '';
-				} else {
-					card.style.display = card.dataset.category === filter ? '' : 'none';
-				}
-			});
-		});
-	});
-</script>
-
 <style>
 	.cinema-hero {
 		position: relative;
@@ -148,7 +197,6 @@ function genreBadgeClass(genre: string): string {
 		background: linear-gradient(180deg, #1a0a00 0%, var(--bg-primary) 100%);
 		overflow: hidden;
 	}
-
 	.hero-glow {
 		position: absolute;
 		top: -100px;
@@ -159,161 +207,84 @@ function genreBadgeClass(genre: string): string {
 		background: radial-gradient(ellipse, rgba(255, 102, 0, 0.15) 0%, transparent 70%);
 		pointer-events: none;
 	}
-
-	.hero-content {
-		position: relative;
-		z-index: 1;
-	}
-
-	.cinema-content {
-		padding: 0 20px 80px;
-	}
-
-	.filter-tabs {
-		display: flex;
-		gap: 8px;
-		margin-bottom: 40px;
-		justify-content: center;
-	}
-
-	.filter-tab {
-		padding: 10px 24px;
-		border-radius: 8px;
-		border: 1px solid var(--border-card);
-		background: var(--bg-card);
-		color: var(--text-secondary);
-		font-family: var(--font-heading);
-		font-size: 0.95rem;
-		letter-spacing: 1px;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.filter-tab:hover {
-		border-color: var(--accent);
-		color: var(--accent);
-	}
-
-	.filter-tab.active {
-		background: var(--accent);
-		color: #000;
-		border-color: var(--accent);
-	}
+	.hero-content { position: relative; z-index: 1; }
+	.cinema-content { padding: 0 20px 80px; }
 
 	.no-movies {
-		text-align: center;
-		color: var(--text-muted);
-		font-size: 1.1rem;
-		padding: 60px 0;
+		text-align: center; color: var(--text-muted);
+		padding: 60px 20px; font-size: 1rem;
 	}
 
 	.movies-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-		gap: 28px;
+		grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+		gap: 32px;
 	}
 
 	.movie-card {
-		display: block;
 		background: var(--bg-card);
 		border: 1px solid var(--border-card);
 		border-radius: 12px;
 		overflow: hidden;
-		transition: all 0.3s;
-		color: var(--text-primary);
+		text-decoration: none;
+		color: inherit;
+		transition: all 0.2s;
 	}
-
 	.movie-card:hover {
-		transform: translateY(-6px);
+		transform: translateY(-4px);
 		border-color: var(--accent);
-		box-shadow: 0 8px 40px rgba(255, 102, 0, 0.2), 0 0 80px rgba(255, 102, 0, 0.08);
-		color: var(--text-primary);
+		box-shadow: 0 12px 40px rgba(255, 102, 0, 0.2);
 	}
 
 	.movie-poster {
 		position: relative;
 		aspect-ratio: 2 / 3;
-		overflow: hidden;
 		background: #111;
+		overflow: hidden;
 	}
-
-	.movie-poster img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		transition: transform 0.4s;
-	}
-
-	.movie-card:hover .movie-poster img {
-		transform: scale(1.05);
-	}
-
+	.movie-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
 	.poster-placeholder {
-		width: 100%;
-		height: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		background: linear-gradient(135deg, #1a1a2e 0%, #0a0a0a 100%);
+		width: 100%; height: 100%;
+		background: linear-gradient(135deg, #1a1a2e, #16213e);
+		display: flex; align-items: center; justify-content: center;
+		font-size: 4rem; color: var(--accent); opacity: 0.4;
 	}
 
-	.poster-icon {
-		font-size: 3rem;
-		color: var(--accent);
-		opacity: 0.4;
-	}
-
-	.poster-overlay {
+	.showtime-badge {
 		position: absolute;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.6);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		opacity: 0;
-		transition: opacity 0.3s;
-	}
-
-	.movie-card:hover .poster-overlay {
-		opacity: 1;
-	}
-
-	.play-icon {
-		font-size: 2.5rem;
-		color: var(--accent);
-		filter: drop-shadow(0 0 20px rgba(255, 102, 0, 0.6));
-	}
-
-	.coming-badge {
-		position: absolute;
-		top: 12px;
-		left: 12px;
-		background: var(--accent-yellow);
-		color: #000;
+		top: 10px;
+		inset-inline-end: 10px;
+		background: rgba(0, 0, 0, 0.85);
+		color: var(--accent-yellow);
+		padding: 4px 10px;
+		border-radius: 999px;
 		font-family: var(--font-heading);
 		font-size: 0.7rem;
 		letter-spacing: 1px;
-		padding: 4px 10px;
-		border-radius: 4px;
+		border: 1px solid var(--accent);
 	}
 
-	.movie-info {
-		padding: 16px;
+	.poster-overlay {
+		position: absolute; inset: 0;
+		background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.5) 100%);
+		display: flex; align-items: center; justify-content: center;
+		opacity: 0; transition: opacity 0.2s;
 	}
+	.movie-card:hover .poster-overlay { opacity: 1; }
+	.play-icon { font-size: 2.5rem; color: var(--accent); text-shadow: 0 0 20px var(--accent); }
+
+	.movie-info { padding: 16px; }
 
 	.movie-title {
 		font-family: var(--font-heading);
-		font-size: 1.2rem;
-		color: var(--accent-yellow);
+		font-size: 1rem;
+		color: var(--text-primary);
 		letter-spacing: 1px;
 		margin-bottom: 8px;
-		line-height: 1.3;
 	}
 
 	.movie-genres {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
+		display: flex; flex-wrap: wrap; gap: 4px;
 		margin-bottom: 10px;
 	}
 
@@ -325,33 +296,36 @@ function genreBadgeClass(genre: string): string {
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 	}
-
 	.genre-action { background: #cc0000; color: #fff; }
 	.genre-comedy { background: #2e7d32; color: #fff; }
 	.genre-drama { background: #1565c0; color: #fff; }
 	.genre-horror { background: #6a1b9a; color: #fff; }
 	.genre-scifi { background: #00838f; color: #fff; }
 	.genre-fantasy { background: #c6a700; color: #000; }
+	.genre-adventure { background: #ef6c00; color: #000; }
+	.genre-family { background: #7cb342; color: #000; }
 	.genre-default { background: #444; color: #e0e0e0; }
 
 	.movie-showtime {
 		font-size: 0.8rem;
-		color: var(--text-muted);
+		color: var(--text-secondary);
+		margin-bottom: 8px;
 	}
-
 	.showtime-label {
 		color: var(--accent);
-		font-weight: 600;
+		font-family: var(--font-heading);
+		letter-spacing: 0.5px;
 	}
 
-	@media (max-width: 600px) {
-		.movies-grid {
-			grid-template-columns: repeat(2, 1fr);
-			gap: 16px;
-		}
-
-		.filter-tabs {
-			flex-wrap: wrap;
-		}
+	.movie-desc {
+		color: var(--text-muted);
+		font-size: 0.8rem;
+		line-height: 1.5;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 	}
+
+	.poster-icon { opacity: 0.6; }
 </style>
