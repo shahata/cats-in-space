@@ -44,7 +44,11 @@ type AvailablePlace = ticketDefinitionsV2.AvailablePlace;
 
 Empirical bug: `CATEGORIES` alone often returns only the hidden RECURRING_EVENT series category. Adding `FORM` to the same query makes the real MANUAL genre categories come back. Always request `['DETAILS', 'CATEGORIES', 'FORM']` for listings/detail pages.
 
-**3. Paginate. `limit()` caps at 200.** With weekly recurrences over a year you will easily clear 300 events. Use `.next()`:
+**`queryEvents`' filter builder doesn't support nested paths.** You cannot do `.eq('dateAndTimeSettings.recurringEvents.categoryId', id)` — the type only allows a shortlist of top-level props. To find siblings in a series you have to fetch the whole event set (paginated) and filter client-side.
+
+**Use `auth.elevate` for admin queries.** Without it, public-visitor auth limits what comes back (no cancelled events, no registration/form details on unpublished ones). For seed/update scripts run from `/api` routes, elevate everything: `auth.elevate(wixEventsV2.queryEvents)`, `auth.elevate(wixEventsV2.updateEvent)`, etc.
+
+**3. Paginate. `limit()` caps at 200.** With weekly recurrences over a year you will easily clear 300 events. Use `.next()`. This applies to every page that lists events — listing, detail (sibling lookup), seed verify pass. A missing pagination loop silently cuts off events and you'll spend a long time wondering why late-in-year showtimes are missing.
 ```ts
 let page: wixEventsV2.EventsQueryResult | undefined
   = await queryEvents({ fields }).ne('status', 'CANCELED').limit(200).find();
@@ -222,6 +226,18 @@ If every occurrence is its own Event with its own Wix-generated slug (e.g. `purr
 3. On Book: if selection differs from SSR's event, client calls `ticketDefinitionsV2.queryAvailableTicketDefinitions({ filter: { eventId: selected } })`, maps the user's qty-by-tier-**name** to the fresh `_id`s, reserves, redirects.
 
 Key state trick: key qty/seat state by `td.name`, not `td._id`, so state survives a date change.
+
+## Debugging: make a probe endpoint
+
+When the SDK is returning shapes that don't match your mental model, a 30-line read-only `/api/probe-event?q=<substring>` that dumps full event objects with every fieldset saves hours of guesswork. The shape differences between what `CATEGORIES`-only returns vs. `CATEGORIES+FORM` vs. direct REST-side paths (`registrationConfig.ticketingConfig.*` vs. SDK's `registration.tickets.*`) are not documented — you have to see them. Delete the probe before committing.
+
+## Running long seeds
+
+`curl --max-time 900` (15 min) is NOT enough for a 52-week × 6-movie seed — createEvent + 3 ticket tiers + 2 category assigns per sibling × 312 events easily takes 20+ minutes. Use `--max-time 1800` (30 min) and set up a file-mtime monitor instead of relying on curl's exit. Important: the Astro handler keeps running after curl disconnects, so if curl times out your endpoint may still finish server-side — verify by re-querying, don't assume failure.
+
+## `.env.local` and GitHub secret scanning
+
+GitHub's push-protection secret scanner blocks commits that contain real OpenAI/Wix/AWS tokens in `.env.local`. The fix is to commit a *template* version with the key commented out (`# OPENAI_API_KEY="sk-..."`) and restore the real value locally after pushing. Don't add `.env.local` to `.gitignore` mid-project if the project already tracks it for shared dev config (as this repo does for `WIX_CLIENT_SECRET`).
 
 ## Seed pattern (idempotent re-run)
 
