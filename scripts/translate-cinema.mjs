@@ -215,19 +215,21 @@ function decodeSiteOwnerId(tok) {
 }
 
 async function fetchAllContent(schemaId, locale) {
+	// `paging.offset` is silently ignored — must use cursor pagination.
 	const all = [];
-	let offset = 0;
-	while (true) {
+	let cursor;
+	for (let i = 0; i < 500; i++) {
 		const t = Date.now();
-		const res = await wix('/translation-content/v1/contents/query', {
-			query: { filter: { locale, schemaId }, paging: { limit: 100, offset } },
-		});
+		const query = cursor
+			? { cursorPaging: { limit: 100, cursor } }
+			: { filter: { locale, schemaId }, cursorPaging: { limit: 100 } };
+		const res = await wix('/translation-content/v1/contents/query', { query });
 		const items = res.contents ?? [];
-		console.log(`    fetch ${locale} offset=${offset} got=${items.length} (${Date.now() - t}ms)`);
+		console.log(`    fetch ${locale} page=${i} got=${items.length} (${Date.now() - t}ms)`);
 		all.push(...items);
-		if (items.length < 100) break;
-		offset += 100;
-		if (offset > 2000) { console.warn('    pagination runaway — stopping'); break; }
+		const next = res.pagingMetadata?.cursors?.next;
+		if (!next || !res.pagingMetadata?.hasNext) break;
+		cursor = next;
 	}
 	return all;
 }
