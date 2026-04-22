@@ -170,7 +170,19 @@ CMS collections need extra setup — they're not translatable by default:
 
 - **Dashboard install only**: Wix Multilingual app requires dashboard installation — no known `appDefId`
 - **`wix translation push` needs TTY**: Won't work in non-interactive scripts or CI
-- **Paging may be ignored**: Query API may return all entries regardless of `limit`
+- **`paging.offset` is silently ignored — use cursor pagination**: `POST /translation-content/v1/contents/query` with `paging: { limit, offset }` always returns the FIRST `limit` items no matter what `offset` is. You'll loop forever, re-fetching the same page and inflating counts ~Nx (a 317-entity schema looks like 2100+, masking missing translations because `items.length < 100` never trips). Fix: drop `paging` and use `cursorPaging`, feeding back `pagingMetadata.cursors.next` until `hasNext` is false:
+  ```js
+  let cursor;
+  while (true) {
+    const q = cursor
+      ? { cursorPaging: { limit: 100, cursor } }
+      : { filter: { locale, schemaId }, cursorPaging: { limit: 100 } };
+    const res = await wix('/translation-content/v1/contents/query', { query: q });
+    all.push(...(res.contents ?? []));
+    if (!res.pagingMetadata?.hasNext) break;
+    cursor = res.pagingMetadata.cursors.next;
+  }
+  ```
 - **RICH_CONTENT fields**: Sending `textValue` for rich content fields returns `INVALID_ARGUMENT`. → Use `richContent: { nodes: [...] }` format
 - **Schema permissions**: `create` and `query` on schemas return 403 via site-level MCP auth AND via the headless runtime's own `httpClient.fetchWithAuth` from `@wix/essentials`. To call these endpoints from a standalone Node script, use the Wix CLI site token plus explicit headers:
   ```js
@@ -183,6 +195,6 @@ CMS collections need extra setup — they're not translatable by default:
   ```
   Without the `wix-account-id` header the API returns `{ "message": "", "details": {} }` with status 403.
 - **Auto-created schemas**: for Wix apps (Events, Stores, Blog, etc.), schemas appear automatically once the Multilingual app detects content — don't try to create them manually. For CMS collections, enable from dashboard.
-- **Per-entity content entry counts can be MUCH larger than entity counts**: a cinema seed of 312 event rows produced ~2100 content entries per locale — each "content" row represents (entity × per-field set) not (entity alone). Expect to paginate deep; add a runaway-offset guard (e.g., stop at offset 5000) so a mis-parsed response doesn't spin forever.
+- **Content entry counts are per-entity, not per-field**: one translation-content row covers ALL translatable fields for a single entity (a single event, product, campaign, etc.). If your count looks inflated by Nx, the offset-paging bug above is the cause — not a field-explosion.
 - **`parentEntityId`**: Schemas with `requireParentEntity: true` need `parentEntityId` copied from EN entry
 - **Per-schema queries via MCP**: Each response is small and won't hit MCP's ~54KB truncation limit
