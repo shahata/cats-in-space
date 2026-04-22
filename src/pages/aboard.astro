@@ -44,11 +44,15 @@ const facilities: Facility[] = [
 			<div class="facilities-grid">
 				{facilities.map(f => (
 					<a href={getRelativeLocaleUrl(f.href)} class="facility-card">
-						<div class="facility-icon">{f.icon}</div>
-						<div class="facility-deck">{f.deck}</div>
-						<h3 class="facility-title">{t(`aboard.${f.key}Title`)}</h3>
-						<p class="facility-desc">{t(`aboard.${f.key}Desc`)}</p>
-						<span class="facility-cta">{t(`aboard.${f.key}Cta`)} <span class="rtl-flip">→</span></span>
+						<div class="facility-image" style={`background-image: url(/aboard/${f.key}.png)`}>
+							<span class="facility-icon">{f.icon}</span>
+							<span class="facility-deck">{f.deck}</span>
+						</div>
+						<div class="facility-body">
+							<h3 class="facility-title">{t(`aboard.${f.key}Title`)}</h3>
+							<p class="facility-desc">{t(`aboard.${f.key}Desc`)}</p>
+							<span class="facility-cta">{t(`aboard.${f.key}Cta`)} <span class="rtl-flip">→</span></span>
+						</div>
 					</a>
 				))}
 			</div>
@@ -57,24 +61,28 @@ const facilities: Facility[] = [
 
 	<section class="aboard-section aboard-alt">
 		<div class="container split-grid">
-			<div class="split-block">
-				<div class="split-icon">🔬</div>
-				<h2 class="split-title">{t('aboard.researchTitle')}</h2>
-				<p class="split-desc">{t('aboard.researchDesc')}</p>
-				<a href={getRelativeLocaleUrl('/research')} class="split-cta">{t('aboard.researchCta')} <span class="rtl-flip">→</span></a>
+			<div class="split-block" style="background-image: url(/aboard/research.png)">
+				<div class="split-overlay">
+					<div class="split-icon">🔬</div>
+					<h2 class="split-title">{t('aboard.researchTitle')}</h2>
+					<p class="split-desc">{t('aboard.researchDesc')}</p>
+					<a href={getRelativeLocaleUrl('/research')} class="split-cta">{t('aboard.researchCta')} <span class="rtl-flip">→</span></a>
+				</div>
 			</div>
-			<div class="split-block">
-				<div class="split-icon">📡</div>
-				<h2 class="split-title">{t('aboard.logTitle')}</h2>
-				<p class="split-desc">{t('aboard.logDesc')}</p>
-				<a href={getRelativeLocaleUrl('/blog')} class="split-cta">{t('aboard.logCta')} <span class="rtl-flip">→</span></a>
+			<div class="split-block" style="background-image: url(/aboard/log.png)">
+				<div class="split-overlay">
+					<div class="split-icon">📡</div>
+					<h2 class="split-title">{t('aboard.logTitle')}</h2>
+					<p class="split-desc">{t('aboard.logDesc')}</p>
+					<a href={getRelativeLocaleUrl('/blog')} class="split-cta">{t('aboard.logCta')} <span class="rtl-flip">→</span></a>
+				</div>
 			</div>
 		</div>
 	</section>
 
 	<section class="aboard-section plans-cta-section">
 		<div class="container">
-			<div class="plans-cta">
+			<div class="plans-cta" style="background-image: linear-gradient(135deg, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.7) 60%, rgba(255,102,0,0.3) 100%), url(/aboard/plans.png)">
 				<div class="plans-cta-badge">{t('aboard.plansSubtitle')}</div>
 				<h2 class="plans-cta-title">{t('aboard.plansTitle')}</h2>
 				<p class="plans-cta-desc">{t('aboard.plansDesc')}</p>
@@ -140,23 +148,53 @@ const facilities: Facility[] = [
 		background: var(--bg-card);
 		border: 1px solid var(--border-card);
 		border-radius: 14px;
-		padding: 24px;
+		overflow: hidden;
 		color: inherit;
 		text-decoration: none;
 		transition: all 0.2s;
-		display: flex; flex-direction: column; gap: 8px;
+		display: flex; flex-direction: column;
 	}
 	.facility-card:hover {
 		border-color: var(--accent);
 		transform: translateY(-4px);
 		box-shadow: 0 12px 40px rgba(255, 102, 0, 0.15);
 	}
-	.facility-icon { font-size: 2.2rem; line-height: 1; }
+	.facility-image {
+		aspect-ratio: 16 / 9;
+		background-size: cover;
+		background-position: center;
+		position: relative;
+		border-bottom: 1px solid var(--border-card);
+	}
+	.facility-image::after {
+		content: '';
+		position: absolute; inset: 0;
+		background: linear-gradient(180deg, transparent 40%, rgba(10, 10, 10, 0.65) 100%);
+	}
+	.facility-icon {
+		position: absolute; top: 12px; inset-inline-start: 12px;
+		font-size: 1.5rem; line-height: 1;
+		padding: 6px 10px;
+		background: rgba(10, 10, 10, 0.75);
+		border: 1px solid rgba(255, 102, 0, 0.3);
+		border-radius: 999px;
+		z-index: 1;
+	}
 	.facility-deck {
+		position: absolute; bottom: 12px; inset-inline-start: 12px;
 		font-family: var(--font-heading);
 		font-size: 0.7rem;
 		letter-spacing: 2px;
 		color: var(--accent-yellow);
+		padding: 4px 10px;
+		background: rgba(0, 0, 0, 0.6);
+		border-radius: 999px;
+		z-index: 1;
+	}
+	.facility-body {
+		padding: 20px 24px 24px;
+		display: flex; flex-direction: column; gap: 8px;
+		flex: 1;
 	}
 	.facility-title {
 		font-family: var(--font-heading);
@@ -183,11 +221,27 @@ const facilities: Facility[] = [
 		gap: 24px;
 	}
 	.split-block {
-		background: var(--bg-card);
+		background-color: var(--bg-card);
+		background-size: cover;
+		background-position: center;
 		border: 1px solid var(--border-card);
 		border-radius: 14px;
-		padding: 32px;
+		overflow: hidden;
+		min-height: 280px;
+		display: flex;
+		position: relative;
+		transition: border-color 0.2s, transform 0.2s;
+	}
+	.split-block:hover {
+		border-color: var(--accent);
+		transform: translateY(-2px);
+	}
+	.split-overlay {
 		display: flex; flex-direction: column; gap: 10px;
+		padding: 28px;
+		width: 100%;
+		background: linear-gradient(0deg, rgba(10, 10, 10, 0.92) 0%, rgba(10, 10, 10, 0.7) 55%, rgba(10, 10, 10, 0.35) 100%);
+		justify-content: flex-end;
 	}
 	.split-icon { font-size: 2.4rem; }
 	.split-title {
