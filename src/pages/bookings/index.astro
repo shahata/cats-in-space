@@ -93,7 +93,7 @@ const roleEmojis: Record<string, string> = {
 											<span class="meta-icon">⏱</span> {duration} {t('bookings.min')}
 										</span>
 									)}
-									{service.payment?.rateType === 'FIXED' ? (
+									{service.payment?.rateType === services.RateType.FIXED ? (
 										<span class="service-price service-price-paid">
 											<span class="meta-icon">💰</span> {service.payment.fixed?.price?.currency} {service.payment.fixed?.price?.value}
 										</span>

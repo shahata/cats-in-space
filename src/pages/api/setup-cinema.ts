@@ -112,7 +112,7 @@ async function waitForFileReady(fileId: string, maxAttempts = 30): Promise<boole
 		try {
 			const res = await getFile(fileId);
 			const f = (res as { file?: files.FileDescriptor }).file ?? (res as unknown as files.FileDescriptor);
-			if (f?.operationStatus === 'READY') return true;
+			if (f?.operationStatus === files.OperationStatus.READY) return true;
 		} catch { /* ignore transient */ }
 		await new Promise(r => setTimeout(r, 500));
 	}
@@ -188,7 +188,7 @@ export const GET: APIRoute = async ({ url }) => {
 		const existingCats = await auth.elevate(categoriesApi.queryCategories)().find();
 		const deleteCategory = auth.elevate(categoriesApi.deleteCategory);
 		for (const c of existingCats.items ?? []) {
-			if (c.states?.includes('MANUAL') && c._id) {
+			if (c.states?.includes(categoriesApi.State.MANUAL) && c._id) {
 				try {
 					await deleteCategory(c._id);
 					ok(`Deleted old category ${c.name}`);
@@ -223,7 +223,7 @@ export const GET: APIRoute = async ({ url }) => {
 				}
 				ok(`Generated poster for ${m.title}`);
 				const imported = await importFile(imageUrl, {
-					mediaType: 'IMAGE',
+					mediaType: files.MediaType.IMAGE,
 					displayName: `${m.title} poster`,
 					mimeType: 'image/png',
 				});
@@ -273,8 +273,8 @@ export const GET: APIRoute = async ({ url }) => {
 					timeZoneId: 'Asia/Jerusalem',
 					recurringEvents: { individualEventDates },
 				},
-				location: { type: 'VENUE', name: 'Cats In Space Cinema' },
-				registration: { initialType: 'TICKETING' },
+				location: { type: wixEventsV2.LocationType.VENUE, name: 'Cats In Space Cinema' },
+				registration: { initialType: wixEventsV2.InitialRegistrationTypeType.TICKETING },
 			};
 
 			try {
@@ -361,7 +361,7 @@ export const GET: APIRoute = async ({ url }) => {
 							eventId: ev._id,
 							name: tt.name,
 							description: tt.description,
-							feeType: 'FEE_ADDED_AT_CHECKOUT',
+							feeType: ticketDefinitionsV2.FeeTypeEnumType.FEE_ADDED_AT_CHECKOUT,
 							pricingMethod: { fixedPrice: { value: tt.price, currency: 'ILS' } },
 							initialLimit: 200,
 						});

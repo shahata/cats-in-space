@@ -2,11 +2,12 @@ import { useState } from "react";
 import { currentCart, checkout } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 import { i18n } from "@wix/essentials";
+import { donationCampaigns } from "@wix/donations";
 import { DONATIONS_APP_ID } from "../utils/appIds";
 
 const CUSTOM_ID = "__custom__";
 
-export type DonationFrequency = "ONE_TIME" | "WEEK" | "MONTH" | "YEAR";
+export type DonationFrequency = Exclude<donationCampaigns.Frequency, donationCampaigns.Frequency.UNKNOWN_FREQUENCY>;
 
 export interface DonatePreset {
   _id: string;
@@ -43,9 +44,9 @@ export default function DonateCard({
   const t = i18n.getTranslationFunction();
   const [selectedId, setSelectedId] = useState<string>(presets[0]?._id ?? (customEnabled ? CUSTOM_ID : ""));
   const [customAmount, setCustomAmount] = useState("");
-  const defaultFreq: DonationFrequency = frequencies.includes("ONE_TIME")
-    ? "ONE_TIME"
-    : frequencies[0] ?? "ONE_TIME";
+  const defaultFreq: DonationFrequency = frequencies.includes(donationCampaigns.Frequency.ONE_TIME)
+    ? donationCampaigns.Frequency.ONE_TIME
+    : frequencies[0] ?? donationCampaigns.Frequency.ONE_TIME;
   const [frequency, setFrequency] = useState<DonationFrequency>(defaultFreq);
   const [coverFees, setCoverFees] = useState(false);
   const [note, setNote] = useState("");

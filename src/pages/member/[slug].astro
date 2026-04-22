@@ -25,7 +25,7 @@ if (!member) {
 if (!member) return Astro.redirect('/');
 
 // Don't show private profiles
-if (member.privacyStatus === 'PRIVATE') return Astro.redirect('/');
+if (member.privacyStatus === members.PrivacyStatusStatus.PRIVATE) return Astro.redirect('/');
 
 // Fetch member about
 let aboutContent: membersAboutTypes.RichContent | null = null;

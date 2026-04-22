@@ -166,7 +166,7 @@ function getCollections(product: productsV3Types.V3Product): { _id: string; name
 									{original && <span class="price-original">{original}</span>}
 									<span class={original ? 'price-sale' : ''}>{formatted}</span>
 								</div>
-								{product.inventory?.availabilityStatus === 'OUT_OF_STOCK' && (
+								{product.inventory?.availabilityStatus === productsV3.InventoryAvailabilityStatus.OUT_OF_STOCK && (
 									<span class="oos-badge">{t('store.outOfStock')}</span>
 								)}
 							</div>

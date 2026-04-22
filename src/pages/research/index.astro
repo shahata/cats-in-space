@@ -9,6 +9,14 @@ import { getImageUrl } from '../../utils/image';
 
 const t = i18n.getTranslationFunction();
 
+type KnownFrequency = Exclude<donationCampaigns.Frequency, donationCampaigns.Frequency.UNKNOWN_FREQUENCY>;
+function isKnownFrequency(f: string): f is KnownFrequency {
+	return f === donationCampaigns.Frequency.ONE_TIME
+		|| f === donationCampaigns.Frequency.WEEK
+		|| f === donationCampaigns.Frequency.MONTH
+		|| f === donationCampaigns.Frequency.YEAR;
+}
+
 const elevatedQuery = auth.elevate(donationCampaigns.queryDonationCampaigns);
 const queryRes = await elevatedQuery().ne('archived', true).find();
 const campaigns = queryRes.items || [];
@@ -66,13 +74,13 @@ const emojis = ['🛰️', '🌱', '🧑‍🚀', '🪐', '🔭', '🧪', '🚀'
 					const pct = target > 0 ? Math.min(100, Math.round((raised / target) * 100)) : 0;
 					const donorCount = metrics?.count ?? 0;
 					const emoji = emojis[idx % emojis.length];
-					const statusLabel = c.status === 'GOAL_REACHED'
+					const statusLabel = c.status === donationCampaigns.Status.GOAL_REACHED
 						? t('research.goalReached')
-						: c.status === 'EXPIRED'
+						: c.status === donationCampaigns.Status.EXPIRED
 							? t('research.expired')
 							: null;
-					const canDonate = c.status === 'COLLECTING'
-						|| (c.status === 'GOAL_REACHED' && c.campaignGoal?.acceptDonationsAfterGoal !== false);
+					const canDonate = c.status === donationCampaigns.Status.COLLECTING
+						|| (c.status === donationCampaigns.Status.GOAL_REACHED && c.campaignGoal?.acceptDonationsAfterGoal !== false);
 
 					const presets = (c.predefinedDonationAmounts || [])
 						.filter(p => p._id && p.price?.amount)
@@ -83,10 +91,7 @@ const emojis = ['🛰️', '🌱', '🧑‍🚀', '🪐', '🔭', '🧪', '🚀'
 							description: p.description ?? null,
 						}));
 
-					const frequencies = (c.donationFrequencies || []).filter(
-						(f): f is 'ONE_TIME' | 'WEEK' | 'MONTH' | 'YEAR' =>
-							f === 'ONE_TIME' || f === 'WEEK' || f === 'MONTH' || f === 'YEAR'
-					);
+					const frequencies = (c.donationFrequencies || []).filter(isKnownFrequency);
 
 					return (
 						<article class="campaign-card">

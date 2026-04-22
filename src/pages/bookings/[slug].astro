@@ -107,7 +107,7 @@ const seoTags = seoResult.seoTags?.tags || [];
 						<div class="detail-row">
 							<span class="detail-label">{t('bookings.cost')}</span>
 							<span class="detail-value">
-								{service.payment?.rateType === 'FIXED'
+								{service.payment?.rateType === services.RateType.FIXED
 									? formatCurrency(service.payment.fixed?.price?.value || 0, service.payment.fixed?.price?.currency || 'USD', locale)
 									: service.payment?.options?.pricingPlan
 										? t('bookings.membersOnly')

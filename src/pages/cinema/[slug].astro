@@ -27,7 +27,7 @@ const queryEvents = auth.elevate(wixEventsV2.queryEvents);
 const events: Event[] = [];
 let page: wixEventsV2.EventsQueryResult | undefined
 	= await queryEvents({ fields: ['DETAILS', 'CATEGORIES', 'FORM'] })
-		.ne('status', 'CANCELED')
+		.ne('status', wixEventsV2.Status.CANCELED)
 		.limit(200)
 		.find();
 while (page) {
@@ -83,7 +83,7 @@ const genres: string[] = (current.categories?.categories ?? [])
 	.filter((n): n is string => Boolean(n));
 
 const description = current.shortDescription ?? '';
-const eventLocation = current.location?.name ?? (current.location?.type === 'ONLINE' ? t('cinema.online') : '');
+const eventLocation = current.location?.name ?? (current.location?.type === wixEventsV2.LocationType.ONLINE ? t('cinema.online') : '');
 
 const onlineLink = current.onlineConferencing?.enabled ? current.onlineConferencing?.session?.guestLink : null;
 const calGoogle = current.calendarUrls?.google;

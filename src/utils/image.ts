@@ -1,5 +1,5 @@
 import { media } from '@wix/sdk';
-import type { productsV3 } from '@wix/stores';
+import { productsV3 } from '@wix/stores';
 
 /**
  * Converts a Wix video identifier to playable video URL + thumbnail image URL.
@@ -32,7 +32,7 @@ export interface MediaEntry {
  */
 export function extractMediaUrl(m: productsV3.ProductMedia | undefined, width = 800, height = 800): MediaEntry | null {
   if (!m) return null;
-  if (m.mediaType === 'VIDEO' && m.video) {
+  if (m.mediaType === productsV3.MediaType.VIDEO && m.video) {
     const video = getVideoUrl(m.video, width, height);
     if (video) return { type: 'video', url: video.url, ...(video.thumbnail ? { thumbnail: video.thumbnail } : {}) };
     return null;
