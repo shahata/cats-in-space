@@ -30,10 +30,14 @@ if (eventId) {
 }
 if (eventId && orderNumber) {
 	try {
+		// `ticketsPdf` + `tickets[]` are in the DETAILS/TICKETS fieldsets —
+		// the default response leaves them out, which is why "Download
+		// Tickets" used to silently vanish even on successful orders.
 		const getOrder = auth.elevate(orders.getOrder) as (
 			identifiers: { eventId: string; orderNumber: string },
+			options?: orders.GetOrderOptions,
 		) => Promise<Order>;
-		order = await getOrder({ eventId, orderNumber });
+		order = await getOrder({ eventId, orderNumber }, { fieldset: ['DETAILS', 'TICKETS'] });
 	} catch {}
 }
 

@@ -229,5 +229,6 @@ Do NOT dedupe showtimes or merge fields across siblings in the UI. If the seed p
 | Ticket picker qty buttons disabled at 0 | `limitPerCheckout` undefined treated as 0 | Default to 10 or similar: `td.limitPerCheckout ?? 10` |
 | User lands on thank-you without paying | Used `orders.checkout` instead of `redirects.createRedirectSession` | Switch to redirects + eventsCheckout |
 | `updateEvent({ event: { form: { controls } } })` → `Invalid field mask: form.controls: UNKNOWN` | v3 REST API doesn't accept `form.controls` as an updatable path despite the SDK type including it | Use `forms.addControl(eventId, { phone: {...} })` etc. |
+| `orders.getOrder({ eventId, orderNumber })` returns an order object but `ticketsPdf` / `tickets[]` are missing | The default response only includes a tiny id-ish subset; the option key is `fieldset` (singular) — NOT `fields` as on other queries | Pass `{ fieldset: ['DETAILS', 'TICKETS'] }` to get `ticketsPdf`, `tickets[].ticketPdfUrl`, `walletPassUrl`, `checkInUrl`, `ticketsQuantity`, totals, etc. |
 
 See [SDK_CORE.md](SDK_CORE.md) and [MEDIA.md](MEDIA.md) for the generic Wix SDK gotchas (pagination cap, `INVALID_FIELD_MASK` from spread, `.vite` optimize cache, `wix:image://` hash-fragment requirement, `importFile` READY polling).
