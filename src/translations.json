@@ -653,6 +653,7 @@
     "free": "Free",
     "bookFor": "Book for",
     "noTickets": "No tickets available for this showtime yet.",
-    "bookingFailed": "Booking failed — please try again."
+    "bookingFailed": "Booking failed — please try again.",
+    "downloadTickets": "Download Tickets"
   }
 }

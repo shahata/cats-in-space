@@ -653,6 +653,7 @@
     "free": "無料",
     "bookFor": "予約：",
     "noTickets": "この回のチケットはまだありません。",
-    "bookingFailed": "予約に失敗しました。もう一度お試しください。"
+    "bookingFailed": "予約に失敗しました。もう一度お試しください。",
+    "downloadTickets": "チケットをダウンロード"
   }
 }
