@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { currentCart, checkout } from "@wix/ecom";
+import { checkout } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 import { i18n } from "@wix/essentials";
 import { donationCampaigns } from "@wix/donations";
@@ -91,7 +91,7 @@ export default function DonateCard({
       if (frequency !== "ONE_TIME") options.frequency = frequency;
       if (askDonorCoverFee && coverFees) options.donorCoveringFees = true;
 
-      await currentCart.addToCurrentCart({
+      const { _id: checkoutId } = await checkout.createCheckout({
         lineItems: [
           {
             quantity: 1,
@@ -102,10 +102,7 @@ export default function DonateCard({
             },
           },
         ],
-      });
-
-      const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
-        channelType: currentCart.ChannelType.WEB,
+        channelType: checkout.ChannelType.WEB,
       });
 
       const trimmedNote = note.trim();

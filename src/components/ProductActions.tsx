@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { currentCart, backInStockNotifications } from "@wix/ecom";
+import { currentCart, checkout, backInStockNotifications } from "@wix/ecom";
 import type { cart as cartTypes } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 import { productsV3 } from "@wix/stores";
@@ -195,11 +195,9 @@ export default function ProductActions({ product }: Props) {
     setLoading("buy");
     setMessage(null);
     try {
-      await currentCart.addToCurrentCart({
+      const { _id: checkoutId } = await checkout.createCheckout({
         lineItems: [{ quantity, catalogReference: buildCatalogRef() }],
-      });
-      const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
-        channelType: currentCart.ChannelType.WEB,
+        channelType: checkout.ChannelType.WEB,
       });
       const { redirectSession } = await redirects.createRedirectSession({
         ecomCheckout: { checkoutId: checkoutId! },
