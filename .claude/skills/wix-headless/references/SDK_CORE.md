@@ -172,6 +172,27 @@ These are the most common runtime failures. Each is explained because understand
 | `coverImage` on a `DonationCampaign` is typed as `string` but returns as `Image` object `{ id, url, width, height, altText }` at runtime | SDK types and runtime disagree. Handle both shapes when rendering; write via REST with object form |
 | REST PATCH fails with `INVALID_PATCH: missing hierarchies` when updating a nested field (e.g., `coverImage`) | The body MUST include `fieldMask: { paths: ["coverImage"] }` even though docs say "partial updates supported". The SDK sets this automatically; manual REST calls must include it |
 | `DONATIONS_APP_ID` not exported from `@wix/donations` | No SDK const — hardcode `"333b456e-dd48-4d6b-b32b-9fd48d74e163"` in `src/utils/appIds.ts` |
+| `query*().limit(200)` silently caps return set at 200 | `.limit()` is capped server-side regardless of the value you pass. Paginate via `.next()` until `page.items.length < 200` — otherwise the tail of long series/collections is missing |
+| `.eq('nested.path.field', value)` on a query builder fails typecheck | The generated builder's filter methods are typed to a shortlist of scalar top-level fields. For nested/deep filters, fetch without that clause and filter client-side |
+| `updateX({ entity: {...original, foo: 'bar'} })` → `INVALID_FIELD_MASK: … UNKNOWN` with many read-only paths listed | Spreading a full response object into an update call tells the server to write every field — including read-only/computed ones. Pass ONLY the delta sub-tree (`{ entity: { subtree: { foo: 'bar' } } }`) |
+| `auth.elevate(sdkFn)` loses SDK type overloads and turns later calls into `(httpClient: HttpClient)` instead of the real signature | The elevate wrapper has a second overload for REST-module registration that TS sometimes picks. Cast to the real signature: `const createX = auth.elevate(mod.createX) as (input: X, opts?: CreateXOptions) => Promise<X>;` |
+| Client-hydrated component (`client:load`) silently fails to hydrate after SDK edits — buttons dead, no visible error | Stale Vite optimize-dep cache (`504 Outdated Optimize Dep` in console). Fix: `rm -rf node_modules/.vite && restart dev`. Only bites dev — prod builds are fine |
+
+💡 **Best practice — probe shapes, don't guess.** SDK types, documented REST schemas, and what the server actually accepts for write calls can all drift. When a mutation fails with `INVALID_FIELD_MASK` / `UNKNOWN path` / "validation error for field I swear I didn't send", stop and drop a disposable read-only endpoint that dumps the raw entity with every relevant fieldset:
+
+```ts
+// src/pages/api/probe-<entity>.ts — delete before committing
+export const GET: APIRoute = async ({ url }) => {
+  const q = url.searchParams.get('q') ?? '';
+  const all: Entity[] = [];
+  let page = await auth.elevate(mod.queryX)({ fields: ['A','B','C'] }).limit(200).find();
+  while (page) { all.push(...(page.items ?? [])); if (!page.items || page.items.length < 200) break; page = await page.next(); }
+  const matches = all.filter(e => (e.title ?? '').toLowerCase().includes(q.toLowerCase())).slice(0, 3);
+  return new Response(JSON.stringify(matches, null, 2), { headers: { 'content-type': 'application/json' } });
+};
+```
+
+Pointing `jq` at the result reveals the exact runtime shape — including fields that only appear under certain fieldset combos, runtime-only keys not in the typed shape, and the REST-side path names the SDK maps to. Saves hours of trial-and-error against `updateX` mutations.
 
 💡 **Best practice** — Always use SDK methods over manual REST calls. SDK methods handle auth, types, and response shapes correctly. When one SDK method returns an object (e.g., `SlotAvailability`), pass it directly to the next method — don't reconstruct objects manually. Caveat: SDK types sometimes disagree with runtime shapes (see `coverImage` in the gotchas table) — if rendering breaks, log the actual shape and handle both.
 

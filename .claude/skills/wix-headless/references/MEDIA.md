@@ -151,6 +151,31 @@ function extractMediaUrl(m: productsV3.ProductMedia | undefined, w = 800, h = 80
 
 Returns `file.url` (wixstatic.com) — usable immediately even while `operationStatus` is `PENDING`. The response also gives you a WixMedia `file.id` like `4975b6_<hash>~mv2.png`.
 
+⛔ **`operationStatus: 'PENDING'` matters when you reference the file from another entity's string field.** `importFile` is asynchronous — it returns with the file in `PENDING` state while Wix pulls the bytes from the source URL server-side. Some entity fields that accept a `wix:image://` string (e.g. `Event.mainImage`) will silently drop a URI whose underlying file is not yet `READY`. If your image vanishes from the target entity even though the update call succeeded, poll:
+
+```ts
+async function waitForFileReady(fileId: string, maxAttempts = 30): Promise<boolean> {
+  const getFile = auth.elevate(files.getFileDescriptor);
+  for (let i = 0; i < maxAttempts; i++) {
+    const res = await getFile(fileId);
+    if ((res.file ?? res as files.FileDescriptor).operationStatus === 'READY') return true;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  return false;
+}
+```
+
+⛔ **The `#originWidth=W&originHeight=H` hash fragment is NOT optional when writing a `wix:image://` string to an entity field.** Entities that accept raw URI strings (`Event.mainImage`, some CMS `IMAGE` fields) silently drop URIs missing the dimensions hash — no error, no response field, never surfaces in the dashboard. Always build the URI as:
+
+```ts
+function buildWixImageUri(fileId: string, displayName: string, w: number, h: number): string {
+  const safe = displayName.toLowerCase().replace(/[^a-z0-9.]+/g, '-').replace(/(^-|-$)/g, '');
+  return `wix:image://v1/${fileId}/${safe}#originWidth=${w}&originHeight=${h}`;
+}
+```
+
+`files.importFile`'s returned `file._id` already carries the `~mv2.png/jpg` suffix required for the URI path segment — don't strip it. Entity fields that take an object (`{ id, url, width, height, altText }` format, used by products, donation campaigns, etc.) don't need the hash — the dimensions go in the object properties instead.
+
 When setting images on entities via REST API, use the object format (`{ id, url, width, height, altText }`). When reading them back via SDK, expect `wix:image://` strings — but some entities (notably Donation campaigns) return the same `Image` **object** shape at runtime even though the SDK types call `coverImage: string`. Always verify the runtime shape of a new entity type before rendering. See [DONATIONS.md](DONATIONS.md) for an end-to-end example that imports a DALL-E URL and attaches it to a campaign.
 
 ---

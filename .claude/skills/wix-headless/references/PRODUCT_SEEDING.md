@@ -104,6 +104,15 @@ if (!state.categories.apparel) {
 
 This lets you iterate on the seed script (fix a bug, re-run) without accumulating duplicates. **Assume every seed script WILL be re-run at least twice** — the first run will fail on some API shape issue, and the second run must not duplicate the first run's successful work.
 
+## ⛔ Long seeds outlive curl's default timeout
+
+A seed that creates a year of recurring event showtimes + tickets + categories (hundreds of API calls) easily runs 15–25 minutes, which exceeds `curl --max-time 900` (15 min). Two things to know:
+
+1. **Use `--max-time 1800` (or higher)** when hitting a seed endpoint from curl. Otherwise curl drops and you never see the server's final log.
+2. **The Astro handler keeps running after curl disconnects.** If the endpoint is server-side-heavy and curl times out, the seed may still finish on the server — re-query via a lightweight probe/listing page to check actual state before assuming failure and re-running (re-running a still-in-progress seed causes duplicates and partial state).
+
+Print progress to the response body from inside the handler as you go (`log.push(...)` then return the joined string at the end) so partial output is visible on disconnect.
+
 ---
 
 ## Step-by-Step Overview

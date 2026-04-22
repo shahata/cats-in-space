@@ -42,52 +42,17 @@ type AvailablePlace = ticketDefinitionsV2.AvailablePlace;
 - `FORM` → `form.controls`
 - `REGISTRATION` → `registration.ticketing`
 
-Empirical bug: `CATEGORIES` alone often returns only the hidden RECURRING_EVENT series category. Adding `FORM` to the same query makes the real MANUAL genre categories come back. Always request `['DETAILS', 'CATEGORIES', 'FORM']` for listings/detail pages.
+**Empirical bug: `CATEGORIES` alone often returns only the hidden `RECURRING_EVENT` series category.** Adding `FORM` to the same query makes the real `MANUAL` genre categories come back. Always request `['DETAILS', 'CATEGORIES', 'FORM']` for listings/detail pages.
 
-**`queryEvents`' filter builder doesn't support nested paths.** You cannot do `.eq('dateAndTimeSettings.recurringEvents.categoryId', id)` — the type only allows a shortlist of top-level props. To find siblings in a series you have to fetch the whole event set (paginated) and filter client-side.
+**Sibling lookup: filter client-side.** `queryEvents`' filter builder doesn't allow nested paths like `.eq('dateAndTimeSettings.recurringEvents.categoryId', id)` — so to find every sibling in a series, paginate the whole event set and filter in memory. Pagination, elevate, and the `auth.elevate(sdkFn) as <signature>` TypeScript cast are all general Wix SDK patterns — see [SDK_CORE.md](SDK_CORE.md).
 
-**Use `auth.elevate` for admin queries.** Without it, public-visitor auth limits what comes back (no cancelled events, no registration/form details on unpublished ones). For seed/update scripts run from `/api` routes, elevate everything: `auth.elevate(wixEventsV2.queryEvents)`, `auth.elevate(wixEventsV2.updateEvent)`, etc.
+## `Event.mainImage` — must go through `updateEvent`, not `createEvent`
 
-**3. Paginate. `limit()` caps at 200.** With weekly recurrences over a year you will easily clear 300 events. Use `.next()`. This applies to every page that lists events — listing, detail (sibling lookup), seed verify pass. A missing pagination loop silently cuts off events and you'll spend a long time wondering why late-in-year showtimes are missing.
-```ts
-let page: wixEventsV2.EventsQueryResult | undefined
-  = await queryEvents({ fields }).ne('status', 'CANCELED').limit(200).find();
-while (page) {
-  events.push(...(page.items ?? []));
-  if (!page.items || page.items.length < 200) break;
-  page = await page.next();
-}
-```
+`Event.mainImage` is a `wix:image://v1/<fileId>/<name>#originWidth=W&originHeight=H` URI. The general URI-shape rules + `files.importFile` READY-polling are in [MEDIA.md](MEDIA.md). The Events-specific trap: **`createEvent` accepts `mainImage` in its input type (it typechecks) but the server drops it during creation.** Workflow:
 
-**4. Use proper function casts on `auth.elevate()`.** The SDK overloads (one signature for real call, one for HttpClient variant) confuse TypeScript through `auth.elevate`. Cast explicitly:
-```ts
-const createEvent = auth.elevate(wixEventsV2.createEvent) as (
-  event: wixEventsV2.Event,
-  options?: wixEventsV2.CreateEventOptions,
-) => Promise<wixEventsV2.Event>;
-```
-
-## Posters (mainImage) — gotchas that will waste half a day
-
-`Event.mainImage` is a `wix:image://v1/<fileId>/<displayName>#originWidth=<w>&originHeight=<h>` URI. Getting this to actually persist requires ALL of:
-
-1. **Import the file via `files.importFile` and WAIT for READY state.** `importFile` returns synchronously with `operationStatus: 'PENDING'`. If you build the URI before the file is READY and attach it to an event, Wix silently drops it. Poll `files.getFileDescriptor(fileId)` until `operationStatus === 'READY'` (up to ~15s).
-
-2. **Include `#originWidth=W&originHeight=H`.** Without the dimension hash fragment the Events API silently drops `mainImage` (no error, no field in response, never surfaces in the dashboard). With it, the field persists.
-
-3. **Use a URL-safe display name.** Encoded characters like `%3A` inside the path segment may also be silently dropped. Slug the name: `lowercase()`, replace non-`[a-z0-9.]+` with `-`, strip leading/trailing `-`.
-
-4. **Set it via `updateEvent`, not `createEvent`.** `createEvent` accepts `mainImage` in its input type (it typechecks) but the server drops it during creation. Workflow: `createEvent` without image → list siblings → `updateEvent(id, { event: { mainImage }, fields: ['DETAILS'] })` per sibling.
-
-Working URI builder:
-```ts
-function buildWixImageUri(fileId: string, displayName: string, w: number, h: number): string {
-  const safe = displayName.toLowerCase().replace(/[^a-z0-9.]+/g, '-').replace(/(^-|-$)/g, '');
-  return `wix:image://v1/${fileId}/${safe}#originWidth=${w}&originHeight=${h}`;
-}
-```
-
-The `_id` returned by `importFile` already carries the `~mv2.png/jpg` suffix required by the URI format — don't strip it.
+1. `createEvent` without image → record `seriesCategoryId` from the response.
+2. Wait for sibling events to index (async; see "phantom-sibling bug" below).
+3. For each sibling: `updateEvent(id, { event: { mainImage }, fields: ['DETAILS'] })`.
 
 ## Recurring series — how to create + the phantom-sibling bug
 
@@ -227,14 +192,6 @@ If every occurrence is its own Event with its own Wix-generated slug (e.g. `purr
 
 Key state trick: key qty/seat state by `td.name`, not `td._id`, so state survives a date change.
 
-## Debugging: make a probe endpoint
-
-When the SDK is returning shapes that don't match your mental model, a 30-line read-only `/api/probe-event?q=<substring>` that dumps full event objects with every fieldset saves hours of guesswork. The shape differences between what `CATEGORIES`-only returns vs. `CATEGORIES+FORM` vs. direct REST-side paths (`registrationConfig.ticketingConfig.*` vs. SDK's `registration.tickets.*`) are not documented — you have to see them. Delete the probe before committing.
-
-## Running long seeds
-
-`curl --max-time 900` (15 min) is NOT enough for a 52-week × 6-movie seed — createEvent + 3 ticket tiers + 2 category assigns per sibling × 312 events easily takes 20+ minutes. Use `--max-time 1800` (30 min) and set up a file-mtime monitor instead of relying on curl's exit. Important: the Astro handler keeps running after curl disconnects, so if curl times out your endpoint may still finish server-side — verify by re-querying, don't assume failure.
-
 ## Seed pattern (idempotent re-run)
 
 ```
@@ -256,45 +213,21 @@ When the SDK is returning shapes that don't match your mental model, a 30-line r
 
 Always present data as-is in the UI; if something looks off, fix the seed.
 
-## UI pitfalls
+## UI pitfall specific to recurring series
 
-- **Do not dedupe showtimes or merge fields across siblings in the UI.** If the seed produces clean data, one representative sibling per series has everything you need. Merging hides seed bugs.
-- **Clear Vite's optimize cache (`node_modules/.vite`) and restart dev if you see `504 Outdated Optimize Dep` on client components.** This bites client-hydrated booking components hard — hydration silently fails, +/- buttons don't work.
-- **Locale-aware formatting.** Use `new Intl.DateTimeFormat(locale, ...)` and `new Intl.NumberFormat(locale, { style: 'currency', currency })` — never hardcode.
+Do NOT dedupe showtimes or merge fields across siblings in the UI. If the seed produces clean data, one representative sibling per series has everything you need. Merging hides seed bugs — fix bad data at source, not in the rendering layer. (General UI gotchas like locale formatting and the dev-server Vite cache apply too — see [SDK_CORE.md](SDK_CORE.md).)
 
-## Image generation for seed posters
-
-Wix ships a ready-to-use AI image generator in `@wix/ai-provider-runware` (Runware backend) wired through the Vercel `ai` SDK — no API key, no `.env` setup, authentication goes through Wix's gateway automatically:
-
-```ts
-import { runware } from '@wix/ai-provider-runware';
-import { experimental_generateImage as generateImage } from 'ai';
-
-const { image } = await generateImage({
-  model: runware.image('runware:100@1'),
-  prompt,
-  size: '1024x1792',
-});
-// image.base64 / image.uint8Array — pipe straight into files.importFile
-```
-
-Portrait (1024×1792) for posters. Prompts must explicitly say "vertical portrait orientation, subject upright, head at top of frame, feet at bottom" — otherwise image models often render the subject sideways inside a portrait canvas and you end up with a rotated-looking poster. Add "no text" to avoid garbled typography.
-
-Then feed the bytes/URL into `files.importFile` and `waitForFileReady` before attaching as `mainImage` (same flow as any other imported image).
-
-## Known quirks / surprises, in one place
+## Events-specific quirks
 
 | Symptom | Cause | Fix |
 |---|---|---|
 | Empty `categories.categories` on list pages | `FORM` fieldset missing | Include `FORM` even when you only want categories |
-| `mainImage` missing from events | URI lacks `#originWidth=...&originHeight=...` | Always append hash |
 | `mainImage` set via `createEvent` drops silently | `createEvent` doesn't persist it | Use `updateEvent` after creation |
 | `getTimeZoneId is not supported` | `dateAndTimeSettings.timeZoneId`, `startDate`, or `endDate` missing | Supply all three |
-| Extra sibling at first showtime | Top-level startDate duplicates `individualEventDates[0]` | Post-create dedupe by `startMs` |
-| Only 200 events returned from queryEvents | `.limit(200)` cap | Paginate via `.next()` |
-| `Category.type` is undefined | It's actually `Category.states[]` | Use `states?.includes('MANUAL')` |
-| Client component clicks do nothing after SDK edits | Stale `node_modules/.vite` optimize cache | `rm -rf node_modules/.vite` + restart |
+| Extra sibling at first showtime | Top-level `startDate` duplicates `individualEventDates[0]` | Post-create dedupe by `startMs` in seed |
+| `Category.type` is undefined | It's `Category.states[]` | Use `states?.includes('MANUAL')` |
 | Ticket picker qty buttons disabled at 0 | `limitPerCheckout` undefined treated as 0 | Default to 10 or similar: `td.limitPerCheckout ?? 10` |
 | User lands on thank-you without paying | Used `orders.checkout` instead of `redirects.createRedirectSession` | Switch to redirects + eventsCheckout |
 | `updateEvent({ event: { form: { controls } } })` → `Invalid field mask: form.controls: UNKNOWN` | v3 REST API doesn't accept `form.controls` as an updatable path despite the SDK type including it | Use `forms.addControl(eventId, { phone: {...} })` etc. |
-| `updateEvent({ event: { registration: {...ev.registration, ...} } })` → `INVALID_FIELD_MASK` with many read-only paths listed | Spreading the full `registration` response object sends read-only fields in the write mask | Pass ONLY the sub-tree you want to change: `{ event: { registration: { tickets: { guestsAssignedSeparately: true } } } }` |
+
+See [SDK_CORE.md](SDK_CORE.md) and [MEDIA.md](MEDIA.md) for the generic Wix SDK gotchas (pagination cap, `INVALID_FIELD_MASK` from spread, `.vite` optimize cache, `wix:image://` hash-fragment requirement, `importFile` READY polling).
