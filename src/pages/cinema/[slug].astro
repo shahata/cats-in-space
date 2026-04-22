@@ -154,19 +154,35 @@ function slugOf(ev: Event): string {
 			{showtimes.length > 1 && (
 				<div class="booking-section">
 					<h2 class="booking-section-title">{t('cinema.selectShowtime')}</h2>
-					<div class="showtime-chips">
-						{showtimes.map(({ ev, startMs }) => {
-							const active = ev._id === current._id;
-							return (
-								<a
-									href={getRelativeLocaleUrl(`/cinema/${slugOf(ev)}`)}
-									class={`showtime-chip ${active ? 'active' : ''}`}
+					{showtimes.length > 5 ? (
+						<select
+							class="showtime-select"
+							onchange="if(this.value)window.location.href=this.value"
+						>
+							{showtimes.map(({ ev, startMs }) => (
+								<option
+									value={getRelativeLocaleUrl(`/cinema/${slugOf(ev)}`)}
+									selected={ev._id === current._id}
 								>
 									{chipFmt.format(new Date(startMs))}
-								</a>
-							);
-						})}
-					</div>
+								</option>
+							))}
+						</select>
+					) : (
+						<div class="showtime-chips">
+							{showtimes.map(({ ev, startMs }) => {
+								const active = ev._id === current._id;
+								return (
+									<a
+										href={getRelativeLocaleUrl(`/cinema/${slugOf(ev)}`)}
+										class={`showtime-chip ${active ? 'active' : ''}`}
+									>
+										{chipFmt.format(new Date(startMs))}
+									</a>
+								);
+							})}
+						</div>
+					)}
 				</div>
 			)}
 
@@ -293,6 +309,30 @@ function slugOf(ev: Event): string {
 	.showtime-chip:hover { border-color: var(--accent); color: var(--accent); }
 	.showtime-chip.active {
 		background: var(--accent); color: #000; border-color: var(--accent);
+	}
+	.showtime-select {
+		appearance: none;
+		-webkit-appearance: none;
+		padding: 12px 40px 12px 16px;
+		background: var(--bg-card);
+		border: 1px solid var(--border-card);
+		border-radius: 10px;
+		font-family: var(--font-heading);
+		font-size: 0.9rem; letter-spacing: 0.5px;
+		color: var(--text-primary);
+		min-width: 280px; max-width: 100%;
+		cursor: pointer;
+		transition: border-color 0.15s;
+		background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ff6600'%3e%3cpath d='M3 6l5 5 5-5z'/%3e%3c/svg%3e");
+		background-repeat: no-repeat;
+		background-position: right 12px center;
+		background-size: 16px;
+	}
+	.showtime-select:hover { border-color: var(--accent); }
+	.showtime-select:focus { outline: none; border-color: var(--accent); }
+	:global(html[dir="rtl"]) .showtime-select {
+		padding: 12px 16px 12px 40px;
+		background-position: left 12px center;
 	}
 
 	@media (max-width: 780px) {
