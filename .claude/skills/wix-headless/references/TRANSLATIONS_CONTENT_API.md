@@ -172,6 +172,17 @@ CMS collections need extra setup — they're not translatable by default:
 - **`wix translation push` needs TTY**: Won't work in non-interactive scripts or CI
 - **Paging may be ignored**: Query API may return all entries regardless of `limit`
 - **RICH_CONTENT fields**: Sending `textValue` for rich content fields returns `INVALID_ARGUMENT`. → Use `richContent: { nodes: [...] }` format
-- **Schema permissions**: `create` and `query` on schemas return 403 via site-level MCP auth. Schemas for Wix apps are auto-created when they detect multilingual. For CMS collections, enable from dashboard.
+- **Schema permissions**: `create` and `query` on schemas return 403 via site-level MCP auth AND via the headless runtime's own `httpClient.fetchWithAuth` from `@wix/essentials`. To call these endpoints from a standalone Node script, use the Wix CLI site token plus explicit headers:
+  ```js
+  const token = execSync(`npx wix token -s ${siteId}`).toString().split('\n').find(l => l.includes('.'));
+  // site-owner is the 4th dot-segment of the "OauthNG.JWS.<hdr>.<payload>.<sig>" token
+  const payloadB64 = token.split('.')[3];
+  const { instance } = JSON.parse(JSON.parse(Buffer.from(payloadB64, 'base64').toString()).data);
+  const accountId = instance.siteOwnerId;
+  await fetch(url, { headers: { Authorization: token, 'wix-site-id': siteId, 'wix-account-id': accountId } });
+  ```
+  Without the `wix-account-id` header the API returns `{ "message": "", "details": {} }` with status 403.
+- **Auto-created schemas**: for Wix apps (Events, Stores, Blog, etc.), schemas appear automatically once the Multilingual app detects content — don't try to create them manually. For CMS collections, enable from dashboard.
+- **Per-entity content entry counts can be MUCH larger than entity counts**: a cinema seed of 312 event rows produced ~2100 content entries per locale — each "content" row represents (entity × per-field set) not (entity alone). Expect to paginate deep; add a runaway-offset guard (e.g., stop at offset 5000) so a mis-parsed response doesn't spin forever.
 - **`parentEntityId`**: Schemas with `requireParentEntity: true` need `parentEntityId` copied from EN entry
 - **Per-schema queries via MCP**: Each response is small and won't hit MCP's ~54KB truncation limit
