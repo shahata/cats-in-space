@@ -70,7 +70,7 @@ const infoSections = product.infoSections || [];
 const ribbon = product.ribbon?.name;
 
 const pageUrl = new URL(`/store/${slug}`, Astro.url).href;
-const seoResult = await seoTagsApi.resolveItemSeoTags({ pageUrl, itemType: 'STORES_PRODUCT', slug });
+const seoResult = await seoTagsApi.resolveItemSeoTags({ pageUrl, itemType: seoTagsApi.ItemType.STORES_PRODUCT, slug });
 const seoTags = seoResult.seoTags?.tags || [];
 
 type ProductActionsProps = import('../../components/ProductActions').ProductData;

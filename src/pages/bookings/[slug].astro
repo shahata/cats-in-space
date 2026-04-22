@@ -65,7 +65,7 @@ const staffForClient = serviceStaff.map((s: any) => {
 });
 
 const pageUrl = new URL(`/bookings/${slug}`, Astro.url).href;
-const seoResult = await seoTagsApi.resolveItemSeoTags({ pageUrl, itemType: 'BOOKINGS_SERVICE', slug: slug! });
+const seoResult = await seoTagsApi.resolveItemSeoTags({ pageUrl, itemType: seoTagsApi.ItemType.BOOKINGS_SERVICE, slug: slug! });
 const seoTags = seoResult.seoTags?.tags || [];
 ---
 
