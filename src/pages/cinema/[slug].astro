@@ -36,14 +36,16 @@ while (page) {
 	page = await page.next();
 }
 
-// Resolve the URL slug. Preferred form is a title-derived movie slug (e.g.
-// "purr-assic-park") that maps to the entire series; we pick the soonest
-// upcoming sibling as `current`. Direct Wix event slugs still work for
-// backward-compat (anyone who bookmarked the old per-showtime URLs).
-function titleSlug(ev: Event): string {
-	return ev.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ?? '';
+// Resolve the URL slug. Preferred form is a series slug ("purr-assic-park")
+// derived from the Wix event slug minus the date-time suffix — stable across
+// siblings and across locales (Wix slugs are locale-invariant). We pick the
+// soonest upcoming sibling as `current`. Direct per-occurrence slugs still
+// work for backward-compat (anyone who bookmarked the old full-date URL).
+function seriesSlug(ev: Event): string {
+	const s = ev.slug ?? '';
+	return s.replace(/-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}(-\d+)?$/, '');
 }
-const titleMatches = events.filter(e => titleSlug(e) === slug);
+const titleMatches = events.filter(e => seriesSlug(e) === slug);
 let current: Event | undefined;
 if (titleMatches.length > 0) {
 	const nowMs = Date.now();

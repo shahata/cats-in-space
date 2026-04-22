@@ -65,13 +65,15 @@ function eventStart(ev: Event): number {
 	return s ? new Date(s).getTime() : Number.POSITIVE_INFINITY;
 }
 
-// Derive a stable movie-level slug from the title. Each Wix Event gets its
-// own auto-generated slug suffixed with the showtime's date (e.g.
-// "purr-assic-park-2026-04-22-20-00-2"); linking by that would bind shared
-// URLs to a specific showtime. The detail page resolves this title slug to
-// the earliest upcoming sibling in the series.
-function slugOf(ev: Event): string {
-	return ev.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ?? '';
+// Derive a stable movie-level slug by stripping the date-time suffix Wix
+// appends to each recurring occurrence ("purr-assic-park-2026-04-22-20-00"
+// → "purr-assic-park"). Using the raw per-occurrence slug would bind shared
+// URLs to one specific showtime; using the title wouldn't survive i18n
+// because non-ASCII titles slugify to an empty string. The underlying slug
+// is locale-invariant (set from the English title at creation).
+function seriesSlug(ev: Event): string {
+	const s = ev.slug ?? '';
+	return s.replace(/-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}(-\d+)?$/, '');
 }
 
 const dateTimeFmt = new Intl.DateTimeFormat(locale, {
@@ -93,7 +95,7 @@ for (const ev of events) {
 		existing.showtimeCount += 1;
 		if (start < eventStart(existing.nextEvent)) {
 			existing.nextEvent = ev;
-			existing.nextSlug = slugOf(ev);
+			existing.nextSlug = seriesSlug(ev);
 			existing.posterUrl = typeof ev.mainImage === 'string' ? getImageUrl(ev.mainImage, 480, 680) : null;
 			existing.genres = extractGenres(ev);
 			existing.description = ev.shortDescription ?? '';
@@ -106,7 +108,7 @@ for (const ev of events) {
 			posterUrl: typeof ev.mainImage === 'string' ? getImageUrl(ev.mainImage, 480, 680) : null,
 			genres: extractGenres(ev),
 			nextEvent: ev,
-			nextSlug: slugOf(ev),
+			nextSlug: seriesSlug(ev),
 			showtimeCount: 1,
 		});
 	}
