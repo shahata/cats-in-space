@@ -139,17 +139,17 @@ const { redirectSession } = await redirects.createRedirectSession({
     reservationId: reservation._id!,
     eventSlug: eventSlug,
   },
-  callbacks: {
-    thankYouPageUrl: window.location.origin + '/cinema/thank-you',
-    postFlowUrl: window.location.origin + '/cinema',
-  },
+  callbacks: checkoutCallbacks({
+    thankYouPagePath: '/cinema/thank-you',
+    postFlowPath: '/cinema',
+  }),
   preferences: { checkIfPublish: true },
 });
 
 if (redirectSession?.fullUrl) window.location.href = redirectSession.fullUrl;
 ```
 
-💡 **Best practice:** Use `redirects.createRedirectSession({ eventsCheckout })` instead of calling `orders.checkout` directly — the Wix-hosted checkout page handles guest forms, login, and payment in one flow. Always include `preferences: { checkIfPublish: true }` so the redirect targets the published site.
+💡 **Best practice:** Use `redirects.createRedirectSession({ eventsCheckout })` instead of calling `orders.checkout` directly — the Wix-hosted checkout page handles guest forms, login, and payment in one flow. Always include `preferences: { checkIfPublish: true }` so the redirect targets the published site. Build `callbacks` via the shared `checkoutCallbacks()` helper — see `ECOMMERCE.md` → "Redirect callbacks: always pass all of them".
 
 ## Seating (Custom Implementation)
 

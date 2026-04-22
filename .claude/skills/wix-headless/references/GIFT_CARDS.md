@@ -176,15 +176,17 @@ const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
 
 const { redirectSession } = await redirects.createRedirectSession({
   ecomCheckout: { checkoutId: checkoutId! },
-  callbacks: {
-    thankYouPageUrl: window.location.origin + "/store/thank-you",
-    postFlowUrl: window.location.origin + "/store",
-  },
+  callbacks: checkoutCallbacks({
+    thankYouPagePath: "/store/thank-you",
+    postFlowPath: "/store",
+  }),
   preferences: { checkIfPublish: true },
 });
 
 window.location.href = redirectSession.fullUrl;
 ```
+
+Always build `callbacks` via the shared `checkoutCallbacks()` helper — never inline a partial object. See `ECOMMERCE.md` → "Redirect callbacks: always pass all of them".
 
 ### Key Differences from Regular Products
 

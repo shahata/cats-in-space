@@ -7,6 +7,7 @@ import {
 } from "@wix/table-reservations";
 import { redirects } from "@wix/redirects";
 import { i18n } from "@wix/essentials";
+import { checkoutCallbacks } from "../utils/redirects";
 
 type TimeSlot = timeSlots.TimeSlot;
 type Reservation = reservations.Reservation;
@@ -207,10 +208,10 @@ export default function ReservationFlow({
         if (reservationId) {
           const { redirectSession } = await redirects.createRedirectSession({
             ecomCheckout: { checkoutId: reservationId },
-            callbacks: {
-              thankYouPageUrl: window.location.origin + "/restaurant/thank-you",
-              postFlowUrl: window.location.origin + "/restaurant/reserve",
-            },
+            callbacks: checkoutCallbacks({
+              thankYouPagePath: "/restaurant/thank-you",
+              postFlowPath: "/restaurant/reserve",
+            }),
           });
           if (redirectSession?.fullUrl) {
             window.location.href = redirectSession.fullUrl;

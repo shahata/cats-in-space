@@ -311,18 +311,22 @@ import { currentCart } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 
 const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({ channelType: "WEB" });
+// Shared cart spans store + restaurant — switch thankYou/postFlow on current path
+const inRestaurant = window.location.pathname.includes("/restaurant/order");
 const { redirectSession } = await redirects.createRedirectSession({
   ecomCheckout: { checkoutId: checkoutId! },
-  callbacks: {
-    thankYouPageUrl: window.location.origin + "/store/thank-you",
-    postFlowUrl:     window.location.origin + "/store",
-  },
+  callbacks: checkoutCallbacks({
+    thankYouPagePath: inRestaurant ? "/restaurant/thank-you" : "/store/thank-you",
+    postFlowPath:     inRestaurant ? "/restaurant/order"     : "/store",
+  }),
   preferences: { checkIfPublish: true }, // required for site-specific checkout redirects
 });
 if (redirectSession?.fullUrl) window.location.href = redirectSession.fullUrl;
 ```
 
 `preferences.checkIfPublish: true` is not cosmetic — without it the redirect defaults to a generic host and the restaurant-specific checkout configuration doesn't load. Double-check this if you get an error on checkout.
+
+The cart sidebar is the only place where the checkout's `thankYouPageUrl`/`postFlowUrl` are picked based on *where the user is now*, rather than which component initiated the flow. Everywhere else the component knows its own context. The rest of the `callbacks` object comes from the shared `checkoutCallbacks()` helper — see `ECOMMERCE.md` → "Redirect callbacks: always pass all of them".
 
 ### catalogReference.options shape — CRITICAL
 

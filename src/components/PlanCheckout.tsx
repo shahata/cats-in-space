@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { redirects } from "@wix/redirects";
 import { i18n } from "@wix/essentials";
+import { checkoutCallbacks } from "../utils/redirects";
 
 interface Props {
   planId: string;
@@ -15,10 +16,10 @@ export default function PlanCheckout({ planId }: Props) {
     try {
       const { redirectSession } = await redirects.createRedirectSession({
         paidPlansCheckout: { planId },
-        callbacks: {
-          thankYouPageUrl: window.location.origin + "/plans/thank-you",
-          postFlowUrl: window.location.origin + "/plans",
-        },
+        callbacks: checkoutCallbacks({
+          thankYouPagePath: "/plans/thank-you",
+          postFlowPath: "/plans",
+        }),
       });
       if (redirectSession?.fullUrl) {
         window.location.href = redirectSession.fullUrl;

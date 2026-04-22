@@ -163,14 +163,16 @@ if (note && checkoutId) {
 
 const { redirectSession } = await redirects.createRedirectSession({
   ecomCheckout: { checkoutId: checkoutId! },
-  callbacks: {
-    thankYouPageUrl: window.location.origin + "/research/thank-you",
-    postFlowUrl: window.location.origin + "/research",
-  },
+  callbacks: checkoutCallbacks({
+    thankYouPagePath: "/research/thank-you",
+    postFlowPath: "/research",
+  }),
   preferences: { checkIfPublish: true },
 });
 window.location.href = redirectSession!.fullUrl!;
 ```
+
+Always build `callbacks` via the shared `checkoutCallbacks()` helper — never inline a partial object. See `ECOMMERCE.md` → "Redirect callbacks: always pass all of them".
 
 ⛔ **Do NOT route donations through the shopping cart.** The obvious flow — `addToCurrentCart` → `createCheckoutFromCurrentCart` — drags every item the user already had in their cart into the donation checkout, and leaves the donation lingering in their cart afterwards. Donations are a one-off flow: go straight through `checkout.createCheckout({ lineItems, channelType })` so the donor's standing cart is untouched.
 

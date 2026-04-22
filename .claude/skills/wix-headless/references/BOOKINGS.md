@@ -181,15 +181,17 @@ const redirect = await redirects.createRedirectSession({
     slotAvailability: selectedEntry,  // pass the SDK object directly
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   },
-  callbacks: {
-    postFlowUrl: window.location.origin + "/bookings",
-    thankYouPageUrl: window.location.origin + "/member#bookings",
-  },
+  callbacks: checkoutCallbacks({
+    thankYouPagePath: "/member#bookings",
+    postFlowPath: "/bookings",
+  }),
 });
 // NOTE: do NOT use preferences.checkIfPublish for bookings — only for eCommerce checkout
 
 window.location.href = redirect.redirectSession.fullUrl;
 ```
+
+Always build `callbacks` via the shared `checkoutCallbacks()` helper — never inline a partial object. See `ECOMMERCE.md` → "Redirect callbacks: always pass all of them".
 
 ## Managing Bookings (Client-Side)
 
@@ -335,10 +337,10 @@ const redirect = await redirects.createRedirectSession({
     slotAvailability: selectedEntry, // pass SDK object directly
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   },
-  callbacks: {
-    postFlowUrl: window.location.origin + "/bookings",
-    thankYouPageUrl: window.location.origin + "/member#bookings",
-  },
+  callbacks: checkoutCallbacks({
+    thankYouPagePath: "/member#bookings",
+    postFlowPath: "/bookings",
+  }),
 });
 // NOTE: do NOT use preferences.checkIfPublish for bookings — only for eCommerce checkout
 ```

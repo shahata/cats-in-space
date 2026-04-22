@@ -4,6 +4,7 @@ import { availabilityCalendar } from "@wix/bookings";
 import type { availabilityCalendar as availabilityTypes } from "@wix/bookings";
 import { redirects } from "@wix/redirects";
 import { i18n } from "@wix/essentials";
+import { checkoutCallbacks } from "../utils/redirects";
 
 interface StaffInfo {
   id: string;
@@ -182,10 +183,10 @@ export default function BookingFlow({
           slotAvailability: selectedEntry,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
-        callbacks: {
-          postFlowUrl: window.location.origin + "/bookings",
-          thankYouPageUrl: window.location.origin + "/member#bookings",
-        },
+        callbacks: checkoutCallbacks({
+          thankYouPagePath: "/member#bookings",
+          postFlowPath: "/bookings",
+        }),
       });
 
       if (redirect.redirectSession?.fullUrl) {

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { i18n } from "@wix/essentials";
 import { ticketReservations, ticketDefinitionsV2 } from "@wix/events";
 import { redirects } from "@wix/redirects";
+import { checkoutCallbacks } from "../utils/redirects";
 
 type TicketDefinition = ticketDefinitionsV2.TicketDefinition;
 type AvailablePlace = ticketDefinitionsV2.AvailablePlace;
@@ -184,10 +185,10 @@ export default function TicketPicker({
           reservationId,
           eventSlug: selectedShowtime.eventSlug,
         },
-        callbacks: {
-          thankYouPageUrl: window.location.origin + "/cinema/thank-you",
-          postFlowUrl: window.location.origin + "/cinema",
-        },
+        callbacks: checkoutCallbacks({
+          thankYouPagePath: "/cinema/thank-you",
+          postFlowPath: "/cinema",
+        }),
         preferences: { checkIfPublish: true },
       });
 

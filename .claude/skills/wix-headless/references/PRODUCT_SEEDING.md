@@ -115,6 +115,19 @@ Print progress to the response body from inside the handler as you go (`log.push
 
 ---
 
+## Two-pass seeding: data first, images last
+
+⛔ **Seed the catalog in two passes, not one.** Create every category, product, customization, variant, and info section FIRST — with no images (or placeholder images). THEN do a separate pass that generates images and attaches them via PATCH.
+
+Why this order:
+- **Image generation is the slow step.** A Runware call is seconds; dozens serially is minutes. If images live inside the create loop, a slow call stalls everything downstream, and a retry re-runs the whole data path. Isolating images to a second pass lets you parallelise them and rerun just the images when Runware hiccups.
+- **Catalog fixes are cheap if records exist.** You'll inevitably tweak a product name, add a category, change a ribbon — fixing a record that's already there is a PATCH. If images were baked into the create, a retry deletes a good image and regenerates it for no reason.
+- **Half-created records are expensive.** A Runware failure inside a create call leaves a record that either half-committed or didn't commit, and cleaning up is brittle. With a second pass, create failures and image failures are independent.
+
+**Exception — inline images when there's a real benefit.** If the API genuinely requires the image at create time (the record won't accept a later PATCH, or the "with-image" endpoint is materially better than the "attach-image-later" endpoint), do it inline for that entity and note why in the seeding script. Default to two passes; take the exception deliberately.
+
+The step-by-step below lists image generation first because that's the order most records expect image URLs at creation. In practice, prefer the two-pass variant: run steps 3-9 with `image: undefined` on every record, then a final step 10 that loops through each entity type and PATCHes in the generated image.
+
 ## Step-by-Step Overview
 
 1. **Generate images** via Wix Runware API (see [MEDIA.md](MEDIA.md))

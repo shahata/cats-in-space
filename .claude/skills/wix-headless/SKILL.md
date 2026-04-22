@@ -80,6 +80,8 @@ These apply to every feature area. Violating any of them produces silent failure
 
 9. **Report view URL + dashboard URL on first-time generation** — When finishing the initial build of a site, surface exactly two URLs: (a) the **live site URL** from `npm run release` (not a preview URL — initial generation always releases per rule 8); and (b) the dashboard URL (`https://manage.wix.com/dashboard/<siteId>`). On subsequent iterations, report the new **preview URL** only (and the dashboard URL only if it's useful for the current change). See [DEPLOYMENT.md](references/DEPLOYMENT.md).
 
+10. **Build order: all code first, then seed data, then images** — For a new site, finish every page/component/route and get a clean `npx astro check` BEFORE seeding any business data, then seed all records with no images, then do a second pass attaching generated images. Seeding against half-written code wastes time because the data contract keeps changing under you; attaching images inside `createX` calls serialises the slowest step and makes retries painful. See [SETUP.md](references/SETUP.md) → "Build order".
+
 ---
 
 ## Feature Checklists

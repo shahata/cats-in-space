@@ -1,5 +1,20 @@
 # Project Setup & Scaffolding
 
+## Build order — code first, seeding last, images last within seeding
+
+When generating a new site, the order you do things in directly affects how long the build takes and how often you have to redo work. Two rules, in priority order:
+
+1. **Build all the code before seeding any data.** Write every page, component, route, layout, and translation first. Run `npx astro check` and get to a clean build with empty (or near-empty) data. Only then seed the business data. The code tells you exactly what the data needs to look like — its shape, its fields, what images it references. If you seed first, every iteration on the code risks invalidating the data (renamed fields, changed collections, different media keys) and you re-seed from scratch. The worst version of this is "write half the code, seed, write the other half" — the second half almost always changes the data contract.
+
+2. **Within seeding: create all the data first, then add images at the very end.** Run through every `createX` call (products, services, plans, campaigns, posts, collection items) with a placeholder image or no image at all. Only after every record exists, loop back and generate/attach images in a second pass. The reasons:
+   - **Image generation is the slow part.** A single Runware call is seconds; dozens of them serially is minutes. Decoupling lets you parallelise the image pass without it blocking data creation.
+   - **You'll want to iterate on images.** A product might get renamed, a campaign's tone might change — regenerating images is cheap if images are a separate pass; expensive if they're baked into each create call that also does 10 other things.
+   - **Image uploads fail differently than data writes.** If a record already exists, an image retry is a clean PATCH; if it's part of the create call, a Runware hiccup leaves you with a half-created record you have to clean up.
+
+   **Exception — add images inline when there's a real benefit.** If attaching the image later costs significantly more than attaching it during create (e.g. the SDK requires the image to be set before another field will accept its value, or the "add image" path goes through a slower/weirder API than the "create with image" path), do it inline for that entity. The rule is "images last by default," not "images last absolutely." If you're making the exception, note why in the seeding script so the next reader doesn't revert it.
+
+Both rules apply even when the user asks for "a quick site" — they're not process overhead, they're what makes generation fast.
+
 ## Scaffolding a New Project
 
 Before scaffolding, list the working directory to check for existing folders and pick a `--project-name` that doesn't conflict.

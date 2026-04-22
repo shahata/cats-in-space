@@ -5,6 +5,7 @@ import { redirects } from "@wix/redirects";
 import { productsV3 } from "@wix/stores";
 import { i18n } from "@wix/essentials";
 import { STORES_APP_ID, ECOM_PLATFORM_APP_ID } from "../utils/appIds";
+import { checkoutCallbacks } from "../utils/redirects";
 
 export interface ProductData {
   _id: string;
@@ -201,10 +202,10 @@ export default function ProductActions({ product }: Props) {
       });
       const { redirectSession } = await redirects.createRedirectSession({
         ecomCheckout: { checkoutId: checkoutId! },
-        callbacks: {
-          thankYouPageUrl: window.location.origin + "/store/thank-you",
-          postFlowUrl: window.location.origin + "/store",
-        },
+        callbacks: checkoutCallbacks({
+          thankYouPagePath: "/store/thank-you",
+          postFlowPath: "/store",
+        }),
         preferences: { checkIfPublish: true },
       });
       if (redirectSession?.fullUrl) {

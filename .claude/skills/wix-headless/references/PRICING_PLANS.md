@@ -69,13 +69,14 @@ const perksList = plan.perks?.values ?? [];
 
 ```typescript
 import { redirects } from '@wix/redirects';
+import { checkoutCallbacks } from '../utils/redirects';
 
 const { redirectSession } = await redirects.createRedirectSession({
   paidPlansCheckout: { planId },
-  callbacks: {
-    postFlowUrl: window.location.origin + "/plans?success=true",
-    // Optional: thankYouPageUrl for custom thank-you page
-  },
+  callbacks: checkoutCallbacks({
+    thankYouPagePath: '/plans/thank-you',
+    postFlowPath: '/plans',
+  }),
   // NOTE: do NOT use preferences.checkIfPublish for plans — only for eCommerce checkout
 });
 
@@ -83,6 +84,8 @@ if (redirectSession?.fullUrl) {
   window.location.href = redirectSession.fullUrl;
 }
 ```
+
+⛔ **Always go through `checkoutCallbacks()` — never hand-build the `callbacks` object.** It fills in `cartPageUrl`, `bookingsServiceListUrl`, `planListUrl` (site-wide constants) alongside the context-aware thankYou/postFlow. Wix may redirect to any of these callback URLs mid-flow; a partial object silently drops users on Wix-hosted pages. See `ECOMMERCE.md` → "Redirect callbacks: always pass all of them".
 
 ⚠️ **Common mistake:** Do NOT check login state or free/paid before redirecting. The redirect page handles all cases: prompts login if needed, processes free plans directly, and shows payment for paid plans.
 
@@ -213,7 +216,10 @@ function PlanCheckout({ planId }: { planId: string }) {
     try {
       const { redirectSession } = await redirects.createRedirectSession({
         paidPlansCheckout: { planId },
-        callbacks: { postFlowUrl: window.location.origin + "/plans?success=true" },
+        callbacks: checkoutCallbacks({
+          thankYouPagePath: "/plans/thank-you",
+          postFlowPath: "/plans",
+        }),
         // NOTE: do NOT use preferences.checkIfPublish for plans — only for eCommerce checkout
       });
       if (redirectSession?.fullUrl) window.location.href = redirectSession.fullUrl;

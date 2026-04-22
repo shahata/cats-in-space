@@ -4,6 +4,7 @@ import { redirects } from "@wix/redirects";
 import { i18n } from "@wix/essentials";
 import { donationCampaigns } from "@wix/donations";
 import { DONATIONS_APP_ID } from "../utils/appIds";
+import { checkoutCallbacks } from "../utils/redirects";
 
 const CUSTOM_ID = "__custom__";
 
@@ -112,10 +113,10 @@ export default function DonateCard({
 
       const { redirectSession } = await redirects.createRedirectSession({
         ecomCheckout: { checkoutId: checkoutId! },
-        callbacks: {
-          thankYouPageUrl: window.location.origin + "/research/thank-you",
-          postFlowUrl: window.location.origin + "/research",
-        },
+        callbacks: checkoutCallbacks({
+          thankYouPagePath: "/research/thank-you",
+          postFlowPath: "/research",
+        }),
         preferences: { checkIfPublish: true },
       });
 

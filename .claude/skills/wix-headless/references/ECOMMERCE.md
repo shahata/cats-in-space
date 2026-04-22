@@ -264,14 +264,72 @@ Either way, the redirect is the same:
 ```typescript
 const { redirectSession } = await redirects.createRedirectSession({
   ecomCheckout: { checkoutId: checkoutId! },
-  callbacks: {
-    thankYouPageUrl: window.location.origin + '/store/thank-you',
-    postFlowUrl: window.location.origin + '/store',
-  },
+  callbacks: checkoutCallbacks({
+    thankYouPagePath: '/store/thank-you',
+    postFlowPath: '/store',
+  }),
   preferences: { checkIfPublish: true }, // use checkIfPublish ONLY for ecomCheckout, NOT for bookings/plans
 });
 if (redirectSession?.fullUrl) window.location.href = redirectSession.fullUrl;
 ```
+
+`checkoutCallbacks` is the shared helper in `src/utils/redirects.ts` — see "Redirect callbacks: always pass all of them" below.
+
+### Redirect callbacks: always pass all of them
+
+⛔ **Passing a partial `callbacks` object breaks custom pages mid-flow.** Wix's hosted checkout may redirect back to *any* of the callback URLs depending on what the user does (e.g. clicking "Back to cart" jumps to `cartPageUrl`; an abandoned checkout falls back to `postFlowUrl`). If a callback you own isn't set, Wix silently substitutes its own hosted page and the user leaves your custom site. Don't try to guess which callbacks the current flow will hit.
+
+**Rule:** every `createRedirectSession` call — eCommerce, bookings, plans, donations, events, gift cards, restaurants — must pass every callback URL this site has a custom page for. Only `thankYouPageUrl` and `postFlowUrl` are context-aware; everything else is a site-wide constant.
+
+Centralise it in one helper so no caller has to think about it:
+
+```typescript
+// src/utils/redirects.ts
+export function checkoutCallbacks(opts: {
+  thankYouPagePath: string;
+  postFlowPath: string;
+}) {
+  const origin = window.location.origin;
+  return {
+    thankYouPageUrl: origin + opts.thankYouPagePath, // context-aware
+    postFlowUrl: origin + opts.postFlowPath,         // context-aware
+    cartPageUrl: origin + '/store/cart',             // site-wide constant
+    bookingsServiceListUrl: origin + '/bookings',    // site-wide constant
+    planListUrl: origin + '/plans',                  // site-wide constant
+  };
+}
+
+export type CheckoutCallbacks = ReturnType<typeof checkoutCallbacks>;
+```
+
+Then every caller:
+
+```typescript
+callbacks: checkoutCallbacks({
+  thankYouPagePath: '/cinema/thank-you',
+  postFlowPath: '/cinema',
+}),
+```
+
+**What goes in, what doesn't:**
+- **Always pass** a callback URL for any custom page the site owns: `cartPageUrl`, `bookingsServiceListUrl`, `planListUrl` (add more as the site grows).
+- **Don't pass** `loginUrl` unless there's a genuine custom login *page*. `/api/auth/login` is a route handler, not a page — passing it creates a redirect loop. Let Wix use its default login.
+- **Context-aware:** `thankYouPageUrl` and `postFlowUrl` reflect the flow the user is returning *from*. For the shared cart sidebar (shown in both `/store/*` and `/restaurant/order`), switch on `window.location.pathname.includes('/restaurant/order')` and pass the restaurant thank-you/post-flow paths in that context.
+- When a new custom page is added that maps to a callback, update the helper — don't patch individual callers.
+
+### Custom cart page at /store/cart
+
+Every storefront needs a dedicated cart page at `/store/cart`, not just the slide-out sidebar. Wix's checkout has a "Back to cart" link that goes to `cartPageUrl` — without a custom page it dumps users onto Wix's hosted cart and they leave the headless site.
+
+Build it as the full-page sibling of the sidebar:
+
+1. Extract shared state into a `useCart` hook (fetch, update quantity, remove line, checkout) in `src/utils/useCart.ts`. Both the sidebar and the page import it — no duplicated cart logic.
+2. `CartSidebar` is the compact slide-out. `CartPage` is the full-page layout (two-column: items list + sticky order summary). Line-item rendering can diverge — they have different chrome — but mutations go through the same hook.
+3. Mount the page at `src/pages/store/cart.astro` with `<CartPage client:load />`.
+4. The "Checkout" button on *both* sidebar and page passes `cartPageUrl: /store/cart` via `checkoutCallbacks()` (above). The sidebar also gets a "View Cart" link into the page.
+5. Empty state → link to `/store`. Full state → "Continue Shopping" link next to checkout.
+
+The dedicated page is addressable (users can bookmark/share it), accessible (real heading, not a slide-out), and completes the `cartPageUrl` contract.
 
 ### Thank You Page
 

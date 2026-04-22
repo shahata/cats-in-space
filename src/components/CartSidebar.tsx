@@ -1,62 +1,32 @@
-import { useState, useEffect, useCallback } from "react";
-import { currentCart } from "@wix/ecom";
-import type { cart as cartTypes } from "@wix/ecom";
-import { redirects } from "@wix/redirects";
+import { useEffect, useState } from "react";
 import { getImageUrl } from "../utils/image";
 import { i18n } from "@wix/essentials";
 import { RESTAURANTS_APP_ID } from "../utils/appIds";
+import { useCart } from "../utils/useCart";
+import { checkoutCallbacks } from "../utils/redirects";
 
 export default function CartSidebar() {
   const t = i18n.getTranslationFunction();
   const [open, setOpen] = useState(false);
-  const [cart, setCart] = useState<cartTypes.Cart | null>(null);
-  const [totals, setTotals] = useState<cartTypes.EstimateTotalsResponse | null>(
-    null,
-  );
-  const [itemCount, setItemCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [checkingOut, setCheckingOut] = useState(false);
-
-  const fetchCart = useCallback(async () => {
-    try {
-      const c = await currentCart.getCurrentCart();
-      setCart(c);
-      const count = (c?.lineItems || []).reduce(
-        (sum, li) => sum + (li.quantity || 0),
-        0,
-      );
-      setItemCount(count);
-
-      if (c?.lineItems?.length) {
-        try {
-          const est = await currentCart.estimateCurrentCartTotals({});
-          setTotals(est);
-        } catch {
-          setTotals(null);
-        }
-      } else {
-        setTotals(null);
-      }
-    } catch {
-      setCart(null);
-      setItemCount(0);
-      setTotals(null);
-    }
-  }, []);
+  const {
+    cart,
+    totals,
+    itemCount,
+    loading,
+    checkingOut,
+    fetchCart,
+    updateQuantity,
+    removeItem,
+    checkout,
+  } = useCart();
 
   useEffect(() => {
-    fetchCart();
-    const handler = () => fetchCart();
     const openHandler = () => {
       setOpen(true);
       fetchCart();
     };
-    window.addEventListener("cart-updated", handler);
     window.addEventListener("cart-open", openHandler);
-    return () => {
-      window.removeEventListener("cart-updated", handler);
-      window.removeEventListener("cart-open", openHandler);
-    };
+    return () => window.removeEventListener("cart-open", openHandler);
   }, [fetchCart]);
 
   useEffect(() => {
@@ -68,29 +38,6 @@ export default function CartSidebar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const updateQuantity = async (lineItemId: string, newQty: number) => {
-    if (newQty < 1) return;
-    setLoading(true);
-    try {
-      await currentCart.updateCurrentCartLineItemQuantity([
-        { _id: lineItemId, quantity: newQty },
-      ]);
-      await fetchCart();
-      window.dispatchEvent(new Event("cart-updated"));
-    } catch {}
-    setLoading(false);
-  };
-
-  const removeItem = async (lineItemId: string) => {
-    setLoading(true);
-    try {
-      await currentCart.removeLineItemsFromCurrentCart([lineItemId]);
-      await fetchCart();
-      window.dispatchEvent(new Event("cart-updated"));
-    } catch {}
-    setLoading(false);
-  };
-
   const editRestaurantLine = (lineId: string, catalogItemId: string) => {
     setOpen(false);
     window.dispatchEvent(
@@ -100,27 +47,17 @@ export default function CartSidebar() {
     );
   };
 
-  const checkout = async () => {
-    setCheckingOut(true);
-    try {
-      const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
-        channelType: currentCart.ChannelType.WEB,
-      });
-      const { redirectSession } = await redirects.createRedirectSession({
-        ecomCheckout: { checkoutId: checkoutId! },
-        callbacks: {
-          thankYouPageUrl: window.location.origin + "/store/thank-you",
-          postFlowUrl: window.location.origin + "/store",
-        },
-        preferences: { checkIfPublish: true },
-      });
-      if (redirectSession?.fullUrl) {
-        window.location.href = redirectSession.fullUrl;
-      }
-    } catch (e) {
-      alert(e instanceof Error ? e.message : t("cart.checkoutFailed"));
-      setCheckingOut(false);
-    }
+  const onCheckout = () => {
+    const inRestaurant =
+      window.location.pathname.includes("/restaurant/order");
+    return checkout(
+      checkoutCallbacks({
+        thankYouPagePath: inRestaurant
+          ? "/restaurant/thank-you"
+          : "/store/thank-you",
+        postFlowPath: inRestaurant ? "/restaurant/order" : "/store",
+      }),
+    );
   };
 
   const lineItems = cart?.lineItems || [];
@@ -379,9 +316,16 @@ export default function CartSidebar() {
                   <span>{total}</span>
                 </div>
               )}
+              <a
+                href="/store/cart"
+                className="cs-view-cart"
+                onClick={() => setOpen(false)}
+              >
+                {t("cart.viewCart")}
+              </a>
               <button
                 className="cs-checkout-btn"
-                onClick={checkout}
+                onClick={onCheckout}
                 disabled={checkingOut || loading}
               >
                 {checkingOut ? t("cart.redirecting") : t("cart.checkout")}
