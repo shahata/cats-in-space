@@ -29,27 +29,28 @@ const campaigns = queryRes.items || [];
 const elevatedMetrics = auth.elevate(
   donationCampaigns.getDonationCampaignMetrics,
 );
-interface CampaignMetrics {
-  raised: number;
-  formattedRaised: string;
-  count: number;
-}
-const metricsById = new Map<string, CampaignMetrics>();
-await Promise.all(
+const metricsEntries = await Promise.all(
   campaigns.map(async (c) => {
-    if (!c._id) return;
+    if (!c._id) return null;
     try {
       const m = await elevatedMetrics(c._id);
       const first = m.currencyMetricsList?.[0];
-      if (first?.totalAmount) {
-        metricsById.set(c._id, {
+      if (!first?.totalAmount) return null;
+      return [
+        c._id,
+        {
           raised: parseFloat(first.totalAmount.amount || "0"),
           formattedRaised: first.totalAmount.formattedAmount || "",
           count: first.donationCount || 0,
-        });
-      }
-    } catch {}
+        },
+      ] as const;
+    } catch {
+      return null;
+    }
   }),
+);
+const metricsById = new Map(
+  metricsEntries.filter((e): e is NonNullable<typeof e> => e !== null),
 );
 
 const emojis = ["🛰️", "🌱", "🧑‍🚀", "🪐", "🔭", "🧪", "🚀", "👩‍🔬"];

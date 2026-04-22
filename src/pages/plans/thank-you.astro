@@ -12,10 +12,7 @@ const t = i18n.getTranslationFunction();
 
 // `priceDetails` is still returned at runtime but isn't on the typed Order
 // (the SDK exposes only the newer `pricing` shape). Widen locally.
-type PlanOrder = orders.Order & {
-  priceDetails?: orders.PriceDetails;
-  freeTrialDays?: number | null;
-};
+type PlanOrder = orders.Order & { priceDetails?: orders.PriceDetails };
 let order: PlanOrder | null = null;
 if (orderId) {
   try {

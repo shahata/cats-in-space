@@ -55,46 +55,16 @@ const productCollections = (product.directCategoriesInfo?.categories || [])
 const mediaItems = (product.media?.itemsInfo?.items || [])
   .map((m) => extractMediaUrl(m, 600, 600))
   .filter((x): x is NonNullable<typeof x> => !!x);
-function buildPriceValue(
-  v: { amount?: string; formattedAmount?: string | null } | undefined,
-) {
-  if (!v) return undefined;
-  const result: { amount?: string; formattedAmount?: string | null } = {};
-  if (v.amount) result.amount = v.amount;
-  if (v.formattedAmount !== undefined)
-    result.formattedAmount = v.formattedAmount;
-  return result;
-}
-function buildPriceRange(
-  r:
-    | {
-        minValue?: { amount?: string; formattedAmount?: string | null };
-        maxValue?: { amount?: string; formattedAmount?: string | null };
-      }
-    | undefined,
-) {
-  if (!r) return undefined;
-  const result: {
-    minValue?: { amount?: string; formattedAmount?: string | null };
-    maxValue?: { amount?: string; formattedAmount?: string | null };
-  } = {};
-  const min = buildPriceValue(r.minValue);
-  const max = buildPriceValue(r.maxValue);
-  if (min) result.minValue = min;
-  if (max) result.maxValue = max;
-  return result;
-}
+
 const productData: ProductActionsProps = {
   _id: product._id!,
   name: product.name!,
   options: product.options || [],
-  variants: variantData.length > 0 ? variantData : [],
+  variants: variantData,
   inventory: product.inventory,
-  ...(product.actualPriceRange
-    ? { priceRange: buildPriceRange(product.actualPriceRange)! }
-    : {}),
+  ...(product.actualPriceRange ? { priceRange: product.actualPriceRange } : {}),
   ...(product.compareAtPriceRange
-    ? { compareAtPriceRange: buildPriceRange(product.compareAtPriceRange)! }
+    ? { compareAtPriceRange: product.compareAtPriceRange }
     : {}),
   currency: product.currency ?? null,
   modifiers: product.modifiers || [],

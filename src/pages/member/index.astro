@@ -38,12 +38,9 @@ if (!member)
     `/api/auth/login?returnToUrl=${encodeURIComponent("/member")}`,
   );
 
-// `priceDetails` / `pausePeriods` are still returned at runtime but the Order
-// type exposes them as the newer `pricing` shape; widen locally for rendering.
-type PlanOrder = orders.Order & {
-  priceDetails?: orders.PriceDetails;
-  pausePeriods?: orders.PausePeriod[];
-};
+// `priceDetails` is still returned at runtime but the SDK's Order type
+// has been updated to the newer `pricing` shape only. Widen locally.
+type PlanOrder = orders.Order & { priceDetails?: orders.PriceDetails };
 let myOrders: PlanOrder[] = [];
 try {
   const result = await orders.memberListOrders();

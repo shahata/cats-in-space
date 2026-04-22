@@ -50,34 +50,12 @@ try {
   }
 } catch {}
 
-interface ItemDisplay {
-  _id: string;
-  name: string;
-  description: string;
-  price: string;
-  labels: LabelInfo[];
-}
-interface SectionDisplay {
-  _id: string;
-  name: string;
-  description: string;
-  items: ItemDisplay[];
-}
-interface MenuDisplay {
-  _id: string;
-  name: string;
-  description: string;
-  sections: SectionDisplay[];
-}
-
-type RestaurantItem = itemsApi.Item;
-
 const priceFormatter = new Intl.NumberFormat(locale, {
   style: "currency",
   currency,
 });
 
-function formatPrice(item: RestaurantItem): string {
+function formatPrice(item: itemsApi.Item): string {
   const variants = item.priceVariants?.variants;
   if (variants?.length) {
     const prices = variants.map((v) =>
@@ -94,20 +72,20 @@ function formatPrice(item: RestaurantItem): string {
   return "";
 }
 
-function getItemLabels(item: RestaurantItem): LabelInfo[] {
+function getItemLabels(item: itemsApi.Item): LabelInfo[] {
   return (item.labels || [])
     .map((l) => (l._id ? labelMap.get(l._id) : null))
     .filter((l): l is LabelInfo => !!l);
 }
 
-const menuDisplays: MenuDisplay[] = allMenus
+const menuDisplays = allMenus
   .map((menu) => {
     const sectionIds = menu.sectionIds || [];
-    const sections: SectionDisplay[] = sectionIds
+    const sections = sectionIds
       .map((id) => sectionById.get(id))
       .filter((s): s is NonNullable<typeof s> => !!s && s.visible !== false)
       .map((section) => {
-        const items: ItemDisplay[] = (section.itemIds || [])
+        const items = (section.itemIds || [])
           .map((id) => itemById.get(id))
           .filter((i): i is NonNullable<typeof i> => !!i && i.visible !== false)
           .map((item) => ({

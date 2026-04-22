@@ -12,14 +12,8 @@ export interface ProductData {
   options: productsV3.ConnectedOption[];
   variants: productsV3.Variant[];
   inventory: productsV3.Inventory | undefined;
-  priceRange?: {
-    minValue?: { amount?: string; formattedAmount?: string | null };
-    maxValue?: { amount?: string; formattedAmount?: string | null };
-  };
-  compareAtPriceRange?: {
-    minValue?: { amount?: string; formattedAmount?: string | null };
-    maxValue?: { amount?: string; formattedAmount?: string | null };
-  };
+  priceRange?: productsV3.PriceRange;
+  compareAtPriceRange?: productsV3.PriceRange;
   currency?: string | null;
   modifiers: productsV3.ConnectedModifier[];
   ribbon?: string | null;
