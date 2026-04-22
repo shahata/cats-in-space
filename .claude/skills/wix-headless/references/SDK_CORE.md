@@ -164,6 +164,7 @@ These are the most common runtime failures. Each is explained because understand
 | `searchOrders` takes `OrderSearch` directly, not `{ search: OrderSearch }` | Wrapping adds an extra nesting level the SDK doesn't expect |
 | `createCheckoutFromCurrentCart` returns `{ checkoutId }`, not a checkout object with `_id` | It's a creation shortcut, not a full GET |
 | `createCheckoutFromCurrentCart` is on `currentCart`, not `checkout` | Different module entirely — importing from `checkout` fails at build |
+| Buy Now / Donate using `addToCurrentCart` + `createCheckoutFromCurrentCart` drags the user's existing cart items into the "single item" checkout and leaves the new item sitting in their cart | Those flows are one-off purchases, not cart purchases. Use `checkout.createCheckout({ lineItems, channelType })` instead — it creates a standalone checkout from explicit line items and never touches `currentCart`. Destructure `_id` (not `checkoutId`) from the returned `Checkout` |
 | `estimateCurrentCartTotals` → `priceSummary` is at top level | Not nested under `estimatedTotals` like the REST docs suggest |
 | `getCurrentMember()` returns `{ member?: Member }` (wrapped) | This one IS wrapped, unlike most SDK responses |
 | `getMember(id)` returns `Member` directly | Inconsistent with `getCurrentMember` — no wrapping |

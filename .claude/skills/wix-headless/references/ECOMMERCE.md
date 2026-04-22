@@ -221,20 +221,49 @@ A site-wide cart sidebar can listen for this event to refresh.
 
 ### Checkout Flow
 
-⛔ **Breaks at runtime** — `createCheckoutFromCurrentCart` is on the `currentCart` module, NOT on `checkout`. Importing from `checkout` will fail at build time.
+Two different APIs depending on whether the user is checking out *the cart* or *a single thing* (Buy Now, Donate, any one-off flow):
 
-⛔ **Breaks at runtime** — `createCheckoutFromCurrentCart` returns `{ checkoutId }` — NOT a checkout object with `_id`. Use `const { checkoutId } = await currentCart.createCheckoutFromCurrentCart(...)`, NOT `c._id`. Using `_id` passes `undefined` to `createRedirectSession` which fails with `"is not a valid GUID"`.
+| Scenario | API | Cart impact | Returns |
+|----------|-----|-------------|---------|
+| Cart sidebar → "Checkout" button | `currentCart.createCheckoutFromCurrentCart({ channelType })` | Reads everything in the current cart | `{ checkoutId }` |
+| "Buy Now" / "Donate" / ticket / anything that bypasses the cart | `checkout.createCheckout({ lineItems, channelType })` | Does **not** touch the cart | `Checkout` object — use `_id` |
+
+⛔ **Breaks the user's cart** — Buy Now and Donate must NOT use `createCheckoutFromCurrentCart`. The natural-looking "add to cart, then create checkout from cart" flow drags every item the user already had in their cart into the single-item checkout, and their cart also gets the new item appended. Users expect "Buy Now" to buy only *that* item and leave their accumulated cart alone. → Use `checkout.createCheckout({ lineItems: [...], channelType })` directly — no `addToCurrentCart` call at all.
+
+⛔ **Two different return shapes — don't cross them up.**
+- `currentCart.createCheckoutFromCurrentCart` returns `{ checkoutId }` — destructure `checkoutId`, not `_id`.
+- `checkout.createCheckout` returns a full `Checkout` object — destructure `_id`, not `checkoutId`.
+
+Using the wrong field passes `undefined` to `createRedirectSession` and fails with `"is not a valid GUID"`.
+
+⛔ **Module placement** — `createCheckoutFromCurrentCart` is on the `currentCart` module. `createCheckout` is on the `checkout` module. Both are exported from `@wix/ecom` — mixing them up fails at build time.
 
 ```typescript
+// --- Cart checkout ---
 import { currentCart } from '@wix/ecom';
 import { redirects } from '@wix/redirects';
 
-// Create checkout from cart — NOTE: this is on currentCart, NOT checkout
-const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({ channelType: 'WEB' });
+const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
+  channelType: currentCart.ChannelType.WEB,
+});
+```
 
-// Redirect to Wix-hosted checkout
+```typescript
+// --- Buy Now / Donate / one-off checkout ---
+import { checkout } from '@wix/ecom';
+import { redirects } from '@wix/redirects';
+
+const { _id: checkoutId } = await checkout.createCheckout({
+  lineItems: [{ quantity, catalogReference: buildCatalogRef() }],
+  channelType: checkout.ChannelType.WEB,
+});
+```
+
+Either way, the redirect is the same:
+
+```typescript
 const { redirectSession } = await redirects.createRedirectSession({
-  ecomCheckout: { checkoutId },
+  ecomCheckout: { checkoutId: checkoutId! },
   callbacks: {
     thankYouPageUrl: window.location.origin + '/store/thank-you',
     postFlowUrl: window.location.origin + '/store',

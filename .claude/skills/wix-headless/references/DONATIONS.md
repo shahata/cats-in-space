@@ -137,9 +137,10 @@ const donorCount = first?.donationCount ?? 0;
 Donations go through the **standard eCom cart → checkout → redirect** flow. The donation line item uses a special `catalogReference`:
 
 ```ts
-const DONATIONS_APP_ID = "333b456e-dd48-4d6b-b32b-9fd48d74e163";
+import { checkout } from "@wix/ecom";
+import { DONATIONS_APP_ID } from "../utils/appIds";
 
-await currentCart.addToCurrentCart({
+const { _id: checkoutId } = await checkout.createCheckout({
   lineItems: [{
     quantity: 1,
     catalogReference: {
@@ -152,9 +153,8 @@ await currentCart.addToCurrentCart({
       },
     },
   }],
+  channelType: checkout.ChannelType.WEB,
 });
-
-const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({ channelType: "WEB" });
 
 // Donor note (if campaign has commentsEnabled) — see below
 if (note && checkoutId) {
@@ -172,6 +172,8 @@ const { redirectSession } = await redirects.createRedirectSession({
 window.location.href = redirectSession!.fullUrl!;
 ```
 
+⛔ **Do NOT route donations through the shopping cart.** The obvious flow — `addToCurrentCart` → `createCheckoutFromCurrentCart` — drags every item the user already had in their cart into the donation checkout, and leaves the donation lingering in their cart afterwards. Donations are a one-off flow: go straight through `checkout.createCheckout({ lineItems, channelType })` so the donor's standing cart is untouched.
+
 **`catalogReference.options` only supports `amount`, `frequency`, `donorCoveringFees`**. No other fields (no note, no custom data) — everything else flows through the checkout.
 
 ---
@@ -181,7 +183,7 @@ window.location.href = redirectSession!.fullUrl!;
 The campaign-level `commentsEnabled: true` flag does NOT automatically add a comment field on the donation line item. To collect a donor note and attach it to the order:
 
 1. Add a `<textarea>` to your donation UI (conditional on `campaign.commentsEnabled`).
-2. After `createCheckoutFromCurrentCart`, call `checkout.updateCheckout(checkoutId, { buyerNote: note })`.
+2. After `checkout.createCheckout`, call `checkout.updateCheckout(checkoutId, { buyerNote: note })`.
 3. Proceed with `createRedirectSession`.
 
 The note becomes the order's `buyerNote`, visible in the merchant dashboard and in `ecomOrders.searchOrders` responses.
