@@ -7,17 +7,20 @@ import { redirects } from "@wix/redirects";
 type TicketDefinition = ticketDefinitionsV2.TicketDefinition;
 type AvailablePlace = ticketDefinitionsV2.AvailablePlace;
 
-interface Props {
+export interface Showtime {
 	eventId: string;
 	eventSlug: string;
+	startMs: number;
+}
+
+interface Props {
 	eventTitle: string;
-	tickets: TicketDefinition[];
+	showtimes: Showtime[];
+	initialEventId: string;
+	initialTickets: TicketDefinition[];
 	locale: string;
 }
 
-// For seated events, each ticket definition's `seatingDetails.places` lists
-// specific placeIds the buyer can reserve. For general admission, we fall back
-// to a simple quantity stepper.
 function firstCurrency(tickets: TicketDefinition[]): string {
 	for (const t of tickets) {
 		const c = t.pricingMethod?.fixedPrice?.currency;
@@ -35,77 +38,113 @@ function ticketHasSeats(td: TicketDefinition): boolean {
 	return (td.seatingDetails?.places?.length ?? 0) > 0;
 }
 
-export default function TicketPicker({ eventId: _eventId, eventSlug, eventTitle, tickets, locale }: Props) {
+// Siblings share identical tier names/prices but each has its own ticket def
+// `_id`. We key quantity/seat state by `td.name` so it survives a date change;
+// at book time we fetch the selected showtime's ticket defs and map the user's
+// selections from name → fresh `_id`.
+export default function TicketPicker({
+	eventTitle,
+	showtimes,
+	initialEventId,
+	initialTickets,
+	locale,
+}: Props) {
 	const t = i18n.getTranslationFunction();
-	const [qtyById, setQtyById] = useState<Record<string, number>>({});
-	const [seatsByTicket, setSeatsByTicket] = useState<Record<string, Set<string>>>({});
+	const [selectedEventId, setSelectedEventId] = useState(initialEventId);
+	const [qtyByName, setQtyByName] = useState<Record<string, number>>({});
+	const [seatsByName, setSeatsByName] = useState<Record<string, Set<string>>>({});
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const currency = firstCurrency(tickets);
+	const selectedShowtime = showtimes.find(s => s.eventId === selectedEventId) ?? showtimes[0];
+
+	const currency = firstCurrency(initialTickets);
 	const priceFmt = useMemo(
 		() => new Intl.NumberFormat(locale, { style: "currency", currency }),
 		[locale, currency],
 	);
+	const chipFmt = useMemo(
+		() => new Intl.DateTimeFormat(locale, {
+			weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+		}),
+		[locale],
+	);
 
-	const seatedTickets = tickets.filter(ticketHasSeats);
-	const gaTickets = tickets.filter(td => !ticketHasSeats(td));
+	const seatedTickets = initialTickets.filter(ticketHasSeats);
+	const gaTickets = initialTickets.filter(td => !ticketHasSeats(td));
 
-	const gaQty = Object.entries(qtyById).reduce((s, [, q]) => s + q, 0);
-	const seatedQty = Object.values(seatsByTicket).reduce((s, set) => s + set.size, 0);
+	const gaQty = Object.values(qtyByName).reduce((s, q) => s + q, 0);
+	const seatedQty = Object.values(seatsByName).reduce((s, set) => s + set.size, 0);
 	const totalQty = gaQty + seatedQty;
 
-	const gaPrice = gaTickets.reduce((sum, td) => sum + (qtyById[td._id ?? ""] || 0) * ticketPriceNumber(td), 0);
+	const gaPrice = gaTickets.reduce((sum, td) => sum + (qtyByName[td.name ?? ""] || 0) * ticketPriceNumber(td), 0);
 	const seatedPrice = seatedTickets.reduce((sum, td) => {
-		const n = seatsByTicket[td._id ?? ""]?.size ?? 0;
+		const n = seatsByName[td.name ?? ""]?.size ?? 0;
 		return sum + n * ticketPriceNumber(td);
 	}, 0);
 	const totalPrice = gaPrice + seatedPrice;
 
-	const setQty = (id: string, next: number) => {
-		const def = tickets.find(td => td._id === id);
+	const setQty = (name: string, next: number) => {
+		const def = initialTickets.find(td => td.name === name);
 		if (!def) return;
 		const limit = def.limitPerCheckout ?? 10;
 		const clamped = Math.max(0, Math.min(limit, next));
-		setQtyById(prev => ({ ...prev, [id]: clamped }));
+		setQtyByName(prev => ({ ...prev, [name]: clamped }));
 	};
-	const inc = (id: string) => setQty(id, (qtyById[id] || 0) + 1);
-	const dec = (id: string) => setQty(id, (qtyById[id] || 0) - 1);
+	const inc = (name: string) => setQty(name, (qtyByName[name] || 0) + 1);
+	const dec = (name: string) => setQty(name, (qtyByName[name] || 0) - 1);
 
-	const toggleSeat = (ticketId: string, placeId: string) => {
-		setSeatsByTicket(prev => {
-			const existing = new Set(prev[ticketId] ?? []);
+	const toggleSeat = (name: string, placeId: string) => {
+		setSeatsByName(prev => {
+			const existing = new Set(prev[name] ?? []);
 			if (existing.has(placeId)) existing.delete(placeId);
 			else existing.add(placeId);
-			return { ...prev, [ticketId]: existing };
+			return { ...prev, [name]: existing };
 		});
 	};
 
-	const canSubmit = totalQty > 0 && !loading;
+	const canSubmit = totalQty > 0 && !loading && !!selectedShowtime;
 
 	const handleBook = async () => {
+		if (!selectedShowtime) return;
 		setLoading(true);
 		setError(null);
 		try {
-			// Build one TicketLineItem per general-admission ticket type (with a
-			// quantity) plus one line item per seated reservation (one per seat).
+			// Fetch the selected showtime's ticket defs fresh — each sibling event
+			// has its own set of ticket def `_id`s, even though names/prices match.
+			let eventTickets: TicketDefinition[];
+			if (selectedShowtime.eventId === initialEventId) {
+				eventTickets = initialTickets;
+			} else {
+				const res = await ticketDefinitionsV2.queryAvailableTicketDefinitions({
+					filter: { eventId: selectedShowtime.eventId },
+				});
+				eventTickets = res.ticketDefinitions ?? [];
+			}
+			const defByName = new Map<string, TicketDefinition>();
+			for (const td of eventTickets) if (td.name) defByName.set(td.name, td);
+
 			const reservationTickets: Array<{
 				ticketDefinitionId: string;
 				quantity: number;
 				ticketInfo?: { seatId: string };
 			}> = [];
 			for (const td of gaTickets) {
-				const id = td._id;
-				const q = id ? qtyById[id] : 0;
-				if (id && q && q > 0) reservationTickets.push({ ticketDefinitionId: id, quantity: q });
+				const name = td.name ?? "";
+				const q = qtyByName[name] || 0;
+				if (q <= 0) continue;
+				const freshId = defByName.get(name)?._id;
+				if (!freshId) throw new Error(`Ticket "${name}" is no longer available for the selected date.`);
+				reservationTickets.push({ ticketDefinitionId: freshId, quantity: q });
 			}
 			for (const td of seatedTickets) {
-				const id = td._id;
-				if (!id) continue;
-				const seats = seatsByTicket[id];
-				if (!seats) continue;
+				const name = td.name ?? "";
+				const seats = seatsByName[name];
+				if (!seats || seats.size === 0) continue;
+				const freshId = defByName.get(name)?._id;
+				if (!freshId) throw new Error(`Ticket "${name}" is no longer available for the selected date.`);
 				for (const placeId of seats) {
-					reservationTickets.push({ ticketDefinitionId: id, quantity: 1, ticketInfo: { seatId: placeId } });
+					reservationTickets.push({ ticketDefinitionId: freshId, quantity: 1, ticketInfo: { seatId: placeId } });
 				}
 			}
 
@@ -113,11 +152,8 @@ export default function TicketPicker({ eventId: _eventId, eventSlug, eventTitle,
 			const reservationId = reservation._id;
 			if (!reservationId) throw new Error("Reservation failed — no id returned");
 
-			// Hand off to Wix's hosted events checkout for buyer details +
-			// payment. `orders.checkout` creates an order directly without a
-			// payment step, which is why the previous flow skipped Wix's paywall.
 			const { redirectSession } = await redirects.createRedirectSession({
-				eventsCheckout: { reservationId, eventSlug },
+				eventsCheckout: { reservationId, eventSlug: selectedShowtime.eventSlug },
 				callbacks: {
 					thankYouPageUrl: window.location.origin + "/cinema/thank-you",
 					postFlowUrl: window.location.origin + "/cinema",
@@ -135,21 +171,55 @@ export default function TicketPicker({ eventId: _eventId, eventSlug, eventTitle,
 		}
 	};
 
+	const useDropdown = showtimes.length > 5;
+
 	return (
 		<div className="tp-root">
-			{tickets.length === 0 ? (
+			{showtimes.length > 1 && (
+				<div className="tp-showtime-picker">
+					<span className="tp-showtime-label">{t("cinema.selectShowtime")}</span>
+					{useDropdown ? (
+						<select
+							className="tp-showtime-select"
+							value={selectedEventId}
+							onChange={e => setSelectedEventId(e.target.value)}
+						>
+							{showtimes.map(s => (
+								<option key={s.eventId} value={s.eventId}>
+									{chipFmt.format(new Date(s.startMs))}
+								</option>
+							))}
+						</select>
+					) : (
+						<div className="tp-showtime-chips">
+							{showtimes.map(s => (
+								<button
+									key={s.eventId}
+									type="button"
+									className={`tp-showtime-chip ${s.eventId === selectedEventId ? "tp-showtime-chip-on" : ""}`}
+									onClick={() => setSelectedEventId(s.eventId)}
+								>
+									{chipFmt.format(new Date(s.startMs))}
+								</button>
+							))}
+						</div>
+					)}
+				</div>
+			)}
+
+			{initialTickets.length === 0 ? (
 				<p className="tp-empty">{t("cinema.noTickets")}</p>
 			) : (
 				<div className="tp-tickets">
-					{tickets.map(td => {
-						const id = td._id ?? "";
-						const qty = qtyById[id] || 0;
+					{initialTickets.map(td => {
+						const name = td.name ?? "";
+						const qty = qtyByName[name] || 0;
 						const isSeated = ticketHasSeats(td);
-						const selectedSeats = seatsByTicket[id] ?? new Set<string>();
+						const selectedSeats = seatsByName[name] ?? new Set<string>();
 						const price = ticketPriceNumber(td);
 						const free = td.pricingMethod?.free === true;
 						return (
-							<div key={id} className="tp-ticket-row">
+							<div key={td._id ?? name} className="tp-ticket-row">
 								<div className="tp-ticket-info">
 									<div className="tp-ticket-name">{td.name}</div>
 									{td.description && <div className="tp-ticket-desc">{td.description}</div>}
@@ -161,13 +231,13 @@ export default function TicketPicker({ eventId: _eventId, eventSlug, eventTitle,
 									<SeatGrid
 										places={td.seatingDetails?.places ?? []}
 										selected={selectedSeats}
-										onToggle={placeId => toggleSeat(id, placeId)}
+										onToggle={placeId => toggleSeat(name, placeId)}
 									/>
 								) : (
 									<div className="tp-qty">
-										<button type="button" className="tp-qty-btn" onClick={() => dec(id)} disabled={qty === 0} aria-label="decrease">−</button>
+										<button type="button" className="tp-qty-btn" onClick={() => dec(name)} disabled={qty === 0} aria-label="decrease">−</button>
 										<span className="tp-qty-val">{qty}</span>
-										<button type="button" className="tp-qty-btn" onClick={() => inc(id)} aria-label="increase">+</button>
+										<button type="button" className="tp-qty-btn" onClick={() => inc(name)} aria-label="increase">+</button>
 									</div>
 								)}
 							</div>
@@ -214,8 +284,6 @@ function SeatGrid({
 	selected: Set<string>;
 	onToggle: (placeId: string) => void;
 }) {
-	// Group by elementLabel ("Row A", "Table 1", "General Admission") to lay out
-	// seats by row/table.
 	const groups = new Map<string, AvailablePlace[]>();
 	for (const p of places) {
 		const key = p.elementLabel ?? p.sectionLabel ?? "Seats";
@@ -256,6 +324,42 @@ function SeatGrid({
 const tpStyles = `
 	.tp-root { display: flex; flex-direction: column; gap: 20px; }
 	.tp-empty { color: var(--text-muted); font-style: italic; padding: 20px 0; }
+	.tp-showtime-picker {
+		display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+		padding: 14px 18px; background: var(--bg-card);
+		border: 1px solid var(--border-card); border-radius: 12px;
+	}
+	.tp-showtime-label {
+		font-family: var(--font-heading); font-size: 0.85rem;
+		color: var(--text-secondary); letter-spacing: 1.5px;
+	}
+	.tp-showtime-select {
+		appearance: none; -webkit-appearance: none;
+		padding: 10px 40px 10px 14px; background: #1a1a1a;
+		border: 1px solid #333; border-radius: 10px;
+		font-family: var(--font-heading); font-size: 0.9rem; letter-spacing: 0.5px;
+		color: var(--text-primary); min-width: 260px; max-width: 100%;
+		cursor: pointer; transition: border-color 0.15s;
+		background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ff6600'%3e%3cpath d='M3 6l5 5 5-5z'/%3e%3c/svg%3e");
+		background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
+	}
+	.tp-showtime-select:hover { border-color: var(--accent); }
+	.tp-showtime-select:focus { outline: none; border-color: var(--accent); }
+	:global(html[dir="rtl"]) .tp-showtime-select {
+		padding: 10px 14px 10px 40px;
+		background-position: left 12px center;
+	}
+	.tp-showtime-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+	.tp-showtime-chip {
+		padding: 8px 14px; background: #1a1a1a;
+		border: 1px solid #333; border-radius: 999px;
+		font-family: var(--font-heading); font-size: 0.8rem; letter-spacing: 0.5px;
+		color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+	}
+	.tp-showtime-chip:hover { border-color: var(--accent); color: var(--accent); }
+	.tp-showtime-chip-on {
+		background: var(--accent); color: #000; border-color: var(--accent);
+	}
 	.tp-tickets { display: flex; flex-direction: column; gap: 12px; }
 	.tp-ticket-row {
 		display: flex; align-items: center; gap: 20px;
@@ -309,25 +413,6 @@ const tpStyles = `
 	.tp-seat:hover:not(:disabled) { border-color: var(--accent); }
 	.tp-seat-on { background: var(--accent); color: #000; border-color: var(--accent); }
 	.tp-seat-full { opacity: 0.25; cursor: not-allowed; }
-	.tp-form {
-		background: var(--bg-card); border: 1px solid var(--border-card);
-		border-radius: 12px; padding: 20px;
-		display: flex; flex-direction: column; gap: 12px;
-	}
-	.tp-form-title {
-		font-family: var(--font-heading); font-size: 1rem;
-		color: var(--accent); letter-spacing: 1.5px; margin: 0;
-	}
-	.tp-form-row { display: flex; gap: 12px; }
-	.tp-form-row .tp-field { flex: 1; }
-	.tp-field { display: flex; flex-direction: column; gap: 4px; }
-	.tp-field span { font-size: 0.75rem; color: var(--text-muted); letter-spacing: 0.5px; }
-	.tp-field input {
-		padding: 10px 12px; border-radius: 8px; border: 1px solid #333;
-		background: #1a1a1a; color: var(--text-primary);
-		font-family: inherit; font-size: 0.9rem;
-	}
-	.tp-field input:focus { outline: none; border-color: var(--accent); }
 	.tp-total-bar {
 		display: flex; justify-content: space-between; align-items: center;
 		padding: 16px 20px; background: var(--bg-card);
@@ -356,7 +441,4 @@ const tpStyles = `
 	}
 	.tp-book-btn:hover:not(:disabled) { background: var(--accent-yellow); transform: translateY(-1px); }
 	.tp-book-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-	@media (max-width: 500px) {
-		.tp-form-row { flex-direction: column; }
-	}
 `;

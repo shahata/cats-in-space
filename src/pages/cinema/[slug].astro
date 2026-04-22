@@ -50,11 +50,9 @@ const siblings: Event[] = seriesCategoryId
 	? events.filter(e => e.dateAndTimeSettings?.recurringEvents?.categoryId === seriesCategoryId)
 	: [current];
 
-const showtimes = siblings
-	.map(e => ({ ev: e, startMs: new Date(e.dateAndTimeSettings?.startDate ?? 0).getTime() }))
-	.sort((a, b) => a.startMs - b.startMs);
-
-// 2. Ticket definitions for this specific showtime.
+// 2. Ticket definitions for the URL's event — they're identical in name/price
+// across siblings, so we use them to SSR the tier list. When the user picks a
+// different date in the client, TicketPicker refetches by the selected eventId.
 const queryTickets = auth.elevate(ticketDefinitionsV2.queryAvailableTicketDefinitions);
 let ticketDefs: TicketDefinition[] = [];
 try {
@@ -72,17 +70,27 @@ const genres: string[] = (current.categories?.categories ?? [])
 const description = current.shortDescription ?? '';
 const eventLocation = current.location?.name ?? (current.location?.type === 'ONLINE' ? t('cinema.online') : '');
 
-const dateTimeFmt = new Intl.DateTimeFormat(locale, {
-	weekday: 'long', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-});
-const chipFmt = new Intl.DateTimeFormat(locale, {
-	weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-});
-
-const currentStart = current.dateAndTimeSettings?.startDate;
 const onlineLink = current.onlineConferencing?.enabled ? current.onlineConferencing?.session?.guestLink : null;
 const calGoogle = current.calendarUrls?.google;
 const calIcs = current.calendarUrls?.ics;
+
+// Showtimes passed to the client picker. Drop past dates — the dropdown shows
+// only what the user could still book. The earliest future showtime is the
+// default selection unless the URL points to a specific future showtime.
+const nowMs = Date.now();
+const upcomingShowtimes = siblings
+	.map(e => ({
+		eventId: e._id ?? '',
+		eventSlug: e.slug ?? '',
+		startMs: new Date(e.dateAndTimeSettings?.startDate ?? 0).getTime(),
+	}))
+	.filter(s => s.eventId && s.startMs >= nowMs)
+	.sort((a, b) => a.startMs - b.startMs);
+
+const currentEventIsUpcoming = upcomingShowtimes.some(s => s.eventId === current._id);
+const initialEventId = currentEventIsUpcoming
+	? current._id!
+	: upcomingShowtimes[0]?.eventId ?? current._id!;
 
 function genreBadgeClass(genre: string): string {
 	const map: Record<string, string> = {
@@ -91,13 +99,6 @@ function genreBadgeClass(genre: string): string {
 		'adventure': 'genre-adventure', 'family': 'genre-family',
 	};
 	return map[genre.toLowerCase()] || 'genre-default';
-}
-
-function slugOf(ev: Event): string {
-	return ev.slug
-		?? ev.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-		?? ev._id
-		?? '';
 }
 ---
 
@@ -130,12 +131,6 @@ function slugOf(ev: Event): string {
 							<span>{eventLocation}</span>
 						</div>
 					)}
-					{currentStart && (
-						<div class="movie-row">
-							<span class="movie-row-icon">🕒</span>
-							<span>{dateTimeFmt.format(new Date(currentStart))}</span>
-						</div>
-					)}
 					{onlineLink && (
 						<div class="movie-row">
 							<span class="movie-row-icon">🎥</span>
@@ -151,48 +146,13 @@ function slugOf(ev: Event): string {
 				</div>
 			</div>
 
-			{showtimes.length > 1 && (
-				<div class="booking-section">
-					<h2 class="booking-section-title">{t('cinema.selectShowtime')}</h2>
-					{showtimes.length > 5 ? (
-						<select
-							class="showtime-select"
-							onchange="if(this.value)window.location.href=this.value"
-						>
-							{showtimes.map(({ ev, startMs }) => (
-								<option
-									value={getRelativeLocaleUrl(`/cinema/${slugOf(ev)}`)}
-									selected={ev._id === current._id}
-								>
-									{chipFmt.format(new Date(startMs))}
-								</option>
-							))}
-						</select>
-					) : (
-						<div class="showtime-chips">
-							{showtimes.map(({ ev, startMs }) => {
-								const active = ev._id === current._id;
-								return (
-									<a
-										href={getRelativeLocaleUrl(`/cinema/${slugOf(ev)}`)}
-										class={`showtime-chip ${active ? 'active' : ''}`}
-									>
-										{chipFmt.format(new Date(startMs))}
-									</a>
-								);
-							})}
-						</div>
-					)}
-				</div>
-			)}
-
 			<div class="booking-section">
 				<h2 class="booking-section-title">{t('cinema.buyTickets')}</h2>
 				<TicketPicker
-					eventId={current._id!}
-					eventSlug={current.slug ?? slug ?? ''}
 					eventTitle={current.title ?? ''}
-					tickets={ticketDefs}
+					showtimes={upcomingShowtimes}
+					initialEventId={initialEventId}
+					initialTickets={ticketDefs}
 					locale={locale}
 					client:load
 				/>
@@ -293,46 +253,6 @@ function slugOf(ev: Event): string {
 		color: var(--accent);
 		letter-spacing: 2px;
 		margin-bottom: 20px;
-	}
-
-	.showtime-chips { display: flex; flex-wrap: wrap; gap: 10px; }
-	.showtime-chip {
-		padding: 10px 16px;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 999px;
-		font-family: var(--font-heading);
-		font-size: 0.85rem; letter-spacing: 0.5px;
-		color: var(--text-secondary);
-		transition: all 0.15s;
-	}
-	.showtime-chip:hover { border-color: var(--accent); color: var(--accent); }
-	.showtime-chip.active {
-		background: var(--accent); color: #000; border-color: var(--accent);
-	}
-	.showtime-select {
-		appearance: none;
-		-webkit-appearance: none;
-		padding: 12px 40px 12px 16px;
-		background: var(--bg-card);
-		border: 1px solid var(--border-card);
-		border-radius: 10px;
-		font-family: var(--font-heading);
-		font-size: 0.9rem; letter-spacing: 0.5px;
-		color: var(--text-primary);
-		min-width: 280px; max-width: 100%;
-		cursor: pointer;
-		transition: border-color 0.15s;
-		background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ff6600'%3e%3cpath d='M3 6l5 5 5-5z'/%3e%3c/svg%3e");
-		background-repeat: no-repeat;
-		background-position: right 12px center;
-		background-size: 16px;
-	}
-	.showtime-select:hover { border-color: var(--accent); }
-	.showtime-select:focus { outline: none; border-color: var(--accent); }
-	:global(html[dir="rtl"]) .showtime-select {
-		padding: 12px 16px 12px 40px;
-		background-position: left 12px center;
 	}
 
 	@media (max-width: 780px) {
