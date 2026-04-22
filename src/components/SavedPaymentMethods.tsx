@@ -66,8 +66,8 @@ export default function SavedPaymentMethodsPanel({
     try {
       await savedPaymentMethods.deleteSavedPaymentMethod(id);
       setMethods((prev) => prev.filter((m) => m._id !== id));
-    } catch (e: any) {
-      setError(e.message || t("payment.failedDelete"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("payment.failedDelete"));
     } finally {
       setLoading(null);
     }
@@ -79,8 +79,8 @@ export default function SavedPaymentMethodsPanel({
     try {
       await savedPaymentMethods.markSavedPaymentMethodPrimary(id);
       setMethods((prev) => prev.map((m) => ({ ...m, primary: m._id === id })));
-    } catch (e: any) {
-      setError(e.message || t("payment.failedUpdate"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("payment.failedUpdate"));
     } finally {
       setLoading(null);
     }

@@ -7,14 +7,19 @@ import { getImageUrl } from "../../utils/image";
 import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
-const servicesResult = (await services.queryServices({})) as any;
-const allServices = (
-  (servicesResult.services || servicesResult.items || []) as any[]
-).filter((s: any) => s.onlineBooking?.enabled && !s.hidden);
+type Service = services.Service;
+type StaffMember = staffMembers.StaffMember;
 
-const staffResult = (await staffMembers.queryStaffMembers({})) as any;
-const allStaff = (staffResult.staffMembers || staffResult.items || []) as any[];
-const staffMap = new Map(allStaff.map((s: any) => [s.resourceId, s]));
+const servicesResult = await services.queryServices().find();
+const allServices: Service[] = (servicesResult.items ?? []).filter(
+  (s) => s.onlineBooking?.enabled && !s.hidden,
+);
+
+const staffResult = await staffMembers.queryStaffMembers().find();
+const allStaff: StaffMember[] = staffResult.items ?? [];
+const staffMap = new Map<string, StaffMember>(
+  allStaff.flatMap((s) => (s.resourceId ? [[s.resourceId, s] as const] : [])),
+);
 
 const serviceIcons: Record<string, string> = {
   "General Wellness Check": "🩺",
@@ -49,14 +54,8 @@ const roleEmojis: Record<string, string> = {
         <h2 class="subsection-title">{t("bookings.ourMedicalStaff")}</h2>
         <div class="staff-grid">
           {
-            allStaff.map((staff: any) => {
-              const staffImg = getImageUrl(
-                typeof staff.mainMedia?.image === "string"
-                  ? staff.mainMedia.image
-                  : staff.mainMedia?.image?.id || staff.mainMedia?.image?.url,
-                200,
-                200,
-              );
+            allStaff.map((staff) => {
+              const staffImg = getImageUrl(staff.mainMedia?.image, 200, 200);
               return (
                 <div class="staff-card">
                   <div class="staff-avatar">
@@ -84,20 +83,17 @@ const roleEmojis: Record<string, string> = {
       <h2 class="subsection-title">{t("bookings.availableServices")}</h2>
       <div class="services-grid">
         {
-          allServices.map((service: any) => {
+          allServices.map((service) => {
             const duration =
               service.schedule?.availabilityConstraints?.sessionDurations?.[0];
             const staffIds = service.staffMemberIds || [];
-            const serviceStaff = staffIds
+            const serviceStaff: StaffMember[] = staffIds
               .map((id: string) => staffMap.get(id))
-              .filter(Boolean);
+              .filter((s): s is StaffMember => !!s);
             const slug = service.mainSlug?.name || service._id;
             const icon = serviceIcons[service.name || ""] || "🏥";
-            const svcMediaImg = service.media?.mainMedia?.image;
             const serviceImg = getImageUrl(
-              typeof svcMediaImg === "string"
-                ? svcMediaImg
-                : svcMediaImg?.id || svcMediaImg?.url,
+              service.media?.mainMedia?.image,
               700,
               400,
             );
@@ -142,9 +138,9 @@ const roleEmojis: Record<string, string> = {
                     )}
                   </div>
                   <div class="service-staff">
-                    {serviceStaff.map((s: any) => (
+                    {serviceStaff.map((s) => (
                       <span class="staff-tag">
-                        {roleEmojis[s!.name || ""] || "🐱"} {s!.name}
+                        {roleEmojis[s.name || ""] || "🐱"} {s.name}
                       </span>
                     ))}
                   </div>

@@ -12,22 +12,25 @@ import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 const locale = i18n.getLocale();
 
+type Service = services.Service;
+type StaffMember = staffMembers.StaffMember;
+
 const { slug } = Astro.params;
 
-const servicesResult = (await services.queryServices({})) as any;
-const allServices = (servicesResult.services ||
-  servicesResult.items ||
-  []) as any[];
-const service = allServices.find((s: any) => s.mainSlug?.name === slug);
+const servicesResult = await services.queryServices().find();
+const allServices: Service[] = servicesResult.items ?? [];
+const service = allServices.find((s) => s.mainSlug?.name === slug);
 
 if (!service) return Astro.redirect("/bookings");
 
-const staffResult = (await staffMembers.queryStaffMembers({})) as any;
-const allStaff = (staffResult.staffMembers || staffResult.items || []) as any[];
-const staffMap = new Map(allStaff.map((s: any) => [s.resourceId, s]));
-const serviceStaff = (service.staffMemberIds || [])
-  .map((id: string) => staffMap.get(id))
-  .filter(Boolean);
+const staffResult = await staffMembers.queryStaffMembers().find();
+const allStaff: StaffMember[] = staffResult.items ?? [];
+const staffMap = new Map<string, StaffMember>(
+  allStaff.flatMap((s) => (s.resourceId ? [[s.resourceId, s] as const] : [])),
+);
+const serviceStaff: StaffMember[] = (service.staffMemberIds || [])
+  .map((id) => staffMap.get(id))
+  .filter((s): s is StaffMember => !!s);
 
 let loggedIn = false;
 try {
@@ -48,14 +51,7 @@ const serviceIcons: Record<string, string> = {
   "Holistic Wellness Program": "🧘",
 };
 const icon = serviceIcons[service.name || ""] || "🏥";
-const svcMediaImg = service.media?.mainMedia?.image;
-const serviceImg = getImageUrl(
-  typeof svcMediaImg === "string"
-    ? svcMediaImg
-    : svcMediaImg?.id || svcMediaImg?.url,
-  900,
-  400,
-);
+const serviceImg = getImageUrl(service.media?.mainMedia?.image, 900, 400);
 
 const roleEmojis: Record<string, string> = {
   "Dr. Whiskerstein": "👨‍⚕️",
@@ -64,21 +60,13 @@ const roleEmojis: Record<string, string> = {
   "Dr. Luna Clawdia": "👩‍⚕️",
 };
 
-const staffForClient = serviceStaff.map((s: any) => {
-  const sMediaImg = s.mainMedia?.image;
+const staffForClient = serviceStaff.map((s) => {
   return {
-    id: s!.resourceId || "",
-    name: s!.name || "",
-    description: s!.description || "",
-    emoji: roleEmojis[s!.name || ""] || "🐱",
-    imageUrl:
-      getImageUrl(
-        typeof sMediaImg === "string"
-          ? sMediaImg
-          : sMediaImg?.id || sMediaImg?.url,
-        100,
-        100,
-      ) || "",
+    id: s.resourceId || "",
+    name: s.name || "",
+    description: s.description || "",
+    emoji: roleEmojis[s.name || ""] || "🐱",
+    imageUrl: getImageUrl(s.mainMedia?.image, 100, 100) || "",
   };
 });
 
@@ -162,26 +150,20 @@ const seoTags = seoResult.seoTags?.tags || [];
             <h3>{t("bookings.staff")}</h3>
             <div class="staff-list">
               {
-                serviceStaff.map((s: any) => {
-                  const sImg = getImageUrl(
-                    typeof s.mainMedia?.image === "string"
-                      ? s.mainMedia.image
-                      : s.mainMedia?.image?.id || s.mainMedia?.image?.url,
-                    100,
-                    100,
-                  );
+                serviceStaff.map((s) => {
+                  const sImg = getImageUrl(s.mainMedia?.image, 100, 100);
                   return (
                     <div class="staff-item">
                       {sImg ? (
                         <img src={sImg} alt={s.name} class="staff-photo" />
                       ) : (
                         <span class="staff-emoji">
-                          {roleEmojis[s!.name || ""] || "🐱"}
+                          {roleEmojis[s.name || ""] || "🐱"}
                         </span>
                       )}
                       <div>
-                        <div class="staff-name">{s!.name}</div>
-                        <div class="staff-desc">{s!.description}</div>
+                        <div class="staff-name">{s.name}</div>
+                        <div class="staff-desc">{s.description}</div>
                       </div>
                     </div>
                   );

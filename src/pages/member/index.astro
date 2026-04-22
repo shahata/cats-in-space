@@ -38,18 +38,23 @@ if (!member)
     `/api/auth/login?returnToUrl=${encodeURIComponent("/member")}`,
   );
 
-let myOrders: Record<string, any>[] = [];
+// `priceDetails` / `pausePeriods` are still returned at runtime but the Order
+// type exposes them as the newer `pricing` shape; widen locally for rendering.
+type PlanOrder = orders.Order & {
+  priceDetails?: orders.PriceDetails;
+  pausePeriods?: orders.PausePeriod[];
+};
+let myOrders: PlanOrder[] = [];
 try {
-  const result = (await orders.memberListOrders()) as {
-    orders?: Record<string, any>[];
-  };
+  const result = await orders.memberListOrders();
   const today = new Date().toISOString().split("T")[0]!;
-  myOrders = (result.orders || []).filter(
+  myOrders = ((result.orders || []) as PlanOrder[]).filter(
     (o) =>
       o.status !== "DRAFT" &&
       !(
         o.endDate &&
-        new Date(o.endDate as string).toISOString().split("T")[0]! < today
+        new Date(o.endDate as unknown as string).toISOString().split("T")[0]! <
+          today
       ),
   );
 } catch {}
@@ -86,7 +91,8 @@ const storeOrders = (storeOrdersResult?.orders || []).filter(
   (o) => o.status !== "INITIALIZED",
 );
 
-let paymentMethodsList: any[] = [];
+type SavedPaymentMethod = savedPaymentMethods.SavedPaymentMethod;
+let paymentMethodsList: SavedPaymentMethod[] = [];
 try {
   const pmResult = await savedPaymentMethods.listSavedPaymentMethods({
     siteMemberId: member._id!,
@@ -357,7 +363,7 @@ const tabs = [
                   const sub = order.priceDetails?.subscription;
                   const cycleDuration = sub?.cycleDuration;
                   const cycleLabel = cycleDuration
-                    ? `${t("plans.every")} ${cycleDuration.count > 1 ? cycleDuration.count + " " : ""}${t(cyclePeriodKey(cycleDuration.unit || ""))}`
+                    ? `${t("plans.every")} ${(cycleDuration.count ?? 1) > 1 ? cycleDuration.count + " " : ""}${t(cyclePeriodKey(cycleDuration.unit || ""))}`
                     : null;
                   const paymentStatus = order.lastPaymentStatus;
                   const cancellation = order.cancellation;
@@ -389,7 +395,7 @@ const tabs = [
                           >
                             {order.autoRenewCanceled
                               ? t("status.canceling")
-                              : ts(order.status)}
+                              : ts(order.status ?? "")}
                           </span>
                         </div>
                       </div>
@@ -468,16 +474,17 @@ const tabs = [
                             <span class="sub-detail-value">{endDate}</span>
                           </div>
                         )}
-                        {order.currentCycle && order.currentCycle.index > 0 && (
-                          <div class="sub-detail">
-                            <span class="sub-detail-label">
-                              {t("member.billingCycle")}
-                            </span>
-                            <span class="sub-detail-value">
-                              #{order.currentCycle.index}
-                            </span>
-                          </div>
-                        )}
+                        {order.currentCycle &&
+                          (order.currentCycle.index ?? 0) > 0 && (
+                            <div class="sub-detail">
+                              <span class="sub-detail-label">
+                                {t("member.billingCycle")}
+                              </span>
+                              <span class="sub-detail-value">
+                                #{order.currentCycle.index}
+                              </span>
+                            </div>
+                          )}
                         {paymentStatus && (
                           <div class="sub-detail">
                             <span class="sub-detail-label">
@@ -525,24 +532,19 @@ const tabs = [
                         </div>
                       )}
 
-                      {order.pausePeriods?.length > 0 && (
+                      {order.pausePeriods && order.pausePeriods.length > 0 && (
                         <div class="sub-pauses">
                           <span class="sub-detail-label">
                             {t("member.pauseHistory")}
                           </span>
-                          {order.pausePeriods.map(
-                            (p: {
-                              pauseDate?: string;
-                              resumeDate?: string;
-                            }) => (
-                              <span class="sub-detail-value">
-                                {fmt(String(p.pauseDate))} —{" "}
-                                {p.resumeDate
-                                  ? fmt(String(p.resumeDate))
-                                  : t("member.ongoing")}
-                              </span>
-                            ),
-                          )}
+                          {order.pausePeriods.map((p) => (
+                            <span class="sub-detail-value">
+                              {fmt(String(p.pauseDate))} —{" "}
+                              {p.resumeDate
+                                ? fmt(String(p.resumeDate))
+                                : t("member.ongoing")}
+                            </span>
+                          ))}
                         </div>
                       )}
 

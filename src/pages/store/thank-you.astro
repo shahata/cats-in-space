@@ -10,11 +10,10 @@ const orderId = Astro.url.searchParams.get("orderId");
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
-let order: Record<string, any> | null = null;
+let order: ecomOrders.Order | null = null;
 if (orderId) {
   try {
-    const result = await ecomOrders.getOrder(orderId);
-    order = result as Record<string, any>;
+    order = (await ecomOrders.getOrder(orderId)) ?? null;
   } catch {}
 }
 
@@ -42,7 +41,7 @@ const fmt = (amount: number, currency: string) =>
                   #{order.number || orderId?.slice(-8)}
                 </span>
               </div>
-              {order.priceSummary?.total && order.currency && (
+              {order.priceSummary?.total?.amount && order.currency && (
                 <div>
                   <span class="ty-label">{t("store.total")}</span>
                   <span class="ty-value ty-total">
@@ -55,47 +54,45 @@ const fmt = (amount: number, currency: string) =>
               )}
             </div>
 
-            {order.lineItems?.length > 0 && (
+            {order.lineItems && order.lineItems.length > 0 && (
               <div class="ty-items">
-                {order.lineItems.map(
-                  (li: {
-                    image?: string;
-                    productName?: { translated?: string; original?: string };
-                    quantity?: number;
-                    price?: { formattedAmount?: string };
-                  }) => {
-                    const img = getImageUrl(li.image, 80, 80);
-                    return (
-                      <div class="ty-item">
-                        <div class="ty-item-img">
-                          {img ? (
-                            <img
-                              src={img}
-                              alt={
-                                li.productName?.translated ||
-                                li.productName?.original
-                              }
-                            />
-                          ) : (
-                            <span>&#128049;</span>
-                          )}
+                {order.lineItems.map((li) => {
+                  const img = getImageUrl(
+                    typeof li.image === "string" ? li.image : undefined,
+                    80,
+                    80,
+                  );
+                  return (
+                    <div class="ty-item">
+                      <div class="ty-item-img">
+                        {img ? (
+                          <img
+                            src={img}
+                            alt={
+                              li.productName?.translated ||
+                              li.productName?.original ||
+                              ""
+                            }
+                          />
+                        ) : (
+                          <span>&#128049;</span>
+                        )}
+                      </div>
+                      <div class="ty-item-info">
+                        <div class="ty-item-name">
+                          {li.productName?.translated ||
+                            li.productName?.original}
                         </div>
-                        <div class="ty-item-info">
-                          <div class="ty-item-name">
-                            {li.productName?.translated ||
-                              li.productName?.original}
-                          </div>
-                          <div class="ty-item-qty">
-                            {t("store.qty")}: {li.quantity}
-                          </div>
-                        </div>
-                        <div class="ty-item-price">
-                          {li.price?.formattedAmount}
+                        <div class="ty-item-qty">
+                          {t("store.qty")}: {li.quantity}
                         </div>
                       </div>
-                    );
-                  },
-                )}
+                      <div class="ty-item-price">
+                        {li.price?.formattedAmount}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 

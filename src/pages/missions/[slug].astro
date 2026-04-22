@@ -7,6 +7,13 @@ import { getImageUrl } from "../../utils/image";
 import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
+interface CrewItem {
+  slug?: string;
+  name?: string;
+  role?: string;
+  image?: string;
+}
+
 const { slug } = Astro.params;
 const result = await items
   .query("Missions")
@@ -114,7 +121,7 @@ function getStatusBadge(status: string) {
                   {t("missions.crew")} ({mission.crew.length})
                 </h3>
                 <div class="crew-list">
-                  {mission.crew.map((cat: any) => (
+                  {mission.crew.map((cat: CrewItem) => (
                     <a href={`/crew/${cat.slug}`} class="crew-member">
                       {getImageUrl(cat.image, 40, 40) ? (
                         <img

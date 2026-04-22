@@ -7,6 +7,13 @@ import { getImageUrl } from "../../utils/image";
 import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
+interface CrewItem {
+  slug?: string;
+  name?: string;
+  role?: string;
+  image?: string;
+}
+
 const result = await items
   .query("Missions")
   .include("planetRef", "crew")
@@ -114,7 +121,7 @@ const sorted = [...missions].sort(
                     <div class="crew-section">
                       <span class="meta-label">{t("missions.crew")}</span>
                       <div class="crew-stack">
-                        {mission.crew.map((cat: any, i: number) => (
+                        {mission.crew.map((cat: CrewItem, i: number) => (
                           <a
                             href={`/crew/${cat.slug}`}
                             class="crew-pip"

@@ -10,14 +10,16 @@ const orderId = Astro.url.searchParams.get("orderId");
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
-let order: Record<string, any> | null = null;
+// `priceDetails` is still returned at runtime but isn't on the typed Order
+// (the SDK exposes only the newer `pricing` shape). Widen locally.
+type PlanOrder = orders.Order & {
+  priceDetails?: orders.PriceDetails;
+  freeTrialDays?: number | null;
+};
+let order: PlanOrder | null = null;
 if (orderId) {
   try {
-    const result = (await orders.memberGetOrder(orderId)) as Record<
-      string,
-      any
-    >;
-    order = result?.order ?? null;
+    order = ((await orders.memberGetOrder(orderId)) as PlanOrder) ?? null;
   } catch {}
 }
 
@@ -53,7 +55,8 @@ const fmt = (amount: number, currency: string) =>
                         ? fmt(
                             parseFloat(
                               order.priceDetails.total ||
-                                order.priceDetails.planPrice,
+                                order.priceDetails.planPrice ||
+                                "0",
                             ),
                             order.priceDetails.currency,
                           )
@@ -72,7 +75,8 @@ const fmt = (amount: number, currency: string) =>
                 <span class="ty-label">{t("plans.billing")}</span>
                 <span class="ty-detail-value">
                   {t("plans.every")}{" "}
-                  {order.priceDetails.subscription.cycleDuration.count > 1
+                  {(order.priceDetails.subscription.cycleDuration.count ?? 1) >
+                  1
                     ? order.priceDetails.subscription.cycleDuration.count + " "
                     : ""}
                   {t(
@@ -84,7 +88,7 @@ const fmt = (amount: number, currency: string) =>
               </div>
             )}
 
-            {order.freeTrialDays > 0 && (
+            {(order.freeTrialDays ?? 0) > 0 && (
               <div class="ty-detail">
                 <span class="ty-label">{t("plans.freeTrial")}</span>
                 <span class="ty-detail-value">
