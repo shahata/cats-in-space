@@ -18,7 +18,8 @@
     "language": "שפה",
     "explore": "חקור",
     "facilities": "מתקנים",
-    "research": "מימון מחקר"
+    "research": "מימון מחקר",
+    "toggleMenu": "פתח/סגור תפריט"
   },
   "home": {
     "ticker": "מבזק: ארגז החול של כדור הארץ הוכרז כמלא...",
@@ -44,7 +45,8 @@
     "allMissions": "כל המשימות",
     "quote": "צעד קטן לחתול, קפיצת ענק לחתוליות.",
     "quoteAuthor": "קפטן שפם, לפני השיגור הראשון",
-    "exploreShip": "סיור בספינה"
+    "exploreShip": "סיור בספינה",
+    "titleTagline": "מחפשים בית חדש בין הכוכבים"
   },
   "aboard": {
     "pageTitle": "על סיפון ה-SS Scratching Post",
@@ -157,7 +159,8 @@
     "commentsDisabled": "תגובות מושבתות לפוסט זה.",
     "loginRequired": "נדרשת התחברות",
     "loginToComment": "יש להתחבר כדי להשאיר שידור.",
-    "loginSignUp": "התחברות / הרשמה"
+    "loginSignUp": "התחברות / הרשמה",
+    "pinnedLabel": "מוצמד"
   },
   "store": {
     "pageTitle": "מחסן הציוד של חתולי החלל",
@@ -222,7 +225,8 @@
     "discount": "הנחה",
     "estimatedTotal": "סה\"כ משוער",
     "redirecting": "מפנה...",
-    "checkout": "לתשלום"
+    "checkout": "לתשלום",
+    "openCart": "פתח עגלה"
   },
   "footer": {
     "copyright": "חתולים בחלל © {{year}}",
@@ -330,7 +334,8 @@
     "processingBuy": "מעבד...",
     "backInStockText": "רוצים לדעת כשזה חוזר? הזינו את האימייל שלכם:",
     "notifyMe": "עדכנו אותי",
-    "backInStockDone": "נשלח לכם אימייל כשהמוצר יחזור!"
+    "backInStockDone": "נשלח לכם אימייל כשהמוצר יחזור!",
+    "emailPlaceholder": "your@email.com"
   },
   "premium": {
     "membersOnly": "תוכן זה מיועד לחברי צוות בלבד",
@@ -344,7 +349,9 @@
     "setPrimary": "הגדירו כראשי",
     "remove": "הסירו",
     "noSavedMethods": "אין אמצעי תשלום שמורים.",
-    "savedDuringCheckout": "אמצעי תשלום נשמרים בעת התשלום."
+    "savedDuringCheckout": "אמצעי תשלום נשמרים בעת התשלום.",
+    "primary": "ראשי",
+    "expPrefix": "תפוגה"
   },
   "cancelSub": {
     "confirm": "בטוחים שברצונכם לבטל מנוי זה?",
@@ -505,7 +512,10 @@
     "confirmCancelAppointment": "בטוחים שברצונכם לבטל תור זה?",
     "retry": "נסו שוב",
     "noProductsYet": "עדיין אין מוצרים. בדקו שוב בקרוב!",
-    "outOfStock": "אזל מהמלאי"
+    "outOfStock": "אזל מהמלאי",
+    "close": "סגור",
+    "decrease": "הפחת",
+    "increase": "הוסף"
   },
   "restaurant": {
     "pageTitle": "המטבח הקוסמי",

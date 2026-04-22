@@ -1047,7 +1047,7 @@ export default function MenuOrderView({ sections, currency, operationId, busines
                 <img src={modalItem.image} alt={modalItem.name} />
               </div>
             )}
-            <button type="button" className="mov-modal-close" onClick={closeModal} aria-label="Close">×</button>
+            <button type="button" className="mov-modal-close" onClick={closeModal} aria-label={t('common.close')}>×</button>
             <div className="mov-modal-body">
               <h3 className="mov-modal-title">{modalItem.name}</h3>
               {modalItem.description && <p className="mov-modal-desc">{modalItem.description}</p>}

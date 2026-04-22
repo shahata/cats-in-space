@@ -18,7 +18,8 @@
     "language": "Language",
     "explore": "Explore",
     "facilities": "Facilities",
-    "research": "Research Funding"
+    "research": "Research Funding",
+    "toggleMenu": "Toggle menu"
   },
   "home": {
     "ticker": "BREAKING: Earth's litter box declared full...",
@@ -44,7 +45,8 @@
     "allMissions": "ALL MISSIONS",
     "quote": "One small step for cat, one giant leap for catkind.",
     "quoteAuthor": "Captain Whiskers, before the first launch",
-    "exploreShip": "Explore the Ship"
+    "exploreShip": "Explore the Ship",
+    "titleTagline": "Finding a New Home Among the Stars"
   },
   "aboard": {
     "pageTitle": "Aboard the SS Scratching Post",
@@ -157,7 +159,8 @@
     "commentsDisabled": "Comments are disabled for this post.",
     "loginRequired": "Login Required",
     "loginToComment": "You need to be logged in to leave a transmission.",
-    "loginSignUp": "Log In / Sign Up"
+    "loginSignUp": "Log In / Sign Up",
+    "pinnedLabel": "Pinned"
   },
   "store": {
     "pageTitle": "Space Cat Supply Depot",
@@ -222,7 +225,8 @@
     "discount": "Discount",
     "estimatedTotal": "Estimated Total",
     "redirecting": "Redirecting...",
-    "checkout": "Checkout"
+    "checkout": "Checkout",
+    "openCart": "Open cart"
   },
   "footer": {
     "copyright": "CATS IN SPACE © {{year}}",
@@ -330,7 +334,8 @@
     "processingBuy": "Processing...",
     "backInStockText": "Want to know when this is back? Enter your email:",
     "notifyMe": "Notify Me",
-    "backInStockDone": "We'll email you when it's back!"
+    "backInStockDone": "We'll email you when it's back!",
+    "emailPlaceholder": "your@email.com"
   },
   "premium": {
     "membersOnly": "This content is for crew members only",
@@ -344,7 +349,9 @@
     "setPrimary": "Set Primary",
     "remove": "Remove",
     "noSavedMethods": "No saved payment methods.",
-    "savedDuringCheckout": "Payment methods are saved during checkout."
+    "savedDuringCheckout": "Payment methods are saved during checkout.",
+    "primary": "Primary",
+    "expPrefix": "Exp"
   },
   "cancelSub": {
     "confirm": "Are you sure you want to cancel this subscription?",
@@ -505,7 +512,10 @@
     "confirmCancelAppointment": "Are you sure you want to cancel this appointment?",
     "retry": "Retry",
     "noProductsYet": "No products available yet. Check back soon!",
-    "outOfStock": "Out of Stock"
+    "outOfStock": "Out of Stock",
+    "close": "Close",
+    "decrease": "Decrease",
+    "increase": "Increase"
   },
   "restaurant": {
     "pageTitle": "The Cosmic Kitchen",

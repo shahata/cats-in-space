@@ -473,7 +473,7 @@ export default function ProductActions({ product }: Props) {
                 <input
                   type="email"
                   className="pa-bis-input"
-                  placeholder="your@email.com"
+                  placeholder={t('product.emailPlaceholder')}
                   value={bisEmail}
                   onChange={(e) => setBisEmail(e.target.value)}
                 />

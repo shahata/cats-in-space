@@ -235,9 +235,9 @@ export default function TicketPicker({
 									/>
 								) : (
 									<div className="tp-qty">
-										<button type="button" className="tp-qty-btn" onClick={() => dec(name)} disabled={qty === 0} aria-label="decrease">−</button>
+										<button type="button" className="tp-qty-btn" onClick={() => dec(name)} disabled={qty === 0} aria-label={t('common.decrease')}>−</button>
 										<span className="tp-qty-val">{qty}</span>
-										<button type="button" className="tp-qty-btn" onClick={() => inc(name)} aria-label="increase">+</button>
+										<button type="button" className="tp-qty-btn" onClick={() => inc(name)} aria-label={t('common.increase')}>+</button>
 									</div>
 								)}
 							</div>

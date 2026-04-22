@@ -140,7 +140,7 @@ export default function CartSidebar() {
           setOpen(true);
           fetchCart();
         }}
-        aria-label="Open cart"
+        aria-label={t('cart.openCart')}
       >
         <svg
           width="22"

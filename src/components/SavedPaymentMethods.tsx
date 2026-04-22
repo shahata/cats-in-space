@@ -108,11 +108,11 @@ export default function SavedPaymentMethodsPanel({
                 <div style={styles.cardInfo}>
                   <span style={styles.brand}>{brandLabel}</span>
                   <span style={styles.digits}>&bull;&bull;&bull;&bull; {last4}</span>
-                  {pm.primary && <span style={styles.primaryBadge}>Primary</span>}
+                  {pm.primary && <span style={styles.primaryBadge}>{t('payment.primary')}</span>}
                 </div>
                 <div style={styles.cardMeta}>
                   {holder && <span style={styles.holder}>{holder}</span>}
-                  {exp && <span style={styles.exp}>Exp {exp}</span>}
+                  {exp && <span style={styles.exp}>{t('payment.expPrefix')} {exp}</span>}
                 </div>
               </div>
               <div style={styles.actions}>

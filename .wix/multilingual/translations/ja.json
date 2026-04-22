@@ -18,7 +18,8 @@
     "language": "言語",
     "explore": "探検",
     "facilities": "施設",
-    "research": "研究資金"
+    "research": "研究資金",
+    "toggleMenu": "メニューを切り替え"
   },
   "home": {
     "ticker": "速報：地球の猫トイレが満杯と宣言されました…",
@@ -44,7 +45,8 @@
     "allMissions": "全ミッション",
     "quote": "猫にとっての小さな一歩、猫類にとっての大きな飛躍。",
     "quoteAuthor": "ウィスカーズ船長、初打ち上げ前の言葉",
-    "exploreShip": "船内ツアー"
+    "exploreShip": "船内ツアー",
+    "titleTagline": "星々の中で新しい家を探して"
   },
   "aboard": {
     "pageTitle": "SSスクラッチングポスト号の船内へ",
@@ -157,7 +159,8 @@
     "commentsDisabled": "この投稿のコメントは無効です。",
     "loginRequired": "ログインが必要です",
     "loginToComment": "通信を送るにはログインが必要です。",
-    "loginSignUp": "ログイン / 登録"
+    "loginSignUp": "ログイン / 登録",
+    "pinnedLabel": "ピン留め"
   },
   "store": {
     "pageTitle": "宇宙猫補給デポ",
@@ -222,7 +225,8 @@
     "discount": "割引",
     "estimatedTotal": "見積もり合計",
     "redirecting": "リダイレクト中...",
-    "checkout": "チェックアウト"
+    "checkout": "チェックアウト",
+    "openCart": "カートを開く"
   },
   "footer": {
     "copyright": "宇宙猫 © {{year}}",
@@ -330,7 +334,8 @@
     "processingBuy": "処理中...",
     "backInStockText": "再入荷をお知りになりたいですか？メールを入力してください：",
     "notifyMe": "通知する",
-    "backInStockDone": "再入荷時にメールでお知らせします！"
+    "backInStockDone": "再入荷時にメールでお知らせします！",
+    "emailPlaceholder": "your@email.com"
   },
   "premium": {
     "membersOnly": "このコンテンツはクルーメンバー限定です",
@@ -344,7 +349,9 @@
     "setPrimary": "主要に設定",
     "remove": "削除",
     "noSavedMethods": "保存された支払い方法はありません。",
-    "savedDuringCheckout": "支払い方法はチェックアウト時に保存されます。"
+    "savedDuringCheckout": "支払い方法はチェックアウト時に保存されます。",
+    "primary": "メイン",
+    "expPrefix": "有効期限"
   },
   "cancelSub": {
     "confirm": "このサブスクリプションをキャンセルしてもよろしいですか？",
@@ -505,7 +512,10 @@
     "confirmCancelAppointment": "この予約をキャンセルしてもよろしいですか？",
     "retry": "再試行",
     "noProductsYet": "商品はまだありません。後でもう一度確認してください！",
-    "outOfStock": "在庫切れ"
+    "outOfStock": "在庫切れ",
+    "close": "閉じる",
+    "decrease": "減らす",
+    "increase": "増やす"
   },
   "restaurant": {
     "pageTitle": "コズミックキッチン",

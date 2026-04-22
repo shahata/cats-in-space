@@ -124,7 +124,7 @@ function getPostTags(post: Post): BlogTag[] {
 										)}
 									</div>
 									<div class="blog-title-row">
-										{post.pinned && <span class="pinned-badge" title="Pinned">&#128204;</span>}
+										{post.pinned && <span class="pinned-badge" title={t('blog.pinnedLabel')}>&#128204;</span>}
 										<h2>{post.title}</h2>
 									</div>
 									{getPostTags(post).length > 0 && (
