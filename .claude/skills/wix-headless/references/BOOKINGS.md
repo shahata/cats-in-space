@@ -113,25 +113,32 @@ Body: {
 ```typescript
 import { services, staffMembers } from '@wix/bookings';
 
-// List all services — response key is `services`, not `items`
-const result = await services.queryServices({}) as any;
-const allServices = (result.services || []) as any[];
+type Service = services.Service;
+type StaffMember = staffMembers.StaffMember;
 
-// List staff — response key is `staffMembers`, not `items`
-const staffResult = await staffMembers.queryStaffMembers({}) as any;
-const allStaff = (staffResult.staffMembers || []) as any[];
+// queryServices() / queryStaffMembers() return a QueryBuilder — you must call
+// `.find()` to execute it. `.items` is on QueryResult, not on the builder.
+const servicesResult = await services.queryServices().find();
+const allServices: Service[] = servicesResult.items ?? [];
 
-// Map resource IDs to staff
-const staffMap = new Map(allStaff.map((s: any) => [s.resourceId, s]));
+const staffResult = await staffMembers.queryStaffMembers().find();
+const allStaff: StaffMember[] = staffResult.items ?? [];
+
+// Map resource IDs to staff members
+const staffMap = new Map<string, StaffMember>(
+  allStaff.flatMap(s => (s.resourceId ? [[s.resourceId, s] as const] : [])),
+);
 ```
+
+⛔ **Breaks silently:** `await services.queryServices({})` (without `.find()`) resolves to the query **builder**, not the result. `result.services` and `result.items` are both `undefined`, so `allServices` ends up as `[]` with no error — every booking page renders empty. Casting the builder to `any` hides this. Always call `.find()` and use `result.items`.
 
 Service object key fields:
 - `service._id` — service GUID
-- `service.mainSlug.name` — URL-friendly slug
+- `service.mainSlug?.name` — URL-friendly slug
 - `service.staffMemberIds` — array of resource IDs
-- `service.schedule.availabilityConstraints.sessionDurations` — durations in minutes
-- `service.payment.rateType` — "NO_FEE", "FIXED", "VARIED", "CUSTOM"
-- `service.media.mainMedia.image` — `wix:image://` string (see `references/MEDIA.md`)
+- `service.schedule?.availabilityConstraints?.sessionDurations` — durations in minutes
+- `service.payment?.rateType === services.RateType.FIXED` — use the enum, not `"FIXED"`
+- `service.media?.mainMedia?.image` — `wix:image://` string (see `references/MEDIA.md`)
 
 ## Booking Flow (Client-Side)
 

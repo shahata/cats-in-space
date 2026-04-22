@@ -90,13 +90,21 @@ for (const r of unique) {
 ### Creating Comments & Replies
 
 ```typescript
+import { posts } from '@wix/blog';
+
+const helloNodes: posts.Node[] = [{
+  type: posts.NodeType.PARAGRAPH,
+  nodes: [{ type: posts.NodeType.TEXT, textData: { text: "Hello", decorations: [] } }],
+  paragraphData: {},
+}];
+
 // Top-level comment
 const created = await commentsApi.createComment({
   appId: BLOG_APP_ID,
   contextId: post.referenceId,
   resourceId: post.referenceId,
   author: (isLoggedIn ? {} : { authorName: "Visitor Name" }) as commentsApi.CommentAuthor,
-  content: { richContent: { nodes: [{ type: "PARAGRAPH", nodes: [{ type: "TEXT", textData: { text: "Hello", decorations: [] } }], paragraphData: {} }] } },
+  content: { richContent: { nodes: helloNodes } },
 });
 
 // Reply to a comment (same API, add parentComment)
@@ -106,7 +114,7 @@ const reply = await commentsApi.createComment({
   resourceId: post.referenceId,
   author: (isLoggedIn ? {} : { authorName: "Visitor Name" }) as commentsApi.CommentAuthor,
   parentComment: { _id: parentCommentId },
-  content: { richContent: { nodes: [...] } },
+  content: { richContent: { nodes: helloNodes } },
 });
 ```
 
@@ -119,14 +127,19 @@ const reply = await commentsApi.createComment({
 The comments API may return `PERMISSION_DENIED` if the site requires members to be logged in to comment. Handle this gracefully:
 
 ```typescript
-function isPermissionDenied(e: any): boolean {
-  return e?.details?.applicationError?.code === 'PERMISSION_DENIED' ||
-    e?.message?.includes('Permission denied');
+type WixSdkError = Error & {
+  details?: { applicationError?: { code?: string } };
+};
+
+function isPermissionDenied(e: unknown): boolean {
+  const err = e as WixSdkError | undefined;
+  return err?.details?.applicationError?.code === 'PERMISSION_DENIED' ||
+    (err instanceof Error && err.message.includes('Permission denied'));
 }
 
 try {
-  await commentsApi.createComment({ ... });
-} catch (e: any) {
+  await commentsApi.createComment({ /* ... */ });
+} catch (e) {
   if (isPermissionDenied(e)) {
     // Show login prompt instead of comment form
     setLoginRequired(true);
@@ -143,8 +156,8 @@ try {
 ```typescript
 await commentsApi.updateComment(commentId, {
   revision: comment.revision,
-  content: { richContent: { nodes: [...] } },
-} as any);
+  content: { richContent: { nodes: helloNodes } },
+});
 
 await commentsApi.deleteComment(commentId);
 ```

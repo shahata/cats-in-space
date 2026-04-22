@@ -53,13 +53,15 @@ interface Recurrence {
 ### Displaying Price
 
 ```typescript
-const priceValue = plan.pricing?.price?.value || "0";
-const currency = plan.pricing?.price?.currency || "USD";
+const priceValue = plan.pricing?.price?.value ?? "0";
+const currency = plan.pricing?.price?.currency;  // never hardcode a fallback like 'USD'
 const isFree = parseFloat(priceValue) === 0;
 const cycleDuration = plan.pricing?.subscription?.cycleDuration;
-const trialDays = plan.pricing?.freeTrialDays || 0;
-const perksList = plan.perks?.values || [];
+const trialDays = plan.pricing?.freeTrialDays ?? 0;
+const perksList = plan.perks?.values ?? [];
 ```
+
+⛔ **Breaks at runtime:** Never hardcode a currency fallback (`'USD'`, `'ILS'`, …). Currency always comes from the server. For site-wide currency, fetch `siteProperties.getSiteProperties().properties?.paymentCurrency` via `auth.elevate` and throw if missing — a silent fallback will ship the wrong price symbol to one region or another.
 
 ## Checkout Flow
 
@@ -98,11 +100,15 @@ After checkout, Wix redirects to `postFlowUrl` (or `thankYouPageUrl`) with query
 ```typescript
 import { orders } from '@wix/pricing-plans';
 
+// SDK type drift: runtime response still includes `priceDetails`, but the SDK type was renamed to `pricing`.
+// Intersect with the legacy shape so you can keep reading `priceDetails` without `as any`.
+type PlanOrder = orders.Order & { priceDetails?: orders.PriceDetails };
+
 // List current member's orders (uses member session automatically)
 const result = await orders.memberListOrders();
 const today = new Date().toISOString().split('T')[0];
-const myOrders = (result.orders || []).filter((o: any) =>
-  o.status !== 'DRAFT' &&
+const myOrders = ((result.orders ?? []) as PlanOrder[]).filter((o) =>
+  o.status !== orders.OrderStatus.DRAFT &&
   !(o.endDate && new Date(o.endDate).toISOString().split('T')[0] < today)
 );
 ```
@@ -113,41 +119,24 @@ const myOrders = (result.orders || []).filter((o: any) =>
 
 ### Order Shape
 
-```typescript
-interface Order {
-  _id?: string;
-  planId?: string;
-  planName?: string;           // denormalized plan name
-  planDescription?: string;    // denormalized plan description
-  planPrice?: string;          // denormalized plan price
-  status?: "DRAFT" | "PENDING" | "ACTIVE" | "PAUSED" | "ENDED" | "CANCELED";
-  type?: "ONLINE" | "OFFLINE";
-  autoRenewCanceled?: boolean; // true = will cancel at next payment
-  startDate?: Date | null;
-  endDate?: Date | null;
-  buyer?: { memberId?: string; contactId?: string };
-  priceDetails?: {
-    total?: string;
-    subtotal?: string;
-    discount?: string;
-    planPrice?: string;
-    currency?: string;
-    coupon?: { code?: string; amount?: string; _id?: string };
-  };
-  currentCycle?: { index?: number };
-  lastPaymentStatus?: string;
-  cancellation?: { cause?: string; effectiveAt?: string };
-}
-```
+Use `orders.Order` from `@wix/pricing-plans` directly — don't redeclare it. Key fields:
+
+- `_id`, `planId`, `planName` / `planDescription` / `planPrice` (denormalized)
+- `status` — compare against `orders.OrderStatus` (DRAFT/PENDING/ACTIVE/PAUSED/ENDED/CANCELED)
+- `lastPaymentStatus` — compare against `orders.PaymentStatus` (PAID/FAILED/REFUNDED/…)
+- `type` — `orders.OrderType.ONLINE` | `OFFLINE`
+- `autoRenewCanceled`, `startDate`, `endDate`, `currentCycle`, `buyer`
+- `cancellation.cause` — compare against `orders.CancellationCause` (OWNER_ACTION/…)
+- `priceDetails` — **runtime-only field** not declared on `orders.Order`. Use `type PlanOrder = orders.Order & { priceDetails?: orders.PriceDetails }` to read it without `any`.
 
 ### Canceling a Subscription
 
 ```typescript
 // Cancel at next payment date (recurring plans)
-await orders.requestCancellation(orderId, "NEXT_PAYMENT_DATE");
+await orders.requestCancellation(orderId, orders.CancellationEffectiveAt.NEXT_PAYMENT_DATE);
 
 // Cancel immediately (required for single-payment plans)
-await orders.requestCancellation(orderId, "IMMEDIATELY");
+await orders.requestCancellation(orderId, orders.CancellationEffectiveAt.IMMEDIATELY);
 ```
 
 **Pattern:** Try `NEXT_PAYMENT_DATE` first, fall back to `IMMEDIATELY` if it fails (single-payment plans only support immediate cancellation).
@@ -157,7 +146,7 @@ await orders.requestCancellation(orderId, "IMMEDIATELY");
 ### Other Order Operations
 
 ```typescript
-// Get specific order
+// Get specific order — returns the Order directly, NOT { order }
 const order = await orders.memberGetOrder(orderId);
 
 // Admin operations (server-side):
@@ -166,6 +155,8 @@ await orders.pauseOrder(orderId);            // pause subscription
 await orders.resumeOrder(orderId);           // resume paused subscription
 await orders.managementListOrders(options);  // list all orders (admin)
 ```
+
+⛔ **Breaks at runtime:** `memberGetOrder` returns the `Order` directly — there is no `{ order }` wrapper. `result?.order` is always `undefined`. → `const order = await orders.memberGetOrder(orderId);`
 
 ## Coupons (REST API)
 
@@ -226,8 +217,8 @@ function PlanCheckout({ planId }: { planId: string }) {
         // NOTE: do NOT use preferences.checkIfPublish for plans — only for eCommerce checkout
       });
       if (redirectSession?.fullUrl) window.location.href = redirectSession.fullUrl;
-    } catch (e: any) {
-      alert(e?.message || "Something went wrong");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -252,9 +243,9 @@ function MemberSubscriptions() {
 
   async function handleCancel(orderId: string) {
     try {
-      await orders.requestCancellation(orderId, "NEXT_PAYMENT_DATE");
+      await orders.requestCancellation(orderId, orders.CancellationEffectiveAt.NEXT_PAYMENT_DATE);
     } catch {
-      await orders.requestCancellation(orderId, "IMMEDIATELY");
+      await orders.requestCancellation(orderId, orders.CancellationEffectiveAt.IMMEDIATELY);
     }
   }
 

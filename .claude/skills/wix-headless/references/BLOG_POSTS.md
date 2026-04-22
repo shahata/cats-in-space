@@ -166,10 +166,11 @@ In the Astro page:
 "use client";
 import React from "react";
 import { quickStartViewerPlugins, RicosViewer } from "@wix/ricos";
+import type { posts } from "@wix/blog";
 import "@wix/ricos/css/all-plugins-viewer.css";
 
 const plugins = quickStartViewerPlugins();
-const RichContentViewer = ({ content }: { content: any }) => {
+const RichContentViewer = ({ content }: { content: posts.RichContent | undefined }) => {
   return <RicosViewer content={content} plugins={plugins} />;
 };
 export default RichContentViewer;

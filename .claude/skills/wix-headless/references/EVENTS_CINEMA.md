@@ -32,9 +32,18 @@ import { wixEventsV2 } from '@wix/events';
 import { auth } from '@wix/essentials';
 
 const elevatedQuery = auth.elevate(wixEventsV2.queryEvents);
-const result = await elevatedQuery({}).ne('status', 'CANCELED').limit(20).find();
-const events = result.items || [];
+const result = await elevatedQuery({
+  fields: [wixEventsV2.RequestedFields.DETAILS, wixEventsV2.RequestedFields.URLS],
+})
+  .ne('status', wixEventsV2.Status.CANCELED)
+  .limit(20)
+  .find();
+const events: wixEventsV2.V3Event[] = result.items ?? [];
 ```
+
+⚠️ **Use SDK enums, not literals.** `wixEventsV2.RequestedFields.DETAILS`, `wixEventsV2.Status.CANCELED`, etc. Literal strings still compile but silently break if the enum value is ever renamed.
+
+⚠️ **`.find()` is mandatory.** `await wixEventsV2.queryEvents({})` (without `.find()`) resolves to the query **builder**, not a result — `result.items` is `undefined` and the page renders empty with no error.
 
 **Event fields:**
 - `_id` — event ID
@@ -113,44 +122,34 @@ const reservation = await elevatedReserve({
     { ticketDefinitionId: 'vip-def-id', quantity: 2 },
     { ticketDefinitionId: 'standard-def-id', quantity: 3 },
   ],
-} as any);
+});
 
 const reservationId = reservation._id; // NOT reservationId — it's _id
 ```
 
-**GOTCHA:** The `TicketReservation` type uses `tickets` (array of `TicketLineItem`), NOT `ticketQuantities`. The returned reservation uses `_id`, not `reservationId`.
+**GOTCHA:** The `TicketReservation` payload uses `tickets` (array of `TicketLineItem`), NOT `ticketQuantities`. The returned reservation uses `_id`, not `reservationId`. If TypeScript complains about the payload shape, check the installed `@wix/events` types against the runtime — don't paper over mismatches with `as any`.
 
-### 2. Checkout
+### 2. Redirect to Wix-Hosted Checkout
 
 ```typescript
-import { orders } from '@wix/events';
+import { redirects } from '@wix/redirects';
 
-const elevatedCheckout = auth.elevate(orders.checkout);
-const result = await elevatedCheckout(eventId, {
-  reservationId: reservation._id,
-  guests: [
-    {
-      form: {
-        inputValues: [
-          { inputName: 'firstName', value: 'Jane' },
-          { inputName: 'lastName', value: 'Doe' },
-          { inputName: 'email', value: 'jane@example.com' },
-        ],
-      },
-    },
-  ],
-} as any);
+const { redirectSession } = await redirects.createRedirectSession({
+  eventsCheckout: {
+    reservationId: reservation._id!,
+    eventSlug: eventSlug,
+  },
+  callbacks: {
+    thankYouPageUrl: window.location.origin + '/cinema/thank-you',
+    postFlowUrl: window.location.origin + '/cinema',
+  },
+  preferences: { checkIfPublish: true },
+});
+
+if (redirectSession?.fullUrl) window.location.href = redirectSession.fullUrl;
 ```
 
-**Signature:** `checkout(eventId: string, options?: CheckoutOptions)` — eventId is the FIRST argument, not inside options.
-
-### 3. Redirect
-
-The checkout result may contain a payment URL. If the event is free, it completes immediately. For paid events, redirect to the payment page or use the Wix-hosted checkout form:
-
-```
-https://<site-url>/event-details/<slug>/ticket-form?reservationId=<id>
-```
+💡 **Best practice:** Use `redirects.createRedirectSession({ eventsCheckout })` instead of calling `orders.checkout` directly — the Wix-hosted checkout page handles guest forms, login, and payment in one flow. Always include `preferences: { checkIfPublish: true }` so the redirect targets the published site.
 
 ## Seating (Custom Implementation)
 
@@ -180,8 +179,9 @@ Use `window.dispatchEvent(new CustomEvent('cinema-seats-changed'))` with `window
 
 1. **SDK `createEvent()` may fail in Astro context** — use REST API via MCP for seeding events; SDK works for querying
 2. **Ticket reservation uses `_id` not `reservationId`** — the returned `TicketReservation` has `_id`
-3. **`checkout()` signature is `(eventId, options)`** — eventId is a separate first argument, not part of the options object
-4. **`createTicketReservation` takes `{ tickets: [...] }`** — not `ticketQuantities`; cast as `any` if TypeScript complains
-5. **App must be installed** — Events API returns generic "System error" without the Wix Events app installed
-6. **No built-in seating** — implement custom seat selection UI; map to ticket definition categories
-7. **Event images** — the Events API supports images but they're set via the REST API `mainImage` field, not easily via SDK
+3. **`createTicketReservation` takes `{ tickets: [...] }`** — not `ticketQuantities`. Use real types, not `as any`.
+4. **App must be installed** — Events API returns generic "System error" without the Wix Events app installed
+5. **No built-in seating** — implement custom seat selection UI; map to ticket definition categories
+6. **Event images** — the Events API supports images but they're set via the REST API `mainImage` field, not easily via SDK
+7. **Recurring sibling events need their own translations** — for cinema-style recurring screenings, each `Event._id` is a separate translatable entity. Translating one sibling does not carry over to its siblings; seed translations per-event via the Translation Content API.
+8. **Series slug = event slug with date suffix stripped** — recurring event slugs look like `movie-title-2026-04-22-19-30`. Derive the series slug with `slug.replace(/-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}(-\d+)?$/, '')` — don't slugify from `title`, which re-translates per locale. Event slugs are locale-invariant.

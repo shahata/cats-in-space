@@ -12,9 +12,9 @@ The member area is a protected section where logged-in users manage their profil
 ---
 import { members } from '@wix/members';
 
-let member: any = null;
+let member: members.Member | undefined;
 try {
-  const res = await members.getCurrentMember({ fieldsets: ['FULL'] });
+  const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
   member = res.member;
 } catch {}
 
@@ -34,29 +34,31 @@ Load everything with individual try-catch fallbacks:
 
 ```astro
 ---
-import { orders } from '@wix/pricing-plans';
-import { orders as ecomOrders } from '@wix/ecom';
+import { orders as planOrdersApi } from '@wix/pricing-plans';
+import { orders as ecomOrdersApi } from '@wix/ecom';
 import { membersAbout } from '@wix/members';
 import { savedPaymentMethods } from '@wix/payments';
 
-import type { orders as orderTypes } from '@wix/ecom';
+// SDK type drift: runtime still returns `priceDetails` but the type was renamed to `pricing`.
+// Widen with an intersection so you can keep reading the legacy field.
+type PlanOrder = planOrdersApi.Order & { priceDetails?: planOrdersApi.PriceDetails };
 
-let planOrders: orderTypes.Order[] = [];
-let storeOrders: orderTypes.Order[] = [];
+let planOrders: PlanOrder[] = [];
+let storeOrders: ecomOrdersApi.Order[] = [];
 let aboutText = '';
-let paymentMethods: any[] = [];
+let paymentMethods: savedPaymentMethods.SavedPaymentMethod[] = [];
 
-try { planOrders = (await orders.memberListOrders()).orders || []; } catch {}
+try { planOrders = ((await planOrdersApi.memberListOrders()).orders ?? []) as PlanOrder[]; } catch {}
 try {
-  const res = await ecomOrders.searchOrders({});
-  storeOrders = res.orders || [];
+  const res = await ecomOrdersApi.searchOrders({});
+  storeOrders = res.orders ?? [];
 } catch {}
 try {
   const res = await membersAbout.getMyMemberAbout();
   aboutText = extractTextFromRichContent(res.memberAbout?.content);
 } catch {}
 try {
-  paymentMethods = (await savedPaymentMethods.listSavedPaymentMethods(member._id!)).paymentMethods || [];
+  paymentMethods = (await savedPaymentMethods.listSavedPaymentMethods(member._id!)).paymentMethods ?? [];
 } catch {}
 ---
 ```
@@ -69,12 +71,16 @@ try {
 - **E-commerce orders:** Show all, sorted by date descending
 
 ```typescript
+import { orders as planOrdersApi } from '@wix/pricing-plans';
+
 const today = new Date().toISOString().split('T')[0];
-const activeOrders = planOrders.filter((o: any) =>
-  o.status !== 'DRAFT' &&
+const activeOrders = planOrders.filter((o) =>
+  o.status !== planOrdersApi.OrderStatus.DRAFT &&
   !(o.endDate && new Date(o.endDate).toISOString().split('T')[0] < today)
 );
 ```
+
+⚠️ **SDK enums, not string literals.** Compare `o.status` against `planOrdersApi.OrderStatus.DRAFT`, not `'DRAFT'`. Same rule for every status/channel/effective-at/cancellation-cause field — `orders.PaymentStatus.PAID`, `orders.CancellationCause.OWNER_ACTION`, `orders.CancellationEffectiveAt.NEXT_PAYMENT_DATE`, `currentCart.ChannelType.WEB`, `bookings.BookingStatus.CONFIRMED`, etc. Literal strings TypeScript-pass but break silently the day an enum renames a value.
 
 ## Tab Navigation
 
@@ -134,19 +140,23 @@ const res = await fetch('/api/profile-photo', { method: 'POST', body: formData }
 Member about uses rich content format. Convert between plain text (for editing) and rich content nodes (for saving):
 
 ```typescript
-// Write — convert plain text to rich content nodes
-const nodes = text.split('\n').filter(Boolean).map(line => ({
-  type: 'PARAGRAPH',
-  nodes: [{ type: 'TEXT', textData: { text: line, decorations: [] } }],
-  paragraphData: {}
+import { membersAbout } from '@wix/members';
+
+// Write — convert plain text to rich content nodes using SDK enums
+const nodes: membersAbout.Node[] = text.split('\n').filter(Boolean).map((line) => ({
+  type: membersAbout.NodeType.PARAGRAPH,
+  nodes: [{ type: membersAbout.NodeType.TEXT, textData: { text: line, decorations: [] } }],
+  paragraphData: {},
 }));
 
 if (aboutId) {
   await membersAbout.updateMemberAbout(aboutId, { content: { nodes } }, aboutRevision);
 } else {
-  await (membersAbout.createMemberAbout as Function)({ content: { nodes } }, memberId);
+  await membersAbout.createMemberAbout({ content: { nodes } }, memberId);
 }
 ```
+
+⚠️ **Use SDK NodeType enum** (`membersAbout.NodeType.PARAGRAPH`, `posts.NodeType.TEXT`, etc.) — Ricos treats unknown node types as empty, so a typo in the string `'PARAGRPH'` silently loses content with no error.
 
 ### Save Feedback
 

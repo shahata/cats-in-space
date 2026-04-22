@@ -18,7 +18,7 @@ Wix provides SEO tags (title, meta description, Open Graph, JSON-LD structured d
 
 This generates the **complete** set of SEO tags for a page, including site-level defaults, Open Graph, and JSON-LD structured data. Use this whenever the item type is supported.
 
-**Supported item types:** `STORES_PRODUCT`, `BOOKINGS_SERVICE`, `STORES_CATEGORY`
+**Supported item types:** only three — `STORES_PRODUCT`, `BOOKINGS_SERVICE`, `STORES_CATEGORY`. Source of truth: [wix-private/promote-seo `item_types.proto`](https://github.com/wix-private/promote-seo/blob/master/packages/seo-tags-service-api/src/main/proto/wix/promote/seo/tags/service/v1/item_types.proto). Passing `BLOG_POST`, `EVENTS_EVENT`, `RESTAURANTS_MENU_ITEM`, etc. — even though the SDK type allows the string — returns zero tags at runtime.
 
 ```typescript
 import { seoTags as seoTagsApi } from '@wix/seo';
@@ -26,11 +26,13 @@ import { seoTags as seoTagsApi } from '@wix/seo';
 const pageUrl = new URL(`/store/${slug}`, Astro.url).href;
 const seoResult = await seoTagsApi.resolveItemSeoTags({
   pageUrl,
-  itemType: 'STORES_PRODUCT',
+  itemType: seoTagsApi.ItemType.STORES_PRODUCT,  // ✅ enum, not 'STORES_PRODUCT' string
   slug,
 });
-const seoTags = seoResult.seoTags?.tags || [];
+const seoTags = seoResult.seoTags?.tags ?? [];
 ```
+
+⚠️ **Always use the `seoTagsApi.ItemType` enum, never the literal string.** Wix's proto is the source of truth; the SDK enum is generated from it. Comparing against or passing literal strings works today but silently breaks if the proto renames a value.
 
 ### 2. `seoData` on the item object — for other types
 
@@ -39,12 +41,21 @@ Some SDK items (e.g., blog posts) carry a `seoData` property with per-item SEO o
 ```typescript
 // Blog posts — requires the 'SEO' fieldset
 const result = await posts.getPostBySlug(slug, {
-  fieldsets: ['RICH_CONTENT', 'URL', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID', 'SEO'],
+  fieldsets: [
+    posts.PostFieldField.RICH_CONTENT,
+    posts.PostFieldField.URL,
+    posts.PostFieldField.METRICS,
+    posts.PostFieldField.CONTACT_ID,
+    posts.PostFieldField.REFERENCE_ID,
+    posts.PostFieldField.SEO,
+  ],
 });
-const seoTags = result.post?.seoData?.tags || [];
+const seoTags = result.post?.seoData?.tags ?? [];
 ```
 
-**Important:** For blog posts, you must include `'SEO'` in the `fieldsets` array — `seoData` is not returned by default.
+**Important:** For blog posts, you must include `posts.PostFieldField.SEO` in the `fieldsets` array — `seoData` is not returned by default.
+
+⚠️ **Blog `seoData.tags` today only contains JSON-LD structured data.** It does *not* emit `og:title`, `og:image`, `twitter:*`, or a canonical link. Rather than synthesising these tags manually on every blog page (they'd diverge from whatever Wix adds later), treat it as a Wix-side gap and wait for `resolveItemSeoTags` to gain `BLOG_POST` support. Don't hand-roll OG tags for blog posts in the Layout — users who click through from Slack/Twitter will see whatever Wix emits, which is currently less than perfect but will improve centrally.
 
 ### Pages without SEO support
 

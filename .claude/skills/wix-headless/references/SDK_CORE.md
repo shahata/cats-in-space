@@ -137,15 +137,17 @@ import { siteProperties } from '@wix/business-tools';
 import { auth } from '@wix/essentials';
 
 export async function getSiteCurrency(): Promise<string> {
-  try {
-    const elevated = auth.elevate(siteProperties.getSiteProperties);
-    const res = await elevated();
-    return res.properties?.paymentCurrency || 'USD';
-  } catch {
-    return 'USD';
+  const elevated = auth.elevate(siteProperties.getSiteProperties);
+  const res = await elevated();
+  const currency = res.properties?.paymentCurrency;
+  if (!currency) {
+    throw new Error('Site paymentCurrency is not configured in Wix Site Properties.');
   }
+  return currency;
 }
 ```
+
+⛔ **Never fall back to a hardcoded currency string.** The try/catch-returns-`'USD'` pattern silently ships the wrong symbol for every site that isn't USD. Let the call throw — configuration gaps should surface as errors, not as incorrect prices.
 
 `siteProperties.getSiteProperties()` returns `{ properties: { paymentCurrency, language, timeZone, ... } }`. Use this from any Astro page (server-side) to get an ISO-4217 currency code, then pass it to `Intl.NumberFormat` — or through a prop to React components that format computed totals.
 
@@ -177,6 +179,11 @@ These are the most common runtime failures. Each is explained because understand
 | `updateX({ entity: {...original, foo: 'bar'} })` → `INVALID_FIELD_MASK: … UNKNOWN` with many read-only paths listed | Spreading a full response object into an update call tells the server to write every field — including read-only/computed ones. Pass ONLY the delta sub-tree (`{ entity: { subtree: { foo: 'bar' } } }`) |
 | `auth.elevate(sdkFn)` loses SDK type overloads and turns later calls into `(httpClient: HttpClient)` instead of the real signature | The elevate wrapper has a second overload for REST-module registration that TS sometimes picks. Cast to the real signature: `const createX = auth.elevate(mod.createX) as (input: X, opts?: CreateXOptions) => Promise<X>;` |
 | Client-hydrated component (`client:load`) silently fails to hydrate after SDK edits — buttons dead, no visible error | Stale Vite optimize-dep cache (`504 Outdated Optimize Dep` in console). Fix: `rm -rf node_modules/.vite && restart dev`. Only bites dev — prod builds are fine |
+| `await services.queryServices({})` (or any `queryX()`) without `.find()` resolves to the **query builder**, not the result. `result.items` / `result.services` / `result.orders` are all `undefined`, downstream list is empty | Query methods return a builder. `.find()` (or the two-argument form `queryX(query, options)`) is what actually executes. Missing it is a silent empty-render bug — no TypeScript error because builders accept `.then()` via the Promise interface |
+| `orders.memberGetOrder(id)` returns the `Order` directly, not `{ order }` | `result?.order` is always `undefined`. Destructure: `const order = await orders.memberGetOrder(id);` |
+| `orders.Order` (pricing-plans) has no `priceDetails` in the types, but runtime still returns it | SDK type renamed the field to `pricing`; backend wasn't updated. Widen via intersection: `type PlanOrder = orders.Order & { priceDetails?: orders.PriceDetails }` — do **not** reach for `any` |
+| Comparing status/enum fields against string literals (`o.status !== 'DRAFT'`, `channelType: 'WEB'`) | Literal strings compile but silently break the day Wix renames an enum value. Use SDK enums: `orders.OrderStatus.DRAFT`, `currentCart.ChannelType.WEB`, `bookings.BookingStatus.CONFIRMED`, `posts.NodeType.PARAGRAPH`, `wixEventsV2.RequestedFields.DETAILS`, `seoTagsApi.ItemType.STORES_PRODUCT`, etc. If your IDE can't autocomplete the value, the namespace probably lives one level deeper — check the SDK source |
+| `auth.elevate(fn)` strips the caller's locale | It does **not**. Both the elevated and non-elevated clients share the same `hostProxy` from `authAsyncLocalStorage`, which carries the request-level locale/language. `auth.elevate` only swaps the identity to app-level; `x-wix-linguist` stays intact. Don't re-attach the locale manually on elevated calls |
 
 💡 **Best practice — probe shapes, don't guess.** SDK types, documented REST schemas, and what the server actually accepts for write calls can all drift. When a mutation fails with `INVALID_FIELD_MASK` / `UNKNOWN path` / "validation error for field I swear I didn't send", stop and drop a disposable read-only endpoint that dumps the raw entity with every relevant fieldset:
 
@@ -221,9 +228,12 @@ This is also how the member Orders tab can badge each line item by type — clas
 - Use `astro/tsconfigs/strictest` — use `?? null` (not `|| undefined`) for optional properties typed as `string | null`
 - Always prefer SDK types (`cart.LineItem`, `productsV3.ProductMedia`, etc.) over `Record<string, unknown>`
 - Import types: `import type { cart as cartTypes } from '@wix/ecom'` or via namespace: `type TimeSlot = timeSlots.TimeSlot`
-- ⛔ **Never use `any`, `any[]`, `as any`, `as unknown as`, or `Record<string, any>`** — the ESLint `no-explicit-any` rule enforces this at build time. If a type error appears, fix the field access to match the SDK type — don't suppress the error. A type error means the code will crash at runtime.
+- ⛔ **Never use `any`, `any[]`, `as any`, `as unknown as`, or `Record<string, any>`** — the ESLint `no-explicit-any` rule enforces this at build time. If a type error appears, fix the field access to match the SDK type — don't suppress the error. A type error usually means the code will crash at runtime.
 - ⛔ **Never write custom interfaces that mirror SDK types** (e.g., a local `interface TimeSlotInfo { startDate: string; status: string }` when `timeSlots.TimeSlot` exists). Using SDK types directly keeps your code in sync with API changes and surfaces real bugs — a custom mirror hides the fact that, e.g., `startDate` is `Date | null` not `string`, and that misalignment eventually crashes.
-- Use `as Function` (not `as any`) for SDK overload workarounds
+- **Prefer type inference over explicit annotation where possible.** `const map = new Map(entries)` with well-typed `entries` infers the full `Map<K, V>` — no need for a local `interface Entry` or explicit generic. Same for `.map()` / `.filter()` chains: let TS infer the item type from the SDK-typed array.
+- **SDK type drift is real.** When the runtime response disagrees with the SDK type (e.g., `orders.Order.priceDetails` is read as present but typed away), intersect rather than reach for `any`: `type Widened = X & { legacyField?: X_LegacyType }`. Casts stay narrow and you keep type coverage on the rest of the object.
+- **`unknown` in catch, not `any`.** `} catch (e) { ... e instanceof Error ? e.message : fallback }` covers the common case. Reserve a typed shape (e.g., `type WixSdkError = Error & { details?: { applicationError?: { code?: string } } }`) for deeper inspection.
+- **Custom DTOs are OK at the server/client boundary.** React islands that mount from Astro pages only see what you pass as props — the full SDK type carries methods and non-serializable `Date`s that don't survive the JSON hop. Define a narrow `ProductData` / `BookingData` interface *built from SDK sub-types* (`productsV3.PriceRange`, `productsV3.Variant`, …) rather than restating primitives. In pure server code, always reach for the SDK type directly.
 
 ### `exactOptionalPropertyTypes` — don't pass explicit `undefined`
 
