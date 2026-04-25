@@ -219,6 +219,47 @@ Translate status values — don't display raw English enum strings.
 
 Show a helpful message with CTA linking to the store page.
 
+### ⛔ Wix Events tickets are NOT in `ecomOrders.searchOrders`
+
+The Orders tab `ecomOrders.searchOrders` returns store / donation / gift card / restaurant / pricing-plan / blog purchases — but NOT event tickets. `redirects.createRedirectSession({ eventsCheckout })` creates an order in the **separate Events orders system** (`@wix/events` → `orders.listOrders`). Without a second fetch, every ticket purchase is invisible to the member, even though `classifyLineItem` has a `'ticket'` case (that case fires only on the rare line items where tickets DO leak into eCom — the common `eventsCheckout` flow doesn't).
+
+Fetch events orders alongside ecom orders and convert to the same card shape:
+
+```typescript
+import { orders as eventsOrders, wixEventsV2 } from '@wix/events';
+
+let memberEventOrders: eventsOrders.Order[] = [];
+const eventTitleById = new Map<string, string>();
+const eventImageById = new Map<string, string | null>();
+try {
+  const res = await eventsOrders.listOrders({
+    memberId: [member._id!],
+    fieldset: [eventsOrders.OrderFieldset.DETAILS],
+  });
+  memberEventOrders = res.orders || [];
+  // Each order has eventId but no event title — fetch each in parallel
+  // (small N: one per distinct event the member has tickets to).
+  const eventIds = [...new Set(memberEventOrders.map((o) => o.eventId).filter(Boolean) as string[])];
+  const events = await Promise.all(
+    eventIds.map((id) => wixEventsV2.getEvent(id, {
+      fields: [wixEventsV2.RequestedFields.TEXTS, wixEventsV2.RequestedFields.URLS],
+    }).catch(() => null)),
+  );
+  for (const ev of events) {
+    if (ev?._id) {
+      eventTitleById.set(ev._id, ev.title || 'Event');
+      eventImageById.set(ev._id, getImageUrl(ev.mainImage, 160, 160) || null);
+    }
+  }
+} catch {}
+```
+
+⛔ **`wixEventsV2.queryEvents` is not the right API for an `_id IN [...]` lookup.** Its filter syntax is awkward (`{ paging, sort, filter }` shape, not the standard `{ query: { filter: {...} } }`). Use parallel `getEvent(id)` calls instead — fewer surprises and the dataset is small.
+
+⛔ **Don't filter by `eventsOrders.listOrders({ contactId: [...] })`** for a logged-in member — `memberId` is the right filter. `contactId` is for guest orders.
+
+Map the events orders into the same shape as ecom order cards (synthetic single-line-item per order using the event title), merge with eCom cards, sort by `createdDate desc`, render through the existing template. The unified list reads chronologically and the `'ticket'` badge identifies the entries.
+
 ## Subscriptions Tab
 
 ⛔ **Don't ship a placeholder.** A common shortcut is to leave the Subscriptions panel as one paragraph saying "subscriptions also appear in your Orders tab" — that's a nav UX failure. Build the real tab on every site that has a `/plans` page; if there are no plans, omit the tab entirely instead.
