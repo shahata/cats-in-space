@@ -72,6 +72,22 @@ These can differ (e.g., buy a $50 card for $40). Always display both when they d
 - Each variant can have its own image; fall back to the product image when a variant has none
 - Resolve images server-side (Astro frontmatter) since `getImageUrl` uses `@wix/sdk` media helpers
 
+⛔ **REST writes expect `image` as an OBJECT, not a string.** The SDK type says `image?: string`, but `POST` / `PATCH /gift-cards/v1/gift-card-products/...` returns `400 Expected an object` for plain `wix:image://...` strings. Send `{ id, url, width, height }`:
+
+```javascript
+giftCardProduct: {
+  ...
+  image: {
+    id: 'abc~mv2.png',
+    url: 'https://static.wixstatic.com/media/abc~mv2.png',
+    width: 1024,
+    height: 640,
+  },
+}
+```
+
+Same shape pattern as Bookings staff portraits and Pricing Plans — see [BOOKINGS.md](BOOKINGS.md) and [PRICING_PLANS.md](PRICING_PLANS.md) for the same gotcha.
+
 ## Fetching Gift Card Products
 
 `queryGiftCardProducts` requires elevated permissions:

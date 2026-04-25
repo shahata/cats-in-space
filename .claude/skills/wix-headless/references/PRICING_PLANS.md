@@ -316,6 +316,32 @@ Display perks as a bulleted list with checkmarks. Access them at `plan.perks?.va
 
 ⛔ **Breaks at runtime:** Perks are `plan.perks?.values` (not `plan.perks` directly).
 
+### Plan Image (REST gotchas)
+
+Every plan should have an image — generate via Wix Runware / OpenAI like other entities (see [MEDIA.md](references/MEDIA.md)). Two pitfalls:
+
+⛔ **The SDK type lies — `image?: string` is NOT what the wire wants.** The REST API expects an OBJECT `{ id, url, width, height }`. Sending a `wix:image://...` URI string returns `400 Expected an object`. Same shape pattern as Bookings staff portraits and gift cards.
+
+⛔ **PATCH a plan WITHOUT a `fieldMask` and the server may return `INVALID_PATCH "missing hierarchies"`** — particularly for the `primary` plan. The docs don't mention this; you must send the mask:
+
+```javascript
+await wixFetch(`/pricing-plans/v3/plans/${planId}`, {
+  method: 'PATCH',
+  body: JSON.stringify({
+    plan: {
+      id: planId,
+      revision,
+      image: { id: img.id, url: `https://static.wixstatic.com/media/${img.id}`, width: 1280, height: 960 },
+    },
+    fieldMask: { paths: ['image'] },  // ← required, not optional
+  }),
+});
+```
+
+For create (`POST /pricing-plans/v2/plans`) the same object shape works — no fieldMask needed.
+
+The `MANAGE-PLANS` scope is needed for both PATCH and POST, which the default `npx wix token` site token may NOT include — if you get `403`, run management calls through the Wix MCP `CallWixSiteAPI` (which uses your account token) or set up a token with manage scope.
+
 ### Free Trial Display
 
 ```typescript

@@ -219,46 +219,67 @@ Translate status values — don't display raw English enum strings.
 
 Show a helpful message with CTA linking to the store page.
 
-### ⛔ Wix Events tickets are NOT in `ecomOrders.searchOrders`
+### ⛔ Wix Events tickets are NOT in `ecomOrders.searchOrders` — render them in a dedicated Tickets tab
 
-The Orders tab `ecomOrders.searchOrders` returns store / donation / gift card / restaurant / pricing-plan / blog purchases — but NOT event tickets. `redirects.createRedirectSession({ eventsCheckout })` creates an order in the **separate Events orders system** (`@wix/events` → `orders.listOrders`). Without a second fetch, every ticket purchase is invisible to the member, even though `classifyLineItem` has a `'ticket'` case (that case fires only on the rare line items where tickets DO leak into eCom — the common `eventsCheckout` flow doesn't).
+The Orders tab `ecomOrders.searchOrders` returns store / donation / gift card / restaurant / pricing-plan / blog purchases — but NOT event tickets. `redirects.createRedirectSession({ eventsCheckout })` creates an order in the **separate Events orders system** (`@wix/events` → `orders.listOrders`). Render tickets in their own tab — not merged into Orders — because each ticket has unique actions (download PDF, add to calendar) that don't fit a generic order line.
 
-Fetch events orders alongside ecom orders and convert to the same card shape:
+## Tickets Tab
+
+Each ticket card needs:
+
+- **Event title, date, location** — fetched from the Event entity via `wixEventsV2.getEvent(id, { fields: [TEXTS, URLS, DETAILS] })`
+- **Status badge** — `Order.status` is FREE/PAID/PENDING/OFFLINE_PENDING/INITIATED/CANCELED/DECLINED, color-coded
+- **Ticket count** — `Order.ticketsQuantity`
+- **"Download PDF" button** — `Order.ticketsPdf` (URL string), opens in new tab
+- **"Add to Google Calendar" button** — `Event.calendarUrls.google`
+- **"Download .ics" button** — `Event.calendarUrls.ics` (offline calendar fallback)
+
+### Server-side fetch (in `member/index.astro`)
 
 ```typescript
 import { orders as eventsOrders, wixEventsV2 } from '@wix/events';
 
 let memberEventOrders: eventsOrders.Order[] = [];
-const eventTitleById = new Map<string, string>();
-const eventImageById = new Map<string, string | null>();
+const eventInfoById = new Map<string, EventInfo>();
 try {
   const res = await eventsOrders.listOrders({
     memberId: [member._id!],
-    fieldset: [eventsOrders.OrderFieldset.DETAILS],
+    fieldset: [
+      eventsOrders.OrderFieldset.DETAILS,  // -> ticketsPdf, totalPrice, ticketsQuantity, status, created
+      eventsOrders.OrderFieldset.TICKETS,  // -> tickets[]
+    ],
   });
   memberEventOrders = res.orders || [];
-  // Each order has eventId but no event title — fetch each in parallel
-  // (small N: one per distinct event the member has tickets to).
   const eventIds = [...new Set(memberEventOrders.map((o) => o.eventId).filter(Boolean) as string[])];
+  // Parallel getEvent — small N, queryEvents has awkward `_id IN [...]` syntax.
   const events = await Promise.all(
     eventIds.map((id) => wixEventsV2.getEvent(id, {
-      fields: [wixEventsV2.RequestedFields.TEXTS, wixEventsV2.RequestedFields.URLS],
+      fields: [
+        wixEventsV2.RequestedFields.TEXTS,
+        wixEventsV2.RequestedFields.URLS,
+        wixEventsV2.RequestedFields.DETAILS,  // -> calendarUrls + mainImage
+      ],
     }).catch(() => null)),
   );
   for (const ev of events) {
     if (ev?._id) {
-      eventTitleById.set(ev._id, ev.title || 'Event');
-      eventImageById.set(ev._id, getImageUrl(ev.mainImage, 160, 160) || null);
+      eventInfoById.set(ev._id, {
+        title: ev.title || 'Event',
+        startDate: ev.dateAndTimeSettings?.startDate ? new Date(ev.dateAndTimeSettings.startDate as unknown as string) : null,
+        locationName: ev.location?.name || '',
+        calendarGoogle: ev.calendarUrls?.google || null,
+        calendarIcs: ev.calendarUrls?.ics || null,
+      });
     }
   }
 } catch {}
 ```
 
-⛔ **`wixEventsV2.queryEvents` is not the right API for an `_id IN [...]` lookup.** Its filter syntax is awkward (`{ paging, sort, filter }` shape, not the standard `{ query: { filter: {...} } }`). Use parallel `getEvent(id)` calls instead — fewer surprises and the dataset is small.
+⛔ **`wixEventsV2.queryEvents` is not the right API for an `_id IN [...]` lookup.** Its filter syntax is `{ paging, sort, filter }` (not the standard `{ query: { filter: {...} } }`). Use parallel `getEvent(id)` calls instead.
 
-⛔ **Don't filter by `eventsOrders.listOrders({ contactId: [...] })`** for a logged-in member — `memberId` is the right filter. `contactId` is for guest orders.
+⛔ **Filter `eventsOrders.listOrders` by `memberId`, NOT `contactId`.** `memberId` matches the logged-in member; `contactId` is for guest orders.
 
-Map the events orders into the same shape as ecom order cards (synthetic single-line-item per order using the event title), merge with eCom cards, sort by `createdDate desc`, render through the existing template. The unified list reads chronologically and the `'ticket'` badge identifies the entries.
+⛔ **Calendar URLs require the `RequestedFields.DETAILS` fieldset** — `getEvent` without it returns `calendarUrls: undefined`. The DETAILS fieldset also gives you `mainImage` and `shortDescription` which the card uses.
 
 ## Subscriptions Tab
 

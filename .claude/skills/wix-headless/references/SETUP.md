@@ -201,6 +201,18 @@ To resolve an unknown app's `appDefId`: `POST /devcenter/app-market-listing/v1/m
    ```
    A leading dot matches any subdomain, so the config survives new tunnel URLs. Restart the dev server after editing `astro.config.mjs` for the change to take effect.
 
+### Silencing `data-island_submit_button_registered` hydration warnings
+
+⛔ **React 19 logs `Warning: Extra attributes from the server: data-island_submit_button_registered` on every `<button>` inside a `client:load` island.** Wix's headless framework injects this attribute server-side to register form/CTA buttons for analytics, but the client React render doesn't reproduce it — every mount of a hydrated component with `<button>` triggers a noisy warning in dev. The button still works; the attribute is harmless. Suppress it on the offending buttons:
+
+```tsx
+<button onClick={...} suppressHydrationWarning>
+  Click me
+</button>
+```
+
+`suppressHydrationWarning` only silences attribute mismatches on that one element — it does NOT mask actual children/text mismatches. Apply it to every button in interactive islands (tab bars, submit buttons, qty steppers) — never globally. The warning is purely cosmetic, but a console full of them hides real warnings; clean it up at component-creation time, not as a debugging step later.
+
 ### Excluding a file from Astro routing
 
 Files whose name starts with `_` under `src/pages/` are **not** routed — useful for shared components or ad-hoc helpers. If a temporary seeding/admin endpoint needs to be reachable, don't prefix it with `_`. Conversely, prefix one-off dev endpoints with `_` to keep them out of the route table without deleting the file.
