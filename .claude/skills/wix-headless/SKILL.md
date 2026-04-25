@@ -83,6 +83,8 @@ These apply to every feature area. Violating any of them produces silent failure
 
 10. **Build order: all code first, then seed data, then images** — For a new site, finish every page/component/route and get a clean `npx astro check` BEFORE seeding any business data, then seed all records with no images, then do a second pass attaching generated images. Seeding against half-written code wastes time because the data contract keeps changing under you; attaching images inside `createX` calls serialises the slowest step and makes retries painful. See [SETUP.md](references/SETUP.md) → "Build order".
 
+11. **Every `redirects.createRedirectSession` flow needs a dedicated thank-you page** — NOT a member-tab anchor like `/member#orders`. Build the page once, route every caller to it. Bouncing back to a member dashboard mid-celebration is a confusing UX (full dashboard chrome instead of "thank you" state) and the hash-based tab switch is fragile (lost on full reload, easy to miss). Required pages: `/store/thank-you` (eCommerce + gift cards), `/restaurant/thank-you` (restaurant orders + reservations), `/plans/thank-you` (pricing plans), `/research/thank-you` (donations), `/tickets/thank-you` (events + cinema), and `/member#bookings` is the established exception for Wix Bookings only. Audit every `thankYouPagePath:` string before shipping — if it contains `#`, it is wrong. See [ECOMMERCE.md](references/ECOMMERCE.md) → "Redirect callbacks: always pass all of them".
+
 ---
 
 ## Feature Checklists
@@ -124,7 +126,8 @@ Before building any feature area, verify you will implement ALL items from the r
 
 - [ ] Plans listing page (`/plans`) — plan cards, perks, pricing, subscribe button
 - [ ] Checkout via `redirects.createRedirectSession` (handles login, free, and paid). NOTE: do NOT use `preferences: { checkIfPublish: true }` for plans — only for eCommerce checkout
-- [ ] Success state after checkout redirect
+- [ ] **Thank-you page (`/plans/thank-you`)** — dedicated page, NOT `/member#subscriptions`. The redirect flow needs a real landing page; bouncing back to a member-tab anchor is a confusing UX (the user sees their full dashboard mid-celebration, plus the tab switch is hash-based and easy to miss). See [PRICING_PLANS.md](references/PRICING_PLANS.md)
+- [ ] Member Area Subscriptions tab populated — see Member Area checklist
 - [ ] Blog post gating — set `pricingPlanIds` on premium posts, render paywall for non-subscribers
 
 ### Restaurants / Online Ordering
@@ -176,7 +179,9 @@ Customers must be able to **view AND edit** their own data — a read-only profi
 - [ ] **Orders tab (conditional — only if site has a store, donations, gift cards, or any eCom purchases)** — order history with line item images (via `getImageUrl()`), quantities, prices, status badges (color-coded), totals. Server-rendered. Omit only if NO eCom-backed features exist. Other feature-specific tabs follow the same pattern: Bookings tab if site has bookings, Subscriptions tab if site has pricing plans, etc.
   - **Classify each line item** by `catalogReference.appId` — donations, store, restaurant, gift cards, bookings, events, pricing plans, and blog all flow through `ecomOrders.searchOrders`. Render a color-coded type badge per line item so members can tell donations apart from purchases. Centralize app IDs in `src/utils/appIds.ts` — see [SDK_CORE.md](references/SDK_CORE.md).
   - **Pricing Plan subscriptions appear here too** because they go through eCom checkout. They're visible in both the Orders and Subscriptions tabs (intentionally) — badge them so users aren't confused.
-- [ ] **Account tab (`client:load` React)** — change login email (`authentication.changeLoginEmail`), send password reset email (`authentication.sendSetPasswordEmail`), change password inline (OAuthStrategy + loginV2 + getMemberTokensForDirectLogin + changePassword pattern). See [MEMBER_AREA.md](references/MEMBER_AREA.md) → "Change Password Pattern"
+- [ ] **Subscriptions tab (`client:load` React)** — required if the site has a `/plans` page. Fetch via `pricingPlans.orders.memberListOrders()`, filter out `OrderStatus.DRAFT` and orders with `endDate < today`, then render one card per active subscription with status badge, plan name, price + cycle, start/end dates, and a Cancel auto-renewal button (`orders.requestCancellation(id, CancellationEffectiveAt.NEXT_PAYMENT_DATE)`). DO NOT ship a placeholder paragraph that says "subscriptions also appear in Orders" — that's not a tab, that's an apology. See [MEMBER_AREA.md](references/MEMBER_AREA.md) → "Subscriptions Tab".
+- [ ] **No separate Tickets tab — tickets surface in Orders.** `ticketReservations.createTicketReservation` → checkout flows through eCom, so events/cinema tickets land in `ecomOrders.searchOrders` like everything else. Classify by `catalogReference.appId` and badge as `ticket` (see `src/utils/appIds.ts`). Adding a separate Tickets tab duplicates orders for no reason.
+- [ ] **Account tab (`client:load` React)** — change login email (`authentication.changeLoginEmail`), **direct change password inline (REQUIRED)** using OAuthStrategy + loginV2 + getMemberTokensForDirectLogin + changePassword, **plus** "send password reset email" as a fallback link. Shipping ONLY the reset-email button with no inline change form is incomplete — users expect to type their current+new password and submit. See [MEMBER_AREA.md](references/MEMBER_AREA.md) → "Change Password Pattern"
 
 ---
 

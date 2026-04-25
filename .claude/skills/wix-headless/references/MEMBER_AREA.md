@@ -221,21 +221,45 @@ Show a helpful message with CTA linking to the store page.
 
 ## Subscriptions Tab
 
-For each pricing plan subscription show:
+⛔ **Don't ship a placeholder.** A common shortcut is to leave the Subscriptions panel as one paragraph saying "subscriptions also appear in your Orders tab" — that's a nav UX failure. Build the real tab on every site that has a `/plans` page; if there are no plans, omit the tab entirely instead.
 
-1. **Plan name** + status badge
-2. **Price** — formatted with locale-aware currency, billing period
-3. **Discount/coupon** — if applied
-4. **Trial info** — free trial indicator with duration
-5. **Dates** — start, end, pause periods, next billing
-6. **Cancellation info** — reason and effective date (if cancelled)
-7. **Cancel action** — CancelSubscription component
+### Server-side fetch (in `member/index.astro`)
 
-### CancelSubscription Component
+```typescript
+import { orders as planOrders } from '@wix/pricing-plans';
+
+// SDK type drift: runtime returns `priceDetails`, the type renamed to `pricing`.
+type PlanOrder = planOrders.Order & { priceDetails?: planOrders.PriceDetails };
+
+let myPlanOrders: PlanOrder[] = [];
+try {
+  const res = await planOrders.memberListOrders();
+  const today = new Date().toISOString().split('T')[0]!;
+  myPlanOrders = ((res.orders || []) as PlanOrder[]).filter((o) => {
+    if (o.status === planOrders.OrderStatus.DRAFT) return false;
+    const end = o.endDate ? new Date(o.endDate as unknown as string).toISOString().split('T')[0]! : null;
+    return !(end && end < today);
+  });
+} catch {}
+```
+
+⚠️ **`memberListOrders()` runs as the current member** — do NOT wrap in `auth.elevate()` (that switches to app identity and either 403s or returns the wrong member's orders).
+
+### Per-card display
+
+For each subscription show:
+
+1. **Plan name** + status badge (active/pending/canceled/ended; show "free trial" badge if `inTrial`)
+2. **Price** — formatted with locale-aware currency + cycle ("$15 / month")
+3. **Dates** — start, end, next billing if available
+4. **Cancel action** — only for `status === 'ACTIVE'` && `!autoRenewCanceled`
+
+### CancelSubscription action
 
 - Confirm before cancelling
-- Try `NEXT_PAYMENT_DATE` first, fall back to `IMMEDIATELY` (single-payment plans)
-- Show success state after cancellation
+- Try `CancellationEffectiveAt.NEXT_PAYMENT_DATE` first, fall back to `IMMEDIATELY` (single-payment plans)
+- Use the SDK enum (`orders.CancellationEffectiveAt.NEXT_PAYMENT_DATE`), not the string literal
+- After cancel, optimistically flip `autoRenewCanceled: true` in local state — the badge re-renders without a refetch
 - ⛔ **Breaks at runtime:** `requestCancellation` requires member authentication — call from client-side, or you'll get a 403 from the server context. → Use a React `client:load` component for cancellation.
 
 ## Payment Tab (SavedPaymentMethods Component)
