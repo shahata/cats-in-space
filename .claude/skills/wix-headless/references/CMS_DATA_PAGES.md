@@ -114,3 +114,38 @@ Only render related-items sections when there are items to show. Don't show empt
 - **Status values** from CMS are English strings — map them to translation keys rather than displaying raw values
 - **Units and abbreviations** must be translation keys, not hardcoded
 - **Back links** should use translated text with directional arrows in the translation string (flips for RTL)
+
+## Updating items via REST (seed scripts)
+
+To PATCH a single CMS item (e.g. backfill a missing image after a fresh generation), use `wix-data v2 PUT`:
+
+```javascript
+// 1. Fetch the item by slug (filter inside the query)
+const r = await wixFetch('/wix-data/v2/items/query', {
+  method: 'POST',
+  body: JSON.stringify({
+    dataCollectionId: 'Artworks',
+    query: { filter: { slug: 'lacemaker' }, cursorPaging: { limit: 1 } },
+  }),
+});
+const item = r.dataItems[0];
+// item shape: { id, dataCollectionId, data: { _id, slug, ... } }
+// `item.id` and `item.data._id` are both present and equal.
+
+// 2. PUT the merged data back
+await wixFetch(`/wix-data/v2/items/${item.id}`, {
+  method: 'PUT',
+  body: JSON.stringify({
+    dataCollectionId: 'Artworks',
+    dataItem: {
+      id: item.id,
+      dataCollectionId: 'Artworks',
+      data: { ...item.data, image: newWixImageUri },
+    },
+  }),
+});
+```
+
+⛔ **The wrapper `id` and `data._id` MUST match.** Sending `dataItem: { ...item, data: { ...item.data, image } }` without an explicit top-level `id` (or with `_id` that doesn't match) returns `400 WDE0080: dataItem id and data._id fields must match`. The error message is misleading — both fields look right when the wrapper id is missing entirely. → Always pass `dataItem: { id, dataCollectionId, data: { ...existing, _id: id, ...changes } }`.
+
+⛔ **`item._id` is NOT on the wrapper, only on `item.data._id`.** The query response has `item.id` at the top level and `item.data._id` nested. A common mistake is `await wixFetch(\`/wix-data/v2/items/\${item._id}\`...)` which produces `/wix-data/v2/items/undefined` — looks like a backend bug at first glance.

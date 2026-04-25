@@ -220,40 +220,85 @@ All create methods require `auth.elevate()`.
 import { reservations, reservationLocations, timeSlots } from '@wix/table-reservations';
 ```
 
+⛔ **Having `@wix/table-reservations` in `node_modules` is NOT enough.** The Wix Table Reservations app must be installed on the site (via the dashboard or the Apps Installer API — see "Required Wix Apps" at the top of this file). Without the app installed, every REST call returns 404 (a generic Wix error HTML page) and SDK calls in scripts/CLI contexts silently return `undefined`. The site CLI starter does NOT install Table Reservations by default — adding it to your headless app is a manual step. Add a `scripts/install-apps.mjs` that calls `POST /apps-installer-service/v1/app-instance/install` for `appDefId f9c07de2-5341-40c6-b096-8eb39de391fb` so a fresh clone can reproduce the setup.
+
+⛔ **The reservation-locations REST path is double-segmented:** `/table-reservations/reservation-locations/v1/reservation-locations` (NOT `/table-reservations/v1/reservation-locations` — that path 404s). Same pattern applies to other resources under this app. Use the SDK from Astro pages where possible; in scripts, use the right REST path.
+
+⛔ **The default location is wrong for headless sites.** Installing the app creates a default location named "Location 1" in `Asia/Jerusalem` with country `IL` and an empty street. Reservation slot times will be wrong until you fix the timezone. The reservations API itself can't change the underlying location object (it errors); use the **Locations API** instead: `PUT /locations/v1/locations/{id}` with the full location object (revision required) — set `name`, `timeZone`, `address`. Reservation hours/party size are configured separately on `reservationLocations.configuration.onlineReservations`.
+
 ### Get reservation location
 
 ```typescript
 const elevatedList = auth.elevate(reservationLocations.listReservationLocations);
 const result = await elevatedList();
 const locationId = result.reservationLocations?.[0]?._id;
+const onlineRes = result.reservationLocations?.[0]?.configuration?.onlineReservations;
+const businessSchedule = onlineRes?.businessSchedule?.periods || [];
+const timeSlotInterval = onlineRes?.timeSlotInterval || 15;
 ```
 
 ### Create a reservation
 
+The reservee fields go under `reservation.reservee`, NOT `reservation.details` (the SDK uses `reservee`, not `contact`):
+
 ```typescript
 const elevatedCreate = auth.elevate(reservations.createReservation);
-const reservation = await elevatedCreate({
+const created = await elevatedCreate({
   details: {
     reservationLocationId: locationId,
     startDate: new Date('2026-04-01T19:00:00Z'),
     partySize: 4,
-    firstName: 'Jane',
-    lastName: 'Doe',
-    email: 'jane@example.com',
-    phone: '+1234567890',
   },
+  reservee: { firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', phone: '+1234567890' },
+  teamMessage: 'Window seat please',  // optional, free-text "special requests"
 });
+// If `created.paymentStatus === "NOT_PAID"`, the reservation requires a deposit/charge
+// — kick off `redirects.createRedirectSession({ ecomCheckout: { checkoutId: created._id } })`.
 ```
 
-### Query time slots
+### Reservation flow UX (multi-step)
+
+The single-form pattern (date + dropdown of fixed times → confirm) is broken: it always submits even when the time is unavailable, then errors at create. Instead, use a 3-step wizard that calls `timeSlots.getTimeSlots` for real availability:
+
+1. **Search** — party size + date + an "around" hour. Auto-fetch slots (debounced 250ms) and render a clickable grid; the selected slot is highlighted. The "around" dropdown should be derived from the location's `businessSchedule.periods` for that day-of-week — never hardcode a list of times like `['12:00','12:30',...]`, because closed hours appear and the user gets empty results.
+2. **Details** — name (full string, split into first/last on submit), email, phone, optional special requests. Prefill from `members.getCurrentMember` for logged-in users.
+3. **Confirm** — read-only summary of date / time / party / contact, then `createReservation`.
+
+```typescript
+// Slot fetch: debounced, with cancel-on-rerun, in step "search":
+useEffect(() => {
+  if (step !== 'search') return;
+  if (!locationId || !date || !aroundHour) return;
+  let cancelled = false;
+  const timer = setTimeout(async () => {
+    const result = await timeSlots.getTimeSlots(
+      locationId,
+      new Date(`${date}T${aroundHour}:00`),
+      partySize,
+      { slotsBefore: 3, slotsAfter: 6 },
+    );
+    if (!cancelled) setAvailableSlots(result.timeSlots || []);
+  }, 250);
+  return () => { cancelled = true; clearTimeout(timer); };
+}, [locationId, partySize, date, aroundHour, step]);
+```
+
+⛔ **The hour picker derived from `businessSchedule` must handle cross-day periods.** A period with `closeDay !== openDay` (e.g. open Friday → close Saturday at 02:00) means the close time is in the *next* day. If you treat it as same-day you'll generate hours past midnight for the wrong date. Cap end at `24*60 - 1` for cross-day periods. Step at `Math.max(60, timeSlotInterval)` so the dropdown isn't 96 entries long when the location uses 15-min slots.
+
+⛔ **Localized slot labels wrap on two lines in narrow grid cells.** `Date.toLocaleTimeString('en-US')` returns `"08:00 PM"` (or with U+202F NNBSP between time and AM/PM in modern Intl). At cell widths below ~95px proportional-font character widths cause some times to wrap (e.g. "08:00 PM" wraps but "07:15 PM" doesn't). Add `white-space: nowrap` on the slot button and use `repeat(auto-fill, minmax(86px, 1fr))` for the grid.
+
+### Query time slots (one-shot)
 
 ```typescript
 const elevatedSlots = auth.elevate(timeSlots.getTimeSlots);
-const slots = await elevatedSlots({
-  reservationLocationId: locationId,
-  date: { year: 2026, month: 4, day: 1 },
-  partySize: 4,
-});
+const result = await elevatedSlots(
+  locationId,
+  new Date('2026-04-01T19:00:00'),
+  4,
+  { slotsBefore: 3, slotsAfter: 6 },
+);
+// result.timeSlots[].status === 'AVAILABLE' | 'TABLE_COMBINATION_NOT_AVAILABLE' | ...
+// result.timeSlots[].startDate is the actual time to feed into createReservation
 ```
 
 ## Online Ordering
@@ -649,9 +694,10 @@ Sauce:
 When seeding menu data, the sample catalog must hit every UI branch so the ordering page can be verified:
 - **Required single-choice** (radio, maxSelections=1) with a preselected default — e.g., "Cooking Preference: Medium"
 - **Optional multi-choice** (checkbox, maxSelections > 1) — e.g., "Sauces: pick any"
-- **Free-text modifier** (FREE_TEXT) — e.g., "Special note"
-- **Paid modifier** — any non-zero price modifier
-- **Free modifier** — at least one `+₪0.00` modifier so the UI's zero-price branch is exercised
+- **Paid modifier** — any non-zero `additionalChargeInfo.additionalCharge` so the `+₪X` price-uplift branch is exercised
+- **Free modifier** — at least one zero-price modifier so the no-uplift branch is exercised
+
+⛔ **Wix Restaurants modifier groups do NOT support free-text inputs.** The SDK has no `freeText` / `FREE_TEXT` / `modifierRenderType` field anywhere on `Modifier` or `ModifierGroup` — modifiers are always selectable (radio or checkbox). This is a Wix Restaurants vs Wix Stores difference: stores customizations support `customizationRenderType: FREE_TEXT`, restaurants don't. Do NOT model "Allergies / special requests" or "Cooking instructions" as a modifier group with `modifiers: []` and a `freeText` config — the SDK silently ignores `freeText` and the group becomes an empty (often implicitly-required if `maxSelections === 1`) blocker that the user can never satisfy. If the site needs per-item special instructions, attach them as line-item metadata or a checkout-level `buyerNote`, not as a modifier group.
 - **Variant-priced items** — at least one item with 2+ price variants
 - **Plain item** — at least one item with no variants and no modifiers (to prove the modal works without them too)
 

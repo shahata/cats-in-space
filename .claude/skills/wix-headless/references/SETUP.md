@@ -144,7 +144,39 @@ npm install @wix/comments    # Comments API
 npm install @wix/ecom        # Cart, checkout, orders
 npm install @wix/redirects   # Redirect sessions (checkout, plans)
 npm install @wix/donations   # Donation campaigns
+npm install @wix/restaurants            # Menus, Online Ordering (requires app install)
+npm install @wix/table-reservations     # Reservations (requires app install)
+npm install @wix/bookings               # Services, staff, slots
 ```
+
+⛔ **Some SDK packages require a corresponding Wix app install on the site.** The CLI starter only installs a minimal set; adding the npm package isn't enough. If REST calls return `404` (Wix error HTML page) and SDK calls silently return `undefined`, the app probably isn't installed. Affected packages include `@wix/table-reservations`, `@wix/restaurants`, parts of `@wix/bookings`, plus most newer features. Use the **Apps Installer API**:
+
+```javascript
+// scripts/install-apps.mjs — idempotent (returns existing instance on re-run)
+import { wixFetch, SITE_ID } from './lib/wix.mjs';
+
+const APPS = [
+  { name: 'Table Reservations', appDefId: 'f9c07de2-5341-40c6-b096-8eb39de391fb' },
+  // Wix Stores: 215238eb-22a5-4c36-9e7b-e7c08025e04e
+  // Wix Bookings: 13d21c63-b5ec-5912-8397-c3a5ddb27a97
+  // Wix Restaurants Menus (New): b278a256-2757-4f19-9313-c05c783bec92
+  // Wix Restaurants Orders (New): 9a5d83fd-8570-482e-81ab-cfa88942ee60
+  // Wix Blog: 14bcded7-0066-7c35-14d7-466cb3f09103
+  // Wix Events: 140603ad-af8d-84a5-2c80-a0f60cb47351
+  // Wix Pricing Plans: 1522827f-c56c-a5c9-2ac9-00f9e6ae12d3
+];
+for (const app of APPS) {
+  await wixFetch('/apps-installer-service/v1/app-instance/install', {
+    method: 'POST',
+    body: JSON.stringify({
+      tenant: { tenantType: 'SITE', id: SITE_ID },
+      appInstance: { appDefId: app.appDefId },
+    }),
+  });
+}
+```
+
+To resolve an unknown app's `appDefId`: `POST /devcenter/app-market-listing/v1/market-listings/search` with `{ "searchTerm": "Wix Table Reservations" }`. Match on `basicInfo.name` to confirm before installing — the search returns many third-party apps with similar keywords.
 
 ## Dev Workflow Tips
 

@@ -239,10 +239,31 @@ curl -s -X POST https://api.openai.com/v1/images/generations \
 
 Response has `data[0].url` — a temporary (~1h) public URL on `oaidalleapiprodscus.blob.core.windows.net`. Import it into Wix Media immediately; don't persist.
 
+### Content Policy: Reframe Sensitive Subjects
+
+Both Runware (Imagen `google:4@2`) and DALL-E 3 refuse certain prompts. The two providers have different sensitivities, so a Runware refusal is not a DALL-E refusal — but reframing helps either way. Common refusal categories on art-history / museum content:
+
+- **Classical / Renaissance nudes** (e.g. Venus de Milo, Michelangelo's Dying Slave) — even when described as a marble statue, "nude" / "armless goddess" trips the filter
+- **Religious imagery** (e.g. Virgin and Child, Crucifixion) — "Madonna", "Christ Child", "biblical scene" can trip
+- **Sometimes innocuous subjects** (e.g. Vermeer's Lacemaker) — false positives, retry with a different framing
+
+**Reframing patterns that work:**
+
+| Original (refused) | Reframed (accepted) |
+|---|---|
+| "Venus de Milo armless marble statue of Aphrodite" | "Museum photograph of the Venus de Milo classical marble sculpture on display, draped lower body, gallery spot lighting against a dark wall" |
+| "Michelangelo Dying Slave nude male figure" | "Abstract close-up of rough white Carrara marble surface with visible chisel marks, an unfinished block of Renaissance-era sculpted stone, no figures, no faces" |
+| "Madonna with Christ Child painting" | "Museum photograph of a large Italian Renaissance oil painting in an ornate gold frame hanging on a deep red gallery wall, classical composition with three figures in a landscape, sfumato" |
+| "Greek sculptor carving" | "Still life of an ancient stone-carver's tools laid out on a worn wooden workbench, chisels, mallet, no figures" |
+
+**Operating heuristic:** if the prompt mentions a body part, a religious figure, or violence, frame as **(a)** "museum photograph of ... on display" with strong gallery/lighting context, or **(b)** an abstract material study (the chisel marks, the canvas surface, the frame) — never the figure itself. Append phrases like "no people", "no faces", "no figures" as needed.
+
+**Recipe for missing-image backfill:** keep a small `fix-cms-images.mjs` per project that takes an explicit `OVERRIDES` list of `{ key, collection, slug, prompt }` for items the bulk seed refused. Run via `OPENAI_API_KEY=... node scripts/fix-cms-images.mjs`. Make it idempotent: skip generation if the cache already has the file, only re-do the CMS PUT (which is what fails most often anyway — see [CMS_DATA_PAGES.md](CMS_DATA_PAGES.md) for the wire shape).
+
 ### End-to-End Workflow
 
-1. **Generate** via Runware (preferred) or OpenAI (fallback)
+1. **Generate** via Runware (preferred) or OpenAI (fallback). For art-history nudes / religious imagery, skip Runware and go straight to OpenAI with a reframed prompt — Imagen is stricter
 2. **Upload to Wix:** `POST /site-media/v1/files/import` with `{ "url": "...", "mimeType": "image/png", "displayName": "..." }`
-3. **Attach at creation time** — include media when creating entities, not as a separate step. For products, use `media.itemsInfo.items` inline. For CMS items, set IMAGE fields directly. For blog posts, set `media.wixMedia.image`.
+3. **Attach at creation time** — include media when creating entities, not as a separate step. For products, use `media.itemsInfo.items` inline. For CMS items, set IMAGE fields directly. For blog posts, set `media.wixMedia.image`. For Bookings staff: `staffMember.mainMedia.image` as `{ url: 'https://static.wixstatic.com/media/<id>' }` — see [BOOKINGS.md](BOOKINGS.md)
 4. **Add images one at a time via MCP** (batching may silently drop)
 5. For **video**: generate via OpenAI → temp host if needed → Wix Import File API → attach by media `id`

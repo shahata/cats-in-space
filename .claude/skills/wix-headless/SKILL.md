@@ -116,6 +116,7 @@ Before building any feature area, verify you will implement ALL items from the r
 - [ ] **SEO on `/blog/[slug]`** — request `'SEO'` fieldset from `posts.getPostBySlug(slug, { fieldsets: [..., 'SEO'] })` and pass `post.seoData?.tags` to `<Layout seoTags={...}>`. Without the fieldset, `seoData` is empty. See [SEO.md](references/SEO.md)
 - [ ] Likes — like/unlike toggle on posts AND comments, pre-populated from `queryLikes()` on mount
 - [ ] Comments & replies — visitor name input, member identity, nested replies, edit/delete own, like per comment
+- [ ] **Disable the default "AI spam moderation" rule** during setup (PATCH `/moderation/v1/rules/{id}` with `enabled: false`) — Wix ships a SMART/NEEDS_MANUAL_APPROVAL rule on every new site that holds every comment in pending state, producing the single most common "comments don't work" symptom (submit succeeds, comment never appears). See [BLOG_ENGAGEMENT.md](references/BLOG_ENGAGEMENT.md) → "One-time setup: disable the default AI spam moderation rule"
 - [ ] View tracking — report views on post load via `httpClient.fetchWithAuth` to `/blog/v3/posts/{postId}/view`
 - [ ] Premium/paid content — if pricing plans exist, support `post.preview` with paywall overlay and link to plans page
 

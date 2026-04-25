@@ -37,6 +37,30 @@ import { comments as commentsApi } from '@wix/comments';
 const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
 ```
 
+### One-time setup: disable the default "AI spam moderation" rule
+
+⛔ **Wix ships a built-in `AI spam moderation` Moderation Rule on every new site that holds every comment from members AND visitors in `NEEDS_MANUAL_APPROVAL` state.** Symptom: the user submits a comment, the create call succeeds (no error in the console), but the comment never appears on the page because `listCommentsByResource` only returns published comments — pending ones stay in the moderation queue until an admin approves them in the dashboard. This is the single most common "comments don't work" report on a freshly built site.
+
+The rule is real (verified on production sites): `namespace: "comments/14bcded7-0066-7c35-14d7-466cb3f09103"`, `audience.type: "MEMBERS_AND_VISITORS"`, `trigger.type: "SMART"`, `action.type: "NEEDS_MANUAL_APPROVAL"`, `enabled: true`. The site owner can flip it off in the Comments dashboard, but a build agent provisioning a new site should disable it as part of the comments-setup step so the user never has to chase the silent moderation queue.
+
+**Disable via Moderation Rules API** ([docs](https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/moderation-rules/introduction)):
+
+```http
+# 1. List rules in the blog-comments namespace to find the AI rule.
+POST https://www.wixapis.com/moderation/v1/rules/query
+Body: { "query": { "filter": { "namespace": "comments/14bcded7-0066-7c35-14d7-466cb3f09103" } } }
+
+# Response includes rule.id + rule.revision. The default is named "AI spam moderation".
+
+# 2. PATCH the rule to disable it. The `enabled: false` payload is enough; revision is required.
+PATCH https://www.wixapis.com/moderation/v1/rules/{rule.id}
+Body: { "rule": { "id": "{rule.id}", "revision": "{rule.revision}", "enabled": false } }
+```
+
+The Moderation Rules API also covers Wix Reviews — same shape, namespace `reviews/{APP_NAME}`. If the site has a Wix Reviews integration, the equivalent rule should be disabled too.
+
+⚠️ **Disabling the rule does not auto-approve already-pending comments** — those stay in the moderation queue until manually approved in the dashboard. New comments submitted after the rule is disabled post immediately. If a build pass produced a queue of test comments before this rule was flipped, expect to clean those out by hand (or via `commentsApi.publishComment` per pending ID).
+
 ### Listing Comments
 
 ```typescript
@@ -116,9 +140,9 @@ const reply = await commentsApi.createComment({
 });
 ```
 
-⛔ **Don't pass `author` to `createComment`.** `Comment.author` is `@immutable` per the SDK schema — the server populates it from the calling identity (`memberId` for logged-in members, `visitorId` for anonymous). Anything passed in is ignored. `CommentAuthor` only contains identity fields (`userId | memberId | visitorId`); there is **no `authorName` field anywhere on it**, despite older guidance to the contrary. Casting the author to invent an `authorName` is a no-op at best.
+⛔ **Don't pass `author` to `createComment`.** `Comment.author` is `@immutable` per the SDK schema — the server populates it from the calling identity (`memberId` for logged-in members, `visitorId` for anonymous). Anything passed in is ignored. `CommentAuthor` only contains identity fields (`userId | memberId | visitorId`); there is **no `authorName` field anywhere on it**. SDK types are honest — the older guidance to cast `as commentsApi.CommentAuthor` and pass `authorName` was a misread of cats-in-space code that did this with no effect at runtime. Don't follow that pattern.
 
-⛔ **Visitor display names are not supported by the comments API.** Anonymous visitors get a generated `visitorId` and no name — there's no SDK field that accepts a guest-provided display name. If your site requires named comments, set the comments-app permission to `MEMBER` (members must be logged in) and prompt visitors to log in via the `PERMISSION_DENIED` handler below. Don't ship a "Your name" input that goes nowhere.
+⛔ **Visitor display names are not supported by the comments API.** Anonymous visitors get a generated `visitorId` and no name. There is no SDK field that accepts a guest-provided display name on `createComment`. If your site requires named comments, set the comments-app permission to `MEMBER` (members must be logged in) and prompt visitors to log in via the `PERMISSION_DENIED` handler below. A "Your name" input on a visitor-permitted site is purely cosmetic — the typed value is silently dropped.
 
 💡 **Sort orders are SDK enums.** Use `commentsApi.Order.OLDEST_FIRST` and `commentsApi.ReplySortOrder.OLDEST_FIRST` for `commentSort` / `replySort` — not the literal strings. `'OLDEST_FIRST'` compiles via `OrderWithLiterals` but breaks the day Wix renames an enum value.
 

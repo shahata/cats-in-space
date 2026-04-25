@@ -72,17 +72,29 @@ Query existing: `POST https://www.wixapis.com/bookings/v2/categories/query` with
 ```
 POST https://www.wixapis.com/bookings/v1/staff-members
 Body: {
-  "staffMember": { "name": "Dr. Smith", "description": "...", "email": "..." },
+  "staffMember": {
+    "name": "Dr. Smith",
+    "description": "...",
+    "email": "...",
+    "mainMedia": { "image": { "url": "https://static.wixstatic.com/media/<file-id>" } }
+  },
   "fields": ["RESOURCE_DETAILS"]
 }
 ```
 
 ⛔ **Breaks at runtime:** Save `resourceId` from the response — this is used as the staff member's identifier in services and time slots. Using `staffMember.id` instead silently fails. → Always use `staffMember.resourceId` when referencing staff in services and slots.
 
+⛔ **Silently dropped:** the portrait field is `staffMember.mainMedia.image`, NOT `staffMember.image`. Setting `staffMember.image` (or any top-level image field) on create or update is silently dropped — the response shows no error and `name`/`description` save fine, but the portrait is missing. → Always nest under `mainMedia.image`.
+
+⛔ **REST wire shape ≠ SDK type:** the SDK type says `mainMedia.image?: string` (a `wix:image://` URI), but at the REST wire level it must be an OBJECT `{ url: 'https://static.wixstatic.com/media/<file-id>' }`. Passing a string returns `400 Expected an object`; passing a `wix:image://...` URL returns `400 'url' must be a valid URL`. The endpoint re-imports the URL into Wix media on save (the file gets duplicated under a new id) — this is wasteful but currently the only working path. → For seed scripts that already imported a file via `/site-media/v1/files/import`, build the staff portrait URL as `https://static.wixstatic.com/media/${file.id}` and let the bookings API re-import it.
+
+⛔ **Skip-on-exists makes images impossible to backfill:** the typical seed pattern (`if (staffByName.has(s.name)) continue;`) means re-running the script after generating images won't attach them. → If your seed is idempotent on staff name, write a separate `fix-staff-images.mjs` that PATCHes `mainMedia.image` on every existing staff record (requires the current `revision`).
+
 The response includes:
 - `staffMember.id` — staff member GUID
 - `staffMember.resourceId` — resource GUID (same as `resource.id`)
 - `staffMember.resource.eventsSchedule.id` — schedule GUID for custom working hours
+- `staffMember.mainMedia.image` — portrait object `{ url, id, width, height, ... }`
 
 ### 4. Create Services
 
