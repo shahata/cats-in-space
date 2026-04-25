@@ -118,7 +118,9 @@ Body: {
 
 ⛔ **Breaks at runtime:** `staffMemberIds` takes **resource IDs** (from `staffMember.resourceId`), NOT staff member IDs.
 
-⛔ **Breaks at runtime:** `payment.options` must specify either `online: true` or `inPerson: true`. Omitting both causes a validation error even for NO_FEE services. → Always include `payment: { options: { inPerson: true } }` (or `online: true`) on every service.
+⛔ **Breaks at runtime:** `payment.options` must specify either `online: true` or `inPerson: true`. Omitting both causes a validation error even for NO_FEE services. → Always include `payment: { options: { online: true } }` (or `inPerson: true`) on every service.
+
+⛔ **`payment.options.inPerson: true` skips the online checkout entirely.** The booking redirect (`bookingsCheckout`) lands the user on the **thank-you page** with no payment captured — the assumption is the studio collects cash/card on arrival. For a headless site that wants payment online, set `online: true` and `inPerson: false`. If you want both options, set both `true` and the checkout page exposes the choice. Symptom of getting this wrong: "the booking goes straight to thank-you, never through checkout." → For paid services on a headless site, default to `{ online: true, inPerson: false }`.
 
 ## Querying Services & Staff (Server-Side)
 
