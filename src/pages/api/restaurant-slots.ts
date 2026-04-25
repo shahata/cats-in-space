@@ -13,6 +13,7 @@ import { auth } from "@wix/essentials";
  */
 export const POST: APIRoute = async ({ request }) => {
   try {
+    console.log("Received request for restaurant slots");
     const body = await request.json();
     const operationId = String(body.operationId || "");
     const date = String(body.date || "");

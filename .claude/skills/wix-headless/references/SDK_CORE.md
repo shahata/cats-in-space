@@ -109,7 +109,7 @@ const item = result.items[0];
 
 ⚠️ **Common mistake** — Bulk patch uses `patches` array with `fieldModifications`, not `dataItems`. Wrong shape produces `WDE0080` error.
 
-⚠️ **Common mistake** — `MULTI_REFERENCE` cannot be set via insert/update/patch. Use dedicated reference endpoints.
+⚠️ **Common mistake** — `MULTI_REFERENCE` cannot be set via insert/update/patch — values are silently dropped. After the main write, call `items.replaceReferences(collectionId, fieldKey, referringItemId, ids[])` (empty array clears all). To load existing values when editing, use `items.queryReferenced(collectionId, rowId, fieldKey)`. See [EXTENSIONS.md](EXTENSIONS.md) for the full add/edit pattern.
 
 ## Price Formatting
 

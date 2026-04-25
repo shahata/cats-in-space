@@ -50,6 +50,7 @@ Read the guide that matches your current task. Each guide is self-contained with
 | [EVENTS_CINEMA.md](references/EVENTS_CINEMA.md) | Ticketed events, ticket definitions, cinema/seat selection |
 | [RESTAURANTS.md](references/RESTAURANTS.md) | Menus, items, modifiers, table reservations, online ordering |
 | [MEMBER_AREA.md](references/MEMBER_AREA.md) | Protected routes, tabbed dashboard, profile, orders, subscriptions, payment |
+| [EXTENSIONS.md](references/EXTENSIONS.md) | Backend event listeners (webhooks) and dashboard pages registered via `src/extensions.ts` — `export default` requirement, auth context, building admin UIs with WDS, `dashboard.openMediaManager`, multi-reference write patterns |
 | [TRANSLATIONS_STATIC.md](references/TRANSLATIONS_STATIC.md) | `t()` function, interpolation, RTL, language switcher, locale-aware links |
 | [TRANSLATIONS_CONTENT_API.md](references/TRANSLATIONS_CONTENT_API.md) | Translating dynamic business data (products, services, blog posts, CMS) via API |
 
