@@ -66,7 +66,7 @@ These apply to every feature area. Violating any of them produces silent failure
 
 3. **Translate all visible text** — Use `t('key')` from `i18n.getTranslationFunction()` for every user-visible string. Never hardcode English. See [TRANSLATIONS_STATIC.md](references/TRANSLATIONS_STATIC.md).
 
-4. **Use SDK types, not `any`** — Import types from SDK packages (`cart.LineItem`, `productsV3.ProductMedia`). Never use `as any` or `Record<string, unknown>`. See [SDK_CORE.md](references/SDK_CORE.md).
+4. **Use SDK types, not `any` — and not `unknown`-laundering either** — Import types from SDK packages (`cart.LineItem`, `productsV3.ProductMedia`). The ESLint rule blocks `any`, but `as unknown as { foo: string }`, `as unknown as (x: unknown) => Promise<unknown>`, `: unknown` parameters that take SDK responses, and ad-hoc inline shape interfaces are **the same violation in spirit** and are equally banned. If you can't find the right SDK type, search the SDK source (`grep -rn "export type" node_modules/@wix/<pkg>/build`) — never invent your own. If the SDK type genuinely disagrees with runtime, intersect (`X & { legacyField?: T }`) — never erase to `unknown`. See [SDK_CORE.md](references/SDK_CORE.md).
 
 5. **Use the `frontend-design` skill for styling** — Invoke `frontend-design` for all page layouts. Avoid generic system fonts and default colors.
 
@@ -105,14 +105,7 @@ Before building any feature area, verify you will implement ALL items from the r
 - [ ] Gift cards page (`/store/gift-cards`) — display gift card products with preset amount buttons, custom amount input (if `customVariant` exists), variant images, recipient form (name, email, message), buy now flow via Rise app catalog reference. The page itself is always built, but the nav link to it MUST be conditionally rendered — query `giftVoucherProducts.queryGiftCardProducts` (elevated) in `Layout.astro` and only include the nav entry when at least one gift card product exists. This way the link auto-hides when none exist and auto-shows once any are defined, without code changes. See [GIFT_CARDS.md](references/GIFT_CARDS.md)
 - [ ] Navigation with login/logout state detection
 - [ ] Member area Orders tab populated — order history with line item images is a required sub-item of the Member Area checklist for any site that has a store
-- [ ] **Data seeding (do not skip) — build an elaborate, realistic catalog:**
-  - [ ] Products with **3 images each** (not just 1), descriptions, ribbons, physicalProperties
-  - [ ] Categories with images, products assigned
-  - [ ] Options/variants — at least one product with **multiple option types combined** (e.g., Color swatch + Size text = many variants at different prices), not just single-option products
-  - [ ] Modifiers — at least one FREE_TEXT modifier attached to a product
-  - [ ] Info sections — created and assigned to products
-  - [ ] Pre-order — at least one product with `trackQuantity: true`, `quantity: 0`, `preorderInfo`
-  - [ ] **Fully out-of-stock product** — at least one entire product marked out-of-stock (not just a variant) to exercise the back-in-stock notification flow on the product detail page
+- [ ] **Data seeding — every UI branch on `/store/[slug]` and `/store` must be exercised by the seed.** A "demo" catalog with 8 plain products + one price each silently ships a broken storefront — option pickers, swatch chips, modifier inputs, info-section accordion, ribbon badge, sale-price strikethrough, preorder messaging, back-in-stock form, multi-image gallery all stay invisible. Every store seed MUST cover the full matrix in [PRODUCT_SEEDING.md](references/PRODUCT_SEEDING.md) → "Seeding: exercise every catalog feature": text option, swatch option, multi-option product (Size + Color → many variants), free-text modifier, text-choices modifier, swatch-choices modifier, info sections, ribbon, sale price (compareAt), preorder, fully out-of-stock product, multi-image gallery, plain product, categorized listing. The seed script and the data file BOTH need to express these — a script that consumes only `name + price + image` and ignores `options` / `modifiers` / `infoSections` / `ribbon` / `compareAt` is the single most common cause of a "looks half-finished" launch.
   - [ ] Back-in-stock app installed + collection enabled (see [ECOMMERCE.md](references/ECOMMERCE.md) → Back-in-Stock Notifications)
   - [ ] Inventory created for all new variants after attaching options
 
@@ -132,6 +125,28 @@ Before building any feature area, verify you will implement ALL items from the r
 - [ ] Checkout via `redirects.createRedirectSession` (handles login, free, and paid). NOTE: do NOT use `preferences: { checkIfPublish: true }` for plans — only for eCommerce checkout
 - [ ] Success state after checkout redirect
 - [ ] Blog post gating — set `pricingPlanIds` on premium posts, render paywall for non-subscribers
+
+### Restaurants / Online Ordering
+
+**For any site with a restaurants menu**, the ordering page is a non-trivial app — it is NOT a simple list-with-add-buttons. Treat the cats-in-space `MenuOrderView` as the canonical reference: every item below is required, and a build that ships the lightweight version will fail the restaurants SPI at checkout. See [RESTAURANTS.md](references/RESTAURANTS.md) for the SDK-level details.
+
+- [ ] **Wix cart is the source of truth from the first click** — every "+", "−", and modal confirm calls `currentCart.addToCurrentCart` / `updateCurrentCartLineItemQuantity` / `removeLineItemsFromCurrentCart` immediately. Never run a local `Record<string, number>` and call `addToCurrentCart` only at checkout — the dispatch race + empty-cart 404 + restaurants SPI validation all break that pattern.
+- [ ] **Catalog options shape**: `{ operationId, menuId, menuSectionId, priceVariant?, modifierGroups? }`. Camelcase `menuSectionId`, never `sectionId`. Never invent fields like `fulfillmentType`/`mode` here — they are silently dropped.
+- [ ] **Fulfillment on the cart**: after the first add, `currentCart.updateCurrentCart({ cartInfo: { selectedShippingOption: { code }, businessLocationId, contactInfo: { address } } })`. Code format: `"{TYPE}|ASAP"` or `"{TYPE}|{startMs}|{endMs}"`. PICKUP needs the restaurant's address.
+- [ ] **Fetch fulfillment methods from the API** — `listFulfillmentMethods()` filtered to `enabled !== false` and `type !== 'DINE_IN'`. The toggle renders from this; never hardcode PICKUP/DELIVERY.
+- [ ] **Default dispatch from the operation** — read `operation.defaultFulfillmentType`; don't default to PICKUP for restaurants that default to DELIVERY.
+- [ ] **Item modifier modal** (REQUIRED — see RESTAURANTS.md "Item modifier modal UX") — clicking an item with modifier groups OR price variants opens a modal. Inside: hero image, description, variant selector, modifier groups with min/max validation, qty stepper, live total, "Add to order" / "Update" button disabled until required groups satisfied. A flat `+`/`−` on the card alone is incorrect for any item that has modifiers — users cannot specify their selections. Items WITHOUT modifiers/variants can stay as inline `+` cards.
+- [ ] **Price variants** — `priceVariants.variants` selector inside the modal, prices shown for each variant, total updates on selection.
+- [ ] **Required modifier groups** — `rule.required: true` OR `maxSelections === 1` (single-select implicitly required) blocks the Add button until satisfied. Show inline "(required)" / "(min N)" hints on each group label.
+- [ ] **Edit-line mode** — clicking an existing cart line opens the same modal, pre-filled with the saved variant + modifier selections + qty. Submit calls `removeLineItemsFromCurrentCart([oldId])` then `addToCurrentCart` with the new options. NEVER mutate options in place — they're immutable on the line item.
+- [ ] **Multiple lines per item** — the same item with different modifiers should produce distinct cart lines. Group by `lineId`, not `catalogItemId`, when rendering qty badges and edit handles.
+- [ ] **Section navigation** — sticky side rail (or top tabs on mobile) with section names; IntersectionObserver highlights the section currently in view; clicking jumps to it.
+- [ ] **Scheduling button + popover** — when `operation.orderScheduling` allows future orders (`PREORDER` or `ASAP` with `BUSINESS_DAYS_AHEAD_HANDLING`), surface a "Schedule" button next to the dispatch toggle; popover with ASAP/Schedule radio, Day + Time dropdowns. ASAP-only restaurants (`asapFutureHandlingType: NO_FUTURE_HANDLING`) hide the button entirely.
+- [ ] **Time-slot probing** — for the Day dropdown, query `availability.queryAvailability` (or `getAvailableSlots` per the SDK in use) for a 7–14 day horizon in parallel; only show days that return at least one slot. Group by **local** day (not UTC) — a slot at 20:45Z may be tomorrow in Tel Aviv.
+- [ ] **Hydration race guard** — restore dispatch + selected slot from `cart.selectedShippingOption.code` only on first mount via a `hydratedRef`; subsequent `cart-updated` events refresh items but do not clobber the user's slot choice.
+- [ ] **Modifier additional charges** — show `+ $X` next to choices that have an `additionalCharge` so users see the price impact before selecting.
+- [ ] **Item labels** (vegetarian, spicy, etc.) — fetch via `itemLabels.listLabels()`, render the label icon (via `getShapeUrl()`) and name on the card.
+- [ ] **Data seeding — every UI branch on the ordering page must be exercised by the menu seed.** Same failure mode as the store: a menu of 12 items with just `name + price + image` ships a broken ordering experience because the modal stays empty (no variants, no modifier groups, no required-group enforcement, no labels). The menu seed script and data file BOTH need to express labels, variants, modifier groups, and modifier additional charges. Cover the full matrix in [RESTAURANTS.md](references/RESTAURANTS.md) → "Seeding: exercise every modifier type": required single-choice (radio with preselected default), optional multi-choice (checkbox), free-text modifier, paid modifier (non-zero charge), free modifier (zero charge), variant-priced item (2+ price variants for the size selector), plain item (no variants, no modifiers — proves the modal works empty-shell). Plus dietary labels (icon-bearing — Vegan, Gluten-free, Hot, etc.) on a representative slice of items.
 
 ### Donations / Research Funding
 

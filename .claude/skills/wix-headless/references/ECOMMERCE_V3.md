@@ -158,6 +158,7 @@ Use data attributes on product cards for JS-based filtering without re-fetching:
   - Pre-order detection: `product.inventory?.preorderStatus === "ENABLED"`
   - Variant-level: `variant.inventoryStatus?.preorderEnabled`
   - When preorder is enabled, item is purchasable even if out of stock
+  - ⚠️ **`product.inventory` does NOT carry `preorderInfo.message`.** That field lives on `InventoryItem` (a separate API at `inventoryItems.queryInventoryItems` filtered by `productId` + `variantId`). Reading `product.inventory.preorderInfo.message` returns `undefined`. Casting through `as { preorderInfo?: { message?: string } }` to "make it work" silently drops the user-facing preorder message. If you need the message, query inventory items separately
 - `directCategoriesInfo.categories[]` — `{ _id }` (opt-in)
 - `ribbon` — `{ _id, name }` (object, not string)
 - `infoSections[]` — `{ _id, uniqueName, title, description (RichContent), plainDescription }`. Use `INFO_SECTION` + `INFO_SECTION_DESCRIPTION` + `INFO_SECTION_PLAIN_DESCRIPTION` fields. All three must be requested to get the full shape.

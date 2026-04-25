@@ -113,12 +113,40 @@ const item = result.items[0];
 
 ## Price Formatting
 
-Always use `Intl.NumberFormat` for locale-aware currency display — never manually construct currency strings like `'$' + price`:
+Always format prices ourselves with `Intl.NumberFormat`, using the visitor's current locale and the currency that's already on the SDK price object. **Never render the SDK's pre-formatted string** (`formattedAmount`, `formattedValue`, `formattedConvertedAmount`, etc.):
 
 ```typescript
 import { i18n } from '@wix/essentials';
-const locale = await i18n.getLocale();
-const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
+const locale = i18n.getLocale();
+const fmt = (n: number, currency: string) =>
+  new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
+```
+
+⛔ **Never read `price.formattedAmount` / `price.formattedValue` / `price.formattedConvertedAmount`.** Those strings are produced server-side at write/cache time with whatever locale was active then, not the current visitor's. Different SDKs also format inconsistently (decimal separators, currency-symbol position, fraction digits) — rendering them mixed in one page produces visibly different price styles. The only way to get consistent, locale-correct output is to always go through one `Intl.NumberFormat` call.
+
+⛔ **Never manually construct currency strings** like `` `$${price}` ``. The hardcoded symbol is wrong on every non-USD site.
+
+### Where to get the currency
+
+Priority — try in order:
+
+1. **`price.currency` on the SDK Money/CommonMoney/Price object.** Most APIs return this (`@wix/donations`, `@wix/bookings`, `@wix/pricing-plans`, `@wix/events`, `@wix/ecom`, `@wix/stores`). Format `price.amount` (or `.value`) with `Intl.NumberFormat(locale, { style: 'currency', currency: price.currency })`. This is the right currency for that specific price — and for multi-currency carts where the buyer's display currency may differ from the listed currency, this is the only correct source.
+2. **`getSiteCurrency()` (`src/utils/site.ts`)** — fall back here only when the price object has no currency field. Concrete cases: `@wix/restaurants` `PriceInfo` (just a decimal `price` string with no currency), or computed totals client-side before any line item with a currency exists. Don't reach for it when `price.currency` is present.
+
+```typescript
+// ✅ right — currency from the price object
+const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: price.currency }).format(n);
+const display = fmt(parseFloat(price.amount));
+
+// ✅ right — fallback for restaurants where PriceInfo has no currency
+const currency = await getSiteCurrency();
+const display = new Intl.NumberFormat(locale, { style: 'currency', currency }).format(parseFloat(item.priceInfo.price));
+
+// ❌ wrong — using SDK's pre-formatted string
+const display = price.formattedAmount;
+
+// ❌ wrong — calling getSiteCurrency() when price.currency is right there
+const currency = await getSiteCurrency();
 ```
 
 ### Getting the site's payment currency
@@ -149,9 +177,54 @@ export async function getSiteCurrency(): Promise<string> {
 
 ⛔ **Never fall back to a hardcoded currency string.** The try/catch-returns-`'USD'` pattern silently ships the wrong symbol for every site that isn't USD. Let the call throw — configuration gaps should surface as errors, not as incorrect prices.
 
+⛔ **The `priceFormatted || \`$${price}\`` pattern is the exact same violation.** It looks like graceful degradation, but on any non-USD site it silently renders the wrong currency symbol any time the SDK's `formattedAmount`/`formattedValue` is missing. Same for `priceFormatted || \`${price}\`` (bare number — no currency at all). And the `priceFormatted` source itself is wrong (see "Never read `price.formattedAmount`" above) — both halves of the expression need replacing:
+
+```typescript
+// ❌ wrong — hardcoded $ on a non-USD site
+{priceFormatted || `$${price}`}
+
+// ❌ wrong — no currency on the fallback
+{priceFormatted || `${price}`}
+
+// ❌ still wrong — sdkFormatted uses server-side locale, not visitor's
+const priceFormatted = sdkFormatted || (rawValue ? fmt(parseFloat(rawValue)) : '');
+
+// ✅ right — always format from amount+currency at the page boundary
+const priceFormatted = price.amount
+  ? new Intl.NumberFormat(locale, { style: 'currency', currency: price.currency }).format(parseFloat(price.amount))
+  : '';
+```
+
+Centralise the format call at the page boundary; never let a bare number slip through to JSX, and never let an SDK pre-formatted string be the "good" branch of an `||` either.
+
 `siteProperties.getSiteProperties()` returns `{ properties: { paymentCurrency, language, timeZone, ... } }`. Use this from any Astro page (server-side) to get an ISO-4217 currency code, then pass it to `Intl.NumberFormat` — or through a prop to React components that format computed totals.
 
 REST equivalent: `GET https://www.wixapis.com/site-properties/v4/properties`. Prefer the SDK so auth, types, and response shapes are handled correctly.
+
+### Money/Price field-name drift across SDKs
+
+The shape of "Money" is **not consistent across Wix SDKs** — same concept, different field names, and the currency is in different places (or missing entirely). Since we always format prices ourselves (see "Price Formatting" above), the practical question for each price is: **where is the amount, and where is the currency?** Use this table to find both, then pass them to `Intl.NumberFormat`:
+
+| SDK | Type | Amount field | Currency source |
+|---|---|---|---|
+| `@wix/ecom` cart `MultiCurrencyPrice` | line items, priceSummary | `amount` (or `convertedAmount`) | `cart.conversionCurrency \|\| cart.currency` (currency is on the **Cart** object, not on the price) |
+| `@wix/ecom` order `Price` | order line items, priceSummary | `amount` | `order.currency` |
+| `@wix/donations` | `MultiCurrencyPrice` (amounts) | `amount` | **not on price** — site currency, except `currencyMetricsList[].currencyCode` for raised totals |
+| `@wix/gift-vouchers` | `MultiCurrencyPrice` (variants) | `amount` | **not on price** — site currency (per SDK docs, gift cards always use site default) |
+| `@wix/stores` v3 `FixedMonetaryAmount` | `actualPriceRange.minValue.amount` etc. | `amount` | **not on price** — `product.currency` (request `RequestedFields.CURRENCY`) |
+| `@wix/bookings` `Money` (services payment) | `payment.fixed.price.value` | `value` | `value.currency` (on the price) |
+| `@wix/pricing-plans` `Money` | `pricing.price.value` | `value` | `price.currency` (on the price) |
+| `@wix/events` `CommonMoney` (ticket defs) | `pricingMethod.fixedPrice.value` | `value` | `fixedPrice.currency` (on the price) |
+| `@wix/restaurants` `PriceInfo` (menu items) | `priceInfo.price` | `price` | **none anywhere** — site currency is the only option |
+
+⚠️ **Three patterns of currency location:**
+1. **On the price object itself** (bookings, plans, events) — read `price.currency` directly.
+2. **On the parent entity** (cart on Cart, order on Order, product on Product) — read it from the parent and pass down.
+3. **Implicit / not in the response** (donations, gift cards, restaurants) — fall back to `getSiteCurrency()` from `src/utils/site.ts`.
+
+⚠️ **Never hand-roll types like `{ amount?, formattedAmount? }` to "make it work for any shape".** The `as unknown as { amount?: string; formattedAmount?: string }` cast invents fields that don't exist on the actual SDK type and silently reads `undefined`. Import the type the SDK exports and use the right field for that package.
+
+💡 **One canonical helper.** Define a single `formatPrice(amount, currency, locale)` in `src/utils/site.ts` and route every price through it. Pages resolve the currency from the table above (price → parent entity → site fallback) and pass `currency` to React components that compute totals.
 
 ## SDK Gotchas — Quick Reference
 
@@ -230,7 +303,10 @@ This is also how the member Orders tab can badge each line item by type — clas
 - Always prefer SDK types (`cart.LineItem`, `productsV3.ProductMedia`, etc.) over `Record<string, unknown>`
 - Import types: `import type { cart as cartTypes } from '@wix/ecom'` or via namespace: `type TimeSlot = timeSlots.TimeSlot`
 - ⛔ **Never use `any`, `any[]`, `as any`, `as unknown as`, or `Record<string, any>`** — the ESLint `no-explicit-any` rule enforces this at build time. If a type error appears, fix the field access to match the SDK type — don't suppress the error. A type error usually means the code will crash at runtime.
+- ⛔ **`as unknown as X` is `as any` with a fig leaf — equally banned.** ESLint's `no-explicit-any` doesn't catch the double-cast, but the project also has a `no-restricted-syntax` rule that does. The same applies to laundering through ad-hoc shapes: `(sdk as unknown as { reservations?: { createReservation: (r: unknown) => Promise<unknown> } }).reservations` is the worst form of this — it (a) erases the real signature, (b) invents a "maybe" property that may not exist at runtime, and (c) makes every parameter and return `unknown`. Three lies in one expression. If `sdk.reservations` exists, the SDK exports its type; import it. If it doesn't exist, your code is broken — don't paper over with a fictional shape.
+- ⛔ **`: unknown` parameters for SDK inputs are the same trick.** A function that calls `sdk.createX(opts: unknown)` has erased the input contract. Use `Parameters<typeof sdk.createX>[0]` if you must, or import the input type the SDK exports (`reservations.CreateReservationOptions`). `unknown` is appropriate for catch-block errors and for true external inputs (URL params, JSON.parse output) — never for SDK call inputs or outputs.
 - ⛔ **Never write custom interfaces that mirror SDK types** (e.g., a local `interface TimeSlotInfo { startDate: string; status: string }` when `timeSlots.TimeSlot` exists). Using SDK types directly keeps your code in sync with API changes and surfaces real bugs — a custom mirror hides the fact that, e.g., `startDate` is `Date | null` not `string`, and that misalignment eventually crashes.
+- ✅ **When the SDK type seems wrong, probe before casting.** Drop a temporary endpoint (see "probe shapes" above) to confirm the actual runtime shape, then either (a) use the SDK type as-is if it's right, (b) intersect with the missing field if there's drift, or (c) file a fix upstream. Going straight to `as unknown as` skips the step where you find out *why* the type is wrong — and that "why" is usually a real bug.
 - **Prefer type inference over explicit annotation where possible.** `const map = new Map(entries)` with well-typed `entries` infers the full `Map<K, V>` — no need for a local `interface Entry` or explicit generic. Same for `.map()` / `.filter()` chains: let TS infer the item type from the SDK-typed array.
 - **SDK type drift is real.** When the runtime response disagrees with the SDK type (e.g., `orders.Order.priceDetails` is read as present but typed away), intersect rather than reach for `any`: `type Widened = X & { legacyField?: X_LegacyType }`. Casts stay narrow and you keep type coverage on the rest of the object.
 - **`unknown` in catch, not `any`.** `} catch (e) { ... e instanceof Error ? e.message : fallback }` covers the common case. Reserve a typed shape (e.g., `type WixSdkError = Error & { details?: { applicationError?: { code?: string } } }`) for deeper inspection.
@@ -316,6 +392,38 @@ Common V3 fields that are objects, not strings:
 ### React Islands in Astro
 
 ⛔ **Breaks at runtime** — Don't use inline `<style>{...}` in React components — causes hydration mismatch due to HTML entity encoding. Put styles in Astro `<style>` with `:global()`.
+
+⛔ **`:global()` doesn't work in CSS injected from React.** It's a build-time syntax processed by CSS Modules / Astro's scoped-style pipeline — it only works inside Astro `<style>` blocks (and `<style is:global>`). Plain CSS in `<style>` tags rendered via React's `dangerouslySetInnerHTML` (or any other runtime-injected CSS) does NOT understand `:global()`. The browser sees an unknown pseudo-class and silently drops the entire rule. Symptom: tabs/panels that should be hidden are visible (or vice versa) and no error appears anywhere. **Rule:** if the CSS is reaching the browser via a React component, omit `:global()` and write plain selectors. If you need `:global()`, the styles belong in an Astro `<style>` block.
+
+⛔ **Astro named slots do NOT forward to React component children.** Writing `<MyReactComponent client:load><div slot="profile">…</div><div slot="orders">…</div></MyReactComponent>` does not give the React component access to named slots — Astro framework integrations only pass the default slot through as `children`, and named-slot content is concatenated into that single `children` list with the `slot=` attribute preserved as a DOM attribute. Combined with `:global(div[slot="profile"])` selectors that don't run, this is a common silent-failure pattern: tab buttons render, but every panel shows empty.
+
+✅ **Pattern for React-driven tabs over SSR'd content:** keep the React component lean — buttons + URL/hash sync only — and put the tab panels as **siblings** in the Astro page with `data-tab-panel` attributes. The React component toggles `style.display` on those siblings via `useEffect` when the active tab changes:
+
+```astro
+---
+// Astro page
+---
+<MemberTabs client:load />
+
+<div data-tab-panel="profile" class="tab-panel">
+  <ProfileEditor client:load />
+</div>
+<div data-tab-panel="orders" class="tab-panel" style="display: none;">
+  <h2>{t('member.tabOrders')}</h2>
+  {orders.map(o => /* ... server-rendered */)}
+</div>
+```
+
+```tsx
+// MemberTabs.tsx — buttons only
+useEffect(() => {
+  document.querySelectorAll<HTMLElement>('[data-tab-panel]').forEach((el) => {
+    el.style.display = el.dataset.tabPanel === active ? '' : 'none';
+  });
+}, [active]);
+```
+
+Why: orders/bookings panels keep their server-rendered data (no client refetch), each panel can mount its own `client:load` islands, and the React component stays small. Initial visibility is set via `style="display: none;"` on inactive panels in the Astro template so the SSR'd page shows the correct tab before hydration.
 
 ⚠️ **Common mistake** — No generic types with angle brackets in Astro template expressions (e.g., `Record<string, any>` breaks the parser). Define types in frontmatter.
 

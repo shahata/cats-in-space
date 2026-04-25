@@ -136,7 +136,7 @@ import { redirects } from "@wix/redirects";
 
 const options: Record<string, unknown> = {
   quantity: 1,
-  currency: "USD",
+  currency,                          // from getSiteCurrency() — never hardcode 'USD'
   wixGiftCardsAppNewCatalog: true,  // required flag
 };
 
@@ -156,6 +156,9 @@ options.giftingInfo = {
   greetingMessage: "Happy birthday!",  // optional
   deliverAt: "2025-12-25T00:00:00Z",   // optional scheduled delivery
 };
+// Sender info is NOT in `giftingInfo` — the sender is whoever checks out
+// (Wix derives it from the buyer's auth/checkout form). Don't add a
+// `senderName` / `sender` field here; it will be silently ignored.
 
 // Add to cart
 await currentCart.addToCurrentCart({
@@ -187,6 +190,30 @@ window.location.href = redirectSession.fullUrl;
 ```
 
 Always build `callbacks` via the shared `checkoutCallbacks()` helper — never inline a partial object. See `ECOMMERCE.md` → "Redirect callbacks: always pass all of them".
+
+### Anti-patterns — invented field names that are silently ignored
+
+The `options` object is loosely typed (`Record<string, unknown>` in practice), so misspelled or invented fields don't trigger any TypeScript or runtime error — they just get discarded. Specifically:
+
+⛔ **Don't invent `customTextFields: { recipientName, recipientEmail, senderName, message }`** — no such field exists. The gift cards backend ignores it, the recipient never gets an email, and the gift never delivers. Use `giftingInfo` with the exact shape above.
+
+⛔ **Don't add a `senderName` / `sender` field to `giftingInfo`.** Only `recipientInfo`, `greetingMessage`, and `deliverAt` are recognised. Sender is derived server-side from the buyer's checkout identity (the `notificationInfo.sender.name` field in the **admin** `giftVouchers.createGiftCard` API is a different, admin-only path — don't confuse it with consumer purchase options).
+
+⛔ **Don't pass a single `recipientName` string.** `recipientInfo` requires `firstName` and `lastName` separately. If your form collects one "Recipient name" input, split it client-side on the first space:
+
+```typescript
+const nameParts = recipientName.trim().split(/\s+/).filter(Boolean);
+const giftingInfo = {
+  recipientInfo: {
+    firstName: nameParts[0] || '',
+    lastName: nameParts.slice(1).join(' '),
+    email: recipientEmail,
+  },
+  ...(message ? { greetingMessage: message } : {}),
+};
+```
+
+⛔ **Don't use `options.amount` for custom values.** The field is `customAmount` (number, not string). `amount` is silently ignored and the gift card is created at the preset variant price (or fails with "no price").
 
 ### Key Differences from Regular Products
 

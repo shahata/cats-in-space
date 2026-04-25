@@ -128,6 +128,33 @@ Why this order:
 
 The step-by-step below lists image generation first because that's the order most records expect image URLs at creation. In practice, prefer the two-pass variant: run steps 3-9 with `image: undefined` on every record, then a final step 10 that loops through each entity type and PATCHes in the generated image.
 
+## Seeding: exercise every catalog feature
+
+⛔ **A "demo" seed of 8 plain products with one price each is a broken catalog.** The product detail page (`/store/[slug]`), product listing, cart sidebar, and member orders all have UI branches that only render for specific catalog features — option pickers, swatch chips, modifier inputs, info-section accordion, ribbon badges, sale-price strikethrough, preorder messaging, back-in-stock email form, multi-image gallery. If the seed has no products that exercise a branch, the build agent has no way to verify that branch works, and the launched site silently looks half-finished.
+
+**Every store seed MUST cover the matrix below.** A single product can satisfy several rows; aim for ~10–15 products that collectively hit every row. The exact rule of thumb: a stranger looking at `/store/[slug]` for any random product should be able to play with at least *something* on the page, and across the catalog as a whole every detail-page UI feature should appear at least once.
+
+| Coverage row | Why the UI needs it | At least one product with… |
+|---|---|---|
+| **Text option** | Renders the chip-style option group (S/M/L) | A `PRODUCT_OPTION` customization, `TEXT_CHOICES` render type, attached as `options[]` |
+| **Swatch (color) option** | Renders the color-circle picker | A `PRODUCT_OPTION` customization, `SWATCH_CHOICES` render type, choices with `colorCode` |
+| **Multi-option product** | Renders the variant grid with multiple choosers, exercises variant matching | A product with **2+ option types** combined (Size + Color → many variants at different prices) |
+| **Free-text modifier** | Renders the text input with char counter | A `MODIFIER` customization, `FREE_TEXT` render type, attached via product `modifiers[]` |
+| **Text-choices modifier** | Renders modifier as button group | A `MODIFIER` customization, `TEXT_CHOICES` render type |
+| **Swatch-choices modifier** | Renders modifier as color circles | A `MODIFIER` customization, `SWATCH_CHOICES` render type |
+| **Info sections** | Renders the accordion below the description | A product attached to 2+ info sections (e.g. Care Instructions, Materials, Shipping) |
+| **Ribbon** | Renders the corner badge ("NEW", "SALE", "BESTSELLER") | A product with a `ribbon: { name }` |
+| **Sale price** | Renders the strikethrough "before" price | A product with `compareAtPrice` > `actualPrice` |
+| **Preorder** | Renders the preorder badge + message | A product with `inventoryItem: { trackQuantity: true, quantity: 0, preorderInfo: { enabled: true, limit: N, message } }` |
+| **Out-of-stock** | Renders the "Notify me when back" form | A product with all variants out of stock — drives the back-in-stock app installation step |
+| **Multi-image gallery** | Renders the image carousel/thumbnail strip | A product with **3+ media items** |
+| **Plain product** | Verifies the simplest detail-page render with no chooser UI | A product with **no options, no modifiers**, single price |
+| **Categorized** | Renders the category filter bar on the listing | Categories assigned via `bulk/categories/{id}/add-items` to every product (and at least 3 distinct categories) |
+
+⛔ **Don't skip any row.** If you don't have a product idea that fits, invent one — a "Gift wrap" add-on for the free-text modifier, a "Limited edition" reprint for the ribbon, a "Pre-order: ships next quarter" book for the preorder branch. The catalog is for verifying the storefront works end-to-end, not for being commercially realistic.
+
+⛔ **Hard-coding the products in the seed script is fine; hard-coding only their *names* and *prices* is not.** The seed is the catalog's spec — fields like `options`, `modifiers`, `infoSections`, `ribbon`, `compareAt`, `preorder`, `outOfStock`, `category`, `images` must all live in the data. A seed script that takes "name + price + image" and ignores everything else is the most common failure mode and produces exactly the broken catalog above.
+
 ## Step-by-Step Overview
 
 1. **Generate images** via Wix Runware API (see [MEDIA.md](MEDIA.md))

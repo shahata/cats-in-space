@@ -85,7 +85,7 @@ for (const r of unique) {
 // Render recursively: repliesMap[commentId] → direct replies
 ```
 
-💡 **Best practice:** `parentComment.author.authorName` has the actual parent author name for "replying to" labels.
+💡 **Best practice:** For "replying to" labels, resolve `parentComment.author.memberId` against your fetched member-profile map (see "Member Comments" below). Visitor parents have only `visitorId` and no display name — fall back to a generic "Visitor" label.
 
 ### Creating Comments & Replies
 
@@ -103,7 +103,6 @@ const created = await commentsApi.createComment({
   appId: BLOG_APP_ID,
   contextId: post.referenceId,
   resourceId: post.referenceId,
-  author: (isLoggedIn ? {} : { authorName: "Visitor Name" }) as commentsApi.CommentAuthor,
   content: { richContent: { nodes: helloNodes } },
 });
 
@@ -112,15 +111,16 @@ const reply = await commentsApi.createComment({
   appId: BLOG_APP_ID,
   contextId: post.referenceId,
   resourceId: post.referenceId,
-  author: (isLoggedIn ? {} : { authorName: "Visitor Name" }) as commentsApi.CommentAuthor,
   parentComment: { _id: parentCommentId },
   content: { richContent: { nodes: helloNodes } },
 });
 ```
 
-⛔ **Breaks at runtime:** Guest display names use `author: { authorName: "Name" }`. SDK types don't include it — cast with `as commentsApi.CommentAuthor`.
+⛔ **Don't pass `author` to `createComment`.** `Comment.author` is `@immutable` per the SDK schema — the server populates it from the calling identity (`memberId` for logged-in members, `visitorId` for anonymous). Anything passed in is ignored. `CommentAuthor` only contains identity fields (`userId | memberId | visitorId`); there is **no `authorName` field anywhere on it**, despite older guidance to the contrary. Casting the author to invent an `authorName` is a no-op at best.
 
-💡 **Best practice:** When logged in, send empty `author: {}` — the server uses the member identity automatically.
+⛔ **Visitor display names are not supported by the comments API.** Anonymous visitors get a generated `visitorId` and no name — there's no SDK field that accepts a guest-provided display name. If your site requires named comments, set the comments-app permission to `MEMBER` (members must be logged in) and prompt visitors to log in via the `PERMISSION_DENIED` handler below. Don't ship a "Your name" input that goes nowhere.
+
+💡 **Sort orders are SDK enums.** Use `commentsApi.Order.OLDEST_FIRST` and `commentsApi.ReplySortOrder.OLDEST_FIRST` for `commentSort` / `replySort` — not the literal strings. `'OLDEST_FIRST'` compiles via `OrderWithLiterals` but breaks the day Wix renames an enum value.
 
 ### Permission Denied (403) Handling
 
@@ -168,7 +168,7 @@ await commentsApi.deleteComment(commentId);
 
 ⚠️ **Common mistake:** The `rating` field on comments is **NOT controllable** through the public API. Always set to system default (3). Building a rating input UI will have no effect. → Do not build a rating UI for comments; omit the field entirely.
 
-**Comment author info:** `comment.author.authorName`
+**Comment author info:** `comment.author` has only `memberId | visitorId | userId`. Resolve member display names by fetching profiles (see "Member Comments" below). For visitor comments, render "Visitor" — the SDK has no field for a visitor's chosen display name.
 **Comment text:** `comment.content.richContent.nodes` (extract TEXT from PARAGRAPH nodes)
 
 ### Member Comments
