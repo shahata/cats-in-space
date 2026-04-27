@@ -177,6 +177,14 @@ Organize keys by page/component using nested groups.
 
 ---
 
+## Never use translatable SDK fields as identifiers
+
+⛔ **Breaks at runtime under translation** — `name`, `title`, `displayName`, `description` and similar human-readable fields on Wix SDK objects (products, options, choices, modifiers, services, plans, restaurant items, CMS rows, …) are rewritten by the Multilingual API. If you key React state, lookup maps, React `key={}`, or `find(x => x.name === ...)` predicates by these fields, the feature silently breaks once a visitor switches locale.
+
+→ Use the locale-invariant ID instead: `_id`, `key`, `choiceId`, or `slug`. Render `name`/`title` only in the JSX text content. See [ECOMMERCE_V3.md → "Translatable fields are display-only"](ECOMMERCE_V3.md#translatable-fields-are-display-only--never-use-them-as-identifiers) for the full audit checklist and the variant-matching trap (`optionChoiceIds` vs `optionChoiceNames`).
+
+---
+
 ## RTL Support
 
 ```astro

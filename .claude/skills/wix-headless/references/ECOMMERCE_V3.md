@@ -180,18 +180,125 @@ const STORES_APP_ID = '215238eb-22a5-4c36-9e7b-e7c08025e04e';
 const ref: cartTypes.CatalogReference = { catalogItemId: product._id, appId: STORES_APP_ID };
 const opts: Record<string, unknown> = {};
 if (hasOptions && variantId) opts.variantId = variantId;
-// V3 modifiers keyed by freeTextSettings.key
+// V3 modifiers keyed by freeTextSettings.key — and the local `customTexts` state should
+// also be keyed by `mod.key` (NOT `mod.name`, which is translated). See "Translatable
+// fields are display-only" below.
 for (const mod of freeTextModifiers) {
   const key = mod.freeTextSettings?.key;
-  if (key && customTexts[mod.name]?.trim()) {
+  if (key && customTexts[mod.key]?.trim()) {
     if (!opts.customTextFields) opts.customTextFields = {};
-    opts.customTextFields[key] = customTexts[mod.name];
+    opts.customTextFields[key] = customTexts[mod.key];
   }
 }
 // Pre-order: pass in catalogReference.options so cart allows quantity > 0
 if (isPreOrder || variantPreorder) opts.preOrderRequested = true;
 if (Object.keys(opts).length > 0) ref.options = opts;
 ```
+
+## Translatable fields are display-only — never use them as identifiers
+
+⛔ **Breaks at runtime under translation** — `name`, `title`, `displayName`, `description`, `tagLine`, `optionChoiceNames` and similar human-readable fields get rewritten by the Wix Multilingual API. If you key React state, lookup maps, or variant-matching predicates by these fields, the site silently breaks the moment a visitor switches locale: state mutations land under one key, reads happen under another, variants stop matching, and "Add to cart" ships the wrong line item (or none).
+
+**Use locale-invariant identifiers everywhere except the rendered text. When the entity exposes a `key`, use `key` directly — it's safe to assume present; don't write `key ?? _id` / `key ?? name` fallbacks.** `_id` is only the right choice where the Wix API itself forces UUIDs — V3 variant matching is the canonical case (variants don't expose a `key` equivalent).
+
+| Entity | Stable identifier | Translated label (display only) |
+|---|---|---|
+| `ConnectedOption` | `key` | `name` |
+| `ConnectedOptionChoice` | `key` | `name` |
+| `ConnectedModifier` (any render type) | `key` | `name` |
+| Modifier choice (TEXT_CHOICES / SWATCH_CHOICES) | `key` | `name` |
+| Free-text modifier (`FREE_TEXT`) | `mod.key` for state; `freeTextSettings.key` for `catalogReference.customTextFields` | `freeTextSettings.title` / `name` |
+| `Variant` | `_id` (no `key` exposed) | n/a — variants don't carry a translatable label of their own |
+| Variant choice | `optionChoiceIds.optionId` + `optionChoiceIds.choiceId` (UUIDs — no `key` equivalent on the variant side) | `optionChoiceNames.optionName` / `optionChoiceNames.choiceName` (EN-source, **not** locale-aware) |
+| Category | `_id` (or `slug` for URLs) | `name` |
+| `Ribbon` | `_id` | `name` |
+| `InfoSection` | `uniqueName` | `title`, `description` |
+| `Brand` | `_id` | `name` |
+| Bookings `Service`, `Category`, `BookingPolicy`, `Variant` | `_id` (or `mainSlug.name` for service URLs) | `name`, `description`, `tagLine` |
+| Loyalty program / Pricing plan | `_id` | `name`, `displayName`, `description` |
+| Restaurant menu / item / section / modifier / variant / label | `_id` | `name`, `description` |
+| CMS collection row | `_id` (or `slug` for URLs) | `name`, `title`, `description` |
+
+### The variant-matching trap (V3)
+
+Variants are returned with `optionChoiceIds` (UUIDs, always present) and `optionChoiceNames` (EN-source strings, only present when `VARIANT_OPTION_CHOICE_NAMES` is requested). **There is no `key`-based equivalent on variants** — the only stable identifiers in `optionChoiceIds` are the UUIDs. The names look temptingly like the option/choice names you render, but they reflect what was stored at the source site (EN), **not** the visitor's current locale.
+
+Recommended pattern: keep state in `key`-space, and look up `_id` / `choiceId` inline from `options[]` at match time. No precomputed `key → _id` maps — for typical option counts an inline `find` is cleaner.
+
+```tsx
+// State keyed by `opt.key` / `choice.key`
+const [selections, setSelections] = useState<Record<string, string>>(() => {
+  const init: Record<string, string> = {};
+  for (const opt of options) {
+    const choices = opt.choicesSettings?.choices;
+    if (choices?.length && opt.key) init[opt.key] = choices[0]?.key ?? "";
+  }
+  return init;
+});
+
+// ✅ Variant matching: walk `options`, look up the selected choice in state by `key`,
+//    match the variant's `optionChoiceIds` against the option's `_id` and the
+//    selected choice's `choiceId`.
+const selectedVariant = useMemo(() => {
+  if (!hasOptions) return variants[0];
+  return variants.find((v) =>
+    options.every((opt) => {
+      const choice = opt.choicesSettings?.choices?.find(
+        (c) => c.key === selections[opt.key!],
+      );
+      return v.choices?.some(
+        (c) =>
+          c.optionChoiceIds?.optionId === opt._id &&
+          c.optionChoiceIds?.choiceId === choice?.choiceId,
+      );
+    }),
+  );
+}, [selections, variants, hasOptions, options]);
+
+// ⛔ Breaks when name is translated — `selections` is keyed by translated `opt.name`
+//    but `optionChoiceNames.optionName` is the EN source string.
+const selectedVariant = variants.find((v) =>
+  Object.entries(selections).every(([optName, choiceVal]) =>
+    (v.choices || []).some((c) =>
+      c.optionChoiceNames?.optionName === optName &&
+      c.optionChoiceNames?.choiceName === choiceVal,
+    ),
+  ),
+);
+```
+
+### Initializing modifier state
+
+```tsx
+// Modifiers: key state by `mod.key` and `choice.key`
+const [modifierSelections, setModifierSelections] = useState<Record<string, string>>(() => {
+  const init: Record<string, string> = {};
+  for (const mod of choiceModifiers) {
+    const choices = mod.choicesSettings?.choices;
+    if (choices?.length && mod.key) init[mod.key] = choices[0]?.key ?? "";
+  }
+  return init;
+});
+
+// Free-text modifiers: ALSO key local `customTexts` by `mod.key`. The cart-side
+// `catalogReference.customTextFields` separately uses `mod.freeTextSettings.key`
+// (a different key, set on the FREE_TEXT modifier definition).
+const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
+// onChange: setCustomTexts(prev => ({ ...prev, [mod.key]: e.target.value }))
+// read:    customTexts[mod.key]
+```
+
+### React keys and `find` lookups
+
+⚠️ **Common mistake** — Using `key={item.name}` or `find(x => x.name === something)` for any translatable entity. Both break under translation. → Use the entity's `key` directly. Don't write `key ?? _id` / `key ?? name` fallbacks — `key` is reliably present on entities that expose it. Reach for `_id` only where the API itself forces UUIDs (the V3 variant-matching case), or for entities that don't expose `key` at all.
+
+### Quick audit checklist before shipping any feature with options/variants/modifiers
+
+- [ ] No `useState` keyed by `.name` / `.title` / `.displayName` / `.description`
+- [ ] State and React keys use `key` directly — no `?? _id` / `?? name` fallbacks
+- [ ] No `find(x => x.name === ...)` against SDK objects — use `key` (or `slug` for URL-bearing entities)
+- [ ] Variant matching: state stays in `key`-space; look up `option._id` / `choice.choiceId` inline from `options[]` to compare against `optionChoiceIds.{optionId, choiceId}`. Don't precompute `key → _id` maps unless profiling justifies them
+- [ ] If a piece of state must be human-readable (e.g. URL slugs), it's the `slug` field — which the SDK keeps locale-invariant by design
 
 ## V3 REST API (for MCP data seeding)
 

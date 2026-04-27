@@ -41,12 +41,15 @@ export default function ProductActions({ product }: Props) {
   const isPreOrder =
     product.inventory?.preorderStatus === productsV3.PreorderStatus.ENABLED;
 
+  // State is keyed by `opt.key` / `choice.key` (locale-invariant slugs).
+  // Variant matching needs UUIDs (`optionChoiceIds.{optionId, choiceId}`), so we
+  // build a small `key → _id` lookup from `options[]` at match time.
   const [selections, setSelections] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const opt of options) {
       const choices = opt.choicesSettings?.choices;
-      if (choices?.length && opt.name) {
-        init[opt.name] = choices[0]?.name ?? "";
+      if (choices?.length && opt.key) {
+        init[opt.key] = choices[0]?.key ?? "";
       }
     }
     return init;
@@ -59,7 +62,7 @@ export default function ProductActions({ product }: Props) {
     for (const mod of choiceModifiers) {
       const choices = mod.choicesSettings?.choices;
       if (choices?.length && mod.key) {
-        init[mod.key] = choices[0]?.key ?? choices[0]?.name ?? "";
+        init[mod.key] = choices[0]?.key ?? "";
       }
     }
     return init;
@@ -74,20 +77,23 @@ export default function ProductActions({ product }: Props) {
   const [bisSubmitted, setBisSubmitted] = useState(false);
 
   const selectedVariant = useMemo(() => {
-    if (!hasOptions) {
-      return variants[0];
-    }
-    return variants.find((v) => {
-      const choices = v.choices || [];
-      return Object.entries(selections).every(([optName, choiceVal]) =>
-        choices.some(
+    if (!hasOptions) return variants[0];
+    // Variant `optionChoiceIds` is the only stable handle on the variant side
+    // (no key-based equivalent), so match key-state against `option._id` /
+    // `choice.choiceId` looked up inline from `options`.
+    return variants.find((v) =>
+      options.every((opt) => {
+        const choice = opt.choicesSettings?.choices?.find(
+          (c) => c.key === selections[opt.key!],
+        );
+        return v.choices?.some(
           (c) =>
-            c.optionChoiceNames?.optionName === optName &&
-            c.optionChoiceNames?.choiceName === choiceVal,
-        ),
-      );
-    });
-  }, [selections, variants, hasOptions]);
+            c.optionChoiceIds?.optionId === opt._id &&
+            c.optionChoiceIds?.choiceId === choice?.choiceId,
+        );
+      }),
+    );
+  }, [selections, variants, hasOptions, options]);
 
   const variantId = selectedVariant?._id;
   const variantPreorder = selectedVariant?.inventoryStatus?.preorderEnabled;
@@ -109,8 +115,8 @@ export default function ProductActions({ product }: Props) {
   const comparePrice = selectedVariant?.price?.compareAtPrice?.formattedAmount;
   const onSale = !!comparePrice && comparePrice !== displayPrice;
 
-  const handleOptionChange = (optionName: string, value: string) => {
-    setSelections((prev) => ({ ...prev, [optionName]: value }));
+  const handleOptionChange = (optionKey: string, choiceKey: string) => {
+    setSelections((prev) => ({ ...prev, [optionKey]: choiceKey }));
     setMessage(null);
     setBisSubmitted(false);
   };
@@ -127,7 +133,7 @@ export default function ProductActions({ product }: Props) {
     const filledTexts: Record<string, string> = {};
     for (const mod of freeTextModifiers) {
       const key = mod.freeTextSettings?.key;
-      const val = customTexts[mod.name!];
+      const val = customTexts[mod.key!];
       if (key && val?.trim()) {
         filledTexts[key] = val;
       }
@@ -157,7 +163,7 @@ export default function ProductActions({ product }: Props) {
 
   const missingRequired = freeTextModifiers
     .filter((m) => m.mandatory)
-    .some((m) => !customTexts[m.name!]?.trim());
+    .some((m) => !customTexts[m.key!]?.trim());
 
   const addToCart = async () => {
     if (missingRequired) {
@@ -287,28 +293,28 @@ export default function ProductActions({ product }: Props) {
               opt.optionRenderType ===
               productsV3.ProductOptionRenderType.SWATCH_CHOICES;
             return (
-              <div key={opt.name} className="pa-option">
+              <div key={opt.key} className="pa-option">
                 <label className="pa-option-label">{opt.name}</label>
                 <div className="pa-choices">
                   {opt.choicesSettings?.choices?.map((choice) => {
-                    const isActive = selections[opt.name!] === choice.name;
+                    const isActive = selections[opt.key!] === choice.key;
                     const colorCode = choice.colorCode;
                     return isSwatch && colorCode ? (
                       <button
-                        key={choice.name}
+                        key={choice.key}
                         className={`pa-swatch ${isActive ? "pa-swatch-active" : ""}`}
                         style={{ backgroundColor: colorCode }}
                         onClick={() =>
-                          handleOptionChange(opt.name!, choice.name!)
+                          handleOptionChange(opt.key!, choice.key!)
                         }
                         title={choice.name ?? ""}
                       />
                     ) : (
                       <button
-                        key={choice.name}
+                        key={choice.key}
                         className={`pa-choice ${isActive ? "pa-choice-active" : ""}`}
                         onClick={() =>
-                          handleOptionChange(opt.name!, choice.name!)
+                          handleOptionChange(opt.key!, choice.key!)
                         }
                       >
                         {choice.name}
@@ -336,9 +342,7 @@ export default function ProductActions({ product }: Props) {
                 </label>
                 <div className="pa-choices">
                   {mod.choicesSettings?.choices?.map((choice) => {
-                    const isActive =
-                      modifierSelections[mod.key!] ===
-                      (choice.key ?? choice.name);
+                    const isActive = modifierSelections[mod.key!] === choice.key;
                     const colorCode = choice.colorCode;
                     return isSwatch && colorCode ? (
                       <button
@@ -348,7 +352,7 @@ export default function ProductActions({ product }: Props) {
                         onClick={() =>
                           setModifierSelections((prev) => ({
                             ...prev,
-                            [mod.key!]: choice.key ?? choice.name ?? "",
+                            [mod.key!]: choice.key ?? "",
                           }))
                         }
                         title={choice.name ?? ""}
@@ -360,7 +364,7 @@ export default function ProductActions({ product }: Props) {
                         onClick={() =>
                           setModifierSelections((prev) => ({
                             ...prev,
-                            [mod.key!]: choice.key ?? choice.name ?? "",
+                            [mod.key!]: choice.key ?? "",
                           }))
                         }
                       >
@@ -380,9 +384,9 @@ export default function ProductActions({ product }: Props) {
           {freeTextModifiers.map((mod) => {
             const title = mod.freeTextSettings?.title || mod.name;
             const maxChars = mod.freeTextSettings?.maxCharCount;
-            const currentLen = (customTexts[mod.name!] || "").length;
+            const currentLen = (customTexts[mod.key!] || "").length;
             return (
-              <div key={mod.name} className="pa-option">
+              <div key={mod.key} className="pa-option">
                 <label className="pa-option-label">
                   {title}
                   {mod.mandatory && <span className="pa-required">*</span>}
@@ -391,11 +395,11 @@ export default function ProductActions({ product }: Props) {
                   type="text"
                   className="pa-text-input"
                   maxLength={maxChars ?? undefined}
-                  value={customTexts[mod.name!] || ""}
+                  value={customTexts[mod.key!] || ""}
                   onChange={(e) =>
                     setCustomTexts((prev) => ({
                       ...prev,
-                      [mod.name!]: e.target.value,
+                      [mod.key!]: e.target.value,
                     }))
                   }
                   placeholder={title ?? ""}

@@ -13,17 +13,13 @@ const { slug } = Astro.params;
 
 let member: membersTypes.Member | null = null;
 try {
-  member = await members.getMember(slug!, { fieldsets: [members.Set.FULL] });
+  const result = await members
+    .queryMembers({ fieldsets: [members.Set.FULL] })
+    .eq("profile.slug", slug!)
+    .limit(1)
+    .find();
+  member = result.items[0] ?? null;
 } catch {}
-if (!member) {
-  try {
-    const result = await members.listMembers({
-      fieldsets: [members.Set.FULL],
-      paging: { limit: 100 },
-    });
-    member = result.members?.find((m) => m.profile?.slug === slug) ?? null;
-  } catch {}
-}
 
 if (!member) return Astro.redirect("/");
 
