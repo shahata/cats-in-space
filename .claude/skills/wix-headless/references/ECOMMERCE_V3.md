@@ -168,6 +168,12 @@ Use data attributes on product cards for JS-based filtering without re-fetching:
   - `TEXT_CHOICES`: `choicesSettings: { choices: [{ key, name }] }` — renders as button group
   - `SWATCH_CHOICES`: `choicesSettings: { choices: [{ key, name, colorCode }] }` — renders as color circles
   - `mandatory`, `name`, `key` on all types
+  - **FREE_TEXT rendering — use `mod.name` for the visible label, `freeTextSettings?.title` for the input placeholder.** `mod.name` translates correctly under V3 multilingual; `freeTextSettings.title` does NOT (see TRANSLATIONS_CONTENT_API.md gotcha). Putting the title as the label leaves the most prominent text in the source language even after translations are published; making it the placeholder keeps the prominent label localized while the placeholder hint degrades gracefully.
+    ```tsx
+    // ✅ Label translates; placeholder is acceptable to leave in source language
+    <label>{mod.name}{mod.mandatory && '*'}</label>
+    <input placeholder={mod.freeTextSettings?.title ?? ''} … />
+    ```
 
 ## catalogReference (for cart/checkout)
 

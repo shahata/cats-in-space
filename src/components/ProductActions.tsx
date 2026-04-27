@@ -382,13 +382,12 @@ export default function ProductActions({ product }: Props) {
       {freeTextModifiers.length > 0 && (
         <div className="pa-options">
           {freeTextModifiers.map((mod) => {
-            const title = mod.freeTextSettings?.title || mod.name;
             const maxChars = mod.freeTextSettings?.maxCharCount;
             const currentLen = (customTexts[mod.key!] || "").length;
             return (
               <div key={mod.key} className="pa-option">
                 <label className="pa-option-label">
-                  {title}
+                  {mod.name}
                   {mod.mandatory && <span className="pa-required">*</span>}
                 </label>
                 <input
@@ -402,7 +401,7 @@ export default function ProductActions({ product }: Props) {
                       [mod.key!]: e.target.value,
                     }))
                   }
-                  placeholder={title ?? ""}
+                  placeholder={mod.freeTextSettings?.title ?? ""}
                 />
                 {maxChars && (
                   <span className="pa-char-count">
