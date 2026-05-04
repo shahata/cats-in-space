@@ -51,9 +51,9 @@ npm install --save-dev @types/node
 
 You must upgrade to >= 1.0.6 before using translations. Install `@types/node` because the scaffold's `astro.config.mjs` uses `process.env.NODE_ENV` — without it, `npx astro check` reports a type error.
 
-## Post-Scaffold: Set Up ESLint no-explicit-any Rule
+## Post-Scaffold: Set Up ESLint Type-Safety Rules
 
-⛔ **Do this immediately after scaffolding every new project.** This prevents using `any` types anywhere in the codebase, which is the #1 source of silent runtime bugs when using Wix SDK types.
+⛔ **Do this immediately after scaffolding every new project, before writing any application code.** Two rules together prevent the most common forms of SDK-type laundering — `any` and `as unknown as T`. The `no-explicit-any` rule alone is not enough: `as unknown as` is the more common escape hatch, and ESLint won't catch it without an explicit `no-restricted-syntax` rule. Set both up at once.
 
 **Install:**
 ```bash
@@ -65,6 +65,28 @@ npm install --save-dev eslint @typescript-eslint/parser @typescript-eslint/eslin
 import eslintPluginAstro from 'eslint-plugin-astro';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
+
+// Shared rules — applied to both .ts/.tsx and Astro frontmatter.
+const sharedRules = {
+  '@typescript-eslint/no-explicit-any': 'error',
+  'no-restricted-syntax': [
+    'error',
+    {
+      // Bans `x as unknown as T` (the standard double-cast laundering)
+      selector:
+        'TSAsExpression[expression.type="TSAsExpression"][expression.typeAnnotation.type="TSUnknownKeyword"]',
+      message:
+        'Do not launder SDK types with `as unknown as T`. Use the real SDK type, intersect (`X & { extraField?: Y }`) for runtime drift, or fix the underlying type mismatch.',
+    },
+    {
+      // Bans `<unknown>x as T` (the angle-bracket form of the same thing)
+      selector:
+        'TSAsExpression[expression.type="TSTypeAssertion"][expression.typeAnnotation.type="TSUnknownKeyword"]',
+      message:
+        'Do not launder SDK types with `<unknown>x as T`. Use the real SDK type or intersect for runtime drift.',
+    },
+  ],
+};
 
 export default [
   {
@@ -79,9 +101,7 @@ export default [
     plugins: {
       '@typescript-eslint': tseslint,
     },
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
-    },
+    rules: sharedRules,
   },
   ...eslintPluginAstro.configs.recommended.map(config => ({
     ...config,
@@ -92,7 +112,7 @@ export default [
       },
       rules: {
         ...config.rules,
-        '@typescript-eslint/no-explicit-any': 'error',
+        ...sharedRules,
       },
     } : {}),
   })),
@@ -109,7 +129,31 @@ export default [
 }
 ```
 
-Now `npm run check` is the single command that catches both type errors AND explicit `any` usage.
+Now `npm run check` is the single command that catches type errors, explicit `any` usage, AND `as unknown as T` laundering.
+
+### Why `as unknown as T` needs its own rule
+
+`@typescript-eslint/no-explicit-any` only catches the literal `any` keyword. The much more common escape hatch is the double cast:
+
+```typescript
+// Both lanes are the SAME violation in spirit — but only the first is caught
+// by no-explicit-any. The second sails through every default ESLint rule.
+const items: MyShape[] = sdkResult.items as any;          // ❌ caught
+const items: MyShape[] = sdkResult.items as unknown as MyShape[];  // ❌ NOT caught by default
+```
+
+In practice the double-cast pattern is what shows up in agent-generated code — it silences the type checker cleanly enough to feel safe, while completely erasing the SDK type and any future type-drift signals. The `no-restricted-syntax` rule above closes that loophole at lint time.
+
+### Right replacements for `as unknown as T`
+
+When the rule fires, the fix is almost always one of:
+
+1. **Use the real SDK type.** `result.items as Department[]` (single cast, allowed) when `Department extends WixDataItem`.
+2. **Intersect for runtime drift.** When the SDK type genuinely lacks a field that runtime returns: `type Widened = SdkType & { extraField?: T }`. Use this for things like `DonationCampaign.coverImage` (typed `string`, returned as object) or `Event.mainImage` (same pattern).
+3. **Use the existing boundary helper.** `getCmsImageUrl(input: unknown)` already accepts the messy SDK→REST shape variation for image fields — pass the field through it instead of widening at the call site.
+4. **Fix the underlying type contract.** If the SDK type is just wrong and you control the file, file an upstream issue and add the intersection in the meantime.
+
+Never reach for `as unknown as` to "make TypeScript happy" — every instance buries a real shape mismatch that will surface as a runtime crash or silent feature gap when locale switches, when a field is renamed, or when a sibling SDK call returns an unexpected variant.
 
 ## Key Files
 
