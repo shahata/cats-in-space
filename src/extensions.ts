@@ -4,7 +4,7 @@ export default app()
   .use(
     extensions.event({
       id: "7739fb92-4087-4719-a000-48e306badfaa",
-      source: "./backend/events/order-created/order-created.ts",
+      source: "./backend/events/order-approved/order-approved.ts",
     }),
   )
   .use(
