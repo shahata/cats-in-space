@@ -212,14 +212,14 @@ export default function MemberProfile({
       }
       if (aboutId && aboutRevision) {
         const res = await membersAbout.updateMemberAbout(aboutId, {
+          memberId: member._id!,
           content,
           revision: aboutRevision,
         });
         setAboutRevision(res.revision || aboutRevision);
         setAboutSaved(true);
       } else {
-        // memberId is required at runtime but missing from the SDK type definition
-        const res = await (membersAbout.createMemberAbout as Function)({
+        const res = await membersAbout.createMemberAbout({
           memberId: member._id!,
           content,
         });

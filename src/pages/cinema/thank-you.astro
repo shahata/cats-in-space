@@ -22,10 +22,7 @@ let event: Event | null = null;
 let order: Order | null = null;
 if (eventId) {
   try {
-    const getEvent = auth.elevate(wixEventsV2.getEvent) as (
-      id: string,
-      opts?: wixEventsV2.GetEventOptions,
-    ) => Promise<Event>;
+    const getEvent = auth.elevate(wixEventsV2.getEvent);
     event = await getEvent(eventId, {
       fields: [wixEventsV2.RequestedFields.DETAILS],
     });
@@ -36,10 +33,7 @@ if (eventId && orderNumber) {
     // `ticketsPdf` + `tickets[]` are in the DETAILS/TICKETS fieldsets —
     // the default response leaves them out, which is why "Download
     // Tickets" used to silently vanish even on successful orders.
-    const getOrder = auth.elevate(orders.getOrder) as (
-      identifiers: { eventId: string; orderNumber: string },
-      options?: orders.GetOrderOptions,
-    ) => Promise<Order>;
+    const getOrder = auth.elevate(orders.getOrder);
     order = await getOrder(
       { eventId, orderNumber },
       {

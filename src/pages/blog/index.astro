@@ -11,7 +11,8 @@ const t = i18n.getTranslationFunction();
 type Metrics = posts.Metrics;
 type BlogTag = tagsApi.BlogTag;
 type Member = members.Member;
-// Post type extended with metrics field returned by METRICS fieldset (not in SDK type)
+// SDK type drift: Post.metrics is populated by the METRICS fieldset at runtime
+// but isn't on the typed Post — extend locally so the deep field reads typecheck.
 type Post = posts.Post & { metrics?: Metrics };
 
 // Use queryPosts — returns real metrics (views, likes, comments). listPosts returns zeros.

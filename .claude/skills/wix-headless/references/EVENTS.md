@@ -80,7 +80,7 @@ type AvailablePlace = ticketDefinitionsV2.AvailablePlace;
 
 **Empirical bug: `CATEGORIES` alone often returns only the hidden `RECURRING_EVENT` series category.** Adding `FORM` to the same query makes the real `MANUAL` track/genre categories come back. Always request `['DETAILS', 'CATEGORIES', 'FORM']` for listings/detail pages.
 
-**Sibling lookup: filter client-side.** `queryEvents`' filter builder doesn't allow nested paths like `.eq('dateAndTimeSettings.recurringEvents.categoryId', id)` — so to find every sibling in a series, paginate the whole event set and filter in memory. Pagination, elevate, and the `auth.elevate(sdkFn) as <signature>` TypeScript cast are all general Wix SDK patterns — see [SDK_CORE.md](SDK_CORE.md).
+**Sibling lookup: filter client-side.** `queryEvents`' filter builder doesn't allow nested paths like `.eq('dateAndTimeSettings.recurringEvents.categoryId', id)` — so to find every sibling in a series, paginate the whole event set and filter in memory. Pagination and elevate are general Wix SDK patterns — see [SDK_CORE.md](SDK_CORE.md). `auth.elevate()` preserves the SDK function's signature; no signature cast needed.
 
 ## `Event.mainImage` — must go through `updateEvent`, not `createEvent`
 

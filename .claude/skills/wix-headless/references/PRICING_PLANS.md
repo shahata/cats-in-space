@@ -103,34 +103,34 @@ After checkout, Wix redirects to `postFlowUrl` (or `thankYouPageUrl`) with query
 ```typescript
 import { orders } from '@wix/pricing-plans';
 
-// SDK type drift: runtime response still includes `priceDetails`, but the SDK type was renamed to `pricing`.
-// Intersect with the legacy shape so you can keep reading `priceDetails` without `as any`.
-type PlanOrder = orders.Order & { priceDetails?: orders.PriceDetails };
-
-// List current member's orders (uses member session automatically)
+// memberListOrders uses the logged-in member's session — no auth.elevate needed
 const result = await orders.memberListOrders();
 const today = new Date().toISOString().split('T')[0];
-const myOrders = ((result.orders ?? []) as PlanOrder[]).filter((o) =>
+const myOrders = (result.orders ?? []).filter((o) =>
   o.status !== orders.OrderStatus.DRAFT &&
-  !(o.endDate && new Date(o.endDate).toISOString().split('T')[0] < today)
+  !(o.endDate && o.endDate.toISOString().split('T')[0] < today)
 );
 ```
 
 💡 **Best practice:** `memberListOrders()` uses the logged-in member's session automatically — no need to pass a member ID.
 
+⚠️ **`o.endDate` is `Date | null`, not a string** — call `.toISOString()` directly.
+
 ⚠️ **Common mistake:** Filter out `DRAFT` orders (incomplete purchases) and expired orders (endDate before today). Compare dates using date-only strings (YYYY-MM-DD) to avoid timezone issues.
 
-### Order Shape
+### Order Shape — use `pricing`, not `priceDetails`
 
 Use `orders.Order` from `@wix/pricing-plans` directly — don't redeclare it. Key fields:
 
-- `_id`, `planId`, `planName` / `planDescription` / `planPrice` (denormalized)
+- `_id`, `planId`, `planName` / `planDescription` (denormalized)
 - `status` — compare against `orders.OrderStatus` (DRAFT/PENDING/ACTIVE/PAUSED/ENDED/CANCELED)
 - `lastPaymentStatus` — compare against `orders.PaymentStatus` (PAID/FAILED/REFUNDED/…)
 - `type` — `orders.OrderType.ONLINE` | `OFFLINE`
-- `autoRenewCanceled`, `startDate`, `endDate`, `currentCycle`, `buyer`
+- `autoRenewCanceled`, `startDate`, `endDate` (both `Date | null`), `currentCycle`, `buyer`
 - `cancellation.cause` — compare against `orders.CancellationCause` (OWNER_ACTION/…)
-- `priceDetails` — **runtime-only field** not declared on `orders.Order`. Use `type PlanOrder = orders.Order & { priceDetails?: orders.PriceDetails }` to read it without `any`.
+- `pricing` — structured pricing field. Read prices via `pricing.prices[0].price.{subtotal,total,discount,currency,coupon}` (single-cycle) or iterate `prices[]` for multi-cycle plans. Read billing cycle via `pricing.subscription.cycleDuration.{count,unit}`. **This is the modern shape — use it.**
+
+⛔ **Don't read `priceDetails`.** It's a legacy flat-shape field that Wix retains on response wire-paths for backwards compat but has removed from the base `Order` type. Reading it requires `Order & { priceDetails?: PriceDetails }` intersection — unnecessary once you migrate to `pricing`. The only field without a clean equivalent is `priceDetails.planPrice`; use `pricing.prices[0].price.subtotal` as the substitute (it's the pre-tax, pre-discount amount, fine for "is free" checks and price display).
 
 ### Canceling a Subscription
 

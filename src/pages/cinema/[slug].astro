@@ -8,8 +8,8 @@ import { auth, i18n } from "@wix/essentials";
 import { getImageUrl } from "../../utils/image";
 import { getRelativeLocaleUrl } from "wix:astro:i18n";
 
-// `Event.categories` is populated at runtime when the CATEGORIES fieldset is
-// requested but isn't part of the typed `Event` shape — extend it locally.
+// SDK type drift: Event.categories is populated by the CATEGORIES fieldset
+// at runtime but isn't on the typed Event — extend locally.
 type Event = wixEventsV2.Event & { categories?: wixEventsV2.EventCategories };
 type TicketDefinition = ticketDefinitionsV2.TicketDefinition;
 type EventCategory = wixEventsV2.EventCategory;

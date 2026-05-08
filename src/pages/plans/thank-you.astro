@@ -10,15 +10,15 @@ const orderId = Astro.url.searchParams.get("orderId");
 const locale = await i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
-// `priceDetails` is still returned at runtime but isn't on the typed Order
-// (the SDK exposes only the newer `pricing` shape). Widen locally.
-type PlanOrder = orders.Order & { priceDetails?: orders.PriceDetails };
-let order: PlanOrder | null = null;
+let order: orders.Order | null = null;
 if (orderId) {
   try {
-    order = ((await orders.memberGetOrder(orderId)) as PlanOrder) ?? null;
+    const res = await orders.memberGetOrder(orderId);
+    order = res.order ?? null;
   } catch {}
 }
+const price = order?.pricing?.prices?.[0]?.price;
+const subscription = order?.pricing?.subscription;
 
 const fmt = (amount: number, currency: string) =>
   new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
@@ -42,20 +42,16 @@ const fmt = (amount: number, currency: string) =>
                 <span class="ty-label">{t("plans.plan")}</span>
                 <span class="ty-value">{order.planName}</span>
               </div>
-              {order.priceDetails && (
+              {price && (
                 <div>
                   <span class="ty-label">{t("plans.price")}</span>
                   <span class="ty-value ty-total">
-                    {parseFloat(order.priceDetails.planPrice || "0") === 0
+                    {parseFloat(price.subtotal || "0") === 0
                       ? t("plans.free")
-                      : order.priceDetails.currency
+                      : price.currency
                         ? fmt(
-                            parseFloat(
-                              order.priceDetails.total ||
-                                order.priceDetails.planPrice ||
-                                "0",
-                            ),
-                            order.priceDetails.currency,
+                            parseFloat(price.total || price.subtotal || "0"),
+                            price.currency,
                           )
                         : ""}
                   </span>
@@ -67,19 +63,16 @@ const fmt = (amount: number, currency: string) =>
               <p class="ty-plan-desc">{order.planDescription}</p>
             )}
 
-            {order.priceDetails?.subscription?.cycleDuration && (
+            {subscription?.cycleDuration && (
               <div class="ty-detail">
                 <span class="ty-label">{t("plans.billing")}</span>
                 <span class="ty-detail-value">
                   {t("plans.every")}{" "}
-                  {(order.priceDetails.subscription.cycleDuration.count ?? 1) >
-                  1
-                    ? order.priceDetails.subscription.cycleDuration.count + " "
+                  {(subscription.cycleDuration.count ?? 1) > 1
+                    ? subscription.cycleDuration.count + " "
                     : ""}
                   {t(
-                    cyclePeriodKey(
-                      order.priceDetails.subscription.cycleDuration.unit || "",
-                    ),
+                    cyclePeriodKey(subscription.cycleDuration.unit || ""),
                   )}
                 </span>
               </div>

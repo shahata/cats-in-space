@@ -39,16 +39,12 @@ import { orders as ecomOrdersApi } from '@wix/ecom';
 import { membersAbout } from '@wix/members';
 import { savedPaymentMethods } from '@wix/payments';
 
-// SDK type drift: runtime still returns `priceDetails` but the type was renamed to `pricing`.
-// Widen with an intersection so you can keep reading the legacy field.
-type PlanOrder = planOrdersApi.Order & { priceDetails?: planOrdersApi.PriceDetails };
-
-let planOrders: PlanOrder[] = [];
+let planOrders: planOrdersApi.Order[] = [];
 let storeOrders: ecomOrdersApi.Order[] = [];
 let aboutText = '';
 let paymentMethods: savedPaymentMethods.SavedPaymentMethod[] = [];
 
-try { planOrders = ((await planOrdersApi.memberListOrders()).orders ?? []) as PlanOrder[]; } catch {}
+try { planOrders = (await planOrdersApi.memberListOrders()).orders ?? []; } catch {}
 try {
   const res = await ecomOrdersApi.searchOrders({});
   storeOrders = res.orders ?? [];
@@ -151,17 +147,15 @@ const nodes: membersAbout.Node[] = text.split('\n').filter(Boolean).map((line) =
 }));
 
 if (aboutId) {
-  await membersAbout.updateMemberAbout(aboutId, { content: { nodes }, revision: aboutRevision });
+  await membersAbout.updateMemberAbout(aboutId, { memberId, content: { nodes }, revision: aboutRevision });
 } else {
-  // `memberId` is required at runtime but missing from the `createMemberAbout` SDK type.
-  // Cast through Function to pass it without `as any`.
-  await (membersAbout.createMemberAbout as Function)({ memberId, content: { nodes } });
+  await membersAbout.createMemberAbout({ memberId, content: { nodes } });
 }
 ```
 
-⚠️ **`updateMemberAbout` takes two args, not three** — `(aboutId, { content, revision })`. The `revision` lives inside the second-arg object, not as a third positional. Passing it positionally fails typecheck.
+⚠️ **Both calls require `memberId` in the body, not just on update vs create.** The SDK types correctly declare `memberId?: string | null` on both `MemberAbout` (create) and `UpdateMemberAbout`, but it's optional in the type and *required at runtime* — omitting it returns `ABOUT_MISSING_MEMBER_ID` from the server. Always pass `member._id!`. No casts needed; the type accepts it directly.
 
-⚠️ **`createMemberAbout` takes one arg, but `memberId` is required at runtime** — the SDK type signature omits `memberId`, but the server rejects calls without it. Pass `{ memberId, content }` and cast through `Function` to satisfy the type. `as any` works too, but the `Function` cast is narrower.
+⚠️ **`updateMemberAbout` takes two args, not three** — `(aboutId, { memberId, content, revision })`. All three body fields live inside the second-arg object, not as positional args.
 
 ⚠️ **Use SDK NodeType enum** (`membersAbout.NodeType.PARAGRAPH`, `posts.NodeType.TEXT`, etc.) — Ricos treats unknown node types as empty, so a typo in the string `'PARAGRPH'` silently loses content with no error.
 
@@ -297,22 +291,38 @@ try {
 ```typescript
 import { orders as planOrders } from '@wix/pricing-plans';
 
-// SDK type drift: runtime returns `priceDetails`, the type renamed to `pricing`.
-type PlanOrder = planOrders.Order & { priceDetails?: planOrders.PriceDetails };
-
-let myPlanOrders: PlanOrder[] = [];
+let myPlanOrders: planOrders.Order[] = [];
 try {
   const res = await planOrders.memberListOrders();
   const today = new Date().toISOString().split('T')[0]!;
-  myPlanOrders = ((res.orders || []) as PlanOrder[]).filter((o) => {
+  myPlanOrders = (res.orders || []).filter((o) => {
     if (o.status === planOrders.OrderStatus.DRAFT) return false;
-    const end = o.endDate ? new Date(o.endDate as unknown as string).toISOString().split('T')[0]! : null;
+    const end = o.endDate ? o.endDate.toISOString().split('T')[0]! : null;
     return !(end && end < today);
   });
 } catch {}
 ```
 
 ⚠️ **`memberListOrders()` runs as the current member** — do NOT wrap in `auth.elevate()` (that switches to app identity and either 403s or returns the wrong member's orders).
+
+⚠️ **`o.endDate` is `Date | null`, not a string** — call `.toISOString()` directly. Old code that did `new Date(o.endDate as unknown as string)` was working around a misread of the type; `Date.toISOString()` works on the value as-is.
+
+### Reading prices: use `pricing`, not `priceDetails`
+
+The `Order` type exposes a structured `pricing?: PricingDetails` field with this shape:
+
+```typescript
+order.pricing?.subscription?.cycleDuration       // billing cycle (DAY/WEEK/MONTH/YEAR + count)
+order.pricing?.prices?.[0]?.price?.subtotal      // pre-tax amount
+order.pricing?.prices?.[0]?.price?.total         // post-tax amount
+order.pricing?.prices?.[0]?.price?.discount      // total discount applied
+order.pricing?.prices?.[0]?.price?.currency      // ISO 4217 currency code
+order.pricing?.prices?.[0]?.price?.coupon?.code  // applied coupon
+```
+
+`pricing.prices` is `SpannedPrice[]` — keyed by `duration.cycleFrom` so multi-cycle plans ("intro $10, then $20") can carry both. For single-cycle plans (the common case) just read `prices[0].price.<field>`.
+
+⛔ **Don't read `priceDetails`.** It's a legacy flat-shape field — Wix kept it on the response wire-paths for backwards compat, but removed it from the base `Order` type (which is the SDK's signal it's being phased out). Reading it requires intersecting `Order & { priceDetails?: PriceDetails }`, and the migration to `pricing` is a one-line per-field change. The only field that doesn't have a clean equivalent is `priceDetails.planPrice` (price at order creation) — for "is free" checks and price display, `prices[0].price.subtotal` is the right substitute.
 
 ### Per-card display
 

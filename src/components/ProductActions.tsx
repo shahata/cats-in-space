@@ -231,18 +231,14 @@ export default function ProductActions({ product }: Props) {
     setLoading("bis");
     try {
       // Back-in-stock settings only supports the V1 Stores appId
-      const catalogRef: Record<string, unknown> = {
-        catalogItemId: product._id,
+      const catalogReference: backInStockNotifications.CatalogReference = {
+        catalogItemId: product._id!,
         appId: ECOM_PLATFORM_APP_ID,
+        ...(hasOptions && variantId ? { options: { variantId } } : {}),
       };
-      if (hasOptions && variantId) {
-        catalogRef.options = { variantId };
-      }
       // SDK takes two separate args: (request, itemDetails)
-      await (
-        backInStockNotifications.createBackInStockNotificationRequest as Function
-      )(
-        { catalogReference: catalogRef, email: bisEmail },
+      await backInStockNotifications.createBackInStockNotificationRequest(
+        { catalogReference, email: bisEmail },
         {
           name: product.name || "Product",
           price: String(product.priceRange?.minValue?.amount || "0"),

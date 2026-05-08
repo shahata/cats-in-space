@@ -38,21 +38,14 @@ if (!member)
     `/api/auth/login?returnToUrl=${encodeURIComponent("/member")}`,
   );
 
-// `priceDetails` is still returned at runtime but the SDK's Order type
-// has been updated to the newer `pricing` shape only. Widen locally.
-type PlanOrder = orders.Order & { priceDetails?: orders.PriceDetails };
-let myOrders: PlanOrder[] = [];
+let myOrders: orders.Order[] = [];
 try {
   const result = await orders.memberListOrders();
   const today = new Date().toISOString().split("T")[0]!;
-  myOrders = ((result.orders || []) as PlanOrder[]).filter(
+  myOrders = (result.orders || []).filter(
     (o) =>
       o.status !== orders.OrderStatus.DRAFT &&
-      !(
-        o.endDate &&
-        new Date(o.endDate as unknown as string).toISOString().split("T")[0]! <
-          today
-      ),
+      !(o.endDate && o.endDate.toISOString().split("T")[0]! < today),
   );
 } catch {}
 
@@ -337,19 +330,18 @@ const tabs = [
               <div class="subs-list">
                 {(myOrders || []).map((order) => {
                   const fmt = fmtDate;
-                  const isFree =
-                    parseFloat(order.priceDetails?.planPrice || "0") === 0;
-                  const currCode = order.priceDetails?.currency;
-                  const planPrice = order.priceDetails?.planPrice || "0";
+                  const price = order.pricing?.prices?.[0]?.price;
+                  const subtotal = price?.subtotal || "0";
+                  const isFree = parseFloat(subtotal) === 0;
+                  const currCode = price?.currency;
                   const fmtPrice = (v: string) =>
                     currCode ? formatCurrency(v, currCode, locale) : "";
                   const discount =
-                    order.priceDetails?.discount &&
-                    parseFloat(order.priceDetails.discount) > 0
-                      ? order.priceDetails.discount
+                    price?.discount && parseFloat(price.discount) > 0
+                      ? price.discount
                       : null;
-                  const couponCode = order.priceDetails?.coupon?.code;
-                  const total = order.priceDetails?.total || planPrice;
+                  const couponCode = price?.coupon?.code;
+                  const total = price?.total || subtotal;
                   const startDate = fmt(order.startDate);
                   const endDate = fmt(order.endDate);
                   const cancellable =
@@ -358,8 +350,7 @@ const tabs = [
                   const inTrial =
                     order.freeTrialDays && order.currentCycle?.index === 0;
                   const nextBilling = fmt(order.currentCycle?.endedDate);
-                  const sub = order.priceDetails?.subscription;
-                  const cycleDuration = sub?.cycleDuration;
+                  const cycleDuration = order.pricing?.subscription?.cycleDuration;
                   const cycleLabel = cycleDuration
                     ? `${t("plans.every")} ${(cycleDuration.count ?? 1) > 1 ? cycleDuration.count + " " : ""}${t(cyclePeriodKey(cycleDuration.unit || ""))}`
                     : null;
@@ -404,7 +395,7 @@ const tabs = [
                             {t("member.price")}
                           </span>
                           <span class="sub-detail-value">
-                            {isFree ? t("plans.free") : fmtPrice(planPrice)}
+                            {isFree ? t("plans.free") : fmtPrice(subtotal)}
                             {cycleLabel && !isFree && (
                               <span class="sub-cycle"> / {cycleLabel}</span>
                             )}
