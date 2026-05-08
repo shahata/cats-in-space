@@ -224,7 +224,7 @@ The shape of "Money" is **not consistent across Wix SDKs** — same concept, dif
 
 ⚠️ **Never hand-roll types like `{ amount?, formattedAmount? }` to "make it work for any shape".** The `as unknown as { amount?: string; formattedAmount?: string }` cast invents fields that don't exist on the actual SDK type and silently reads `undefined`. Import the type the SDK exports and use the right field for that package.
 
-💡 **One canonical helper.** Define a single `formatPrice(amount, currency, locale)` in `src/utils/site.ts` and route every price through it. Pages resolve the currency from the table above (price → parent entity → site fallback) and pass `currency` to React components that compute totals.
+💡 **One canonical helper.** Define a single `formatCurrency(amount, currency, locale)` in `src/utils/format.ts` (kept separate from `site.ts` so the formatter stays pure — `site.ts` does network I/O via `getSiteCurrency`). Route every price through it. Pages resolve the currency from the table above (price → parent entity → site fallback) and pass `currency` to React components that compute totals.
 
 ## SDK Gotchas — Quick Reference
 

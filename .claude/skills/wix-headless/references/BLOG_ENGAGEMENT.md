@@ -212,10 +212,13 @@ for (const id of memberIds) {
   } catch {}
 }
 
-// Display: use member nickname + photo if available, fall back to authorName
+// Display: use member nickname + photo if available, generic label for visitors.
+// Note: comment.author has only memberId | visitorId | userId — there is no
+// authorName. Visitor names cannot be passed in via createComment (see "Don't pass
+// author" rule above). For visitor comments, render a generic placeholder.
 const memberId = comment.author?.memberId;
 const profile = memberId ? profiles.get(memberId) : undefined;
-const displayName = profile?.nickname || comment.author?.authorName || "Space Visitor";
+const displayName = profile?.nickname || "Visitor";
 const photo = profile?.photo; // member.profile.photo.url
 ```
 

@@ -37,6 +37,20 @@ const events = result.items ?? [];
 
 ⚠️ **`.find()` is mandatory.** `await wixEventsV2.queryEvents({})` (without `.find()`) resolves to the query **builder**, not a result — `result.items` is `undefined` and the page renders empty with no error.
 
+⚠️ **Paginate beyond the 200-item cap.** `queryEvents` enforces a hard `.limit(200)` cap. Without explicit pagination, a 52-week recurring series (one event per occurrence) silently truncates: late siblings just don't appear in the listing. Always loop until exhausted:
+
+```ts
+const all: wixEventsV2.Event[] = [];
+let page: Awaited<ReturnType<typeof elevatedQuery['find']>> | null =
+  await elevatedQuery({ fields: [...] }).limit(200).find();
+while (page) {
+  all.push(...(page.items ?? []));
+  page = await page.next();
+}
+```
+
+This applies to ticket-definition queries too — series with many tiers across many siblings hit the same cap.
+
 ## Data model — recurring series are NOT a single thing with recurrences
 
 Every occurrence is an **independent `Event` row**. Wix groups them into a "series" by generating a hidden category and stamping each sibling's `dateAndTimeSettings.recurringEvents.categoryId` with it. There is no parent event — the category IS the series key. This applies to any recurring pattern: weekly classes, daily workshop sessions, recurring screenings, a multi-day conference where each day is its own event, etc. Consequences:
@@ -96,7 +110,7 @@ await createEvent({
     timeZoneId: 'Asia/Jerusalem',                  // REQUIRED
     recurringEvents: { individualEventDates },
   },
-  location: { type: 'VENUE', name: '...' },
+  location: { type: 'VENUE', name: '...' }, // or { type: 'ONLINE' } for virtual
   registration: { initialType: 'TICKETING' },
 }, { draft: false });
 ```
@@ -139,6 +153,50 @@ window.location.href = redirectSession!.fullUrl!;
 The reserved `TicketReservation` is keyed by `_id` (NOT `reservationId`). The payload uses `tickets` (array of `TicketLineItem`), NOT `ticketQuantities`. If TypeScript complains about the payload shape, check the installed `@wix/events` types — don't paper over with `as any`.
 
 Because Wix's hosted ticket-form collects buyer details, **drop any local buyer form fields** — they don't carry over and duplicating them is bad UX.
+
+## Thank-you page
+
+The hosted checkout redirects to `thankYouPageUrl` with `?orderNumber=…&eventId=…` appended. A useful thank-you page reads both, fetches the event (for calendar URLs) and the order (for tickets), and surfaces concrete next-step actions. A bare-bones "Thanks!" page wastes the most engaged moment of the flow — users want to download their tickets and add the event to their calendar right now.
+
+Required fetches:
+
+```ts
+import { wixEventsV2, orders } from '@wix/events';
+import { auth } from '@wix/essentials';
+
+const orderNumber = Astro.url.searchParams.get('orderNumber');
+const eventId     = Astro.url.searchParams.get('eventId');
+
+let event: wixEventsV2.Event | null = null;
+let order: orders.Order | null = null;
+
+if (eventId) {
+  const getEvent = auth.elevate(wixEventsV2.getEvent);
+  event = await getEvent(eventId, {
+    fields: [wixEventsV2.RequestedFields.DETAILS],
+  });
+}
+
+if (eventId && orderNumber) {
+  const getOrder = auth.elevate(orders.getOrder);
+  order = await getOrder(
+    { eventId, orderNumber },
+    // CRITICAL: without DETAILS+TICKETS the response omits ticketsPdf and tickets[].
+    // The option is `fieldset` (singular) — NOT `fields` like other queries.
+    { fieldset: [orders.OrderFieldset.DETAILS, orders.OrderFieldset.TICKETS] },
+  );
+}
+```
+
+Surface these on the page (each is conditional — render only when present):
+- `order.ticketsPdf` — single PDF with every ticket; primary CTA "Download tickets"
+- `event.calendarUrls?.google` — "Add to Google Calendar"
+- `event.calendarUrls?.ics` — "Download .ics" (for Apple Calendar / Outlook)
+- `event.title` and `event.dateAndTimeSettings?.startDate` — echo back what they bought
+- `order.tickets?.length ?? order.ticketsQuantity` — "N tickets"
+- A back-link to the events listing
+
+Wrap each fetch in `try/catch` so a missing query param or stale ID falls back to a generic thank-you state instead of erroring the page.
 
 ## Ticket definitions
 
@@ -251,6 +309,17 @@ Key state trick: key qty/seat state by `td.name`, not `td._id`, so state survive
 const seriesSlug = eventSlug.replace(/-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}(-\d+)?$/, '');
 ```
 Don't slugify from `title` instead — `title` re-translates per locale, while event slugs are locale-invariant.
+
+## Online events — `onlineConferencing.session.guestLink`
+
+For events created with `location.type: 'ONLINE'`, Wix populates `event.onlineConferencing.session.guestLink` (and a corresponding `enabled` flag) once the conferencing platform integration is set up. Show the link on the detail page and the thank-you page only when `onlineConferencing?.enabled` is true:
+
+```ts
+const guestLink = event?.onlineConferencing?.session?.guestLink;
+const onlineEnabled = event?.onlineConferencing?.enabled === true;
+```
+
+Don't fall back to `event.location.address` for online events — there is none. Also don't show the link before the user has paid; the page rendering buyer-side detail should gate it on a confirmed order.
 
 ## Translations for recurring siblings
 

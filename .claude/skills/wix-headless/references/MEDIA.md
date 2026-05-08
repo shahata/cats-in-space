@@ -69,7 +69,17 @@ function getImageUrl(wixImage: string | undefined, width = 800, height = 800): s
     const parsed = media.getImageUrl(wixImage);
     return parsed?.url || null;
   }
-  return `https://static.wixstatic.com/media/${wixImage}`;
+  // Bare media ID (some CMS rows store just the ID instead of a full URI).
+  // Reconstruct a synthetic wix:image:// URI so the SDK helper still works,
+  // and only fall back to the raw CDN URL if that throws too.
+  try {
+    return media.getScaledToFillImageUrl(
+      `wix:image://v1/${wixImage}/${wixImage}#originWidth=${width}&originHeight=${height}`,
+      width, height, {},
+    );
+  } catch {
+    return `https://static.wixstatic.com/media/${wixImage}`;
+  }
 }
 ```
 

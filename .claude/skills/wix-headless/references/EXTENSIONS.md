@@ -210,7 +210,19 @@ Dashboard pages run as the logged-in admin. **Don't `auth.elevate`** — admin p
 
 Dashboard Pages cannot render WDS `<Modal />` directly. Two acceptable patterns:
 
-1. **`SidePanel`** — for inline add/edit forms that overlay the page. Position-fixed on the right.
+1. **`SidePanel`** — for inline add/edit forms that overlay the page. **Wrap it in a `<Box position="fixed">` parent** — without that wrapper the SidePanel renders inline (in the document flow), not as a right-side overlay. The component does not position itself.
+
+   ```tsx
+   import { Box, SidePanel } from "@wix/design-system";
+
+   <Box direction="vertical" position="fixed" top="0" right="0" height="100vh" zIndex={1000}>
+     <SidePanel closeButtonProps={{ onClick: close }} height="100vh">
+       <SidePanel.Header title="Edit" showDivider />
+       <SidePanel.Content>{/* form */}</SidePanel.Content>
+       <SidePanel.Footer>{/* buttons */}</SidePanel.Footer>
+     </SidePanel>
+   </Box>
+   ```
 2. **A separate Dashboard Modal extension** invoked via `dashboard.openModal({ extensionId, ... })` from `@wix/dashboard`.
 
 ### `dashboard.navigate` from headless dashboards: limited

@@ -383,7 +383,16 @@ await backInStockNotifications.createBackInStockNotificationRequest(
 
 ⚠️ **Common mistake** — Back-in-stock uses the V1 ECOM_PLATFORM appId (`1380b703-ce81-ff05-f115-39571d94dfcd`) even on V3 sites. The SDK's own JSDoc says to use `STORES_APP_ID` (`215238eb-22a5-4c36-9e7b-e7c08025e04e`), but **the SDK doc is wrong** — `STORES_APP_ID` silently fails to register the notification request. Always use `ECOM_PLATFORM_APP_ID` (`1380b703-...`) for back-in-stock. This is one of the few cases where the SDK type/doc disagrees with what the runtime actually accepts; trust the empirically-verified appId, not the SDK comment.
 
-⚠️ **Don't cast the SDK function to `Function` / `any` to "fix" type errors.** If `createBackInStockNotificationRequest`'s typed signature looks unfamiliar, it's because it takes **two positional arguments** `(request, itemDetails)` rather than a single options object — that's the real signature, not a TS bug. Use it directly. Casting through `Function` or `unknown as (...) => Promise<unknown>` erases the parameter contract and ships invalid payloads.
+⚠️ **`createBackInStockNotificationRequest` takes two positional arguments**, `(request, itemDetails)` — not a single options object. The runtime signature is straightforward. The TypeScript signature, however, uses `NonNullablePaths` generics that are hard to satisfy when callers build `CatalogReference` from primitives without the full SDK nominal types in hand. As a result, casting through `Function` (a narrow, single-purpose escape hatch) is tolerated for this specific call:
+
+```ts
+await (backInStockNotifications.createBackInStockNotificationRequest as Function)(
+  { catalogReference, email: userEmail },
+  { name: productName, price: String(priceAmount) },
+);
+```
+
+If you can satisfy the typed signature directly without invented fields, prefer that. But do NOT replace this with `as any` (broader leak) or `as unknown as (...) => Promise<unknown>` (erases the whole contract). The targeted `as Function` keeps the rest of the call site type-checked.
 
 ### Media Generation
 

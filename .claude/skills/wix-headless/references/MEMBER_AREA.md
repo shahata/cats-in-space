@@ -58,7 +58,8 @@ try {
   aboutText = extractTextFromRichContent(res.memberAbout?.content);
 } catch {}
 try {
-  paymentMethods = (await savedPaymentMethods.listSavedPaymentMethods(member._id!)).paymentMethods ?? [];
+  const res = await savedPaymentMethods.listSavedPaymentMethods({ siteMemberId: member._id! });
+  paymentMethods = res.savedPaymentMethods ?? [];
 } catch {}
 ---
 ```
@@ -91,7 +92,7 @@ Include these tabs (omit tabs for features the site doesn't use):
 1. **Profile** — public profile editing
 2. **Personal Info** — contact details and address
 3. **Bookings** — upcoming and past appointments (if site has bookings)
-4. **Store Orders** — e-commerce order history (if site has a store)
+4. **Orders** — e-commerce order history (if site has any eCom-backed feature: store, donations, gift cards, restaurant, plans). Not "Store Orders" — `ecomOrders.searchOrders` is multi-app, so the tab surfaces donations, gift cards, restaurant orders, and plan checkouts alongside store orders. Classify each line item by `catalogReference.appId` and badge accordingly — see [SDK_CORE.md](SDK_CORE.md) `appIds.ts`.
 5. **Subscriptions** — pricing plan subscriptions (if site has plans)
 6. **Payment** — saved payment methods
 7. **Account** — email/password management
@@ -150,11 +151,17 @@ const nodes: membersAbout.Node[] = text.split('\n').filter(Boolean).map((line) =
 }));
 
 if (aboutId) {
-  await membersAbout.updateMemberAbout(aboutId, { content: { nodes } }, aboutRevision);
+  await membersAbout.updateMemberAbout(aboutId, { content: { nodes }, revision: aboutRevision });
 } else {
-  await membersAbout.createMemberAbout({ content: { nodes } }, memberId);
+  // `memberId` is required at runtime but missing from the `createMemberAbout` SDK type.
+  // Cast through Function to pass it without `as any`.
+  await (membersAbout.createMemberAbout as Function)({ memberId, content: { nodes } });
 }
 ```
+
+⚠️ **`updateMemberAbout` takes two args, not three** — `(aboutId, { content, revision })`. The `revision` lives inside the second-arg object, not as a third positional. Passing it positionally fails typecheck.
+
+⚠️ **`createMemberAbout` takes one arg, but `memberId` is required at runtime** — the SDK type signature omits `memberId`, but the server rejects calls without it. Pass `{ memberId, content }` and cast through `Function` to satisfy the type. `as any` works too, but the `Function` cast is narrower.
 
 ⚠️ **Use SDK NodeType enum** (`membersAbout.NodeType.PARAGRAPH`, `posts.NodeType.TEXT`, etc.) — Ricos treats unknown node types as empty, so a typo in the string `'PARAGRPH'` silently loses content with no error.
 

@@ -6,7 +6,7 @@
 
 1. **RTL support** — set `dir` attribute dynamically on `<html>` based on language (`['he', 'ar'].includes(lang) ? 'rtl' : 'ltr'`)
 2. **Locale on `<html>`** — use `i18n.getLocale()` for the `lang` attribute
-3. **CartSidebar** — if the site has a store, render with `client:load` on every page; listens for global `"cart-updated"` events
+3. **CartSidebar** — if the site has a cart-bearing flow, mount with `client:load`, but **scope to cart-bearing routes only** — don't render globally on every page. Compute a `showCart` boolean in `Layout.astro` from `Astro.url.pathname` and gate the component on it. Typical pattern: `const showCart = pathname.startsWith('/store') || pathname.startsWith('/restaurant/order')`. Mounting the sidebar on routes that have nothing to do with the cart (homepage, blog, member area) wastes a `client:load` hydration and clutters the DOM. The sidebar listens for global `"cart-updated"` events — see "Cart-Updated Event" below.
 4. **Translated title** — page `<title>` must come from translations
 
 ```astro

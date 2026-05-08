@@ -156,9 +156,9 @@ Service object key fields:
 
 ## Booking Flow (Client-Side)
 
-⛔ **`availabilityCalendar.queryAvailability` returns one entry per `(time, resource)` pair, NOT per time.** With 8 staff who can each do an 11:00 AM slot, you get 8 entries all at "11:00 AM" — the slot grid renders 11:00 AM 8 times. The "Any staff" UX is broken without a fix. Don't dedup client-side; **migrate to TimeSlots V2** which aggregates resources under a single TimeSlot per time.
+⚠️ **`availabilityCalendar.queryAvailability` returns one entry per `(time, resource)` pair, NOT per time.** With 8 staff who can each do an 11:00 AM slot, you get 8 entries all at "11:00 AM" — the slot grid renders 11:00 AM 8 times. This duplication is only a problem when "Any staff" is allowed; if the UX always pre-selects a specific staff member (one-staff-per-service or staff-picker-first flow), V1 is fine and is the simpler path. Otherwise migrate to TimeSlots V2 which aggregates resources under a single TimeSlot per time.
 
-⛔ **`availabilityCalendar` is deprecated as of 2026-03-31** in favor of TimeSlots V2 (`@wix/bookings` exports it as `availabilityTimeSlots`). New code should use V2 for listing. V1 remains useful for one specific case: building a `SlotAvailability` for `bookingsCheckout` (still V1-shaped) — re-query V1 with a tight `startDate`/`endDate` window for the exact slot the user clicked.
+ℹ️ **`availabilityCalendar` is marked deprecated by Wix** in favor of TimeSlots V2 (`@wix/bookings` → `availabilityTimeSlots`), but V1 still works and is the only API that produces a `SlotAvailability` shape compatible with `bookingsCheckout`. V1 is also the simpler choice when staff is pre-selected (no duplication, no V2→V1 re-query). Pick based on the UX: **"any staff" listings → V2**, **specific-staff listings → V1 with `resourceId: [...]`**. New code can use either.
 
 ### Step 1: List slots (TimeSlots V2 — one slot per time)
 
@@ -402,6 +402,5 @@ const redirect = await redirects.createRedirectSession({
 6. **cancelBooking requires revision** — Pass `booking.revision` in the options
 7. **Staff default to business hours** — By default, staff work during business opening hours. Use Assign Working Hours Schedule for custom hours
 8. **Category required for visibility** — Services without a `category.id` won't appear on the live site
-9. **queryServices returns `{ services: [...] }`** — NOT `{ items: [...] }`
-10. **queryStaffMembers returns `{ staffMembers: [...] }`** — NOT `{ items: [...] }`
-11. **Media fields are `wix:image://` strings in SDK** — See `references/MEDIA.md`
+9. **`queryServices().find()` returns the standard QueryResult shape** — read `result.items`, just like every other Wix SDK query. Same for `queryStaffMembers().find()`. (Earlier guidance about a `services`/`staffMembers` field was a misread — the example at "Step 1: Query services" is canonical.)
+10. **Media fields are `wix:image://` strings in SDK** — See `references/MEDIA.md`

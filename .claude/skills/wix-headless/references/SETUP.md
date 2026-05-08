@@ -51,9 +51,11 @@ npm install --save-dev @types/node
 
 You must upgrade to >= 1.0.6 before using translations. Install `@types/node` because the scaffold's `astro.config.mjs` uses `process.env.NODE_ENV` — without it, `npx astro check` reports a type error.
 
-## Post-Scaffold: Set Up ESLint Type-Safety Rules
+## Optional: ESLint for `any` enforcement
 
-⛔ **Do this immediately after scaffolding every new project, before writing any application code.** Two rules together prevent the most common forms of SDK-type laundering — `any` and `as unknown as T`. The `no-explicit-any` rule alone is not enough: `as unknown as` is the more common escape hatch, and ESLint won't catch it without an explicit `no-restricted-syntax` rule. Set both up at once.
+The default scaffold already extends `astro/tsconfigs/strictest`, which is strict enough to catch most SDK type-laundering. Type errors surface via `npx astro check` in the deploy pipeline (see [DEPLOYMENT.md](DEPLOYMENT.md)). ESLint is **not part of the default scaffold** — projects can ship without it.
+
+Add ESLint when you want a hard CI gate against `any` and `as unknown as T` laundering across team contributions. Two rules together cover both leaks: `@typescript-eslint/no-explicit-any` catches the literal `any` keyword; a `no-restricted-syntax` rule catches the more common double-cast escape hatch. The setup below is the recommended config if you choose to add it.
 
 **Install:**
 ```bash
@@ -119,7 +121,7 @@ export default [
 ];
 ```
 
-**Add scripts to `package.json`:**
+**Add scripts to `package.json` (only if you opted into ESLint):**
 ```json
 {
   "scripts": {
@@ -129,7 +131,7 @@ export default [
 }
 ```
 
-Now `npm run check` is the single command that catches type errors, explicit `any` usage, AND `as unknown as T` laundering.
+If you don't add ESLint, just use `npx astro check` directly in the deploy pipeline — there is no required `npm run check` script.
 
 ### Why `as unknown as T` needs its own rule
 

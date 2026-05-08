@@ -205,11 +205,11 @@ A functional blog MUST include ALL of the following. Do not skip any:
 
 A good blog listing page includes:
 
-1. **Tag filter bar** — horizontal scrollable pill buttons showing only real tags from the blog (do NOT add a hardcoded "All" tab). All posts visible by default with no tag active. Clicking an active tag deselects it to show all posts.
+1. **Tag filter bar** — horizontal scrollable pill buttons. Either pattern works: (a) start with no tag active and let the user toggle a tag on/off, or (b) include a leading "All" pill that's selected by default. Pick one and stick to it; both UX patterns are common and neither is wrong.
 2. **Featured post** — first visible card spans full width with image on one side, content on the other
 3. **Post cards in grid** — `repeat(auto-fill, minmax(340px, 1fr))` responsive grid
 4. **Each card must show:**
-   - Cover image (from `post.coverMedia?.image` or `post.media`)
+   - Cover image (from `post.media?.wixMedia?.image` — the V3 path)
    - Writer name (yellow accent, linked to member profile) + date + read time
    - Post title
    - Tag badges (clickable, filter in-page)
