@@ -8,10 +8,7 @@ import { checkoutCallbacks } from "../utils/redirects";
 
 const CUSTOM_ID = "__custom__";
 
-export type DonationFrequency = Exclude<
-  donationCampaigns.Frequency,
-  donationCampaigns.Frequency.UNKNOWN_FREQUENCY
->;
+export type DonationFrequency = donationCampaigns.Frequency;
 
 export interface DonatePreset {
   _id: string;

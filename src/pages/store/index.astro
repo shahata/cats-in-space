@@ -10,7 +10,7 @@ import { i18n, auth } from "@wix/essentials";
 import { extractMediaUrl, getImageUrl } from "../../utils/image";
 import GiftCardActions from "../../components/GiftCardActions";
 
-const locale = await i18n.getLocale();
+const locale = i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
 // Fetch gift card products

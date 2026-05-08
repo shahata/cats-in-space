@@ -186,13 +186,13 @@ function getItemImage(item: any): string | null {
 
 Two pricing modes:
 1. **Simple price:** `item.priceInfo.price` — decimal string (e.g., `"14.99"`)
-2. **Variants:** `item.priceVariants.variants` — array of `{ price: string }` (e.g., Small $5, Medium $7, Large $9)
+2. **Variants:** `item.priceVariants.variants` — array of `{ priceInfo?: { price: string } }` (e.g., Small $5, Medium $7, Large $9). The variant has a top-level `price` field too, but it's `@deprecated` — read `v.priceInfo?.price` only.
 
 ```typescript
 function getItemPrice(item: any, locale: string): string {
   const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
   if (item.priceVariants?.variants?.length) {
-    const prices = item.priceVariants.variants.map((v: any) => parseFloat(v.price || '0'));
+    const prices = item.priceVariants.variants.map((v: any) => parseFloat(v.priceInfo?.price || '0'));
     return fmt(Math.min(...prices)) + (Math.min(...prices) !== Math.max(...prices) ? ` - ${fmt(Math.max(...prices))}` : '');
   }
   return item.priceInfo?.price ? fmt(parseFloat(item.priceInfo.price)) : '';

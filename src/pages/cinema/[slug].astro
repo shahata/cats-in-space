@@ -14,7 +14,7 @@ type Event = wixEventsV2.Event & { categories?: wixEventsV2.EventCategories };
 type TicketDefinition = ticketDefinitionsV2.TicketDefinition;
 type EventCategory = wixEventsV2.EventCategory;
 
-const locale = await i18n.getLocale();
+const locale = i18n.getLocale();
 const t = i18n.getTranslationFunction();
 const { slug } = Astro.params;
 

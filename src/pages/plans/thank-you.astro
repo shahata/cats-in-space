@@ -7,7 +7,7 @@ import { i18n } from "@wix/essentials";
 import { cyclePeriodKey } from "../../utils/format";
 
 const orderId = Astro.url.searchParams.get("orderId");
-const locale = await i18n.getLocale();
+const locale = i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
 let order: orders.Order | null = null;

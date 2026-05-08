@@ -79,6 +79,12 @@ export default function BookingFlow({
         filter.resourceId = [selectedStaff];
       }
 
+      // V1 availabilityCalendar.queryAvailability is @deprecated by Wix in
+      // favor of V2 availabilityTimeSlots.listAvailabilityTimeSlots, but
+      // `bookingsCheckout` redirects still require V1's `SlotAvailability`
+      // shape — Wix hasn't shipped a V2-aware checkout. Migrating listing to
+      // V2 just to re-query V1 at checkout is complexity for no win, so we
+      // stay on V1 throughout. Revisit when V2 redirects ship.
       const result = await availabilityCalendar.queryAvailability(
         { filter },
         { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },

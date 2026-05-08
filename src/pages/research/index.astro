@@ -9,11 +9,9 @@ import { getImageUrl } from "../../utils/image";
 
 const t = i18n.getTranslationFunction();
 
-type KnownFrequency = Exclude<
-  donationCampaigns.Frequency,
-  donationCampaigns.Frequency.UNKNOWN_FREQUENCY
->;
-function isKnownFrequency(f: string): f is KnownFrequency {
+function isKnownFrequency(
+  f: string,
+): f is donationCampaigns.Frequency {
   return (
     f === donationCampaigns.Frequency.ONE_TIME ||
     f === donationCampaigns.Frequency.WEEK ||

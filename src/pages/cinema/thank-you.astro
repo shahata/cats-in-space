@@ -9,7 +9,7 @@ type Event = wixEventsV2.Event;
 type Order = orders.Order;
 
 const t = i18n.getTranslationFunction();
-const locale = await i18n.getLocale();
+const locale = i18n.getLocale();
 
 // Wix's hosted events checkout redirects with `?orderNumber=…&eventId=…`
 // on success. Use those to fetch the event (for calendar URLs) and the

@@ -156,11 +156,41 @@ Service object key fields:
 
 ## Booking Flow (Client-Side)
 
-⚠️ **`availabilityCalendar.queryAvailability` returns one entry per `(time, resource)` pair, NOT per time.** With 8 staff who can each do an 11:00 AM slot, you get 8 entries all at "11:00 AM" — the slot grid renders 11:00 AM 8 times. This duplication is only a problem when "Any staff" is allowed; if the UX always pre-selects a specific staff member (one-staff-per-service or staff-picker-first flow), V1 is fine and is the simpler path. Otherwise migrate to TimeSlots V2 which aggregates resources under a single TimeSlot per time.
+**Canonical pattern: stay on V1 throughout until Wix ships V2 redirects.** Wix marked `availabilityCalendar.queryAvailability` (V1) as `@deprecated` in favor of `availabilityTimeSlots.listAvailabilityTimeSlots` (V2), BUT `redirects.createRedirectSession({ bookingsCheckout })` still requires V1's `SlotAvailability` shape and there is no V2-aware checkout yet.
 
-ℹ️ **`availabilityCalendar` is marked deprecated by Wix** in favor of TimeSlots V2 (`@wix/bookings` → `availabilityTimeSlots`), but V1 still works and is the only API that produces a `SlotAvailability` shape compatible with `bookingsCheckout`. V1 is also the simpler choice when staff is pre-selected (no duplication, no V2→V1 re-query). Pick based on the UX: **"any staff" listings → V2**, **specific-staff listings → V1 with `resourceId: [...]`**. New code can use either.
+That makes a "V2 listing + V1 re-query at checkout" hybrid strictly worse than V1 throughout: same number of `@deprecated` hits at runtime (you can't escape V1 for the redirect), more code (date-format conversion between V2's local-time strings and V1's RFC 3339), and an extra round-trip per booking. The TS6387 hints from V1 calls are honest signal that V1 is going away — they're not failures, and Astro check categorises them as `hints` (not warnings), so a clean `0 errors, 0 warnings, N hints` deploy gate still passes.
 
-### Step 1: List slots (TimeSlots V2 — one slot per time)
+Stay on V1. When Wix ships V2 `bookingsCheckout` (or an equivalent that takes a `TimeSlot` directly), migrate the whole flow at once.
+
+⚠️ **The deprecation hint can't be cleanly suppressed.** `// @ts-ignore` doesn't silence TS hints (only errors). Re-export aliases (`const q = availabilityCalendar.queryAvailability`) propagate the `@deprecated` tag through the const declaration. Function wrappers using `Parameters<typeof ...>` resolve to the SDK's overload signature object and break call-site types. Don't try — let the hints be visible signal that this code is on the V1 → V2 migration list.
+
+⚠️ **V1's "any staff" duplication trap.** `availabilityCalendar.queryAvailability` returns one entry per `(time, resource)` pair, NOT per time. With 8 staff who can each do 11:00 AM, you get 8 entries all at "11:00 AM". This only matters when "Any staff" is allowed — if the UX always pre-selects a staff member (one-staff-per-service or staff-picker-first), pass `resourceId: [selectedStaff]` and you get one entry per time. If you genuinely need "Any staff", you have two options: (a) dedupe client-side by `slot.startDate`, or (b) for that one screen only, list with V2 (`availabilityTimeSlots`) which aggregates resources under a single `TimeSlot` per time — and still re-query V1 for the picked slot at checkout.
+
+### Step 1: List slots (V1 — canonical for staff-pre-selected flows)
+
+```typescript
+import { availabilityCalendar } from "@wix/bookings";
+
+const filter: Record<string, unknown> = {
+  serviceId: [serviceId],
+  startDate: `${date}T00:00:00.000Z`,
+  endDate:   `${nextDateISO}`,
+};
+if (selectedStaff) filter.resourceId = [selectedStaff];
+
+const result = await availabilityCalendar.queryAvailability(
+  { filter },
+  { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+);
+const entries = (result.availabilityEntries ?? []).filter(e => e.bookable);
+// `entries` is `SlotAvailability[]` — pass one directly to bookingsCheckout below.
+```
+
+The TS6387 `@deprecated` hint at this call site is expected — see the rationale at the top of this section.
+
+### Step 1 alternative: V2 listing (only for "Any staff" UX)
+
+If the UX needs to show one row per time across all staff (V1 produces one row per (time, resource) pair, which duplicates the same time N times), use V2 for listing AND re-query V1 for the picked slot at checkout time. The V2→V1 hybrid only pays off when V1's duplication would otherwise force client-side dedupe.
 
 ```typescript
 import { availabilityTimeSlots } from "@wix/bookings";
@@ -168,52 +198,32 @@ import { availabilityTimeSlots } from "@wix/bookings";
 const result = await availabilityTimeSlots.listAvailabilityTimeSlots({
   serviceId,
   fromLocalDate: `${date}T00:00:00`,           // local-time string, no offset
-  toLocalDate: `${date}T23:59:59`,
+  toLocalDate:   `${date}T23:59:59`,
   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   bookable: true,
+  // Filter to specific staff via the `resourceTypes` option:
+  // resourceTypes: [{ resourceTypeId: STAFF_TYPE_ID, resourceIds: [selectedStaff] }]
 });
-// One TimeSlot per (service, time). Available staff are aggregated under
-// `availableResources[].resources[]` (empty by default; pass
-// `includeResourceTypeIds: [...]` to populate).
-const slots = (result.timeSlots ?? []).filter((s) => s.bookable && s.localStartDate);
+const slots = result.timeSlots ?? [];
 // Display: format `slot.localStartDate` ("YYYY-MM-DDThh:mm:ss" — local, no offset).
 // Tag with 'Z' before constructing a Date if you need RFC 3339.
 ```
 
-⛔ **V2 has no `resourceIds` filter.** If the user picks a specific staff member, V2 list won't filter slots to that staff. Two options: (a) keep V1 `queryAvailability` with `resourceId: [...]` for the specific-staff case (no duplicates since only one resource matches), or (b) include resources via `includeResourceTypeIds` and filter client-side. Option (a) is simpler.
+Default Wix Bookings staff resource type ID: `1cd44cf8-756f-41c3-bd90-3e2ffcaf1155`. Robust implementations query `resourceTypes` first instead of hardcoding.
 
-⛔ **`includeResourceTypeIds` requires the resource type ID.** It's NOT a staff-specific ID — it's the type. The default Wix Bookings staff resource type ID is `1cd44cf8-756f-41c3-bd90-3e2ffcaf1155` per the official examples, but a robust implementation queries `resourceTypes` first instead of hardcoding.
-
-### Step 1 (alternative): V1 query for a specific tutor
-
-```typescript
-// Only when the user picked a specific resourceId. V1 + resourceId filter
-// returns one entry per time (since just that one resource matches), which
-// avoids the duplication. The result is V1 SlotAvailability — pass directly
-// to `bookingsCheckout` without re-querying.
-import { availabilityCalendar } from "@wix/bookings";
-const result = await availabilityCalendar.queryAvailability(
-  { filter: { serviceId: [serviceId], resourceId: [staffResourceId], startDate, endDate } },
-  { timezone },
-);
-const entries = (result.availabilityEntries ?? []).filter(e => e.bookable);
-```
-
-### Step 1.5: Re-query V1 for the picked time before checkout
-
-Required when listing came from V2 (V2 TimeSlot ≠ V1 SlotAvailability shape). One-minute window around the chosen `localStartDate` returns a V1 entry with `slot.serviceId`, `slot.scheduleId`, `slot.resource` — everything the redirect needs. Filter by staff if the user picked one.
+When the user picks a V2 slot, re-query V1 for that single time window to get `SlotAvailability` for the redirect:
 
 ```typescript
 const start = new Date(slot.localStartDate + 'Z');     // tag UTC, treat as local
-const end = new Date(start.getTime() + 60_000);
+const end = new Date(slot.localEndDate + 'Z');
 const filter: Record<string, unknown> = {
   serviceId: [serviceId],
   startDate: start.toISOString(),
   endDate: end.toISOString(),
 };
 if (selectedStaff) filter.resourceId = [selectedStaff];
-const result = await availabilityCalendar.queryAvailability({ filter }, { timezone });
-const slotAvailability = (result.availabilityEntries ?? []).find(e => e.bookable);
+const v1 = await availabilityCalendar.queryAvailability({ filter }, { timezone });
+const slotAvailability = (v1.availabilityEntries ?? []).find(e => e.bookable);
 ```
 
 ### Step 2: Redirect to Booking Checkout

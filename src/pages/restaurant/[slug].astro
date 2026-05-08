@@ -11,7 +11,7 @@ import { getImageUrl, getShapeUrl } from "../../utils/image";
 type Item = itemsApi.Item;
 type Label = itemLabels.Label;
 
-const locale = await i18n.getLocale();
+const locale = i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
 const currency = await getSiteCurrency();
@@ -73,7 +73,7 @@ function getItemPrice(it: Item): string {
   const variants = it.priceVariants?.variants;
   if (variants?.length) {
     const prices = variants.map((v) =>
-      parseFloat(v.priceInfo?.price || v.price || "0"),
+      parseFloat(v.priceInfo?.price || "0"),
     );
     const min = Math.min(...prices);
     const max = Math.max(...prices);
@@ -95,7 +95,7 @@ const dishData = {
   priceVariants: (item.priceVariants?.variants || []).map((v) => ({
     _id: v.variantId || "",
     name: (v.variantId && variantMap.get(v.variantId)) || "",
-    price: { amount: v.priceInfo?.price || v.price || "0", currency },
+    price: { amount: v.priceInfo?.price || "0", currency },
   })),
   modifierGroups: [],
 };

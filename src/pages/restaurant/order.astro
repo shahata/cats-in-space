@@ -225,7 +225,7 @@ function buildItemDto(
     priceVariants: (item.priceVariants?.variants || []).map((v) => ({
       _id: v.variantId ?? "",
       name: variantMap.get(v.variantId ?? "") ?? "",
-      price: { amount: v.priceInfo?.price || v.price || "0", currency },
+      price: { amount: v.priceInfo?.price || "0", currency },
     })),
     labels: (item.labels || [])
       .map((l) => (l._id && labelMap.get(l._id)) || null)

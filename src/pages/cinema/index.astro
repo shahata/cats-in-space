@@ -12,7 +12,7 @@ import { getImageUrl } from "../../utils/image";
 type Event = wixEventsV2.Event & { categories?: wixEventsV2.EventCategories };
 type EventCategory = wixEventsV2.EventCategory;
 
-const locale = await i18n.getLocale();
+const locale = i18n.getLocale();
 const t = i18n.getTranslationFunction();
 
 // Fetch every upcoming screening. Each showtime is an independent Event; Wix
