@@ -135,7 +135,7 @@ const hasSeoDescription = activeSeoTags.some(
 | `/store/[slug]` | `STORES_PRODUCT` | `resolveItemSeoTags()` |
 | `/bookings/[slug]` | `BOOKINGS_SERVICE` | `resolveItemSeoTags()` |
 | `/blog/[slug]` | Blog post | `post.seoData.tags` (with `'SEO'` fieldset) |
-| `/cinema/[slug]` | Event | No SDK SEO — use `title` prop only |
+| `/tickets/[slug]` | Event | No SDK SEO — use `title` prop only |
 | `/restaurant/[slug]` | Menu item | No SDK SEO — use `title` prop only |
 | `/crew/[slug]` | CMS item | No SDK SEO — use `title` prop only |
 | `/missions/[slug]` | CMS item | No SDK SEO — use `title` prop only |

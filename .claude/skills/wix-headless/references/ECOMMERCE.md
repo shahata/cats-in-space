@@ -306,8 +306,8 @@ Then every caller:
 
 ```typescript
 callbacks: checkoutCallbacks({
-  thankYouPagePath: '/cinema/thank-you',
-  postFlowPath: '/cinema',
+  thankYouPagePath: '/tickets/thank-you',
+  postFlowPath: '/tickets',
 }),
 ```
 

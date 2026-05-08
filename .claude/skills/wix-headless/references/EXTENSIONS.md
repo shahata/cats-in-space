@@ -16,7 +16,7 @@ export default app()
   .use(
     extensions.event({
       id: "7739fb92-4087-4719-a000-48e306badfaa",
-      source: "./backend/events/order-created/order-created.ts",
+      source: "./backend/events/order-approved/order-approved.ts",
     }),
   )
   .use(
@@ -32,6 +32,23 @@ export default app()
 Generate UUIDs with `crypto.randomUUID()` — don't reuse IDs across extensions.
 
 `npx wix build` is the integration check (catches missing exports, bad source paths). `npx astro check` only catches TypeScript errors. Run **both** before declaring done.
+
+### Required: `security.checkOrigin: false` in `astro.config.mjs`
+
+⛔ **Backend event webhooks will not fire** unless Astro's CSRF origin check is disabled. Wix posts to `/_wix/extensions/*` from its own origin, and Astro 5's default `security.checkOrigin: true` rejects the cross-origin POST as a CSRF attempt — the handler never runs and there is no useful error in the site logs.
+
+```js
+// astro.config.mjs
+export default defineConfig({
+  // ...
+  security: {
+    checkOrigin: false,
+  },
+  output: "server",
+});
+```
+
+Set this once when the project is scaffolded. If you discover it missing on an existing project that has extensions, add it and redeploy — existing handlers will start firing without code changes.
 
 ---
 
@@ -57,46 +74,88 @@ Expected event listener call to be the default export.
 `@wix/astro` reads `module.default` to register the webhook slug at build time and to invoke the handler at request time.
 
 ```typescript
-// src/backend/events/order-created/order-created.ts
+// src/backend/events/order-approved/order-approved.ts
 import { orders } from "@wix/ecom";
 
 // ✅ default export — required
-export default orders.onOrderCreated(async (event) => {
-  const order = event.entity;
-  console.log("Order created:", order._id);
+export default orders.onOrderApproved(async (event) => {
+  const order = event.data.order;
+  if (!order) return;
+  console.log("Order approved:", order._id);
 });
 ```
 
 ```typescript
 // ❌ Build will fail — no default export
 import { orders } from "@wix/ecom";
-orders.onOrderCreated(async (event) => { /* ... */ });
+orders.onOrderApproved(async (event) => { /* ... */ });
 ```
 
-### Event payload shape
+### Event payload shape — TWO envelope shapes
 
-For domain events, the entity lives at `event.entity` (not `event.data.order` — that path is stale documentation in some skills). The shape is `{ entity: T; metadata: EventMetadata }`. Use TypeScript to autocomplete fields.
+The Wix SDK exposes two distinct envelope shapes, and which one you get depends on the specific event. **Don't guess — let TypeScript drive.** Hover the handler param or jump to the SDK type for the event you're listening to.
+
+| Envelope shape | Used by | Access pattern |
+|---|---|---|
+| `{ entity: T, metadata }` | CRUD domain events: `onOrderCreated`, `onOrderUpdated`, post `onPostCreated`, etc. | `event.entity` is the full entity |
+| `{ data: { <namedField>: T }, metadata }` | Action / state-change events: `onOrderApproved`, `onOrderCanceled`, `onOrderFulfilled`, `onOrderCommitted`, `onOrderPaymentStatusUpdated` | `event.data.order` (or `event.data.<thing>`) — and may be optional, so null-check |
+
+For example (verbatim from the SDK types):
+
+```ts
+interface OrderCreatedEnvelope  { entity: Order; metadata: EventMetadata; }            // event.entity
+interface OrderApprovedEnvelope { data: { order?: Order }; metadata: EventMetadata; }  // event.data.order
+```
+
+**The rule: read the envelope type for the specific event handler you're writing.** Don't carry assumptions across event handlers — a `data.order` pattern that works for `onOrderApproved` is wrong for `onOrderCreated`, and vice versa.
 
 ### Auth context: webhook ≠ member
 
 Webhooks fire without member identity. To write to admin-only collections, elevate via `@wix/essentials`:
 
 ```typescript
+import { orders } from "@wix/ecom";
 import { items } from "@wix/data";
 import { auth } from "@wix/essentials";
 
 const insertOrderLog = auth.elevate(items.insert);
 
-export default orders.onOrderCreated(async (event) => {
+export default orders.onOrderApproved(async (event) => {
+  const order = event.data.order;
+  if (!order) return;
   await insertOrderLog("OrderLog", {
-    orderId: event.entity._id,
-    orderNumber: event.entity.number,
-    total: event.entity.priceSummary?.total?.formattedAmount,
-    buyerEmail: event.entity.buyerInfo?.email,
-    orderCreatedDate: event.entity._createdDate,
+    orderId: order._id,
+    orderNumber: order.number,
+    total: order.priceSummary?.total?.formattedAmount,
+    buyerEmail: order.buyerInfo?.email,
+    orderCreatedDate: order._createdDate,
   });
 });
 ```
+
+### Calling external services from a handler
+
+Handlers can call any external HTTP API via `fetch` — useful for forwarding events to messaging platforms (Slack, Discord, Telegram), CRMs, email/SMS providers, or your own backend. Read secrets from `process.env` (set via `wix env set` — see [SETUP.md](SETUP.md)) and bail gracefully if they're missing so a misconfigured environment doesn't crash the webhook:
+
+```typescript
+async function notifyExternal(text: string) {
+  const token = process.env.EXTERNAL_API_TOKEN;
+  if (!token) {
+    console.warn("External notification skipped: missing EXTERNAL_API_TOKEN");
+    return;
+  }
+  const response = await fetch("https://api.example.com/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ text }),
+  });
+  if (!response.ok) {
+    console.error("External notification failed", response.status, await response.text());
+  }
+}
+```
+
+Don't throw on external-call failures — Wix may retry the webhook on unhandled errors, which can amplify a downstream outage into duplicate side effects (e.g. multiple notifications for the same order). Log and return.
 
 ### Cloudflare runtime: no filesystem
 
