@@ -7,11 +7,11 @@ Gift cards in Wix are managed through the `@wix/gift-vouchers` package. There ar
 - **`giftVoucherProducts`** — gift card product templates (preset amounts, custom amounts, images, descriptions)
 - **`giftVouchers.giftVouchers`** — gift card instances (create, query, redeem, void, send email)
 
-Gift card products are eCommerce catalog items under the **Rise app** (`d80111c5-a0f4-47a8-b63a-65b54d774a27`). They go through standard Wix eCommerce checkout — not a custom creation flow.
+Gift card products are eCommerce catalog items with their own appId (`d80111c5-a0f4-47a8-b63a-65b54d774a27`). They go through standard Wix eCommerce checkout — not a custom creation flow.
 
 ## Setup
 
-Install the Rise app via the Apps Installer API (appDefId `d80111c5-a0f4-47a8-b63a-65b54d774a27`):
+Install the Wix Gift Cards app via the Apps Installer API (appDefId `d80111c5-a0f4-47a8-b63a-65b54d774a27`):
 
 ```http
 POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
@@ -134,16 +134,17 @@ const navLinks = [
 ```
 
 ⚠️ Use `limit(1)` — you only need to know if any exist, not fetch them all.
-⚠️ Wrap in try/catch so a failed query (e.g., Rise app not installed) doesn't break the entire layout.
+⚠️ Wrap in try/catch so a failed query (e.g., Gift Cards app not installed) doesn't break the entire layout.
 
 ## Adding to Cart & Checkout (eCommerce Flow)
 
-Gift cards are catalog items under the Rise app. Use `currentCart` exactly like regular products — **do NOT use `checkout.createCheckout` with custom line items**.
+Gift cards are catalog items under the Wix Gift Cards app. Use `currentCart` exactly like regular products — **do NOT use `checkout.createCheckout` with custom line items**.
 
 ### App ID & Constants
 
+Import `GIFT_CARDS_APP_ID` from `src/utils/appIds.ts`. Local-only constant:
+
 ```typescript
-const RISE_APP_ID = "d80111c5-a0f4-47a8-b63a-65b54d774a27";
 const CUSTOM_VARIANT_ID = "custom";
 ```
 
@@ -184,7 +185,7 @@ await currentCart.addToCurrentCart({
   lineItems: [{
     quantity: 1,
     catalogReference: {
-      appId: RISE_APP_ID,
+      appId: GIFT_CARDS_APP_ID,
       catalogItemId: giftCardProduct._id,
       options,
     },
@@ -232,7 +233,7 @@ The custom-amount field is `options.customAmount` (a number). The `options` obje
 
 | Aspect | Regular Product | Gift Card |
 |--------|----------------|-----------|
-| App ID | `215238eb-22a5-4c36-9e7b-e7c08025e04e` (Stores) | `d80111c5-a0f4-47a8-b63a-65b54d774a27` (Rise) |
+| App ID | `215238eb-22a5-4c36-9e7b-e7c08025e04e` (Stores) | `d80111c5-a0f4-47a8-b63a-65b54d774a27` (Gift Cards) |
 | Variant selection | `options.variantId` | `options.variantId` OR `options.customAmount` |
 | Required flag | — | `options.wixGiftCardsAppNewCatalog: true` |
 | Gifting info | — | `options.giftingInfo` with recipient details |
@@ -324,7 +325,7 @@ These work at runtime because the Astro integration reads the JSON files directl
 
 ### Dynamic Content (Gift Card Product Names/Descriptions)
 
-The Wix Gift Cards (Rise) app **does NOT register a translation schema** in the Translation Content API. Querying `GET /translation-schema/v1/schemas/site?appId=d80111c5-a0f4-47a8-b63a-65b54d774a27` returns zero schemas.
+The Wix Gift Cards app does not register a translation schema in the Translation Content API. Querying `GET /translation-schema/v1/schemas/site?appId=d80111c5-a0f4-47a8-b63a-65b54d774a27` returns zero schemas.
 
 This means gift card product names and descriptions **cannot be translated via the Translation Content API**. They must be translated through the Wix dashboard Translation Manager if/when the app adds schema support.
 
@@ -341,5 +342,5 @@ For headless, locale JSON files in `.wix/multilingual/translations/` are the sou
 5. **Price ≠ Value** — a gift card can cost less than its face value; always handle both fields
 6. **The full gift card code is only returned on creation** — subsequent `getGiftCard` calls return an obfuscated code
 7. **Gift card products may not exist** — wrap the query in try/catch; only show the gift cards tab when products are available
-8. **No translation schema for gift card products** — the Rise app doesn't register schemas in the Translation Content API; product names/descriptions can't be translated via API
-9. **Do NOT use `checkout.createCheckout` with `customLineItems`** — gift cards are catalog items under the Rise app; use `currentCart.addToCurrentCart` with the proper `catalogReference` and `RISE_APP_ID`
+8. **No translation schema for gift card products** — the Gift Cards app doesn't register schemas in the Translation Content API; product names/descriptions can't be translated via API
+9. **Do NOT use `checkout.createCheckout` with `customLineItems`** — gift cards are catalog items; use `currentCart.addToCurrentCart` with the proper `catalogReference` and `GIFT_CARDS_APP_ID`

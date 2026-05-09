@@ -2,7 +2,7 @@ import { useState } from "react";
 import { currentCart } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 import { i18n } from "@wix/essentials";
-import { RISE_GIFT_CARDS_APP_ID } from "../utils/appIds";
+import { GIFT_CARDS_APP_ID } from "../utils/appIds";
 import { checkoutCallbacks } from "../utils/redirects";
 
 const CUSTOM_VARIANT_ID = "custom";
@@ -104,7 +104,7 @@ export default function GiftCardActions({
           {
             quantity: 1,
             catalogReference: {
-              appId: RISE_GIFT_CARDS_APP_ID,
+              appId: GIFT_CARDS_APP_ID,
               catalogItemId: productId,
               options,
             },

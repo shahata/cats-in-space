@@ -16,7 +16,7 @@ Body: {
 }
 ```
 
-The Wix Stores app id is `215238eb-22a5-4c36-9e7b-e7c08025e04e`. The app ids for back-in-stock notifications, the V1 `catalogReference`, Rise gift cards, and the rest are centralised in `src/utils/appIds.ts` — see [SDK_CORE.md](SDK_CORE.md#sdk-gotchas--quick-reference).
+The Wix Stores app id is `215238eb-22a5-4c36-9e7b-e7c08025e04e`. The app ids for back-in-stock notifications, the V1 `catalogReference`, gift cards, and the rest are centralised in `src/utils/appIds.ts` — see [SDK_CORE.md](SDK_CORE.md#sdk-gotchas--quick-reference).
 
 ---
 
