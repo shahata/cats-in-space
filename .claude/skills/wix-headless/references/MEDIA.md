@@ -2,9 +2,7 @@
 
 ## The Core Rule
 
-⛔ **Every image/video from ANY Wix SDK response is a `wix:image://` or `wix:video://` string.** These do not render in `<img>` or `<video>` tags. You must always convert them through `getImageUrl()` / `getVideoUrl()` helpers before rendering.
-
-This applies everywhere: product images, cart line items, order line items, blog covers, member photos, CMS images, booking service images, staff photos — no exceptions.
+SDK media fields are `wix:image://` or `wix:video://` URIs (not URLs). Convert via `getImageUrl()` / `getVideoUrl()` before rendering — applies to product images, cart line items, order line items, blog covers, member photos, CMS images, booking service images, staff photos, and every other media field across the SDK.
 
 ## SDK vs REST: Different Formats
 
@@ -21,17 +19,13 @@ The SDK (Astro server-side) returns **plain strings**:
 
 ## Safe Access Pattern
 
-Always check the type before accessing sub-properties:
+Handle both SDK and REST shapes when reading from a mixed source (REST seed scripts, CMS items written via REST and read via SDK):
 
 ```typescript
-// ❌ WRONG — field is a string, not an object
-const url = getImageUrl(item.mainMedia?.image?.id);
-
-// ✅ CORRECT — handle both SDK string and REST object formats
 const img = item.mainMedia?.image;
 const url = getImageUrl(
   typeof img === 'string' ? img : (img?.id || img?.url),
-  width, height
+  width, height,
 );
 ```
 
@@ -161,7 +155,7 @@ function extractMediaUrl(m: productsV3.ProductMedia | undefined, w = 800, h = 80
 
 Returns `file.url` (wixstatic.com) — usable immediately even while `operationStatus` is `PENDING`. The response also gives you a WixMedia `file.id` like `4975b6_<hash>~mv2.png`.
 
-⛔ **`operationStatus: 'PENDING'` matters when you reference the file from another entity's string field.** `importFile` is asynchronous — it returns with the file in `PENDING` state while Wix pulls the bytes from the source URL server-side. Some entity fields that accept a `wix:image://` string (e.g. `Event.mainImage`) will silently drop a URI whose underlying file is not yet `READY`. If your image vanishes from the target entity even though the update call succeeded, poll:
+When attaching a freshly-imported file to another entity's string-typed image field (e.g. `Event.mainImage`), wait for `operationStatus: 'READY'` first. `importFile` returns immediately with the file in `PENDING` state, and entities that accept raw `wix:image://` strings drop URIs whose underlying file isn't ready yet. Poll until ready:
 
 ```ts
 async function waitForFileReady(fileId: string, maxAttempts = 30): Promise<boolean> {
@@ -175,7 +169,7 @@ async function waitForFileReady(fileId: string, maxAttempts = 30): Promise<boole
 }
 ```
 
-⛔ **The `#originWidth=W&originHeight=H` hash fragment is NOT optional when writing a `wix:image://` string to an entity field.** Entities that accept raw URI strings (`Event.mainImage`, some CMS `IMAGE` fields) silently drop URIs missing the dimensions hash — no error, no response field, never surfaces in the dashboard. Always build the URI as:
+When writing a `wix:image://` string to an entity field that takes a raw URI (`Event.mainImage`, some CMS `IMAGE` fields), include the `#originWidth=W&originHeight=H` hash fragment — entities silently drop URIs without it. Build the URI as:
 
 ```ts
 function buildWixImageUri(fileId: string, displayName: string, w: number, h: number): string {

@@ -24,11 +24,9 @@ await likes.deleteLikeByFqdnAndEntityId({ fqdn: FQDN, entityId: entityId });
 const res = await likes.getLikeByFqdnAndEntityId({ fqdn: FQDN, entityId: entityId });
 ```
 
-⛔ **Breaks at runtime:** `getLikeByFqdnAndEntityId` and `deleteLikeByFqdnAndEntityId` take a single **object** `{ fqdn, entityId }`, NOT positional arguments. Passing positional args throws a TypeError. → Pass `{ fqdn: FQDN, entityId: id }` as a single object argument.
+Pre-populate liked state from `queryLikes()` on mount and track locally — `createLike` throws `ALREADY_EXISTS` for already-liked entities.
 
-⛔ **Breaks at runtime:** `createLike` throws `ALREADY_EXISTS` if already liked. Use `queryLikes()` on mount to pre-populate liked state, then track locally.
-
-⚠️ **Common mistake:** `queryLikes()` only returns likes created via the API, NOT likes from the Wix Blog UI.
+`queryLikes()` only returns likes created via the API, not likes set through the Wix Blog dashboard UI.
 
 ## Comments
 
@@ -39,9 +37,7 @@ const BLOG_APP_ID = "14bcded7-0066-7c35-14d7-466cb3f09103";
 
 ### One-time setup: disable the default "AI spam moderation" rule
 
-⛔ **Wix ships a built-in `AI spam moderation` Moderation Rule on every new site that holds every comment from members AND visitors in `NEEDS_MANUAL_APPROVAL` state.** Symptom: the user submits a comment, the create call succeeds (no error in the console), but the comment never appears on the page because `listCommentsByResource` only returns published comments — pending ones stay in the moderation queue until an admin approves them in the dashboard. This is the single most common "comments don't work" report on a freshly built site.
-
-The rule is real (verified on production sites): `namespace: "comments/14bcded7-0066-7c35-14d7-466cb3f09103"`, `audience.type: "MEMBERS_AND_VISITORS"`, `trigger.type: "SMART"`, `action.type: "NEEDS_MANUAL_APPROVAL"`, `enabled: true`. The site owner can flip it off in the Comments dashboard, but a build agent provisioning a new site should disable it as part of the comments-setup step so the user never has to chase the silent moderation queue.
+New Wix sites ship with an `AI spam moderation` Moderation Rule (`namespace: "comments/14bcded7-...", audience.type: "MEMBERS_AND_VISITORS", trigger.type: "SMART", action.type: "NEEDS_MANUAL_APPROVAL"`) that holds every submitted comment in the moderation queue. Disable it as part of comments setup so visitors don't have to wait on an admin approval that may never come.
 
 **Disable via Moderation Rules API** ([docs](https://dev.wix.com/docs/api-reference/crm/community/feedback-moderation/moderation-rules/introduction)):
 
@@ -59,7 +55,7 @@ Body: { "rule": { "id": "{rule.id}", "revision": "{rule.revision}", "enabled": f
 
 The Moderation Rules API also covers Wix Reviews — same shape, namespace `reviews/{APP_NAME}`. If the site has a Wix Reviews integration, the equivalent rule should be disabled too.
 
-⚠️ **Disabling the rule does not auto-approve already-pending comments** — those stay in the moderation queue until manually approved in the dashboard. New comments submitted after the rule is disabled post immediately. If a build pass produced a queue of test comments before this rule was flipped, expect to clean those out by hand (or via `commentsApi.publishComment` per pending ID).
+Disabling the rule applies to new comments only — already-pending comments stay in the queue until approved in the dashboard or published per-id via `commentsApi.publishComment`.
 
 ### Listing Comments
 
@@ -74,9 +70,9 @@ const res = await commentsApi.listCommentsByResource(BLOG_APP_ID, {
 const topLevelComments = res.comments || [];
 ```
 
-⛔ **Breaks at runtime:** `cursorPaging.repliesLimit` is **required** to get replies. Without it, only top-level comments are returned and `commentReplies` is empty. → Always include `repliesLimit: 20` (or desired count) in `cursorPaging`.
+Include `repliesLimit` in `cursorPaging` to fetch nested replies — without it, `commentReplies` returns empty.
 
-⛔ **Breaks at runtime:** Use `referenceId` (NOT `_id`) for `contextId`/`resourceId`. Using `_id` returns zero comments. → Pass `post.referenceId` (from `REFERENCE_ID` fieldset on `getPostBySlug`) for both `contextId` and `resourceId`.
+Pass `post.referenceId` (from the `REFERENCE_ID` fieldset on `getPostBySlug`) as both `contextId` and `resourceId`. The Comments API keys off `referenceId`, not the post `_id`.
 
 ### Reply Threading
 
@@ -140,9 +136,9 @@ const reply = await commentsApi.createComment({
 });
 ```
 
-⛔ **Don't pass `author` to `createComment`.** `Comment.author` is `@immutable` per the SDK schema — the server populates it from the calling identity (`memberId` for logged-in members, `visitorId` for anonymous). Anything passed in is ignored. `CommentAuthor` only contains identity fields (`userId | memberId | visitorId`); there is **no `authorName` field anywhere on it**. SDK types are honest — the older guidance to cast `as commentsApi.CommentAuthor` and pass `authorName` was a misread of cats-in-space code that did this with no effect at runtime. Don't follow that pattern.
+`Comment.author` is `@immutable` and populated server-side from the calling identity (`memberId` or `visitorId`). The `CommentAuthor` type carries identity fields only — no `authorName` and no field for a visitor-supplied display name.
 
-⛔ **Visitor display names are not supported by the comments API.** Anonymous visitors get a generated `visitorId` and no name. There is no SDK field that accepts a guest-provided display name on `createComment`. If your site requires named comments, set the comments-app permission to `MEMBER` (members must be logged in) and prompt visitors to log in via the `PERMISSION_DENIED` handler below. A "Your name" input on a visitor-permitted site is purely cosmetic — the typed value is silently dropped.
+If the site needs named comments from everyone, set the comments-app permission to `MEMBER` and route anonymous visitors through the `PERMISSION_DENIED` handler below to log in.
 
 💡 **Sort orders are SDK enums.** Use `commentsApi.Order.OLDEST_FIRST` and `commentsApi.ReplySortOrder.OLDEST_FIRST` for `commentSort` / `replySort` — not the literal strings. `'OLDEST_FIRST'` compiles via `OrderWithLiterals` but breaks the day Wix renames an enum value.
 
@@ -171,7 +167,7 @@ try {
 }
 ```
 
-⚠️ **Common mistake:** The SDK error has `details.applicationError.code === 'PERMISSION_DENIED'`, NOT an HTTP status code. Checking for status 403 will miss it. → Check `e?.details?.applicationError?.code === 'PERMISSION_DENIED'`.
+Check `e?.details?.applicationError?.code === 'PERMISSION_DENIED'` — the SDK error doesn't carry an HTTP status code.
 
 **Background:** Comment permissions are controlled by the Comments Category service (`wix.comments.v1.category`) which has `permissionsSettings.createComment.role` set to `ALL`, `MEMBER`, or `ADMIN`. The blog implements a `CommentsContextHost` SPI that resolves these into per-user boolean permissions. This SPI is internal and not accessible from headless — so the best approach is to handle the error at the point of failure rather than pre-checking permissions.
 
@@ -188,9 +184,9 @@ await commentsApi.deleteComment(commentId);
 
 ### Key Gotchas
 
-⚠️ **Common mistake:** After creating, the API has **eventual consistency**. Load comments immediately but retry after 2 seconds if the new comment isn't in the response.
+Comments are eventually consistent. After creating, load comments immediately and retry after 2 seconds if the new comment isn't in the response.
 
-⚠️ **Common mistake:** The `rating` field on comments is **NOT controllable** through the public API. Always set to system default (3). Building a rating input UI will have no effect. → Do not build a rating UI for comments; omit the field entirely.
+The `rating` field on comments is fixed at the system default (3) — the public API doesn't let consumers set it, so a rating input has no effect.
 
 **Comment author info:** `comment.author` has only `memberId | visitorId | userId`. Resolve member display names by fetching profiles (see "Member Comments" below). For visitor comments, render "Visitor" — the SDK has no field for a visitor's chosen display name.
 **Comment text:** `comment.content.richContent.nodes` (extract TEXT from PARAGRAPH nodes)
@@ -294,7 +290,7 @@ const [myVisitorId, setMyVisitorId] = useState<string | null>(identityId || null
 
 The `subjectId` from `getTokenInfo` matches `comment.author.visitorId` or `comment.author.memberId`, so `isOwnComment()` works immediately on page load. Still capture identity from `createComment` responses as a fallback for visitors who haven't been identified yet.
 
-⛔ **Breaks at runtime:** `auth.getTokenInfo()` requires elevation (`auth.elevate(auth.getTokenInfo)`) — without elevation it returns app-level identity, not the visitor/member identity. → Call `const elevatedGetTokenInfo = auth.elevate(auth.getTokenInfo)` then `await elevatedGetTokenInfo()`.
+`auth.getTokenInfo` needs `auth.elevate` to return the visitor/member identity — calling it unelevated returns the app-level identity instead.
 
 
 ## Blog Engagement UI Guidelines
@@ -397,14 +393,11 @@ const res = await posts.getPostMetrics(postId);
 // res.metrics = { views: number, likes: number, comments: number }
 ```
 
-⛔ **Breaks at runtime:** `METRICS` fieldset on `listPosts` returns **zeros** in managed headless. Use `queryPosts` instead — it returns real metrics including comments:
+For metrics, use `queryPosts` — `listPosts` returns zeros for the `METRICS` fieldset in managed headless:
 
 ```typescript
-// queryPosts returns real metrics (views, likes, comments), listPosts returns zeros
 const result = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).find();
 const blogPosts = result.items || [];
-// post.metrics.views, post.metrics.likes, post.metrics.comments — all populated correctly
-// No need for per-post getPostMetrics or separate comment counting
 ```
 
 ## Reporting Post Views
@@ -421,7 +414,7 @@ await httpClient.fetchWithAuth(
 // Returns: { "views": <new_count> }
 ```
 
-⛔ **Breaks at runtime:** Import `httpClient` from `"@wix/essentials"` (main module), NOT from `"@wix/essentials/http-client"` — the subpath fails the Vite build. → Use `import { httpClient } from "@wix/essentials"`.
+Import `httpClient` from `"@wix/essentials"` — the `/http-client` subpath isn't a valid entry point.
 
 ## Comment Permissions Architecture
 

@@ -18,7 +18,7 @@ Wix provides SEO tags (title, meta description, Open Graph, JSON-LD structured d
 
 This generates the **complete** set of SEO tags for a page, including site-level defaults, Open Graph, and JSON-LD structured data. Use this whenever the item type is supported.
 
-**Supported item types:** only three — `STORES_PRODUCT`, `BOOKINGS_SERVICE`, `STORES_CATEGORY`. Source of truth: [wix-private/promote-seo `item_types.proto`](https://github.com/wix-private/promote-seo/blob/master/packages/seo-tags-service-api/src/main/proto/wix/promote/seo/tags/service/v1/item_types.proto). Passing `BLOG_POST`, `EVENTS_EVENT`, `RESTAURANTS_MENU_ITEM`, etc. — even though the SDK type allows the string — returns zero tags at runtime.
+**Supported item types:** only three — `STORES_PRODUCT`, `BOOKINGS_SERVICE`, `STORES_CATEGORY`. Use `seoTagsApi.ItemType` enum members; the SDK type accepts other strings, but they return zero tags at runtime.
 
 ```typescript
 import { seoTags as seoTagsApi } from '@wix/seo';
@@ -32,7 +32,6 @@ const seoResult = await seoTagsApi.resolveItemSeoTags({
 const seoTags = seoResult.seoTags?.tags ?? [];
 ```
 
-⚠️ **Always use the `seoTagsApi.ItemType` enum, never the literal string.** Wix's proto is the source of truth; the SDK enum is generated from it. Comparing against or passing literal strings works today but silently breaks if the proto renames a value.
 
 ### 2. `seoData` on the item object — for other types
 
@@ -55,7 +54,7 @@ const seoTags = result.post?.seoData?.tags ?? [];
 
 **Important:** For blog posts, you must include `posts.PostFieldField.SEO` in the `fieldsets` array — `seoData` is not returned by default.
 
-⚠️ **Blog `seoData.tags` today only contains JSON-LD structured data.** It does *not* emit `og:title`, `og:image`, `twitter:*`, or a canonical link. Rather than synthesising these tags manually on every blog page (they'd diverge from whatever Wix adds later), treat it as a Wix-side gap and wait for `resolveItemSeoTags` to gain `BLOG_POST` support. Don't hand-roll OG tags for blog posts in the Layout — users who click through from Slack/Twitter will see whatever Wix emits, which is currently less than perfect but will improve centrally.
+Blog `seoData.tags` currently emits only JSON-LD — no `og:*`, `twitter:*`, or canonical link. Render whatever Wix returns and let the platform fill in the rest centrally; hand-rolling OG tags will diverge once Wix adds `BLOG_POST` support to `resolveItemSeoTags`.
 
 ### Pages without SEO support
 
@@ -82,21 +81,7 @@ import type { seoTags as seoTagsNs } from '@wix/seo';
 type Tag = seoTagsNs.Tag;
 ```
 
-⛔ **Breaks at runtime — do NOT branch per tag type.** A tempting but wrong implementation:
-
-```astro
-{seoTags.map((tag) => {
-  if (tag.type === 'meta') return <meta {...tag.props} />;
-  if (tag.type === 'link') return <link {...tag.props} />;
-  if (tag.type === 'script') return <script set:html={tag.children} />;
-  if (tag.type === 'title') return <title>{tag.children}</title>;
-  return null;  // ⛔ silently drops any tag type not listed
-})}
-```
-
-This **silently drops** valid tags Wix returns — e.g., `<base>`, future tag types, or anything the SDK adds. JSON-LD tags also lose required attributes (`type="application/ld+json"`) because the switch hardcodes them instead of passing through `tag.props`. You will ship a site that looks like it has SEO but is missing half of it, and no compiler will catch it.
-
-✅ **Render generically — use `tag.type` as the element name, `tag.props` as the attributes, `tag.children` as the inner content:**
+Render tags generically — use `tag.type` as the element name, `tag.props` as the attributes, `tag.children` as the inner content. Branching per tag type drops `<base>`, future types, and JSON-LD `type` attributes that live on `tag.props`:
 
 ```typescript
 function renderSeoTag(tag: Tag): string {
@@ -142,10 +127,9 @@ const hasSeoDescription = activeSeoTags.some(
 | `/planets/[slug]` | CMS item | No SDK SEO — use `title` prop only |
 | `/member/[slug]` | Member | No SDK SEO — use `title` prop only |
 
-## Gotchas
+## Quick reference
 
-1. **Do NOT define custom `Tag` interfaces** — import the type from `@wix/seo` via `seoTags` namespace.
-2. **`resolveItemSeoTags` returns the full tag set** including site-level defaults (OG, JSON-LD, canonical). The `seoData` property on items only contains per-item overrides.
-3. **Blog `seoData` requires the `'SEO'` fieldset** — without it the field is not populated.
-4. **Filter out disabled tags** — tags with `disabled: true` should not be rendered.
-5. **Render tags generically — NEVER branch on `tag.type`.** A `if (tag.type === 'meta') ... else if (tag.type === 'link') ...` switch silently drops every other type (including tags the SDK may start emitting in future versions) and usually loses attributes on JSON-LD. Always use `tag.type` as the element name, `tag.props` as attributes, and `tag.children` as inner content — no type-specific branches. See "Layout implementation" above for the correct `renderSeoTag` helper.
+- Import the `Tag` type from `@wix/seo` (via the `seoTags` namespace) — don't define a local mirror.
+- `resolveItemSeoTags` returns the full tag set (site defaults + OG + JSON-LD + canonical). `item.seoData` only carries per-item overrides.
+- Blog posts need the `SEO` fieldset on the request for `seoData` to populate.
+- Filter `disabled: true` tags before rendering.

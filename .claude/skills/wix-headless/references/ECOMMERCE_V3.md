@@ -30,32 +30,21 @@ const allCategories: categoriesTypes.Category[] = catResult.categories || [];
 
 ## V3 SDK Field Access Cheat Sheet
 
-⛔ **Breaks at runtime — the V3 SDK field paths differ from V1. These are the CORRECT paths:**
+V3 field paths differ from V1. The correct V3 paths:
 
-| What you want | CORRECT V3 SDK path | WRONG (V1 or common mistake) |
-|---|---|---|
-| Main image | `product.media?.main?.image` (a `wix:image://` string) | ~~`product.media?.mainMedia?.image?.url`~~ |
-| All media items | `product.media?.itemsInfo?.items` | ~~`product.media?.items`~~ |
-| Price range min | `product.actualPriceRange?.minValue?.amount` | ~~`product.priceRange?.minValue`~~ |
-| Price range max | `product.actualPriceRange?.maxValue?.amount` | ~~`product.priceRange?.maxValue`~~ |
-| Ribbon text | `product.ribbon?.name` (ribbon is an object) | ~~`product.ribbon`~~ (renders as [object Object]) |
-| Variants array | `product.variantsInfo?.variants` | ~~`product.variants`~~ |
-| Variant ID | `v._id` | ~~`v.id`~~ (undefined at runtime!) |
-| Option choices | `opt.choicesSettings?.choices` with `.name` | ~~`opt.choices`~~ with ~~`.value`~~ |
-| Category IDs | `product.directCategoriesInfo?.categories` | ~~`product.categoryIds`~~ |
-| Product ID | `product._id` | same |
-| Product type | `"PHYSICAL"` / `"DIGITAL"` (UPPERCASE) | ~~`"physical"`~~ |
-
-### `_id` on Variants and Options
-
-V3 entities use `_id` (not `id`) as the identifier field. This applies to both variants and options:
-
-```typescript
-const variantId = variant._id || '';
-const optionId = option._id || '';
-```
-
-Do NOT use `variant.id` or `option.id` — these are `undefined`.
+| What you want | V3 path |
+|---|---|
+| Main image | `product.media?.main?.image` (`wix:image://` string) |
+| All media items | `product.media?.itemsInfo?.items` |
+| Price range min | `product.actualPriceRange?.minValue?.amount` |
+| Price range max | `product.actualPriceRange?.maxValue?.amount` |
+| Ribbon text | `product.ribbon?.name` (object — render `.name`, not the whole field) |
+| Variants array | `product.variantsInfo?.variants` |
+| Variant id / Option id | `v._id`, `opt._id` (V3 uses `_id`, not `id`) |
+| Option choices | `opt.choicesSettings?.choices` with `.name` |
+| Category ids | `product.directCategoriesInfo?.categories` |
+| Product id | `product._id` |
+| Product type | `"PHYSICAL"` / `"DIGITAL"` (uppercase) |
 
 ## Query Patterns
 
@@ -81,7 +70,7 @@ const product = result.product;
 ```
 This returns full data including `variantsInfo.variants[]` in one call — no two-step like V1.
 
-⚠️ **Common mistake:** Use `getProductBySlug` for product detail pages — NOT `queryProducts().eq('slug', slug)`. The query method may not return options/variants data even with field params. → Always use `productsV3.getProductBySlug(slug, { fields: [...] })` for detail pages.
+For product detail pages, use `productsV3.getProductBySlug(slug, { fields: [...] })`. `queryProducts().eq('slug', slug)` may not return options or variants even with the right `fields` param.
 
 ### Query categories
 
@@ -158,7 +147,7 @@ Use data attributes on product cards for JS-based filtering without re-fetching:
   - Pre-order detection: `product.inventory?.preorderStatus === "ENABLED"`
   - Variant-level: `variant.inventoryStatus?.preorderEnabled`
   - When preorder is enabled, item is purchasable even if out of stock
-  - ⚠️ **`product.inventory` does NOT carry `preorderInfo.message`.** That field lives on `InventoryItem` (a separate API at `inventoryItems.queryInventoryItems` filtered by `productId` + `variantId`). Reading `product.inventory.preorderInfo.message` returns `undefined`. Casting through `as { preorderInfo?: { message?: string } }` to "make it work" silently drops the user-facing preorder message. If you need the message, query inventory items separately
+  - For the per-product preorder message, query `inventoryItems.queryInventoryItems` filtered by `productId` + `variantId` — the message lives on `InventoryItem`, not on `product.inventory`
 - `directCategoriesInfo.categories[]` — `{ _id }` (opt-in)
 - `ribbon` — `{ _id, name }` (object, not string)
 - `infoSections[]` — `{ _id, uniqueName, title, description (RichContent), plainDescription }`. Use `INFO_SECTION` + `INFO_SECTION_DESCRIPTION` + `INFO_SECTION_PLAIN_DESCRIPTION` fields. All three must be requested to get the full shape.
@@ -203,9 +192,9 @@ if (Object.keys(opts).length > 0) ref.options = opts;
 
 ## Translatable fields are display-only — never use them as identifiers
 
-⛔ **Breaks at runtime under translation** — `name`, `title`, `displayName`, `description`, `tagLine`, `optionChoiceNames` and similar human-readable fields get rewritten by the Wix Multilingual API. If you key React state, lookup maps, or variant-matching predicates by these fields, the site silently breaks the moment a visitor switches locale: state mutations land under one key, reads happen under another, variants stop matching, and "Add to cart" ships the wrong line item (or none).
+`name`, `title`, `displayName`, `description`, `tagLine`, `optionChoiceNames` and similar human-readable fields are rewritten by the Wix Multilingual API per locale. Keying React state, lookup maps, or variant-matching predicates by these fields silently breaks the moment a visitor switches locale.
 
-**Use locale-invariant identifiers everywhere except the rendered text. When the entity exposes a `key`, use `key` directly — it's safe to assume present; don't write `key ?? _id` / `key ?? name` fallbacks.** `_id` is only the right choice where the Wix API itself forces UUIDs — V3 variant matching is the canonical case (variants don't expose a `key` equivalent).
+Use locale-invariant identifiers for state and lookups; render translated fields as text only. When the entity exposes a `key`, use `key` directly. Use `_id` only where the API forces UUIDs (V3 variant matching is the canonical case — variants don't carry a `key`).
 
 | Entity | Stable identifier | Translated label (display only) |
 |---|---|---|
@@ -450,12 +439,11 @@ You must pass the FULL option definition (not just an ID reference) AND explicit
 }
 ```
 
-⚠️ **Common mistake:**
-- Pass full option definition with `name`, `optionRenderType`, `choicesSettings` — not just `{ "id": "..." }`. Omitting `choicesSettings` causes: `choicesSettings must not be empty`
-- Each choice needs `id`, `name`, and `choiceType` — get these from the customization query response
-- Variants reference choices via `optionChoiceIds` (with `optionId` + `choiceId`), NOT via name strings
-- `inventoryItem.inStock` on the update may NOT create inventory — you often need to follow up with `POST /stores/v3/bulk/inventory-items/create` separately (Step 6b below)
-- The response includes new `variantsInfo.variants[].id` values
+Notes for this PATCH:
+- Pass the full option definition (`name`, `optionRenderType`, `choicesSettings`) — `{ id }` alone returns `choicesSettings must not be empty`.
+- Each choice needs `id`, `name`, `choiceType` — pulled from the customization query response.
+- Variants reference choices via `optionChoiceIds` (`optionId` + `choiceId`), not name strings.
+- Follow up with `POST /stores/v3/bulk/inventory-items/create` (Step 6b) — `inventoryItem.inStock` on this PATCH doesn't always create inventory rows.
 
 ### Step 6b: Create inventory for new variants
 
@@ -522,11 +510,7 @@ Pre-order **requires** quantity tracking (not in-stock tracking). Without it, ca
 - `preorderInfo.limit` required for cart to accept quantity > 0
 - `inStock: true` (without quantity tracking) does NOT support preorder limits
 
-⛔ **Breaks at runtime — choiceType values for options (if creating options via REST):**
-- `CHOICE_TEXT` — for `TEXT_CHOICES` options (sizes, materials, etc.)
-- `ONE_COLOR` — for `SWATCH_CHOICES` options (colors). Do NOT use `CHOICE_COLOR` — it does not exist and will return 400.
-- `MULTIPLE_COLORS` — for multi-color swatches
-- `IMAGE` — for image-based choices
+When creating options via REST, valid `choiceType` values are `CHOICE_TEXT`, `ONE_COLOR`, `MULTIPLE_COLORS`, `IMAGE`. Use `ONE_COLOR` for single-color swatches.
 
 ### Info Sections (separate entity — cannot be inlined in createProduct)
 
@@ -557,7 +541,7 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 
 ### Categories REST API
 
-⛔ **Breaks at runtime:** The categories endpoint is at `categories/v1/`, NOT `stores/v1/`. Using `stores/v1/categories` returns 404. → Use `https://www.wixapis.com/categories/v1/categories/...` for all category REST calls.
+Categories REST endpoints live under `categories/v1/`, not `stores/v1/`.
 
 **Create:** `POST https://www.wixapis.com/categories/v1/categories`
 - `treeReference` is **REQUIRED** — omitting it causes: `treeReference must not be empty`
@@ -599,34 +583,19 @@ POST https://www.wixapis.com/stores/v3/bulk/products/add-info-sections
 
 ## V3 Gotchas
 
-0. **Include media at creation time when possible**: Pass `media.itemsInfo.items` with image URLs when calling `createProduct`. Generate and import images first (see [MEDIA.md](MEDIA.md)), then include the `file.url` in the create call. If adding media later via PATCH to a product that HAS options, you MUST re-send the full `options` and `variantsInfo.variants` arrays (including all variant IDs) — the PATCH validates variants against options even if you only want to update media. Products WITHOUT options can be updated with just `media` in the PATCH body.
-1. **Fields are opt-in**: Without `fields` param, queries return minimal data (no media, no prices, no categories).
-2. **Media strings**: `m.image` and `m.video` are `wix:image://`/`wix:video://` strings — use `getImageUrl()`/`getVideoUrl()` to convert (see [MEDIA.md](MEDIA.md)). `mediaType` is uppercase: `'IMAGE'`, `'VIDEO'`.
-3. **Variant matching via optionChoiceNames**: `variant.choices[].optionChoiceNames.optionName/choiceName` — match with `.some()`.
-4. **Modifiers replace customTextFields**: V3 uses `modifiers` with three render types: `FREE_TEXT` (text input, keyed by `freeTextSettings.key` in `catalogReference.options.customTextFields`), `TEXT_CHOICES` (button selection, keyed by `mod.key` in `catalogReference.options.options`), `SWATCH_CHOICES` (color circles with `colorCode`, same as TEXT_CHOICES in catalogReference).
-5. **Categories SDK import**: `@wix/stores` does NOT export `categories` (only `collections` which is V1-only). Install and use `@wix/categories` package — it provides `queryCategories` with proper types. The `collections` namespace is V1-only and fails on V3 with 428. Do NOT use `httpClient.fetchWithAuth` for categories — always prefer the SDK.
-6. **Inventory — use create-product-with-inventory**: The `POST /stores/v3/products-with-inventory` endpoint creates both product AND inventory in one call. Pass `inventoryItem: { inStock: true }` inside each variant. If using `createProduct` alone, inventory must be created separately via `POST /stores/v3/bulk/inventory-items/create`.
-7. **Ribbon is an object**: `product.ribbon.name`, not `product.ribbon` (string).
-8. **Back-in-stock uses V1 appId**: The back-in-stock settings/notifications API only accepts `1380b703-...` even on V3 sites. Use V1 appId for back-in-stock, V3 appId for cart/checkout.
-9. **RichContent rendering**: Use a RichContentViewer component for `description` and `infoSections[].description`. Request `DESCRIPTION` and `INFO_SECTION_DESCRIPTION` fields. For plain HTML fallback, also request `PLAIN_DESCRIPTION` and `INFO_SECTION_PLAIN_DESCRIPTION` — these are separate field values, not automatically included.
-12. **Info sections are separate entities — create AFTER products**: You CANNOT create info sections inline during `createProduct` — this fails with `INFO_SECTION_CREATION_FAILED`. Create them first via `POST /stores/v3/info-sections`, then assign via `POST /stores/v3/bulk/products/add-info-sections`. See "Recommended Product Seeding Workflow" Steps 7-8.
-13. **Swatch choice type is ONE_COLOR**: When creating product options with `SWATCH_CHOICES`, use `choiceType: "ONE_COLOR"` (not `"CHOICE_COLOR"` which doesn't exist). Valid values: `CHOICE_TEXT`, `ONE_COLOR`, `MULTIPLE_COLORS`, `IMAGE`.
-14. **Category image needs url**: When creating categories via REST, the `image` field requires `{ "url": "https://..." }`, not `{ "id": "..." }`. Using `id` alone returns 400.
-15. **Category add-items uses catalogItemId**: The bulk add-items endpoint uses `catalogItemId` (not `itemId`) and also requires `treeReference` in the body.
-10. **Pre-order requires quantity tracking**: Inventory items must use `trackQuantity: true` with `quantity: 0` and `preorderInfo.limit` set. Using `inStock` tracking (no quantity) with preorder causes cart to cap quantity to 0.
-11. **Pre-order in cart**: Pass `preOrderRequested: true` in `catalogReference.options` so the cart allows adding quantity > 0 for preorder items.
-16. **Variant and Option `_id`**: Both `ConnectedOption` and variant types use `_id` (not `id`). Use `v._id` and `opt._id` directly — do NOT use `as any` casts. The `id` field does not exist on these types.
-17. **Categories: use the two-argument `queryCategories` form**: `queryCategories({}, { treeReference: { appNamespace: "@wix/stores" } })`. `treeReference` is required (omitting it 400s) and the result is `catResult.categories` (not `.items`). See [SDK_CORE.md → SDK Gotchas](SDK_CORE.md#sdk-gotchas--quick-reference) for why the builder form fails here.
-18. **Category filtering — use client-side**: Fetch all products with `DIRECT_CATEGORIES_INFO` field, then filter client-side via `directCategoriesInfo.categories`. Use data attributes on product cards for JS-based filtering without re-fetching. Do NOT add a hardcoded "All" filter tab — only show real categories from the store. Show all products by default with no filter active; clicking an active tab deselects it.
-27. **Category `_id` consistency**: When using `@wix/categories` SDK, categories use `cat._id` — consistent with product `directCategoriesInfo.categories[].\_id`.
-19. **Use `getProductBySlug` for detail pages**: `queryProducts().eq('slug', slug)` may not return options/variants. Always use `getProductBySlug(slug, { fields: [...] })` for full product data.
-20. **`media.main` not `media.mainMedia`**: V3 uses `product.media?.main?.image` (a string). NOT `product.media?.mainMedia?.image?.url` (V1 pattern).
-21. **Price amounts need `.amount`**: `actualPriceRange.minValue` is a `FixedMonetaryAmount` object with `.amount`. Write `product.actualPriceRange?.minValue?.amount`, NOT `product.priceRange?.minValue`.
-22. **Runware image generation needs curl, not MCP**: See [MEDIA.md](MEDIA.md) for the full Runware workflow. Key point: the Runware API requires an array body which MCP rejects — use `npx wix token -s <siteId>` + curl instead.
-23. **`createCheckoutFromCurrentCart` is on `currentCart`, NOT `checkout`**: Import from `@wix/ecom`'s `currentCart` module. The `checkout` module does NOT export this method. Using `checkout.createCheckoutFromCurrentCart` fails at build time.
-24. **Customization `customizationRenderType` is required**: When creating customizations via `POST /stores/v3/customizations`, you MUST include `customizationRenderType` (`"TEXT_CHOICES"`, `"SWATCH_CHOICES"`, or `"FREE_TEXT"`). Omitting causes: `customizationRenderType value is required`.
-25. **Attaching options to existing products requires full definitions**: When PATCHing a product to add options, pass the full option definition (`id`, `name`, `optionRenderType`, `choicesSettings` with choice `id`, `name`, `choiceType`) — not just `{ "id": "customization-id" }`. Omitting `choicesSettings` causes: `choicesSettings must not be empty`. You must also pass `variantsInfo.variants` with explicit `optionChoiceIds` for each variant.
-26. **Inventory after adding options**: When updating a product to add options (Step 6), new variants are created but may be OUT_OF_STOCK even if `inventoryItem.inStock` was passed. Always follow up with `POST /stores/v3/bulk/inventory-items/create` to explicitly set inventory for the new variant IDs.
+The field-path differences (media, ribbon, prices, variants, options) are in the V3 cheat sheet at the top. The V3-specific things worth keeping in mind beyond that:
+
+- **Queries are opt-in.** Without a `fields` param, `queryProducts` / `getProductBySlug` return minimal data — no media, prices, or categories. For full detail-page data, request `['MEDIA_ITEMS_INFO', 'CURRENCY', 'DESCRIPTION', 'PLAIN_DESCRIPTION', 'INFO_SECTION', 'INFO_SECTION_DESCRIPTION', 'INFO_SECTION_PLAIN_DESCRIPTION', 'DIRECT_CATEGORIES_INFO', 'VARIANT_OPTION_CHOICE_NAMES']`.
+- **Inventory is a second step (or use `products-with-inventory`).** `POST /stores/v3/products-with-inventory` creates product + inventory in one call. Plain `createProduct` requires a follow-up `POST /stores/v3/bulk/inventory-items/create` for each new variant id — and after adding options to an existing product, do this too or new variants ship as OUT_OF_STOCK.
+- **Info sections live in their own collection.** Inline creation during `createProduct` fails (`INFO_SECTION_CREATION_FAILED`). Create via `POST /stores/v3/info-sections`, then attach via `POST /stores/v3/bulk/products/add-info-sections`.
+- **Categories REST uses `catalogItemId`** (not `itemId`) on the bulk add-items endpoint, and every categories REST call needs `treeReference: { appNamespace: '@wix/stores' }`.
+- **Swatch choices use `choiceType: "ONE_COLOR"`** (or `MULTIPLE_COLORS` for multi-color). The valid set is `CHOICE_TEXT | ONE_COLOR | MULTIPLE_COLORS | IMAGE`.
+- **Customization create requires `customizationRenderType`** (`TEXT_CHOICES` | `SWATCH_CHOICES` | `FREE_TEXT`).
+- **PATCHing options on an existing product** requires the full option shape (`name`, `optionRenderType`, `choicesSettings` with each choice's `id`, `name`, `choiceType`) plus `variantsInfo.variants` with explicit `optionChoiceIds` — not just `{ id: "customization-id" }`.
+- **PATCHing media on a product that has options** requires re-sending the full `options` and `variantsInfo.variants` arrays — the validator runs on every PATCH. Products without options accept a media-only PATCH.
+- **Pre-order rules.** Inventory needs `trackQuantity: true` with `quantity: 0` and `preorderInfo.limit` set; carts need `preOrderRequested: true` in `catalogReference.options` to accept quantity > 0.
+- **Back-in-stock uses the V1 appId** (`1380b703-...`) in the catalog reference even on V3 sites — see [ECOMMERCE.md → Back-in-Stock Notifications](ECOMMERCE.md#back-in-stock-notifications).
+- **Modifiers replace V1 `customTextFields`.** V3 has three render types: `FREE_TEXT` (text input, sent under `catalogReference.options.customTextFields[freeTextSettings.key]`), `TEXT_CHOICES` (button selection, sent under `options.options[mod.key]`), `SWATCH_CHOICES` (same shape as TEXT_CHOICES with a `colorCode`).
 
 ## Complete V3 Code Examples
 

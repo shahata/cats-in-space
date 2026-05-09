@@ -28,13 +28,9 @@ Exports `donationCampaigns` with `createDonationCampaign`, `updateDonationCampai
 
 ---
 
-## Donations app ID (for eCom integration)
+## Donations app ID
 
-```
-DONATIONS_APP_ID = "333b456e-dd48-4d6b-b32b-9fd48d74e163"
-```
-
-This is NOT exported from any SDK entry point — hardcode it (e.g. in `src/utils/appIds.ts`).
+The donations app id (`333b456e-dd48-4d6b-b32b-9fd48d74e163`) isn't exported from `@wix/donations`. It's already defined in `src/utils/appIds.ts` as `DONATIONS_APP_ID` — import from there.
 
 ---
 
@@ -174,9 +170,9 @@ window.location.href = redirectSession!.fullUrl!;
 
 Always build `callbacks` via the shared `checkoutCallbacks()` helper — never inline a partial object. See `ECOMMERCE.md` → "Redirect callbacks: always pass all of them".
 
-⛔ **Do NOT route donations through the shopping cart.** The obvious flow — `addToCurrentCart` → `createCheckoutFromCurrentCart` — drags every item the user already had in their cart into the donation checkout, and leaves the donation lingering in their cart afterwards. Donations are a one-off flow: go straight through `checkout.createCheckout({ lineItems, channelType })` so the donor's standing cart is untouched.
+Donations bypass the shopping cart — call `checkout.createCheckout({ lineItems, channelType })` directly so the donor's standing cart is untouched (same pattern as Buy Now in [ECOMMERCE.md](ECOMMERCE.md)).
 
-**`catalogReference.options` only supports `amount`, `frequency`, `donorCoveringFees`**. No other fields (no note, no custom data) — everything else flows through the checkout.
+`catalogReference.options` accepts only `amount`, `frequency`, and `donorCoveringFees`. Notes and any other custom data flow through the checkout (e.g. `buyerNote`).
 
 ---
 

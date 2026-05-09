@@ -72,7 +72,7 @@ These can differ (e.g., buy a $50 card for $40). Always display both when they d
 - Each variant can have its own image; fall back to the product image when a variant has none
 - Resolve images server-side (Astro frontmatter) since `getImageUrl` uses `@wix/sdk` media helpers
 
-⛔ **REST writes expect `image` as an OBJECT, not a string.** The SDK type says `image?: string`, but `POST` / `PATCH /gift-cards/v1/gift-card-products/...` returns `400 Expected an object` for plain `wix:image://...` strings. Send `{ id, url, width, height }`:
+REST writes (`POST` / `PATCH /gift-cards/v1/gift-card-products/...`) take `image` as an object, even though the SDK types it as a string. Send `{ id, url, width, height }`:
 
 ```javascript
 giftCardProduct: {
@@ -101,11 +101,9 @@ const result = await elevatedQuery().limit(10).find();
 const products = result.items; // GiftCardProduct[]
 ```
 
-## Conditional Gift Cards Nav Link (REQUIRED)
+## Conditional Gift Cards Nav Link
 
-⛔ **Do NOT render the Gift Cards nav link unconditionally.** Gift card products are managed separately in the Wix dashboard — if none are defined, the Gift Cards page renders an empty state and creates a dead-end link.
-
-**Always** build the Gift Cards page (so it's available once products are added), but gate its **nav link** on a live check in `Layout.astro`. This way the link auto-hides when no gift cards exist and auto-shows the moment any are defined — no code changes needed when the site owner adds/removes gift card products.
+Build the Gift Cards page so it's available once products are added, but gate its nav link on a live `queryGiftCardProducts` check in `Layout.astro`. The link then auto-hides when no products exist and auto-shows when any are defined — no code change when the site owner adds or removes gift card products.
 
 ```astro
 ---
@@ -172,9 +170,7 @@ options.giftingInfo = {
   greetingMessage: "Happy birthday!",  // optional
   deliverAt: "2025-12-25T00:00:00Z",   // optional scheduled delivery
 };
-// Sender info is NOT in `giftingInfo` — the sender is whoever checks out
-// (Wix derives it from the buyer's auth/checkout form). Don't add a
-// `senderName` / `sender` field here; it will be silently ignored.
+// Sender is derived server-side from the checkout identity — not configurable here.
 
 // Add to cart
 await currentCart.addToCurrentCart({
@@ -207,15 +203,9 @@ window.location.href = redirectSession.fullUrl;
 
 Always build `callbacks` via the shared `checkoutCallbacks()` helper — never inline a partial object. See `ECOMMERCE.md` → "Redirect callbacks: always pass all of them".
 
-### Anti-patterns — invented field names that are silently ignored
+### Splitting a "Recipient name" input
 
-The `options` object is loosely typed (`Record<string, unknown>` in practice), so misspelled or invented fields don't trigger any TypeScript or runtime error — they just get discarded. Specifically:
-
-⛔ **Don't invent `customTextFields: { recipientName, recipientEmail, senderName, message }`** — no such field exists. The gift cards backend ignores it, the recipient never gets an email, and the gift never delivers. Use `giftingInfo` with the exact shape above.
-
-⛔ **Don't add a `senderName` / `sender` field to `giftingInfo`.** Only `recipientInfo`, `greetingMessage`, and `deliverAt` are recognised. Sender is derived server-side from the buyer's checkout identity (the `notificationInfo.sender.name` field in the **admin** `giftVouchers.createGiftCard` API is a different, admin-only path — don't confuse it with consumer purchase options).
-
-⛔ **Don't pass a single `recipientName` string.** `recipientInfo` requires `firstName` and `lastName` separately. If your form collects one "Recipient name" input, split it client-side on the first space:
+`recipientInfo` takes `firstName` and `lastName` separately. If the form collects a single name input, split on the first space client-side:
 
 ```typescript
 const nameParts = recipientName.trim().split(/\s+/).filter(Boolean);
@@ -229,7 +219,7 @@ const giftingInfo = {
 };
 ```
 
-⛔ **Don't use `options.amount` for custom values.** The field is `customAmount` (number, not string). `amount` is silently ignored and the gift card is created at the preset variant price (or fails with "no price").
+The custom-amount field is `options.customAmount` (a number). The `options` object is loosely typed, so misspelled keys are silently dropped — stick to the names shown above.
 
 ### Key Differences from Regular Products
 

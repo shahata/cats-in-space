@@ -19,7 +19,7 @@ The Translation Content API works with **schemas** (which define translatable fi
 
 ## Step 1: Discover All Translation Schemas
 
-⛔ **Breaks at runtime** — The `GET /translation-schema/v1/schemas/site` endpoint returns 100KB+ responses that get truncated by MCP. Missing schemas = missing translations. → Always query per-appId, never rely on a single unfiltered call.
+Query per `appId` rather than the unfiltered site endpoint — the unfiltered response can exceed MCP's truncation limit, and missing schemas mean missing translations.
 
 ### Phase 1: Query by known appId
 
@@ -46,7 +46,7 @@ For CMS collections:
 GET https://www.wixapis.com/translation-schema/v1/schemas/site?scope=SITE
 ```
 
-⚠️ **Common mistake** — V1 vs V3 duplication: Wix Stores has BOTH V1 and V3 schemas under different appIds. V3 has product name + richContent description. V1 (under Platform appId) has product name, plain-text description, AND info sections, preorder messages, custom text field titles. → Translate BOTH.
+Wix Stores ships both V1 and V3 schemas under different appIds. V3 covers product name + rich-content description; V1 (under the Platform appId) covers product name, plain-text description, info sections, preorder messages, and custom text-field titles. Translate both.
 
 ### Schemas NOT discoverable by appId
 
@@ -75,13 +75,13 @@ Schemas commonly caught only by the sweep:
 - **Blog Settings** ("All Posts" feed label)
 - **Shipping Options** (e.g., "Free shipping")
 
-⚠️ — When extracting schema IDs from truncated responses, IDs may be corrupted. → Verify by querying content; if empty for a schema you expect, re-discover via per-appId query.
+If a schema id pulled from a (possibly truncated) response returns no content, re-discover via the per-appId query.
 
 ---
 
 ## Step 2: Query EN and Target-Language Content
 
-⛔ **Breaks silently** — Querying all content at once (`locale: "en"` without `schemaId`) silently misses entries from some schemas. → Always query one schema at a time:
+Query one schema at a time. Filtering only by `locale` (without `schemaId`) misses entries from some schemas:
 
 ```http
 POST https://www.wixapis.com/translation-content/v1/contents/query
@@ -127,7 +127,7 @@ Batch size: up to 10 entries per call to avoid timeouts.
 
 ### What to Translate
 
-⚠️ **Common mistake** — Skipping non-translatable fields (`_id`, `slug`, dates) leaves completion below 100%. → Copy English values as-is for these fields.
+Copy English values as-is for non-translatable fields (`_id`, `slug`, dates) — Translation Manager counts completion per field, so skipping them leaves the entry below 100%.
 
 **Text fields** (`textValue`): product names, descriptions, service names, staff names, page titles, menu labels, category names, form labels, option names, ribbons, preorder messages, CMS fields. For IDs/slugs/dates, copy EN value as-is.
 
@@ -170,7 +170,7 @@ CMS collections need extra setup — they're not translatable by default:
 
 - **Dashboard install only**: Wix Multilingual app requires dashboard installation — no known `appDefId`
 - **`wix translation push` needs TTY**: Won't work in non-interactive scripts or CI
-- **`paging.offset` is silently ignored — use cursor pagination**: `POST /translation-content/v1/contents/query` with `paging: { limit, offset }` always returns the FIRST `limit` items no matter what `offset` is. You'll loop forever, re-fetching the same page and inflating counts ~Nx (a 317-entity schema looks like 2100+, masking missing translations because `items.length < 100` never trips). Fix: drop `paging` and use `cursorPaging`, feeding back `pagingMetadata.cursors.next` until `hasNext` is false:
+- **Use cursor pagination, not `paging.offset`**: `POST /translation-content/v1/contents/query` ignores the `offset` field — it always returns the first `limit` items. Use `cursorPaging` and feed back `pagingMetadata.cursors.next` until `hasNext` is false:
   ```js
   let cursor;
   while (true) {
@@ -198,6 +198,6 @@ CMS collections need extra setup — they're not translatable by default:
 - **Content entry counts are per-entity, not per-field**: one translation-content row covers ALL translatable fields for a single entity (a single event, product, campaign, etc.). If your count looks inflated by Nx, the offset-paging bug above is the cause — not a field-explosion.
 - **`parentEntityId`**: Schemas with `requireParentEntity: true` need `parentEntityId` copied from EN entry
 - **Per-schema queries via MCP**: Each response is small and won't hit MCP's ~54KB truncation limit
-- **Recurring events have one translation entry per occurrence**: for any recurring schedule (a 12-week class, weekly screenings, daily workshop sessions), each occurrence is a distinct `Event._id` with its own translation-content row. Translating one occurrence does NOT propagate to its siblings. When seeding translations, iterate `queryEvents().find()` and create an entry per event ID — don't dedupe by title.
+- **Recurring events translate per occurrence**: each occurrence in a recurring series has its own `Event._id` and its own translation-content row. Iterate `queryEvents().find()` and create an entry per event id — translations don't propagate across siblings.
 - **Event/product/post slugs are locale-invariant**: the SDK does not return a different `slug` per locale, even when title/description are translated. Build locale-agnostic URL paths from `entity.slug` (plus locale prefix if your site uses path-based multilingual) — never re-slugify the translated title, which produces a new slug per language and breaks deep-linking.
 - **Donation Campaigns backend ignores `x-wix-linguist`**: the `donationCampaigns` API will always return the primary-language field values regardless of the elevated or locale-scoped client you call it from. Seeding translations via this API works and surfaces them in Translation Manager, but public read calls still come back in the primary language. There is no client-side workaround — track upstream fix.

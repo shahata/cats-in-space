@@ -2,7 +2,7 @@
 
 Wix Managed Headless Astro projects support the same CLI-app extension types you'd find in a standalone `@wix/cli` app — backend events, service plugins, dashboard pages, dashboard modals. Use them for things Astro pages can't do: react to webhooks, run admin UIs inside `manage.wix.com`, customize business flows.
 
-⚠️ **Don't reject the request because there's no `src/extensions.ts` yet.** Headless Astro projects do support extensions — the file just hasn't been created yet. Create it and register from there.
+If `src/extensions.ts` doesn't exist yet, create it — extensions are supported on headless Astro projects, the file is just opt-in.
 
 ## Registration: `src/extensions.ts`
 
@@ -35,20 +35,18 @@ Generate UUIDs with `crypto.randomUUID()` — don't reuse IDs across extensions.
 
 ### Required: `security.checkOrigin: false` in `astro.config.mjs`
 
-⛔ **Backend event webhooks will not fire** unless Astro's CSRF origin check is disabled. Wix posts to `/_wix/extensions/*` from its own origin, and Astro 5's default `security.checkOrigin: true` rejects the cross-origin POST as a CSRF attempt — the handler never runs and there is no useful error in the site logs.
+Wix posts webhooks to `/_wix/extensions/*` from its own origin. Astro 5's default CSRF check (`security.checkOrigin: true`) rejects them silently — set it to `false` so webhook handlers fire:
 
 ```js
 // astro.config.mjs
 export default defineConfig({
   // ...
-  security: {
-    checkOrigin: false,
-  },
+  security: { checkOrigin: false },
   output: "server",
 });
 ```
 
-Set this once when the project is scaffolded. If you discover it missing on an existing project that has extensions, add it and redeploy — existing handlers will start firing without code changes.
+Set this when scaffolding. If extensions stop firing on an existing project, this is the first place to check.
 
 ---
 
@@ -62,33 +60,19 @@ React to Wix domain events server-side — order created/approved, cart updated,
 src/backend/events/<name>/<name>.ts
 ```
 
-### `export default` is mandatory
+### Default-exported listener
 
-⛔ **The event listener call MUST be the default export.** A plain top-level invocation fails the build with:
-
-```
-[ERROR] [@wix/astro] Invalid export for event source at `./backend/events/...`.
-Expected event listener call to be the default export.
-```
-
-`@wix/astro` reads `module.default` to register the webhook slug at build time and to invoke the handler at request time.
+The event listener must be the module's default export — `@wix/astro` reads `module.default` to register the webhook at build time and dispatch at request time:
 
 ```typescript
 // src/backend/events/order-approved/order-approved.ts
 import { orders } from "@wix/ecom";
 
-// ✅ default export — required
 export default orders.onOrderApproved(async (event) => {
   const order = event.data.order;
   if (!order) return;
   console.log("Order approved:", order._id);
 });
-```
-
-```typescript
-// ❌ Build will fail — no default export
-import { orders } from "@wix/ecom";
-orders.onOrderApproved(async (event) => { /* ... */ });
 ```
 
 ### Event payload shape — TWO envelope shapes
@@ -157,15 +141,9 @@ async function notifyExternal(text: string) {
 
 Don't throw on external-call failures — Wix may retry the webhook on unhandled errors, which can amplify a downstream outage into duplicate side effects (e.g. multiple notifications for the same order). Log and return.
 
-### Cloudflare runtime: no filesystem
+### Logging on Cloudflare Workers
 
-Headless Astro deploys to Cloudflare Workers. **No `fs.appendFile`, no local files** — Workers have no persistent filesystem. Two real options:
-1. `console.log` → visible via `wrangler tail` or Cloudflare dashboard → Workers → Logs.
-2. Persist to a CMS collection via `@wix/data` (see above).
-
-### `console.log` is NOT forwarded to Wix
-
-There's no Wix-side trick that captures console output and ships it to a Wix logging API. `astro-monitor` middleware forwards **unhandled exceptions** (not logs) to `monitoring.captureException()` (which is a Sentry pipe), and that middleware explicitly skips `/_wix/extensions/*` routes. Webhook handlers are not auto-instrumented. If you want events surfaced beyond Workers logs, write them to a CMS collection or call `monitoring.captureMessage(...)` from `@wix/essentials`.
+Headless Astro deploys to Cloudflare Workers — no persistent filesystem. `console.log` is visible via `wrangler tail` or the Cloudflare dashboard, but isn't forwarded into Wix. For durable logging, persist to a CMS collection via `@wix/data` or call `monitoring.captureMessage(...)` from `@wix/essentials`.
 
 ### Required permissions
 
@@ -277,7 +255,7 @@ const wixImageUri = picked?.url; // "wix:image://v1/..." — store this directly
 
 ### Rendering image fields: use `ImageViewer`, not custom thumbnails
 
-⛔ **Don't roll a custom image preview with `<Image>` + URL text + Change/Clear buttons.** WDS has `ImageViewer` — a dedicated image-field control with a proper preview area, built-in Add/Update/Remove icon buttons, loading state, and tooltips:
+Use `ImageViewer` for image fields — it gives you a preview area plus Add / Update / Remove icon buttons, loading state, and tooltips out of the box:
 
 ```tsx
 import { ImageViewer } from "@wix/design-system";
@@ -323,7 +301,7 @@ await items.insert("Missions", {
 
 ### MULTI_REFERENCE — cannot be set via insert/update
 
-⛔ **Multi-reference values cannot be written via `items.insert`, `items.update`, or `items.patch`.** They are silently dropped. Use the dedicated reference APIs:
+Multi-reference values write through dedicated reference APIs (insert/update/patch silently drop them):
 
 ```typescript
 import { items } from "@wix/data";

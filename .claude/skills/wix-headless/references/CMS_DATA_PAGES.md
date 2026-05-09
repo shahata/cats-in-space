@@ -146,6 +146,4 @@ await wixFetch(`/wix-data/v2/items/${item.id}`, {
 });
 ```
 
-⛔ **The wrapper `id` and `data._id` MUST match.** Sending `dataItem: { ...item, data: { ...item.data, image } }` without an explicit top-level `id` (or with `_id` that doesn't match) returns `400 WDE0080: dataItem id and data._id fields must match`. The error message is misleading — both fields look right when the wrapper id is missing entirely. → Always pass `dataItem: { id, dataCollectionId, data: { ...existing, _id: id, ...changes } }`.
-
-⛔ **`item._id` is NOT on the wrapper, only on `item.data._id`.** The query response has `item.id` at the top level and `item.data._id` nested. A common mistake is `await wixFetch(\`/wix-data/v2/items/\${item._id}\`...)` which produces `/wix-data/v2/items/undefined` — looks like a backend bug at first glance.
+The wrapper `id` and nested `data._id` must match. Pass `dataItem: { id, dataCollectionId, data: { ...existing, _id: id, ...changes } }`. Identifiers on the query response: `item.id` at the wrapper level, `item.data._id` nested.

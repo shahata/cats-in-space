@@ -4,16 +4,9 @@ A complete product catalog requires multiple sequential API calls. Do NOT try to
 
 ---
 
-## ⛔ Prerequisites: install required apps BEFORE seeding
+## Step 0 — Install Wix Stores
 
-A freshly scaffolded Wix headless project does NOT have the Wix Stores app installed. Any call to `/stores/v3/*` or `/categories/v1/*` on a fresh site returns:
-
-```
-428 Precondition Required
-{"message":"Wix Stores app is not installed for site","details":{"applicationError":{"code":"REQUIRED_APP_NOT_INSTALLED"}}}
-```
-
-→ **Install the Wix Stores app as step 0 of every seed script**, before creating categories, customizations, or products. Use the account-level MCP tool `ManageWixSite` (not `CallWixSiteAPI` — app install is account-scoped):
+A freshly scaffolded headless project doesn't have Wix Stores installed; `/stores/v3/*` and `/categories/v1/*` return `428 REQUIRED_APP_NOT_INSTALLED`. Install via the account-level MCP tool `ManageWixSite`:
 
 ```http
 POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
@@ -23,48 +16,19 @@ Body: {
 }
 ```
 
-**Wix app IDs — do NOT confuse them:**
-
-| App | `appDefId` | Used for |
-|-----|------------|----------|
-| Wix Stores (V3 catalog) | `215238eb-22a5-4c36-9e7b-e7c08025e04e` | Categories, customizations, products-with-inventory endpoints |
-| Back-in-stock notifications | `16be6c71-d061-4f56-8cda-c6aa911d1832` | `createBackInStockNotificationRequest` + start-collecting |
-| Back-in-stock (V1 catalogReference) | `1380b703-ce81-ff05-f115-39571d94dfcd` | The `appId` field in the catalogReference passed to `createBackInStockNotificationRequest` (NOT for app install) |
-| Rise (gift cards) | `d80111c5-a0f4-47a8-b63a-65b54d774a27` | Gift card catalog items |
-
-⚠️ **Common mistake I have made:** passing the back-in-stock V1 catalogReference ID (`1380b703-...`) to the app-installer endpoint to "install Wix Stores". That installs the wrong thing. Always use `215238eb-...` for the Wix Stores app install.
+The Wix Stores app id is `215238eb-22a5-4c36-9e7b-e7c08025e04e`. The app ids for back-in-stock notifications, the V1 `catalogReference`, Rise gift cards, and the rest are centralised in `src/utils/appIds.ts` — see [SDK_CORE.md](SDK_CORE.md#sdk-gotchas--quick-reference).
 
 ---
 
-## ⛔ Validate the API shape on ONE product before looping
+## Validate the shape on one product before looping
 
-A seed script that creates 8 products in a loop will fail the same way 8 times if the request shape is wrong — and each call pollutes the catalog with a partial entity. Before looping:
-
-1. Create **one** product end-to-end (images → category → product → options → variants → inventory → info section → category assignment).
-2. Verify it appears correctly on the store listing and detail page.
-3. Only then extend the script to the full product list.
-
-This turns "my script failed 4 times and each run orphaned 8 products" into "my script failed 4 times and I had to fix 4 bugs on one product."
+Catalog seed scripts almost always fail the first run on some shape mismatch. Create **one** product end-to-end (images → category → product → options → variants → inventory → info section → category assignment), verify it on the store, then extend to the full list. This turns "8 partial entities per failed run" into a single iteration target.
 
 ---
 
-## ⛔ Seed scripts MUST be idempotent (single most common failure mode)
+## Idempotency: find-or-create, persist state
 
-The catalog APIs are all pure POSTs with no built-in deduping. A script that retries or re-runs **WILL** create fresh duplicates of every category, customization, and product on each attempt. A single failed seed run followed by a retry leaves behind an orphan set — two failed runs leave three sets, and so on. The damage is invisible at first because only the last run's entities are wired to the store listing — the orphans just pile up in the dashboard (empty "Apparel" / "Apparel" / "Apparel" categories, `Color-abc123` / `Color-def456` / `Color-ghi789` customizations).
-
-The anti-pattern that causes this:
-
-```js
-// ⛔ BAD — every run creates a new category, even if one exists
-const r = await api('POST', '/categories/v1/categories', {
-  category: { name: 'Apparel', /* ... */ },
-  treeReference: { appNamespace: '@wix/stores' },
-});
-```
-
-### Fix: find-or-create, cache to disk
-
-Every seed script must (a) query existing entities before creating, and (b) persist a `seed/out/state.json` mapping of local-key → Wix ID so subsequent runs reuse IDs instead of creating new ones.
+Catalog APIs are pure POSTs with no built-in dedupe. Every seed script must (a) query before creating, and (b) persist a `seed/out/state.json` of local-key → Wix id so re-runs reuse existing entities. Without this, each retry produces a fresh orphan set in the dashboard.
 
 ```js
 // ✅ find-or-create pattern
@@ -83,9 +47,7 @@ async function findOrCreateCategory(name, desc, imageUrl) {
 }
 ```
 
-The same pattern applies to **customizations** (query by `name + customizationType + customizationRenderType` — that's the unique constraint), **products** (query by `slug`), **info sections** (query by `uniqueName`), and **media imports** (re-use wixstatic URL if already uploaded).
-
-⛔ **Do NOT "fix" duplicates by appending a random UUID suffix to names/slugs** (`'Color-' + uuid()`, `'my-slug-' + uuid()`). This silences the duplicate error but guarantees a fresh orphan set on every retry and leaves the dashboard full of `Color-abc123` / `Color-def456` / `Color-ghi789`. Always find-or-create instead. If you already used the suffix trick during a run, after the catalog works you still need to clean up orphans (delete duplicate categories/products/customizations) and rename the live ones to drop the suffix — the dashboard shows raw customization names to the site owner.
+Same pattern applies to **customizations** (query by `name + customizationType + customizationRenderType`), **products** (query by `slug`), **info sections** (query by `uniqueName`), and **media imports** (re-use the wixstatic URL).
 
 ### Persist state across runs
 
@@ -104,35 +66,30 @@ if (!state.categories.apparel) {
 
 This lets you iterate on the seed script (fix a bug, re-run) without accumulating duplicates. **Assume every seed script WILL be re-run at least twice** — the first run will fail on some API shape issue, and the second run must not duplicate the first run's successful work.
 
-## ⛔ Long seeds outlive curl's default timeout
+## Long seeds and curl timeouts
 
-A seed that creates a year of recurring event showtimes + tickets + categories (hundreds of API calls) easily runs 15–25 minutes, which exceeds `curl --max-time 900` (15 min). Two things to know:
-
-1. **Use `--max-time 1800` (or higher)** when hitting a seed endpoint from curl. Otherwise curl drops and you never see the server's final log.
-2. **The Astro handler keeps running after curl disconnects.** If the endpoint is server-side-heavy and curl times out, the seed may still finish on the server — re-query via a lightweight probe/listing page to check actual state before assuming failure and re-running (re-running a still-in-progress seed causes duplicates and partial state).
-
-Print progress to the response body from inside the handler as you go (`log.push(...)` then return the joined string at the end) so partial output is visible on disconnect.
+For seeds that take 15+ minutes, hit the endpoint with `curl --max-time 1800` and emit progress to the response body inside the handler (`log.push(...)`) so partial output is visible on disconnect. Astro handlers keep running after curl drops — re-query via a probe page to check actual state before re-running, since restarting an in-flight seed produces duplicates.
 
 ---
 
 ## Two-pass seeding: data first, images last
 
-⛔ **Seed the catalog in two passes, not one.** Create every category, product, customization, variant, and info section FIRST — with no images (or placeholder images). THEN do a separate pass that generates images and attaches them via PATCH.
+Run the catalog in two passes:
 
-Why this order:
-- **Image generation is the slow step.** A Runware call is seconds; dozens serially is minutes. If images live inside the create loop, a slow call stalls everything downstream, and a retry re-runs the whole data path. Isolating images to a second pass lets you parallelise them and rerun just the images when Runware hiccups.
-- **Catalog fixes are cheap if records exist.** You'll inevitably tweak a product name, add a category, change a ribbon — fixing a record that's already there is a PATCH. If images were baked into the create, a retry deletes a good image and regenerates it for no reason.
-- **Half-created records are expensive.** A Runware failure inside a create call leaves a record that either half-committed or didn't commit, and cleaning up is brittle. With a second pass, create failures and image failures are independent.
+1. Create every category, product, customization, variant, and info section with no images.
+2. In a second pass, generate and attach images via PATCH.
 
-**Exception — inline images when there's a real benefit.** If the API genuinely requires the image at create time (the record won't accept a later PATCH, or the "with-image" endpoint is materially better than the "attach-image-later" endpoint), do it inline for that entity and note why in the seeding script. Default to two passes; take the exception deliberately.
+Image generation is the slow step (Runware: seconds × dozens of products = minutes), and retries on the data pass shouldn't re-do that work. The two-pass split also keeps create failures and image failures independent.
 
-The step-by-step below lists image generation first because that's the order most records expect image URLs at creation. In practice, prefer the two-pass variant: run steps 3-9 with `image: undefined` on every record, then a final step 10 that loops through each entity type and PATCHes in the generated image.
+Take the exception (inline image at create) only when the API genuinely requires it — note in the script why.
+
+The step-by-step below lists image generation first because that's the order most records expect image URLs at creation. In practice, run steps 3-9 with `image: undefined` and then a final step 10 that loops through each entity type and PATCHes in the generated image.
 
 ## Seeding: exercise every catalog feature
 
-⛔ **A "demo" seed of 8 plain products with one price each is a broken catalog.** The product detail page (`/store/[slug]`), product listing, cart sidebar, and member orders all have UI branches that only render for specific catalog features — option pickers, swatch chips, modifier inputs, info-section accordion, ribbon badges, sale-price strikethrough, preorder messaging, back-in-stock email form, multi-image gallery. If the seed has no products that exercise a branch, the build agent has no way to verify that branch works, and the launched site silently looks half-finished.
+The seed must collectively exercise every UI branch on `/store/[slug]`, the listing page, the cart sidebar, and member orders. A catalog of 8 plain `name + price` products leaves option pickers, swatch chips, modifier inputs, info sections, ribbons, sale prices, preorder messaging, the back-in-stock form, and multi-image galleries untested.
 
-**Every store seed MUST cover the matrix below.** A single product can satisfy several rows; aim for ~10–15 products that collectively hit every row. The exact rule of thumb: a stranger looking at `/store/[slug]` for any random product should be able to play with at least *something* on the page, and across the catalog as a whole every detail-page UI feature should appear at least once.
+Aim for ~10–15 products that collectively hit every row in the matrix below. A single product can satisfy several rows.
 
 | Coverage row | Why the UI needs it | At least one product with… |
 |---|---|---|
@@ -151,9 +108,9 @@ The step-by-step below lists image generation first because that's the order mos
 | **Plain product** | Verifies the simplest detail-page render with no chooser UI | A product with **no options, no modifiers**, single price |
 | **Categorized** | Renders the category filter bar on the listing | Categories assigned via `bulk/categories/{id}/add-items` to every product (and at least 3 distinct categories) |
 
-⛔ **Don't skip any row.** If you don't have a product idea that fits, invent one — a "Gift wrap" add-on for the free-text modifier, a "Limited edition" reprint for the ribbon, a "Pre-order: ships next quarter" book for the preorder branch. The catalog is for verifying the storefront works end-to-end, not for being commercially realistic.
+If a row doesn't fit a real product idea, invent one (a "Gift wrap" free-text modifier, a "Limited edition" ribbon, a "Pre-order: ships next quarter" book). The catalog exists to verify the storefront end-to-end, not to be commercially realistic.
 
-⛔ **Hard-coding the products in the seed script is fine; hard-coding only their *names* and *prices* is not.** The seed is the catalog's spec — fields like `options`, `modifiers`, `infoSections`, `ribbon`, `compareAt`, `preorder`, `outOfStock`, `category`, `images` must all live in the data. A seed script that takes "name + price + image" and ignores everything else is the most common failure mode and produces exactly the broken catalog above.
+The seed is the catalog's spec — `options`, `modifiers`, `infoSections`, `ribbon`, `compareAt`, `preorder`, `outOfStock`, `category`, `images` all live in the data. A script that consumes only `name + price + image` produces a half-finished catalog.
 
 ## Step-by-Step Overview
 

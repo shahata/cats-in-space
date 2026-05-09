@@ -22,7 +22,7 @@ const dir = ['he', 'ar'].includes(lang) ? 'rtl' : 'ltr';
 
 ### CSS Logical Properties
 
-⛔ **Breaks at runtime** — Physical CSS properties produce mirrored/broken layouts in RTL locales. Always use logical properties:
+Use logical properties so layouts mirror correctly under RTL:
 
 | Physical (breaks RTL) | Logical (correct) |
 |---|---|
@@ -81,7 +81,7 @@ const links = [
 ];
 ```
 
-⚠️ **Common mistake** — `Astro.url.pathname` does NOT include the locale prefix, so comparing it to localized hrefs will never match. → Compare against the raw path for active link detection:
+For active-link detection, compare `Astro.url.pathname` (which has no locale prefix) against the raw path, not the localized href:
 ```typescript
 const isActive = currentPath === link.path || currentPath.startsWith(link.path + '/');
 ```
@@ -90,7 +90,7 @@ const isActive = currentPath === link.path || currentPath.startsWith(link.path +
 
 See [AUTHENTICATION.md](AUTHENTICATION.md) for login/logout endpoints, `getCurrentMember` usage, and member profile fields.
 
-⚠️ **Common mistake** — Logout is a POST endpoint; using an `<a>` link sends a GET which silently does nothing. → Use `<form method="POST" action="/api/auth/logout">` with a submit button.
+Logout is POST — use `<form method="POST" action="/api/auth/logout">` with a submit button.
 
 ### Dropdown Behavior
 
@@ -98,14 +98,7 @@ Add a small delay (~150ms) before closing hover dropdowns to prevent flicker whe
 
 ### Language Switcher
 
-Build as a React component and mount it with **`client:only="react"`** (NOT `client:load`). The switcher calls `multilingual.listSupportedLanguages()` which returns different data on the server (empty or partial) than on the client (the site's full language list). If Astro SSRs the component with `client:load`, the server-rendered HTML will mismatch what React builds at hydration, and React 18 throws:
-
-```
-Warning: Expected server HTML to contain a matching <div> in <astro-island>.
-Uncaught Error: Hydration failed because the initial UI does not match what was rendered on the server.
-```
-
-`client:only` skips SSR for this island entirely — the switcher renders blank on the server and React takes over on mount. That's the right trade-off here because the component is purely client-interactive (dropdown open/close) and its data isn't available at SSR time anyway.
+Mount the switcher with `client:only="react"`. The component is data-driven (`multilingual.listSupportedLanguages()` returns different data server- vs client-side) and purely client-interactive — skipping SSR avoids hydration mismatches.
 
 ```astro
 <LanguageSwitcher variant="dropdown" client:only="react" />
@@ -176,7 +169,7 @@ The CartSidebar listens for this event to refresh its data.
 
 1. **Badge/trigger** — fixed button showing cart item count, always visible
 2. **Slide-out panel** with:
-   - Each line item: image (⛔ **Breaks at runtime** — `item.image` is a `wix:image://` string, not a URL; use `getImageUrl(item.image)` to get a renderable src), name, selected options/variants, custom text, quantity controls (+/−, min 1), price, remove button
+   - Each line item: image (`item.image` is a `wix:image://` string — pass it through `getImageUrl()`), name, selected options/variants, custom text, quantity controls (+/−, min 1), price, remove button
    - Totals: subtotal, discount (if any), estimated total via `estimateCurrentCartTotals()`
    - Checkout button → creates checkout session and redirects to Wix-hosted checkout
 3. **Empty state** — message + link to store when cart is empty

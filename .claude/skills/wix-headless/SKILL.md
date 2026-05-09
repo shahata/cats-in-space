@@ -58,15 +58,15 @@ Read the guide that matches your current task. Each guide is self-contained with
 
 ## Cross-Cutting Rules
 
-These apply to every feature area. Violating any of them produces silent failures or broken UIs.
+These apply to every feature area.
 
-1. **Media conversion is mandatory** — Every `wix:image://` or `wix:video://` string from any SDK response must go through `getImageUrl()` / `getVideoUrl()` before rendering. Raw strings do not work in `<img>` tags. See [MEDIA.md](references/MEDIA.md).
+1. **Media conversion is mandatory** — Convert every `wix:image://` / `wix:video://` SDK string through `getImageUrl()` / `getVideoUrl()` before rendering. See [MEDIA.md](references/MEDIA.md).
 
-2. **Type check before deploying** — Run `npx astro check` (not `tsc`) before every build. Vite does not catch type errors. See [DEPLOYMENT.md](references/DEPLOYMENT.md).
+2. **Type check before deploying** — Run `npx astro check` (not `tsc`) before every build. See [DEPLOYMENT.md](references/DEPLOYMENT.md).
 
-3. **Translate all visible text** — Use `t('key')` from `i18n.getTranslationFunction()` for every user-visible string. Never hardcode English. See [TRANSLATIONS_STATIC.md](references/TRANSLATIONS_STATIC.md).
+3. **Translate all visible text** — `t('key')` from `i18n.getTranslationFunction()` for every user-visible string. See [TRANSLATIONS_STATIC.md](references/TRANSLATIONS_STATIC.md).
 
-4. **Use SDK types, not `any` — and not `unknown`-laundering either** — Import types from SDK packages (`cart.LineItem`, `productsV3.ProductMedia`). The ESLint rule blocks `any`, but `as unknown as { foo: string }`, `as unknown as (x: unknown) => Promise<unknown>`, `: unknown` parameters that take SDK responses, and ad-hoc inline shape interfaces are **the same violation in spirit** and are equally banned. If you can't find the right SDK type, search the SDK source (`grep -rn "export type" node_modules/@wix/<pkg>/build`) — never invent your own. **SDK types are rarely wrong** — before reaching for `as Function`, `as unknown as ...`, or even an intersection, open the actual `index.typings.d.ts` and read the interface. Most apparent "drift" turns out to be a misread: a field that *is* in the type, a payload field that's optional in the type but required at runtime (just pass it), or a function that takes positional args (`(request, itemDetails)`) instead of an options object. Real drift exists but is mostly limited to fieldset-conditional fields (`Event.categories` with `CATEGORIES` fieldset, `Post.metrics` with `METRICS` fieldset) — for those, intersect (`X & { extraField?: T }`). Never erase to `unknown`. See [SDK_CORE.md](references/SDK_CORE.md).
+4. **Use SDK types** — Import from SDK packages (`cart.LineItem`, `productsV3.ProductMedia`). `any` and `as unknown as T` are both banned; for genuine type drift, intersect with `X & { extraField?: T }`. See [SDK_CORE.md → TypeScript Conventions](references/SDK_CORE.md#typescript-conventions).
 
 5. **Use the `frontend-design` skill for styling** — Invoke `frontend-design` for all page layouts. Avoid generic system fonts and default colors.
 
@@ -83,11 +83,11 @@ These apply to every feature area. Violating any of them produces silent failure
 
 10. **Build order: all code first, then seed data, then images** — For a new site, finish every page/component/route and get a clean `npx astro check` BEFORE seeding any business data, then seed all records with no images, then do a second pass attaching generated images. Seeding against half-written code wastes time because the data contract keeps changing under you; attaching images inside `createX` calls serialises the slowest step and makes retries painful. See [SETUP.md](references/SETUP.md) → "Build order".
 
-11. **Every `redirects.createRedirectSession` flow needs a dedicated thank-you page** — NOT a member-tab anchor like `/member#orders`. Build the page once, route every caller to it. Bouncing back to a member dashboard mid-celebration is a confusing UX (full dashboard chrome instead of "thank you" state) and the hash-based tab switch is fragile (lost on full reload, easy to miss). The exact path can match the site theme (`/store/thank-you`, `/restaurant/thank-you`, `/plans/thank-you`, `/research/thank-you`, `/cinema/thank-you`, `/conference/thank-you`, `/festival/thank-you`, etc.) — what matters is that it's a real page on the headless site, not a hash anchor. Typical pairings: `/store/thank-you` (eCommerce + gift cards), `/restaurant/thank-you` (restaurant orders + reservations), `/plans/thank-you` (pricing plans), `/research/thank-you` (donations), one events thank-you page per site (`/tickets/thank-you` is fine if no specific theme, otherwise match the events-listing path). The single established exception is `/member#bookings` for Wix Bookings only. Audit every `thankYouPagePath:` string before shipping — if it contains `#` (other than the bookings exception), it is wrong. The `checkoutCallbacks()` helper in `src/utils/redirects.ts` is the canonical place to centralise these — see [ECOMMERCE.md](references/ECOMMERCE.md) → "Redirect callbacks: always pass all of them".
+11. **Every `redirects.createRedirectSession` flow needs a dedicated thank-you page**, not a member-tab anchor (`/member#orders` and similar). Use the `checkoutCallbacks()` helper in `src/utils/redirects.ts` to centralise paths. The single exception is `/member#bookings` for Wix Bookings. See [ECOMMERCE.md → Redirect callbacks](references/ECOMMERCE.md#redirect-callbacks-always-pass-all-of-them).
 
-12. **Translatable SDK fields are display-only — never use them as identifiers** — `name`, `title`, `displayName`, `description`, `tagLine`, and `optionChoiceNames` on Wix SDK objects (products, options, choices, modifiers, services, plans, restaurant items, CMS rows, …) are rewritten by the Multilingual API. Keying React state, lookup maps, React `key={}`, or `find(x => x.name === ...)` predicates by these fields silently breaks the moment a visitor switches locale — variants stop matching, "Add to cart" ships the wrong line item, comparisons against `optionChoiceNames` fail. Use the entity's `key` directly — it's reliably present, no `key ?? _id` / `key ?? name` fallback. Use `_id` only where the API forces UUIDs (V3 variant matching is the canonical case — `optionChoiceIds.{optionId, choiceId}` is the only stable handle on the variant side; keep state in `key`-space and look up `_id` / `choiceId` inline from `options[]`). Render `name`/`title` only as JSX text content. See [ECOMMERCE_V3.md](references/ECOMMERCE_V3.md) → "Translatable fields are display-only" for the full audit checklist.
+12. **Translatable SDK fields (`name`, `title`, `displayName`, `description`, `tagLine`, `optionChoiceNames`, …) are display-only** — never key state, lookup maps, React `key={}`, or `find()` predicates by them. Use the entity's `key` (or `_id` where the API forces UUIDs, like V3 variant matching). See [ECOMMERCE_V3.md → Translatable fields are display-only](references/ECOMMERCE_V3.md#translatable-fields-are-display-only--never-use-them-as-identifiers).
 
-    **Exception — events ticket-definition state across recurring siblings:** Wix Events has no per-series ticket entity; each occurrence is its own `Event` with its own `ticketDefinition._id`s. When the user picks a different date in a recurring series, the `_id`s change but the `name`s match across siblings. Keying picker state by `td.name` is the only way state survives a date change — see [EVENTS.md](references/EVENTS.md) → "Series-level routing for recurring events". This is the single documented exception; everywhere else, `key`/`_id` rules apply.
+    **One exception:** Wix Events has no per-series ticket entity — picker state across recurring siblings has to key by `td.name` since `_id`s change per occurrence. See [EVENTS.md](references/EVENTS.md).
 
 ---
 
@@ -195,20 +195,6 @@ Customers must be able to **view AND edit** their own data — a read-only profi
 
 ---
 
-## Stores V3 SDK — Key Differences from V1
+## Stores V3 SDK
 
-V3 field paths differ significantly. Read [ECOMMERCE_V3.md](references/ECOMMERCE_V3.md) for the complete mapping. Quick reference:
-
-| What | V3 path | V1 path (wrong for V3) |
-|------|---------|----------------------|
-| Image | `product.media?.main?.image` (string) | `product.media?.mainMedia?.image?.url` |
-| Price | `product.actualPriceRange?.minValue?.amount` | `product.priceRange?.minValue` |
-| Ribbon | `product.ribbon?.name` (object) | `product.ribbon` (renders [object Object]) |
-| Variants | `product.variantsInfo?.variants` | `product.variants` |
-| Option choices | `opt.choicesSettings?.choices?.map(c => c.name)` | `opt.choices`, `c.value` |
-
-⚠️ Both variants and options use `_id` (not `id`). Use `v._id` and `opt._id` directly — no `as any` needed.
-
-⚠️ Use `getProductBySlug` for detail pages — `queryProducts().eq('slug', slug)` may not return options/variants.
-
-⚠️ `@wix/stores` does NOT export `categories` — install and use `@wix/categories` package instead.
+V3 field paths differ from V1. The full mapping (`product.media.main.image`, `actualPriceRange.minValue.amount`, `ribbon.name`, `variantsInfo.variants`, `_id` not `id`, etc.) lives in [ECOMMERCE_V3.md → V3 SDK Field Access Cheat Sheet](references/ECOMMERCE_V3.md#v3-sdk-field-access-cheat-sheet). Categories live in their own package: `@wix/categories`.

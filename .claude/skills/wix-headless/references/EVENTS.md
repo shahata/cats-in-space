@@ -33,11 +33,9 @@ const result = await elevatedQuery({
 const events = result.items ?? [];
 ```
 
-⚠️ **Use SDK enums, not literals.** `wixEventsV2.RequestedFields.DETAILS`, `wixEventsV2.Status.CANCELED`, etc. Literal strings still compile but silently break if the enum value is ever renamed.
+For the SDK enums (`wixEventsV2.RequestedFields`, `wixEventsV2.Status`) and the `.find()` rule on builders, see [SDK_CORE.md → SDK Gotchas](SDK_CORE.md#sdk-gotchas--quick-reference).
 
-⚠️ **`.find()` is mandatory.** `await wixEventsV2.queryEvents({})` (without `.find()`) resolves to the query **builder**, not a result — `result.items` is `undefined` and the page renders empty with no error.
-
-⚠️ **Paginate beyond the 200-item cap.** `queryEvents` enforces a hard `.limit(200)` cap. Without explicit pagination, a 52-week recurring series (one event per occurrence) silently truncates: late siblings just don't appear in the listing. Always loop until exhausted:
+Paginate beyond the 200-item cap — `queryEvents` is server-capped, so a 52-week recurring series silently truncates without explicit `.next()` looping:
 
 ```ts
 const all: wixEventsV2.Event[] = [];
@@ -49,7 +47,7 @@ while (page) {
 }
 ```
 
-This applies to ticket-definition queries too — series with many tiers across many siblings hit the same cap.
+Same cap applies to ticket-definition queries.
 
 ## Data model — recurring series are NOT a single thing with recurrences
 
@@ -119,7 +117,7 @@ Gotchas:
 - `timeZoneId`, `startDate`, and `endDate` are REQUIRED on `dateAndTimeSettings`. The validation error misleadingly says "getTimeZoneId is not supported" — it actually means one of those three is missing.
 - Without top-level `startDate`/`endDate` you get `endDate.isDefined must be true, startDate.isDefined must be true`. You must set them (usually to the first occurrence), and this is what produces the phantom-sibling bug below.
 
-**Phantom-sibling bug:** Wix sometimes creates an extra sibling at `individualEventDates[0]` — one from the top-level `startDate`, one from the list. You end up with N+1 events for a size-N list, duplicated at the first timestamp. **Fix in the seed, not the UI.** After creation, group siblings by `startMs`; if two share a timestamp, cancel+delete one.
+After creation, dedupe by `startMs` and cancel+delete duplicates from the seed (not the UI). Wix sometimes creates an extra sibling at `individualEventDates[0]` — one from the top-level `startDate`, one from the list — leaving N+1 events for an N-length list.
 
 **Sibling indexing is asynchronous.** After `createEvent` returns, siblings trickle in over several seconds. Poll `queryEvents` and filter by `recurringEvents.categoryId` until the expected count appears, up to 30 attempts × 1.5s for long series.
 
