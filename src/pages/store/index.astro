@@ -255,9 +255,15 @@ function getCollections(
                     </span>
                   </div>
                   {product.inventory?.availabilityStatus ===
-                    productsV3.InventoryAvailabilityStatus.OUT_OF_STOCK && (
-                    <span class="oos-badge">{t("store.outOfStock")}</span>
-                  )}
+                    productsV3.InventoryAvailabilityStatus.OUT_OF_STOCK &&
+                    (product.inventory?.preorderStatus ===
+                    productsV3.PreorderStatus.ENABLED ? (
+                      <span class="preorder-badge">
+                        {t("store.preOrder")}
+                      </span>
+                    ) : (
+                      <span class="oos-badge">{t("store.outOfStock")}</span>
+                    ))}
                 </div>
               </a>
             );
@@ -509,17 +515,25 @@ function getCollections(
     color: var(--accent-yellow);
   }
 
-  .oos-badge {
+  .oos-badge,
+  .preorder-badge {
     display: inline-block;
     margin-top: 6px;
     padding: 2px 8px;
     border-radius: 4px;
     font-size: 0.7rem;
     font-weight: 700;
-    background: #cc0000;
     color: #fff;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  .oos-badge {
+    background: #cc0000;
+  }
+
+  .preorder-badge {
+    background: #b8860b;
   }
 
   .empty-store {
