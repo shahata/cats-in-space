@@ -47,7 +47,7 @@ Read the guide that matches your current task. Each guide is self-contained with
 | [PRICING_PLANS.md](references/PRICING_PLANS.md) | Plans listing, checkout flow, subscriptions |
 | [GIFT_CARDS.md](references/GIFT_CARDS.md) | Gift card products, purchase flow, checkout integration |
 | [DONATIONS.md](references/DONATIONS.md) | Donation campaigns, cover image import, cart/checkout with `catalogReference`, donor notes via `buyerNote` |
-| [EVENTS.md](references/EVENTS.md) | Ticketed events of any kind (conferences, festivals, classes, screenings, performances) — recurring series, ticket definitions, hosted checkout, seating (Wix-native or custom) |
+| [EVENTS.md](references/EVENTS.md) | Ticketed events of any kind (conferences, festivals, classes, screenings, performances) — recurring series, ticket definitions, hosted checkout |
 | [RESTAURANTS.md](references/RESTAURANTS.md) | Menus, items, modifiers, table reservations, online ordering |
 | [MEMBER_AREA.md](references/MEMBER_AREA.md) | Protected routes, tabbed dashboard, profile, orders, subscriptions, payment |
 | [EXTENSIONS.md](references/EXTENSIONS.md) | Backend event listeners (webhooks) and dashboard pages registered via `src/extensions.ts` — `export default` requirement, auth context, building admin UIs with WDS, `dashboard.openMediaManager`, multi-reference write patterns |

@@ -2,11 +2,11 @@
 
 ## Overview
 
-Wix Events powers ticketed and RSVP-based gatherings of any kind — conferences, workshops, classes, festivals, performances, screenings, lectures, meetups, multi-session courses, retreats. Anywhere people register or buy tickets to attend something at a time and place, this is the right tool. Cinema/movie listings are one specific use case (recurring weekly screenings with seat tiers); the same APIs are the backbone for a single-day conference, a 12-week course, a film festival, a concert series, or a one-off charity gala.
+Wix Events powers ticketed and RSVP-based gatherings of any kind — conferences, workshops, classes, festivals, performances, screenings, lectures, meetups, multi-session courses, retreats. Anywhere people register or buy tickets to attend something at a time and place, this is the right tool. The same APIs back a single-day conference, a 12-week course, a film festival, a concert series, or a one-off charity gala.
 
 Wix Events in headless uses several modules from `@wix/events`:
 - `wixEventsV2` — event CRUD and queries
-- `ticketDefinitionsV2` — ticket tiers per event (price, limits, seating references)
+- `ticketDefinitionsV2` — ticket tiers per event (price, limits)
 - `ticketReservations` — short-lived ticket holds (PENDING → CONFIRMED)
 - `orders` — the paid order created after payment
 - `categories` — genre/track/series categorization of events
@@ -140,7 +140,7 @@ import { ticketReservations } from '@wix/events';
 import { redirects } from '@wix/redirects';
 
 const reservation = await ticketReservations.createTicketReservation({
-  tickets: [{ ticketDefinitionId, quantity }], // or { ..., ticketInfo: { seatId } } per seat
+  tickets: [{ ticketDefinitionId, quantity }],
 });
 const { redirectSession } = await redirects.createRedirectSession({
   eventsCheckout: { reservationId: reservation._id!, eventSlug },
@@ -217,47 +217,9 @@ Required fields for `createTicketDefinition`:
 Use ticket definitions to model whatever pricing tiers the event has — Early Bird vs Regular vs Student for a conference, VIP vs Standard vs Balcony for a concert, Member vs Non-Member for a workshop, Adult vs Child for a screening.
 
 Fieldsets for `queryAvailableTicketDefinitions`:
-- `SEATING_DETAILS` → `seatingDetails.places[]` (only populated if event has a seating plan)
 - `SALES_DETAILS` → current availability, actualLimit
 - `POLICY` → refund/transfer policy
 - `EVENT_DETAILS` → denormalized event info
-
-## Seating
-
-There are two valid patterns depending on whether you use the Wix dashboard's seating plan feature.
-
-### Pattern A — Wix-native seating plan
-
-Wix Events seating plans are dashboard-only — there's no public REST/SDK to create or attach them. The SDK reads seat data once a plan is in place. When a plan is attached to an event:
-- `td.seatingDetails.places[]: AvailablePlace` lists `{ placeId, label, sectionLabel, elementLabel ("Row" | "Table" | "General Admission"), availableCapacity }`. `placeId` has the format `{sectionId}-{elementId}-{label}` (e.g. `0-1-A5`).
-- `td.actualLimit` replaces `initialLimit` once a plan is attached.
-- When reserving, pass `ticketInfo.seatId = place.placeId` on the `TicketLineItem`. `seatInfo` (readonly) is populated in the response with section/row/seat labels.
-
-UI pattern: if `seatingDetails.places.length > 0`, render a seat grid (group by `elementLabel`) with multi-select; otherwise render a quantity stepper.
-
-### Pattern B — Custom seat UI mapped to ticket-definition tiers
-
-If the event has no Wix seating plan but the site needs a visual seat picker (typical for cinema-style fixed layouts where every showing has the same room), implement seat selection as a custom React component:
-
-1. **Ticket definitions = seat categories** (e.g. VIP / Standard / Balcony, or Front / Mid / Rear). Each definition is one tier.
-2. The custom component renders a visual grid; rows are mapped to tiers.
-3. Selected seats roll up to ticket-definition quantities — the reservation tracks total tickets per tier, not individual seat IDs.
-
-```tsx
-// Example: rows A-B = VIP, C-G = Standard, H-J = Balcony
-const ROWS = ['A','B','C','D','E','F','G','H','J'];
-const SEATS_PER_ROW = 15;
-
-function getCategory(row: string): 'VIP' | 'Standard' | 'Balcony' {
-  if (row <= 'B') return 'VIP';
-  if (row <= 'G') return 'Standard';
-  return 'Balcony';
-}
-```
-
-Use `window.dispatchEvent(new CustomEvent('seats-changed'))` with a `window.__selectedSeats` mailbox for cross-component communication between the seat map and the checkout button.
-
-This pattern doesn't reserve specific seats with Wix — it just gates the quantity per tier. Suitable when the venue layout is fixed and the same per occurrence; not suitable when seats need to be marked unavailable across orders.
 
 ## Categories
 
@@ -305,7 +267,7 @@ If every occurrence is its own Event with its own Wix-generated slug (e.g. `intr
 2. Client owns a `selectedEventId` state; a dropdown (or chips for few options) switches it without navigation.
 3. On Book: if selection differs from SSR's event, client calls `ticketDefinitionsV2.queryAvailableTicketDefinitions({ filter: { eventId: selected } })`, maps the user's qty-by-tier-**name** to the fresh `_id`s, reserves, redirects.
 
-Key state trick: key qty/seat state by `td.name`, not `td._id`, so state survives a date change.
+Key state trick: key qty state by `td.name`, not `td._id`, so state survives a date change.
 
 **Deriving the stable slug from a sibling slug:**
 ```ts

@@ -145,10 +145,6 @@ Don't throw on external-call failures — Wix may retry the webhook on unhandled
 
 Headless Astro deploys to Cloudflare Workers — no persistent filesystem. `console.log` is visible via `wrangler tail` or the Cloudflare dashboard, but isn't forwarded into Wix. For durable logging, persist to a CMS collection via `@wix/data` or call `monitoring.captureMessage(...)` from `@wix/essentials`.
 
-### Required permissions
-
-Each event has a permission scope (e.g. `SCOPE.STORES.READ-ORDERS` for `orders.onOrderCreated`). Without the matching scope granted, the webhook never fires. Scope grants for managed-headless apps are configured in the Dev Center Permissions page — there's no public API for this; track upstream if it becomes available.
-
 ---
 
 ## Dashboard Page Extensions
