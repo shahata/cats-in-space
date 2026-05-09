@@ -7,7 +7,7 @@ import { getImageUrl } from "../../utils/image";
 import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
-const result = await items.query("CatExplorers").find();
+const result = await items.query("CatExplorers", {});
 const crew = result.items;
 
 function getEmoji(role: string) {

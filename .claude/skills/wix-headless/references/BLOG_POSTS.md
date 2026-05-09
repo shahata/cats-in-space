@@ -24,10 +24,11 @@ import { posts, tags as tagsApi } from '@wix/blog';
 import { i18n } from '@wix/essentials';
 const currentLanguage = i18n.getLanguage();
 
-const result = await posts.queryPosts({
-  fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID']
-}).eq('language', currentLanguage).find();
-const blogPosts = result.items || [];  // Note: .items not .posts
+const result = await posts.queryPosts(
+  { filter: { language: currentLanguage } },
+  { fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] },
+);
+const blogPosts = result.posts || [];
 
 // Available fieldsets: URL, CONTENT_TEXT, METRICS, SEO, CONTACT_ID, RICH_CONTENT, REFERENCE_ID
 // CONTACT_ID gives: memberId (the writer)

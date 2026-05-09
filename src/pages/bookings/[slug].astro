@@ -17,14 +17,14 @@ type StaffMember = staffMembers.StaffMember;
 
 const { slug } = Astro.params;
 
-const servicesResult = await services.queryServices().find();
-const allServices: Service[] = servicesResult.items ?? [];
+const servicesResult = await services.queryServices({});
+const allServices: Service[] = servicesResult.services ?? [];
 const service = allServices.find((s) => s.mainSlug?.name === slug);
 
 if (!service) return Astro.redirect("/bookings");
 
-const staffResult = await staffMembers.queryStaffMembers().find();
-const allStaff: StaffMember[] = staffResult.items ?? [];
+const staffResult = await staffMembers.queryStaffMembers({});
+const allStaff: StaffMember[] = staffResult.staffMembers ?? [];
 const staffMap = new Map<string, StaffMember>(
   allStaff.flatMap((s) => (s.resourceId ? [[s.resourceId, s] as const] : [])),
 );

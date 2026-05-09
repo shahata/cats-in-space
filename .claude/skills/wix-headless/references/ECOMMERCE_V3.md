@@ -52,10 +52,11 @@ V3 field paths differ from V1. The correct V3 paths:
 V3 requires a `fields` parameter — without it, only minimal data is returned:
 ```typescript
 import { productsV3 } from '@wix/stores';
-const result = await productsV3.queryProducts({
-  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY']
-}).limit(100).find();
-const allProducts = result.items || [];
+const result = await productsV3.queryProducts(
+  { cursorPaging: { limit: 100 } },
+  { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY'] },
+);
+const allProducts = result.products || [];
 ```
 
 ### Get product by slug (single call — includes variants)
@@ -70,7 +71,7 @@ const product = result.product;
 ```
 This returns full data including `variantsInfo.variants[]` in one call — no two-step like V1.
 
-For product detail pages, use `productsV3.getProductBySlug(slug, { fields: [...] })`. `queryProducts().eq('slug', slug)` may not return options or variants even with the right `fields` param.
+For product detail pages, use `productsV3.getProductBySlug(slug, { fields: [...] })`. Querying products by slug may not return options or variants even with the right `fields` param.
 
 ### Query categories
 
@@ -92,10 +93,11 @@ Fetch all products with the `DIRECT_CATEGORIES_INFO` field, then filter client-s
 
 ```typescript
 // Fetch all products with category info
-const result = await productsV3.queryProducts({
-  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO']
-}).limit(100).find();
-const allProducts = result.items || [];
+const result = await productsV3.queryProducts(
+  { cursorPaging: { limit: 100 } },
+  { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO'] },
+);
+const allProducts = result.products || [];
 
 // Build a category lookup map
 const categoryMap = new Map<string, string>();
@@ -610,10 +612,11 @@ import type { categories as categoriesTypes } from '@wix/categories';
 import { extractMediaUrl } from '../../utils/image';
 
 // Fetch all products with category info for client-side filtering
-const productResult = await productsV3.queryProducts({
-  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO']
-}).limit(100).find();
-const allProducts = productResult.items || [];
+const productResult = await productsV3.queryProducts(
+  { cursorPaging: { limit: 100 } },
+  { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO'] },
+);
+const allProducts = productResult.products || [];
 
 // Fetch categories via SDK — two-argument form (query, options) returns Promise directly
 let allCollections: categoriesTypes.Category[] = [];

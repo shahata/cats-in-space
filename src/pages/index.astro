@@ -7,17 +7,20 @@ import { getImageUrl } from "../utils/image";
 import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
-const planetsResult = await items
-  .query("Planets")
-  .descending("habitabilityScore")
-  .limit(3)
-  .find();
+const planetsResult = await items.query("Planets", {
+  sort: [{ fieldName: "habitabilityScore", order: "DESC" }],
+  paging: { limit: 3 },
+});
 const planets = planetsResult.items;
 
-const crewResult = await items.query("CatExplorers").limit(6).find();
+const crewResult = await items.query("CatExplorers", {
+  paging: { limit: 6 },
+});
 const crew = crewResult.items;
 
-const missionsResult = await items.query("Missions").limit(4).find();
+const missionsResult = await items.query("Missions", {
+  paging: { limit: 4 },
+});
 const missions = missionsResult.items;
 
 function getStatusBadge(status: string) {

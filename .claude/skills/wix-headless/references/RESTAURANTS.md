@@ -75,16 +75,16 @@ When `schedulingEnabled` is false, don't render the Schedule button at all — t
 
 The `/restaurant/order` Astro page runs a lot of SDK calls in frontmatter. This is the actual list, in order — each is cheap and runs elevated:
 
-1. `menus.queryMenus()` — all menus.
+1. `menus.queryMenus({})` — all menus; read `result.menus`.
 2. `menuOrderingSettings.queryMenuOrderingSettings({})` — determine which menus are `onlineOrderingEnabled`, and their operation IDs. Build `Map<menuId, operationId>`; pick a `businessLocationId` from the first settings entry.
 3. `locations.getLocation(businessLocationId)` (from `@wix/business-tools`) — fetch the restaurant's street address for pickup dispatch.
 4. `fulfillmentMethods.listFulfillmentMethods()` — filter to `enabled !== false` and drop `DINE_IN`.
 5. `operations.getOperation(firstOperationId)` — read `defaultFulfillmentType` + scheduling config (see above).
-6. `sections.querySections()` — all sections (dedupe by `_id`; the API returns duplicates across menus).
-7. `items.queryItems().limit(200)` — all items. Restaurants typically fit under 200; if you're bigger, paginate.
+6. `sections.querySections({})` — all sections; read `result.sections` (dedupe by `_id`; the API returns duplicates across menus).
+7. `items.queryItems({ cursorPaging: { limit: 200 } })` — all items. Restaurants typically fit under 200; if you're bigger, paginate.
 8. `itemLabels.listLabels()` — label name + icon lookup.
-9. `itemModifiers.queryModifiers().limit(200)` — individual modifier names + prices.
-10. `itemModifierGroups.queryModifierGroups().limit(100)` — groups with `rule` + ordered modifier list.
+9. `itemModifiers.queryModifiers({ cursorPaging: { limit: 200 } })` — individual modifier names + prices; read `result.modifiers`.
+10. `itemModifierGroups.queryModifierGroups({ cursorPaging: { limit: 100 } })` — groups with `rule` + ordered modifier list; read `result.modifierGroups`.
 11. `itemVariants.listVariants()` — variant name lookup (items only reference variants by ID).
 
 Pre-build a plain-object `menuData` (array of `{ _id, name, items: [...] }` per section, ordered per menu) and hand it to the React component — don't re-query on the client. Labels, icons, modifier group rules, variant names: all resolved server-side and flattened into the item DTO.
@@ -115,7 +115,7 @@ Menu
 
 ```typescript
 const elevatedQuery = auth.elevate(items.queryItems);
-const result = await elevatedQuery().limit(100).find();
+const result = await elevatedQuery({ cursorPaging: { limit: 100 } });
 const allItems = result.items; // Item[]
 ```
 
@@ -133,8 +133,8 @@ const allItems = result.items; // Item[]
 
 ```typescript
 const elevatedQuery = auth.elevate(sections.querySections);
-const result = await elevatedQuery().find();
-const allSections = result.items; // Section[]
+const result = await elevatedQuery({});
+const allSections = result.sections; // Section[]
 ```
 
 **Section fields:**

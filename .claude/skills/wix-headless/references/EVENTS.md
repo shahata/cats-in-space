@@ -29,26 +29,33 @@ import { wixEventsV2 } from '@wix/events';
 import { auth } from '@wix/essentials';
 
 const elevatedQuery = auth.elevate(wixEventsV2.queryEvents);
-const result = await elevatedQuery({
-  fields: [wixEventsV2.RequestedFields.DETAILS, wixEventsV2.RequestedFields.URLS],
-})
-  .ne('status', wixEventsV2.Status.CANCELED)
-  .limit(20)
-  .find();
-const events = result.items ?? [];
+const result = await elevatedQuery(
+  {
+    filter: { status: { $ne: wixEventsV2.Status.CANCELED } },
+    paging: { limit: 20 },
+  },
+  {
+    fields: [wixEventsV2.RequestedFields.DETAILS, wixEventsV2.RequestedFields.URLS],
+  },
+);
+const events = result.events ?? [];
 ```
 
-For the SDK enums (`wixEventsV2.RequestedFields`, `wixEventsV2.Status`) and the `.find()` rule on builders, see [SDK_CORE.md → SDK Gotchas](SDK_CORE.md#sdk-gotchas--quick-reference).
+For the SDK enums (`wixEventsV2.RequestedFields`, `wixEventsV2.Status`) and direct query response shapes, see [SDK_CORE.md → SDK Gotchas](SDK_CORE.md#sdk-gotchas--quick-reference).
 
-Paginate beyond the 200-item cap — `queryEvents` is server-capped, so a 52-week recurring series silently truncates without explicit `.next()` looping:
+Paginate beyond the page-size cap — `queryEvents` is server-capped, so a 52-week recurring series silently truncates without explicit paging:
 
 ```ts
 const all: wixEventsV2.Event[] = [];
-let page: Awaited<ReturnType<typeof elevatedQuery['find']>> | null =
-  await elevatedQuery({ fields: [...] }).limit(200).find();
-while (page) {
-  all.push(...(page.items ?? []));
-  page = await page.next();
+const pageSize = 200;
+for (let offset = 0; ; offset += pageSize) {
+  const page = await elevatedQuery(
+    { paging: { limit: pageSize, offset } },
+    { fields: [...] },
+  );
+  const pageEvents = page.events ?? [];
+  all.push(...pageEvents);
+  if (pageEvents.length < pageSize) break;
 }
 ```
 
@@ -83,7 +90,7 @@ type AvailablePlace = ticketDefinitionsV2.AvailablePlace;
 
 **Empirical bug: `CATEGORIES` alone often returns only the hidden `RECURRING_EVENT` series category.** Adding `FORM` to the same query makes the real `MANUAL` track/genre categories come back. Always request `['DETAILS', 'CATEGORIES', 'FORM']` for listings/detail pages.
 
-**Sibling lookup: filter client-side.** `queryEvents`' filter builder doesn't allow nested paths like `.eq('dateAndTimeSettings.recurringEvents.categoryId', id)` — so to find every sibling in a series, paginate the whole event set and filter in memory. Pagination and elevate are general Wix SDK patterns — see [SDK_CORE.md](SDK_CORE.md). `auth.elevate()` preserves the SDK function's signature; no signature cast needed.
+**Sibling lookup: filter client-side.** `queryEvents` doesn't support filtering on nested paths like `dateAndTimeSettings.recurringEvents.categoryId`, so to find every sibling in a series, paginate the whole event set and filter in memory. Pagination and elevate are general Wix SDK patterns — see [SDK_CORE.md](SDK_CORE.md). `auth.elevate()` preserves the SDK function's signature; no signature cast needed.
 
 ## `Event.mainImage` — must go through `updateEvent`, not `createEvent`
 
@@ -329,6 +336,6 @@ Do NOT dedupe occurrences or merge fields across siblings in the UI. If the seed
 | `updateEvent({ event: { form: { controls } } })` → `Invalid field mask: form.controls: UNKNOWN` | v3 REST API doesn't accept `form.controls` as an updatable path despite the SDK type including it | Use `forms.addControl(eventId, { phone: {...} })` etc. |
 | `orders.getOrder({ eventId, orderNumber })` returns an order object but `ticketsPdf` / `tickets[]` are missing | The default response only includes a tiny id-ish subset; the option key is `fieldset` (singular) — NOT `fields` as on other queries | Pass `{ fieldset: ['DETAILS', 'TICKETS'] }` to get `ticketsPdf`, `tickets[].ticketPdfUrl`, `walletPassUrl`, `checkInUrl`, `ticketsQuantity`, totals, etc. |
 | Translations on one occurrence don't appear on its siblings | Each sibling `Event._id` is its own translatable entity | Seed translations per-event via the Translation Content API |
-| `queryEvents({})` returns `{items: undefined}` with no error | Missing `.find()` — the call resolved to a query builder, not a result | Always end with `.find()` |
+| `queryEvents({})` returns `events`, not `items` | Direct query response fields are API-specific | Read `result.events ?? []` |
 
 See [SDK_CORE.md](SDK_CORE.md) and [MEDIA.md](MEDIA.md) for the generic Wix SDK gotchas (pagination cap, `INVALID_FIELD_MASK` from spread, `.vite` optimize cache, `wix:image://` hash-fragment requirement, `importFile` READY polling).

@@ -19,16 +19,16 @@ const t = i18n.getTranslationFunction();
 const currency = await getSiteCurrency();
 
 const elevatedQueryMenus = auth.elevate(menusApi.queryMenus);
-const menusResult = await elevatedQueryMenus().find();
-const allMenus = (menusResult.items || []).filter((m) => m.visible !== false);
+const menusResult = await elevatedQueryMenus({});
+const allMenus = (menusResult.menus || []).filter((m) => m.visible !== false);
 
 const elevatedQuerySections = auth.elevate(sectionsApi.querySections);
-const sectionsResult = await elevatedQuerySections().find();
-const allSections = sectionsResult.items || [];
+const sectionsResult = await elevatedQuerySections({});
+const allSections = sectionsResult.sections || [];
 const sectionById = new Map(allSections.map((s) => [s._id!, s]));
 
 const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
-const itemsResult = await elevatedQueryItems().limit(200).find();
+const itemsResult = await elevatedQueryItems({ cursorPaging: { limit: 200 } });
 const allItems = itemsResult.items || [];
 const itemById = new Map(allItems.map((i) => [i._id!, i]));
 

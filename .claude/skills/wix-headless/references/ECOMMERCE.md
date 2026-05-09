@@ -101,10 +101,11 @@ Categories live in their own package — `@wix/categories`, not `@wix/stores`. P
 import { productsV3 } from '@wix/stores';
 import { categories } from '@wix/categories';
 
-const productResult = await productsV3.queryProducts({
-  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO'],
-}).limit(100).find();
-const allProducts = productResult.items || [];
+const productResult = await productsV3.queryProducts(
+  { cursorPaging: { limit: 100 } },
+  { fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO'] },
+);
+const allProducts = productResult.products || [];
 
 const catResult = await categories.queryCategories(
   {},

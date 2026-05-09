@@ -26,8 +26,8 @@ const currency = await getSiteCurrency();
 
 // Fetch all menus
 const elevatedQueryMenus = auth.elevate(menusApi.queryMenus);
-const menusResult = await elevatedQueryMenus().find();
-const allMenus = (menusResult.items || []).filter((m) => m.visible !== false);
+const menusResult = await elevatedQueryMenus({});
+const allMenus = (menusResult.menus || []).filter((m) => m.visible !== false);
 
 // Fetch menu ordering settings — decides which menus are online-orderable
 const elevatedQueryMos = auth.elevate(
@@ -117,12 +117,12 @@ if (firstOperationId) {
 }
 
 const elevatedQuerySections = auth.elevate(sectionsApi.querySections);
-const sectionsResult = await elevatedQuerySections().find();
-const allSections = sectionsResult.items || [];
+const sectionsResult = await elevatedQuerySections({});
+const allSections = sectionsResult.sections || [];
 const sectionById = new Map(allSections.map((s) => [s._id!, s]));
 
 const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
-const itemsResult = await elevatedQueryItems().limit(200).find();
+const itemsResult = await elevatedQueryItems({ cursorPaging: { limit: 200 } });
 const allItems = itemsResult.items || [];
 const itemById = new Map(allItems.map((i) => [i._id!, i]));
 
@@ -149,8 +149,10 @@ try {
 const modifierMap = new Map<string, string>();
 try {
   const elevatedQueryModifiers = auth.elevate(itemModifiers.queryModifiers);
-  const modsResult = await elevatedQueryModifiers().limit(200).find();
-  for (const m of modsResult.items ?? []) {
+  const modsResult = await elevatedQueryModifiers({
+    cursorPaging: { limit: 200 },
+  });
+  for (const m of modsResult.modifiers ?? []) {
     if (m._id && m.name) modifierMap.set(m._id, m.name);
   }
 } catch {}
@@ -159,8 +161,8 @@ type ModifierGroup = itemModifierGroups.ModifierGroup;
 const modifierGroupById = new Map<string, ModifierGroup>();
 try {
   const elevatedQueryMG = auth.elevate(itemModifierGroups.queryModifierGroups);
-  const mgResult = await elevatedQueryMG().limit(100).find();
-  for (const g of mgResult.items ?? []) {
+  const mgResult = await elevatedQueryMG({ cursorPaging: { limit: 100 } });
+  for (const g of mgResult.modifierGroups ?? []) {
     if (g._id) modifierGroupById.set(g._id, g);
   }
 } catch {}

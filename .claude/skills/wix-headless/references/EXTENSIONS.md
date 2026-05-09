@@ -229,7 +229,7 @@ A common pattern: tabs of collections, table per tab, inline add/edit/delete. Th
 | Row actions (Edit/Delete) | `TableActionCell` | `numOfVisibleSecondaryActions={2}` to surface both |
 | Add/edit form | `SidePanel` (right-side fixed overlay) | NOT `<Modal />` |
 | Image field | `ImageViewer` | Built-in Add/Update/Remove buttons + preview area |
-| Reference (single) | `Dropdown` | Options from `items.query(<refCollection>).limit(200).find()` |
+| Reference (single) | `Dropdown` | Options from `items.query(<refCollection>, { paging: { limit: 200 } })` |
 | Multi-reference | `MultiSelectCheckbox` | Same option source |
 | Status pill | `Badge` (with `skin`) | Map status keywords → success/standard/danger |
 | Empty | `EmptyState` (with `skin="page"`) | |

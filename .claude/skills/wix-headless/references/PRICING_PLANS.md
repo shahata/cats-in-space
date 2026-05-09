@@ -19,8 +19,8 @@ npm install @wix/redirects      # createRedirectSession for checkout
 ```typescript
 import { plans } from '@wix/pricing-plans';
 
-const result = await plans.queryPublicPlans().find();
-const allPlans = result.items || [];
+const result = await plans.queryPublicPlans({});
+const allPlans = result.plans || [];
 ```
 
 ### PublicPlan Shape

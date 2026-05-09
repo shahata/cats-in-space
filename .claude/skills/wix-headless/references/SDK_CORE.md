@@ -8,14 +8,14 @@ In a Wix managed headless project, you do **not** need to create an SDK client o
 ---
 import { items } from '@wix/data';
 
-const result = await items.query('MyCollection').find();
+const result = await items.query('MyCollection', {});
 const myItems = result.items;
 ---
 ```
 
 ## Data Item Shape
 
-Items from `items.query().find()` have fields directly on the object. The REST API nests them under `.data`, but the SDK unwraps that envelope:
+Items from `items.query(collectionId, query)` have fields directly on the object. The REST API nests them under `.data`, but the SDK unwraps that envelope:
 
 ```typescript
 result.items[0].title      // ✅ correct
@@ -28,10 +28,16 @@ result.items[0].data.title // ❌ TypeError — .data does not exist in SDK
 ```typescript
 import { items } from '@wix/data';
 
-const result = await items.query('CollectionId').find();
-await items.query('Collection').descending('score').find();
-await items.query('Collection').eq('status', 'Active').find();
-await items.query('Collection').limit(4).find();
+const result = await items.query('CollectionId', {});
+await items.query('Collection', {
+  sort: [{ fieldName: 'score', order: 'DESC' }],
+});
+await items.query('Collection', {
+  filter: { status: 'Active' },
+});
+await items.query('Collection', {
+  paging: { limit: 4 },
+});
 ```
 
 ### Result Shape
@@ -50,7 +56,11 @@ Use Astro's `[slug].astro` pattern — no `getStaticPaths()` needed since `outpu
 ---
 import { items } from '@wix/data';
 const { slug } = Astro.params;
-const result = await items.query('MyCollection').eq('slug', slug).find();
+if (!slug) return Astro.redirect('/');
+const result = await items.query('MyCollection', {
+  filter: { slug },
+  paging: { limit: 1 },
+});
 if (result.items.length === 0) return Astro.redirect('/');
 const item = result.items[0];
 ---
@@ -233,16 +243,16 @@ These are the most common runtime failures. Each is explained because understand
 | `estimateCurrentCartTotals` → `priceSummary` is at the top level, not under `estimatedTotals` | The REST docs nest it; the SDK hoists it |
 | `getCurrentMember()` returns `{ member?: Member }`; `getMember(id)` returns `Member` directly | Inconsistent wrapping between the two |
 | `getMyMemberAbout()` returns `{ memberAbout }`; `getMemberAbout(id)` returns `MemberAbout` directly | Inconsistent wrapping between the two |
-| `getDonationCampaign` / `updateDonationCampaign` / `queryDonationCampaigns().find()` return the entity (or `items`) directly | SDK unwraps even though REST wraps |
+| `getDonationCampaign` / `updateDonationCampaign` return the entity directly; `queryDonationCampaigns(query)` returns `donationCampaigns` | SDK unwraps even though REST wraps |
 | `updateDonationCampaign(id, partial)` — two positional args | Not a single `{ id, ... }` object |
 | `DonationCampaign.coverImage` is typed as `string` but returns as `Image` object at runtime | SDK types and runtime disagree. Render with `string | { id, url, ... }`; write via REST with object form |
 | REST PATCH on nested fields (e.g. `coverImage`) needs `fieldMask: { paths: ["coverImage"] }` in the body | Without it, the server returns `INVALID_PATCH: missing hierarchies`. The SDK sets this automatically — only matters for manual REST calls |
 | `DONATIONS_APP_ID` not exported from `@wix/donations` | No SDK const — hardcode `"333b456e-dd48-4d6b-b32b-9fd48d74e163"` in `src/utils/appIds.ts` |
-| `query*().limit(200)` is capped server-side regardless of the value | Paginate via `.next()` until `page.items.length < 200`; otherwise the tail of long series/collections is missing |
-| `.eq('nested.path.field', value)` on a query builder fails typecheck | The builder's filter methods are typed to a shortlist of scalar top-level fields. For nested/deep filters, fetch without the clause and filter client-side |
+| Query page sizes are capped server-side regardless of requested value | Paginate with `paging: { limit, offset }` or `cursorPaging` until the returned page length is smaller than requested; otherwise the tail of long series/collections is missing |
+| Nested/deep fields may fail typecheck in builder chains | Prefer direct WQL filters: `queryX({ filter: { 'nested.path.field': value } })`. If that field is unsupported by the API, fetch a bounded page and filter client-side |
 | `updateX({ entity: {...original, foo: 'bar'} })` → `INVALID_FIELD_MASK: … UNKNOWN` listing read-only paths | Spreading the full response into an update tells the server to write every field, including read-only ones. Pass only the delta sub-tree (`{ entity: { subtree: { foo: 'bar' } } }`) |
 | `client:load` component silently fails to hydrate after SDK edits in dev — `504 Outdated Optimize Dep` in console | Stale Vite optimize-dep cache. Fix: `rm -rf node_modules/.vite` and restart dev. Only affects dev; prod builds are fine |
-| `await queryX({})` (without `.find()`) resolves to the query **builder**, not the result | Query methods return a builder; `.find()` (or the two-argument `queryX(query, options)`) executes it. The builder satisfies `.then()` so there's no TypeScript error — `result.items` is just `undefined` and the page renders empty |
+| `queryX(options).find()` is the old builder style | Prefer direct query calls: `queryX(query, options)` for APIs with fieldsets/options, or `queryX(query)` when there is no options object. Direct responses usually use a named array (`posts`, `members`, `products`, `menus`) rather than `items` |
 | `orders.memberGetOrder(id)` returns the `Order` directly, not `{ order }` | Destructure: `const order = await orders.memberGetOrder(id);` |
 | `orders.Order` (pricing-plans) has no `priceDetails` in the types | `priceDetails` was removed when Wix introduced `pricing` as the structured replacement. Use `order.pricing.prices[0].price.{subtotal,total,discount,currency,coupon}` and `order.pricing.subscription.cycleDuration`. See [PRICING_PLANS.md](PRICING_PLANS.md) → "Order Shape" |
 | Comparing status/enum fields against string literals (`o.status !== 'DRAFT'`, `channelType: 'WEB'`) | Literal strings compile but break the day Wix renames an enum value. Use SDK enums: `orders.OrderStatus.DRAFT`, `currentCart.ChannelType.WEB`, `bookings.BookingStatus.CONFIRMED`, `posts.NodeType.PARAGRAPH`, `wixEventsV2.RequestedFields.DETAILS`, `seoTagsApi.ItemType.STORES_PRODUCT`, etc. If your IDE can't autocomplete the value, the namespace probably lives one level deeper |
@@ -254,8 +264,17 @@ These are the most common runtime failures. Each is explained because understand
 export const GET: APIRoute = async ({ url }) => {
   const q = url.searchParams.get('q') ?? '';
   const all: Entity[] = [];
-  let page = await auth.elevate(mod.queryX)({ fields: ['A','B','C'] }).limit(200).find();
-  while (page) { all.push(...(page.items ?? [])); if (!page.items || page.items.length < 200) break; page = await page.next(); }
+  const queryX = auth.elevate(mod.queryX);
+  const pageSize = 200;
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await queryX(
+      { paging: { limit: pageSize, offset } },
+      { fields: ['A','B','C'] },
+    );
+    const pageItems = page.entities ?? page.items ?? [];
+    all.push(...pageItems);
+    if (pageItems.length < pageSize) break;
+  }
   const matches = all.filter(e => (e.title ?? '').toLowerCase().includes(q.toLowerCase())).slice(0, 3);
   return new Response(JSON.stringify(matches, null, 2), { headers: { 'content-type': 'application/json' } });
 };
@@ -267,7 +286,7 @@ Pointing `jq` at the result reveals the exact runtime shape — including fields
 
 💡 **Best practice** — Use `httpClient.fetchWithAuth` from `@wix/essentials` only when no SDK method exists. Import from the main module, not a subpath.
 
-💡 **Best practice** — Many SDK query methods support two calling styles: a **builder form** `queryFoo(options).eq(...).find()` and a **two-argument form** `queryFoo(query, options)` that returns a `Promise` directly. **Prefer the two-argument form** — it avoids builder bugs (e.g., the categories builder sends an empty filter that causes `INVALID_FILTER`) and returns proper types without chaining. The response field is typically plural (`.categories`, `.orders`) not `.items`.
+💡 **Best practice** — Prefer the direct Wix API Query Language style for SDK queries: `queryFoo(query, options)` or `queryFoo(query)` returns a `Promise` directly. Avoid builder chains like `queryFoo(options).eq(...).limit(...).find()`. Direct calls match Wix's forward path, avoid builder bugs, and make response fields clearer. Generated SDK query responses are usually plural (`.posts`, `.members`, `.categories`, `.orders`); Wix Data `items.query()` returns `.items`.
 
 💡 **Best practice — centralize app IDs in one file.** Every business app (Stores, Donations, Restaurants, Bookings, Events, Gift Cards, Pricing Plans, Blog) has an `appId` used in `catalogReference.appId` for cart/checkout and to classify order line items. None of these are cleanly re-exported from a public SDK entry point — they're either hardcoded `const`s inside private subpaths blocked by `exports` maps, or not defined at all. Put them all in `src/utils/appIds.ts`:
 

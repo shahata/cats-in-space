@@ -108,8 +108,8 @@ import { giftVoucherProducts } from '@wix/gift-vouchers';
 import { auth } from '@wix/essentials';
 
 const elevatedQuery = auth.elevate(giftVoucherProducts.queryGiftCardProducts);
-const result = await elevatedQuery().limit(10).find();
-const products = result.items; // GiftCardProduct[]
+const result = await elevatedQuery({ cursorPaging: { limit: 10 } });
+const products = result.giftCardProducts ?? []; // GiftCardProduct[]
 ```
 
 ## Conditional Gift Cards Nav Link
@@ -131,8 +131,8 @@ import { giftVoucherProducts } from '@wix/gift-vouchers';
 let hasGiftCards = false;
 try {
   const elevatedQuery = auth.elevate(giftVoucherProducts.queryGiftCardProducts);
-  const result = await elevatedQuery().limit(1).find();
-  hasGiftCards = (result.items?.length || 0) > 0;
+  const result = await elevatedQuery({ cursorPaging: { limit: 1 } });
+  hasGiftCards = (result.giftCardProducts?.length || 0) > 0;
 } catch {}
 
 const navLinks = [
@@ -259,8 +259,8 @@ Use a **React client component** (`client:load` in Astro) for the interactive gi
 <!-- Server: fetch products, resolve images -->
 ---
 const elevatedQuery = auth.elevate(giftVoucherProducts.queryGiftCardProducts);
-const result = await elevatedQuery().limit(10).find();
-const products = result.items.map(p => ({
+const result = await elevatedQuery({ cursorPaging: { limit: 10 } });
+const products = (result.giftCardProducts ?? []).map(p => ({
   _id: p._id,
   name: p.name,
   image: getImageUrl(p.image, 600, 340),
@@ -313,7 +313,8 @@ const card = await elevated({
 await giftVouchers.giftVouchers.sendGiftCardEmail(card._id!);
 
 // Query gift cards
-const result = await giftVouchers.giftVouchers.queryGiftCards().find();
+const result = await giftVouchers.giftVouchers.queryGiftCards({});
+const cards = result.giftCards ?? [];
 
 // Other methods:
 // giftVouchers.giftVouchers.getGiftCard(id)

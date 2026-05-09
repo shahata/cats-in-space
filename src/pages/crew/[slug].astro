@@ -8,7 +8,10 @@ import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
 const { slug } = Astro.params;
-const result = await items.query("CatExplorers").eq("slug", slug).find();
+const result = await items.query("CatExplorers", {
+  filter: { slug },
+  paging: { limit: 1 },
+});
 
 if (result.items.length === 0) {
   return Astro.redirect("/crew");

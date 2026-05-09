@@ -108,10 +108,13 @@ PATCH https://www.wixapis.com/donation-campaigns/v2/donation-campaigns/<id>
 
 ```ts
 const elevatedQuery = auth.elevate(donationCampaigns.queryDonationCampaigns);
-const { items } = await elevatedQuery().ne("archived", true).find();
+const result = await elevatedQuery({
+  filter: { archived: { $ne: true } },
+});
+const campaigns = result.donationCampaigns ?? [];
 ```
 
-`items` is the array of campaigns directly. The SDK get/update helpers return the campaign entity **unwrapped** — not in a `{ donationCampaign: ... }` envelope like REST.
+`donationCampaigns` is the array of campaigns. The SDK get/update helpers return the campaign entity **unwrapped** — not in a `{ donationCampaign: ... }` envelope like REST.
 
 ### Metrics (raised amount + donor count)
 

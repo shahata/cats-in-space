@@ -198,9 +198,9 @@ export default function BlogEngagement({
   async function loadAllMyLikes() {
     // queryLikes returns all likes by the current visitor (posts + comments)
     try {
-      const res = await likes.queryLikes().limit(100).find();
+      const res = await likes.queryLikes({ cursorPaging: { limit: 100 } });
       const likedIds = new Set<string>();
-      for (const like of res.items) {
+      for (const like of res.likes ?? []) {
         if (like.entityId) {
           likedIds.add(like.entityId);
           if (like.entityId === postId) setLiked(true);

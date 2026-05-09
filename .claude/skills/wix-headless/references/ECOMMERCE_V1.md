@@ -13,15 +13,20 @@ appId: `1380b703-ce81-ff05-f115-39571d94dfcd`
 import { products, collections } from '@wix/stores';
 
 // Query all products
-const result = await products.queryProducts().limit(100).find();
+const result = await products.queryProducts({ paging: { limit: 100 } });
+const allProducts = result.products || [];
 
 // Get by slug (TWO calls required — queryProducts doesn't include variants)
-const stub = (await products.queryProducts().eq('slug', slug).limit(1).find()).items?.[0];
+const stub = (await products.queryProducts({
+  filter: { slug },
+  paging: { limit: 1 },
+})).products?.[0];
 const full = await products.getProduct(stub._id!);
 const product = full.product;  // includes variants
 
 // Query collections
-const collResult = await collections.queryCollections().limit(100).find();
+const collResult = await collections.queryCollections({ paging: { limit: 100 } });
+const allCollections = collResult.collections || [];
 ```
 
 ## V1 Product Data Shape

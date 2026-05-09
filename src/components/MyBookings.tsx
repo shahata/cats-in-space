@@ -23,13 +23,15 @@ export default function MyBookings() {
     setLoading(true);
     setError(null);
     try {
-      const result = await extendedBookings
-        .queryExtendedBookings({
+      const result = await extendedBookings.queryExtendedBookings(
+        {
+          cursorPaging: { limit: 50 },
+        },
+        {
           withBookingAllowedActions: true,
-        })
-        .limit(50)
-        .find();
-      setItems(result.items);
+        },
+      );
+      setItems(result.extendedBookings ?? []);
     } catch (err) {
       console.error("Failed to load bookings:", err);
       setError(t("common.errorLoadBookings"));

@@ -9,8 +9,8 @@ import { formatCurrency, cyclePeriodKey } from "../../utils/format";
 const t = i18n.getTranslationFunction();
 const locale = i18n.getLocale();
 
-const result = await plans.queryPublicPlans().find();
-const allPlans = result.items || [];
+const result = await plans.queryPublicPlans({});
+const allPlans = result.plans || [];
 ---
 
 <Layout title={`${t("plans.pageTitle")} - ${t("home.title")}`}>

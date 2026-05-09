@@ -21,24 +21,27 @@ const { slug } = Astro.params;
 // 1. Resolve the event from the slug. Also pull every other event in the same
 // recurring series so we can render showtime chips. DETAILS + CATEGORIES +
 // FORM fieldsets populate mainImage, categories, and the checkout form.
-// `.limit()` caps at 200; paginate through every page so a 52-week series
-// doesn't get its late siblings hidden.
+// Paginate through every page so a 52-week series doesn't get its late
+// siblings hidden.
 const queryEvents = auth.elevate(wixEventsV2.queryEvents);
 const events: Event[] = [];
-let page: wixEventsV2.EventsQueryResult | undefined = await queryEvents({
-  fields: [
-    wixEventsV2.RequestedFields.DETAILS,
-    wixEventsV2.RequestedFields.CATEGORIES,
-    wixEventsV2.RequestedFields.FORM,
-  ],
-})
-  .ne("status", wixEventsV2.Status.CANCELED)
-  .limit(200)
-  .find();
-while (page) {
-  events.push(...((page.items ?? []) as Event[]));
-  if (!page.items || page.items.length < 200) break;
-  page = await page.next();
+const eventFields = [
+  wixEventsV2.RequestedFields.DETAILS,
+  wixEventsV2.RequestedFields.CATEGORIES,
+  wixEventsV2.RequestedFields.FORM,
+];
+const eventPageSize = 200;
+for (let offset = 0; ; offset += eventPageSize) {
+  const page = await queryEvents(
+    {
+      filter: { status: { $ne: wixEventsV2.Status.CANCELED } },
+      paging: { limit: eventPageSize, offset },
+    },
+    { fields: eventFields },
+  );
+  const pageEvents = (page.events ?? []) as Event[];
+  events.push(...pageEvents);
+  if (pageEvents.length < eventPageSize) break;
 }
 
 // Resolve the URL slug. Preferred form is a series slug ("purr-assic-park")

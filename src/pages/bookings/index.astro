@@ -10,13 +10,13 @@ const t = i18n.getTranslationFunction();
 type Service = services.Service;
 type StaffMember = staffMembers.StaffMember;
 
-const servicesResult = await services.queryServices().find();
-const allServices: Service[] = (servicesResult.items ?? []).filter(
+const servicesResult = await services.queryServices({});
+const allServices: Service[] = (servicesResult.services ?? []).filter(
   (s) => s.onlineBooking?.enabled && !s.hidden,
 );
 
-const staffResult = await staffMembers.queryStaffMembers().find();
-const allStaff: StaffMember[] = staffResult.items ?? [];
+const staffResult = await staffMembers.queryStaffMembers({});
+const allStaff: StaffMember[] = staffResult.staffMembers ?? [];
 const staffMap = new Map<string, StaffMember>(
   allStaff.flatMap((s) => (s.resourceId ? [[s.resourceId, s] as const] : [])),
 );

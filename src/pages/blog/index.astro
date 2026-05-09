@@ -17,8 +17,11 @@ type Post = posts.Post & { metrics?: Metrics };
 
 // Use queryPosts — returns real metrics (views, likes, comments). listPosts returns zeros.
 const currentLanguage = i18n.getLanguage();
-const queryResult = await posts
-  .queryPosts({
+const queryResult = await posts.queryPosts(
+  {
+    filter: { language: currentLanguage },
+  },
+  {
     fieldsets: [
       posts.PostFieldField.URL,
       posts.PostFieldField.RICH_CONTENT,
@@ -26,10 +29,9 @@ const queryResult = await posts
       posts.PostFieldField.CONTACT_ID,
       posts.PostFieldField.REFERENCE_ID,
     ],
-  })
-  .eq("language", currentLanguage)
-  .find();
-const blogPosts = queryResult.items || [];
+  },
+);
+const blogPosts = queryResult.posts || [];
 // Fetch all tags
 const tagsResult = await tagsApi.queryTags({});
 const allTags = tagsResult.tags || [];

@@ -128,13 +128,11 @@ import { services, staffMembers } from '@wix/bookings';
 type Service = services.Service;
 type StaffMember = staffMembers.StaffMember;
 
-// queryServices() / queryStaffMembers() return a QueryBuilder — you must call
-// `.find()` to execute it. `.items` is on QueryResult, not on the builder.
-const servicesResult = await services.queryServices().find();
-const allServices: Service[] = servicesResult.items ?? [];
+const servicesResult = await services.queryServices({});
+const allServices: Service[] = servicesResult.services ?? [];
 
-const staffResult = await staffMembers.queryStaffMembers().find();
-const allStaff: StaffMember[] = staffResult.items ?? [];
+const staffResult = await staffMembers.queryStaffMembers({});
+const allStaff: StaffMember[] = staffResult.staffMembers ?? [];
 
 // Map resource IDs to staff members
 const staffMap = new Map<string, StaffMember>(
@@ -142,7 +140,7 @@ const staffMap = new Map<string, StaffMember>(
 );
 ```
 
-`queryServices()` returns a builder — call `.find()` to execute it, then read `result.items`. Awaiting the builder directly resolves to the builder (via its Promise interface) so `result.items` is `undefined` and the page renders empty with no error.
+Prefer direct query calls for Bookings queries. `queryServices({})` returns a Promise and the response array is `services`; `queryStaffMembers({})` returns `staffMembers`.
 
 Notable shape: `service.staffMemberIds` holds resource IDs (not staff IDs); `service.payment?.rateType` is an enum (`services.RateType.FIXED`); `service.media?.mainMedia?.image` is a `wix:image://` string. Use the exported `services.Service` type for everything else.
 
@@ -242,17 +240,18 @@ Always build `callbacks` via the shared `checkoutCallbacks()` helper — never i
 
 ### Query My Bookings
 
-Use `extendedBookings.queryExtendedBookings()` — a query builder with `.limit()` and `.find()`:
+Use `extendedBookings.queryExtendedBookings(query, options)`:
 
 ```typescript
 import { extendedBookings } from "@wix/bookings";
 import type { extendedBookings as extendedBookingsTypes } from "@wix/bookings";
 
-const result = await extendedBookings.queryExtendedBookings({
-  withBookingAllowedActions: true,
-}).limit(50).find();
+const result = await extendedBookings.queryExtendedBookings(
+  { cursorPaging: { limit: 50 } },
+  { withBookingAllowedActions: true },
+);
 
-const items: extendedBookingsTypes.ExtendedBooking[] = result.items;
+const items: extendedBookingsTypes.ExtendedBooking[] = result.extendedBookings ?? [];
 ```
 
 The booking data is nested under `eb.booking` (not on `eb` directly), and `allowedActions.cancel` / `allowedActions.reschedule` are booleans. Use the exported `extendedBookings.ExtendedBooking` type for the rest.
@@ -392,5 +391,5 @@ const redirect = await redirects.createRedirectSession({
 6. **cancelBooking requires revision** — Pass `booking.revision` in the options
 7. **Staff default to business hours** — By default, staff work during business opening hours. Use Assign Working Hours Schedule for custom hours
 8. **Category required for visibility** — Services without a `category.id` won't appear on the live site
-9. **`queryServices().find()` returns the standard QueryResult shape** — read `result.items`, like every other Wix SDK query. Same for `queryStaffMembers().find()`.
+9. **Bookings query responses use named arrays** — read `queryServices({}).services`, `queryStaffMembers({}).staffMembers`, and `queryExtendedBookings(query, options).extendedBookings`.
 10. **Media fields are `wix:image://` strings in SDK** — See `references/MEDIA.md`

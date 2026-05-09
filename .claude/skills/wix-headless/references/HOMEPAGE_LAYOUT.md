@@ -132,8 +132,13 @@ Pull featured content from multiple sources (CMS collections, blog posts, produc
 
 ```astro
 ---
-const featured = (await items.query('MainCollection').descending('score').limit(3).find()).items;
-const team = (await items.query('TeamMembers').limit(6).find()).items;
+const featured = (await items.query('MainCollection', {
+  sort: [{ fieldName: 'score', order: 'DESC' }],
+  paging: { limit: 3 },
+})).items;
+const team = (await items.query('TeamMembers', {
+  paging: { limit: 6 },
+})).items;
 ---
 ```
 

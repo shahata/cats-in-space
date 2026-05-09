@@ -9,8 +9,8 @@ import { likes } from '@wix/blog';
 const FQDN = "wix.blog.v3.post";
 
 // Load ALL likes by current visitor on mount (posts + comments in one call)
-const res = await likes.queryLikes().limit(100).find();
-const likedEntityIds = new Set(res.items.map(l => l.entityId).filter(Boolean));
+const res = await likes.queryLikes({ cursorPaging: { limit: 100 } });
+const likedEntityIds = new Set((res.likes ?? []).map(l => l.entityId).filter(Boolean));
 const postIsLiked = likedEntityIds.has(postId);
 // likedEntityIds also contains comment IDs the visitor liked
 
@@ -327,7 +327,7 @@ Build a single `BlogEngagement` React component (`client:load`) that handles all
 
 ### Likes State Management
 
-- On mount, call `likes.queryLikes().limit(100).find()` to get ALL liked entity IDs (posts + comments)
+- On mount, call `likes.queryLikes({ cursorPaging: { limit: 100 } })` to get ALL liked entity IDs (posts + comments)
 - Store in a `Set<string>` for O(1) lookup
 - Track post like and comment likes separately
 - `createLike` throws `ALREADY_EXISTS` — pre-populate state from query, don't just catch
@@ -396,8 +396,11 @@ const res = await posts.getPostMetrics(postId);
 For metrics, use `queryPosts` — `listPosts` returns zeros for the `METRICS` fieldset in managed headless:
 
 ```typescript
-const result = await posts.queryPosts({ fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] }).find();
-const blogPosts = result.items || [];
+const result = await posts.queryPosts(
+  {},
+  { fieldsets: ['URL', 'RICH_CONTENT', 'METRICS', 'CONTACT_ID', 'REFERENCE_ID'] },
+);
+const blogPosts = result.posts || [];
 ```
 
 ## Reporting Post Views

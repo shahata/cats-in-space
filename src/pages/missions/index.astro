@@ -14,10 +14,11 @@ interface CrewItem {
   image?: string;
 }
 
-const result = await items
-  .query("Missions")
-  .include("planetRef", "crew")
-  .find();
+const result = await items.query(
+  "Missions",
+  {},
+  { includeReferences: [{ field: "planetRef" }, { field: "crew" }] },
+);
 const missions = result.items;
 
 function getStatusBadge(status: string) {

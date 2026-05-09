@@ -20,24 +20,26 @@ const t = i18n.getTranslationFunction();
 // key"). We pull DETAILS (mainImage, recurringEvents.categoryId), FORM, and
 // CATEGORIES — empirically, the genre categories only come back when FORM
 // is also requested (undocumented field coupling in the events query).
-// `.limit()` caps at 200, so we paginate via `.next()` to pick up every
-// showtime across every series.
+// Paginate to pick up every showtime across every series.
 const elevatedQuery = auth.elevate(wixEventsV2.queryEvents);
 const events: Event[] = [];
-let page: wixEventsV2.EventsQueryResult | undefined = await elevatedQuery({
-  fields: [
-    wixEventsV2.RequestedFields.DETAILS,
-    wixEventsV2.RequestedFields.CATEGORIES,
-    wixEventsV2.RequestedFields.FORM,
-  ],
-})
-  .ne("status", wixEventsV2.Status.CANCELED)
-  .limit(200)
-  .find();
-while (page) {
-  events.push(...((page.items ?? []) as Event[]));
-  if (!page.items || page.items.length < 200) break;
-  page = await page.next();
+const eventFields = [
+  wixEventsV2.RequestedFields.DETAILS,
+  wixEventsV2.RequestedFields.CATEGORIES,
+  wixEventsV2.RequestedFields.FORM,
+];
+const eventPageSize = 200;
+for (let offset = 0; ; offset += eventPageSize) {
+  const page = await elevatedQuery(
+    {
+      filter: { status: { $ne: wixEventsV2.Status.CANCELED } },
+      paging: { limit: eventPageSize, offset },
+    },
+    { fields: eventFields },
+  );
+  const pageEvents = (page.events ?? []) as Event[];
+  events.push(...pageEvents);
+  if (pageEvents.length < eventPageSize) break;
 }
 
 // event.categories contains BOTH the user-added genre categories AND the

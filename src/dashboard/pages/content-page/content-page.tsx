@@ -403,11 +403,10 @@ const DashboardPage: FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const result = await items
-          .query(collectionId)
-          .descending("_updatedDate")
-          .limit(100)
-          .find();
+        const result = await items.query(collectionId, {
+          sort: [{ fieldName: "_updatedDate", order: "DESC" }],
+          paging: { limit: 100 },
+        });
         setRows(result.items as DataRow[]);
       } catch (err) {
         console.error(`Failed to load ${collectionId}`, err);
@@ -441,7 +440,9 @@ const DashboardPage: FC = () => {
 
       setRefLoading((prev) => ({ ...prev, [collectionId]: true }));
       try {
-        const result = await items.query(collectionId).limit(200).find();
+        const result = await items.query(collectionId, {
+          paging: { limit: 200 },
+        });
         const displayField = DISPLAY_FIELD_BY_COLLECTION[collectionId];
         const opts: ReferenceOption[] = result.items
           .filter((it): it is { _id: string } & Record<string, unknown> =>

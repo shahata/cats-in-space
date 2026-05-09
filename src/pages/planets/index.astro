@@ -7,10 +7,9 @@ import { getImageUrl } from "../../utils/image";
 import { i18n } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
 
-const result = await items
-  .query("Planets")
-  .descending("habitabilityScore")
-  .find();
+const result = await items.query("Planets", {
+  sort: [{ fieldName: "habitabilityScore", order: "DESC" }],
+});
 const planets = result.items;
 
 function getStatusBadge(status: string) {

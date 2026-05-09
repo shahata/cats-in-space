@@ -21,8 +21,10 @@ function isKnownFrequency(
 }
 
 const elevatedQuery = auth.elevate(donationCampaigns.queryDonationCampaigns);
-const queryRes = await elevatedQuery().ne("archived", true).find();
-const campaigns = queryRes.items || [];
+const queryRes = await elevatedQuery({
+  filter: { archived: { $ne: true } },
+});
+const campaigns = queryRes.donationCampaigns || [];
 
 const elevatedMetrics = auth.elevate(
   donationCampaigns.getDonationCampaignMetrics,

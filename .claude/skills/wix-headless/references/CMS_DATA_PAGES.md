@@ -19,13 +19,15 @@ import { i18n } from '@wix/essentials';
 import { getImageUrl } from '../../utils/image';
 
 const t = i18n.getTranslationFunction();
-const result = await items.query('MyCollection').descending('score').find();
+const result = await items.query('MyCollection', {
+  sort: [{ fieldName: 'score', order: 'DESC' }],
+});
 const allItems = result.items;
 ---
 ```
 
-- **Sort server-side** using `.descending()` or `.ascending()` — avoid client-side sorting when possible
-- **Use `.include()`** for referenced collections (e.g., `.include('locationRef', 'teamMembers')` to fetch related items in one query)
+- **Sort server-side** using `sort: [{ fieldName, order: 'ASC' | 'DESC' }]` — avoid client-side sorting when possible
+- **Use `includeReferences`** for referenced collections (e.g., `{ includeReferences: [{ field: 'locationRef' }, { field: 'teamMembers' }] }` as the direct query options)
 - **No pagination needed** for small datasets — for large datasets, implement cursor-based paging
 
 ### What Every Listing Card Must Show
@@ -80,12 +82,18 @@ Query by slug, redirect on 404, and fetch related data:
 ```astro
 ---
 const { slug } = Astro.params;
-const result = await items.query('MyCollection').eq('slug', slug).find();
+if (!slug) return Astro.redirect('/collection-name');
+const result = await items.query('MyCollection', {
+  filter: { slug },
+  paging: { limit: 1 },
+});
 if (result.items.length === 0) return Astro.redirect('/collection-name');
 const item = result.items[0];
 
 // Fetch related items from other collections
-const related = await items.query('RelatedCollection').eq('parentField', item.title).find();
+const related = await items.query('RelatedCollection', {
+  filter: { parentField: item.title },
+});
 ---
 ```
 

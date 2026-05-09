@@ -10,15 +10,18 @@ import type { members as membersTypes } from "@wix/members";
 import type { membersAbout as membersAboutTypes } from "@wix/members";
 
 const { slug } = Astro.params;
+if (!slug) return Astro.redirect("/");
 
 let member: membersTypes.Member | null = null;
 try {
-  const result = await members
-    .queryMembers({ fieldsets: [members.Set.FULL] })
-    .eq("profile.slug", slug!)
-    .limit(1)
-    .find();
-  member = result.items[0] ?? null;
+  const result = await members.queryMembers(
+    {
+      filter: { "profile.slug": slug },
+      paging: { limit: 1 },
+    },
+    { fieldsets: [members.Set.FULL] },
+  );
+  member = result.members?.[0] ?? null;
 } catch {}
 
 if (!member) return Astro.redirect("/");
@@ -30,13 +33,15 @@ if (member.privacyStatus === members.PrivacyStatusStatus.PRIVATE)
 // Fetch member about
 let aboutContent: membersAboutTypes.RichContent | null = null;
 try {
-  const result = await membersAbout
-    .queryMemberAbouts()
-    .eq("memberId", member._id)
-    .limit(1)
-    .find();
-  if (result.items.length > 0) {
-    aboutContent = result.items[0]!.content ?? null;
+  if (member._id) {
+    const result = await membersAbout.queryMemberAbouts({
+      filter: { memberId: member._id },
+      cursorPaging: { limit: 1 },
+    });
+    const memberAbout = result.memberAbouts?.[0];
+    if (memberAbout) {
+      aboutContent = memberAbout.content ?? null;
+    }
   }
 } catch {}
 

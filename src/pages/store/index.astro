@@ -39,8 +39,8 @@ interface GcProduct {
 let giftCardProductsList: GcProduct[] = [];
 try {
   const elevatedQuery = auth.elevate(giftVoucherProducts.queryGiftCardProducts);
-  const gcResult = await elevatedQuery().limit(10).find();
-  giftCardProductsList = (gcResult.items || []).map((p) => {
+  const gcResult = await elevatedQuery({ cursorPaging: { limit: 10 } });
+  giftCardProductsList = (gcResult.giftCardProducts || []).map((p) => {
     const cv: GcCustomVariant | null = p.customVariant ? {} : null;
     if (cv && p.customVariant?.minValue) {
       cv.minValue = {
@@ -79,17 +79,19 @@ try {
   // Gift card products may not be configured yet
 }
 const hasGiftCards = giftCardProductsList.length > 0;
-const productResult = await productsV3
-  .queryProducts({
+const productResult = await productsV3.queryProducts(
+  {
+    cursorPaging: { limit: 100 },
+  },
+  {
     fields: [
       productsV3.RequestedFields.MEDIA_ITEMS_INFO,
       productsV3.RequestedFields.CURRENCY,
       productsV3.RequestedFields.DIRECT_CATEGORIES_INFO,
     ],
-  })
-  .limit(100)
-  .find();
-const allProducts = productResult.items || [];
+  },
+);
+const allProducts = productResult.products || [];
 
 function formatPrice(product: productsV3Types.V3Product) {
   const currency = product.currency;

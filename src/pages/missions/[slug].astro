@@ -15,11 +15,14 @@ interface CrewItem {
 }
 
 const { slug } = Astro.params;
-const result = await items
-  .query("Missions")
-  .eq("slug", slug)
-  .include("planetRef", "crew")
-  .find();
+const result = await items.query(
+  "Missions",
+  {
+    filter: { slug },
+    paging: { limit: 1 },
+  },
+  { includeReferences: [{ field: "planetRef" }, { field: "crew" }] },
+);
 
 if (result.items.length === 0) {
   return Astro.redirect("/missions");
