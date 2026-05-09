@@ -1,11 +1,11 @@
 ---
-import Layout from "../layouts/Layout.astro";
-import Nav from "../components/Nav.astro";
-import Footer from "../components/Footer.astro";
-import PlanCheckout from "../components/PlanCheckout";
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import PlanCheckout from "../../components/PlanCheckout";
 import { plans } from "@wix/pricing-plans";
 import { i18n } from "@wix/essentials";
-import { formatCurrency, cyclePeriodKey } from "../utils/format";
+import { formatCurrency, cyclePeriodKey } from "../../utils/format";
 const t = i18n.getTranslationFunction();
 const locale = i18n.getLocale();
 
