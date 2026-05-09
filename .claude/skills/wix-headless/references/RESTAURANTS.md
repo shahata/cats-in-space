@@ -255,6 +255,8 @@ The single-form pattern (date + dropdown of fixed times → confirm) is broken: 
 2. **Details** — name (full string, split into first/last on submit), email, phone, optional special requests. Prefill from `members.getCurrentMember` for logged-in users.
 3. **Confirm** — read-only summary of date / time / party / contact, then `createReservation`.
 
+All date and time labels in the wizard must use the active site locale, not the browser default. In React, import `i18n` from `@wix/essentials`, compute `const locale = i18n.getLocale()`, and pass that locale to `toLocaleDateString`, `toLocaleTimeString`, and any `Intl.DateTimeFormat` used by the date input label, "around" hour dropdown, slot buttons, and confirmation summary.
+
 ```typescript
 // Slot fetch: debounced, with cancel-on-rerun, in step "search":
 useEffect(() => {
@@ -275,6 +277,8 @@ useEffect(() => {
 ```
 
 ⛔ **The hour picker derived from `businessSchedule` must handle cross-day periods.** A period with `closeDay !== openDay` (e.g. open Friday → close Saturday at 02:00) means the close time is in the *next* day. If you treat it as same-day you'll generate hours past midnight for the wrong date. Cap end at `24*60 - 1` for cross-day periods. Step at `Math.max(60, timeSlotInterval)` so the dropdown isn't 96 entries long when the location uses 15-min slots.
+
+Derive the displayed "around" hour options as a set of minute values from `businessSchedule.periods`, sort numerically, then format each value with the active locale. Avoid parallel arrays like `hours`, `labels`, and `Date` objects; they drift and are the common source of mixed `19:00` / `7:00 PM` formatting.
 
 ⛔ **Localized slot labels wrap on two lines in narrow grid cells.** `Date.toLocaleTimeString('en-US')` returns `"08:00 PM"` (or with U+202F NNBSP between time and AM/PM in modern Intl). At cell widths below ~95px proportional-font character widths cause some times to wrap (e.g. "08:00 PM" wraps but "07:15 PM" doesn't). Add `white-space: nowrap` on the slot button and use `repeat(auto-fill, minmax(86px, 1fr))` for the grid.
 

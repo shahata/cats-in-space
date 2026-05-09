@@ -79,6 +79,12 @@ Compare status / channel / effective-at / cancellation-cause fields against the 
 
 ## Tab Navigation
 
+### Full Dashboard Parity
+
+Treat `/member` as the user's control center for the whole site, not a profile-only page. If a visitor can buy, donate, reserve, subscribe, book, comment, or attend through a Wix API, the member dashboard should let them view or manage the result.
+
+A complete dashboard can aggregate profile editing, personal info, eCom orders, bookings, event tickets, pricing-plan subscriptions, saved payment methods, and account credentials. Include the tabs that correspond to enabled features and omit only truly unused ones.
+
 ### Tabs to Include
 
 Include these tabs (omit tabs for features the site doesn't use):

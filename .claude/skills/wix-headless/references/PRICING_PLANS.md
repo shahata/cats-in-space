@@ -360,8 +360,8 @@ After checkout, Wix redirects to `thankYouPageUrl` with `?planOrderId=<id>`. Cre
 
 ## Tips
 
-1. **Login required** — Both `createOnlineOrder` and `createRedirectSession` require an active member session
-2. **Free plans** use `createOnlineOrder` directly, paid plans redirect to Wix-hosted checkout
+1. **One checkout path** — Use `redirects.createRedirectSession({ paidPlansCheckout: { planId } })` for every plan. The hosted Wix flow prompts login when needed and handles both free enrollment and paid checkout.
+2. **Do not branch free vs paid** — Do not call `createOnlineOrder` for free plans. The split flow creates inconsistent UX and bypasses the same callback handling used by paid plans.
 3. **`queryPublicPlans`** returns only visible (non-archived) plans
 4. **Plan perks** are strings in `perks.values[]`, not objects with descriptions
 5. **Order has denormalized plan info** — `planName`, `planDescription`, `planPrice` are on the order directly

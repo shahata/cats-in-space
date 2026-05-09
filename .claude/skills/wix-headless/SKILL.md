@@ -11,7 +11,7 @@ This is a routing document. Read the relevant reference guides for implementatio
 
 ## How to Use This Skill
 
-1. **Read the feature checklists below** to understand everything a complete implementation requires
+1. **Read the feature parity guide and feature checklists below** to understand everything a complete implementation requires
 2. **Create tasks for EVERY checklist item** before writing any code — including data seeding steps
 3. **Read the relevant reference guides** (linked below) for each feature area
 4. **After building, re-read the checklist** line by line and verify every item is implemented
@@ -26,6 +26,7 @@ Read the guide that matches your current task. Each guide is self-contained with
 | Guide | When to read |
 |-------|-------------|
 | [SETUP.md](references/SETUP.md) | Scaffolding, key files, CLI commands, SDK packages, translations setup |
+| [FEATURE_PARITY_CHECKLIST.md](references/FEATURE_PARITY_CHECKLIST.md) | Generic Wix integration richness checklist. Read before selecting feature docs for a new site or auditing generated output |
 | [SDK_CORE.md](references/SDK_CORE.md) | Astro+Wix SDK integration, data queries, CMS collections, field types, TypeScript conventions, SDK gotchas |
 | [MEDIA.md](references/MEDIA.md) | `wix:image://` conversion, media helpers, image/video generation (Runware), upload workflow |
 | [SEO.md](references/SEO.md) | SEO tags for dynamic pages — `resolveItemSeoTags`, `seoData`, Layout rendering |
@@ -50,7 +51,7 @@ Read the guide that matches your current task. Each guide is self-contained with
 | [EVENTS.md](references/EVENTS.md) | Ticketed events of any kind (conferences, festivals, classes, screenings, performances) — recurring series, ticket definitions, hosted checkout |
 | [RESTAURANTS.md](references/RESTAURANTS.md) | Menus, items, modifiers, table reservations, online ordering |
 | [MEMBER_AREA.md](references/MEMBER_AREA.md) | Protected routes, tabbed dashboard, profile, orders, subscriptions, payment |
-| [EXTENSIONS.md](references/EXTENSIONS.md) | Backend event listeners (webhooks) and dashboard pages registered via `src/extensions.ts` — `export default` requirement, auth context, building admin UIs with WDS, `dashboard.openMediaManager`, multi-reference write patterns |
+| [EXTENSIONS.md](references/EXTENSIONS.md) | Backend event listeners (webhooks) and dashboard pages registered via `src/extensions.ts` — `export default` requirement, auth context, backoffice/admin UIs with WDS, `dashboard.openMediaManager`, multi-reference write patterns |
 | [TRANSLATIONS_STATIC.md](references/TRANSLATIONS_STATIC.md) | `t()` function, interpolation, RTL, language switcher, locale-aware links |
 | [TRANSLATIONS_CONTENT_API.md](references/TRANSLATIONS_CONTENT_API.md) | Translating dynamic business data (products, services, blog posts, CMS) via API |
 
@@ -59,6 +60,8 @@ Read the guide that matches your current task. Each guide is self-contained with
 ## Cross-Cutting Rules
 
 These apply to every feature area.
+
+Before applying the rules below, cross-check [FEATURE_PARITY_CHECKLIST.md](references/FEATURE_PARITY_CHECKLIST.md) for the feature set you are building or auditing. A complete flow includes listing, detail, interaction, checkout/confirmation, thank-you state, and member-dashboard follow-up where the Wix API supports it.
 
 1. **Media conversion is mandatory** — Convert every `wix:image://` / `wix:video://` SDK string through `getImageUrl()` / `getVideoUrl()` before rendering. See [MEDIA.md](references/MEDIA.md).
 
@@ -136,7 +139,7 @@ Before building any feature area, verify you will implement ALL items from the r
 
 ### Restaurants / Online Ordering
 
-**For any site with a restaurants menu**, the ordering page is a non-trivial app — it is NOT a simple list-with-add-buttons. Treat the cats-in-space `MenuOrderView` as the canonical reference: every item below is required, and a build that ships the lightweight version will fail the restaurants SPI at checkout. See [RESTAURANTS.md](references/RESTAURANTS.md) for the SDK-level details.
+**For any site with a restaurants menu**, the ordering page is a non-trivial app — it is NOT a simple list-with-add-buttons. Treat the fully featured ordering component pattern in [RESTAURANTS.md](references/RESTAURANTS.md) as the baseline: every item below is required, and a build that ships the lightweight version will fail the restaurants SPI at checkout.
 
 - [ ] **Wix cart is the source of truth from the first click** — every "+", "−", and modal confirm calls `currentCart.addToCurrentCart` / `updateCurrentCartLineItemQuantity` / `removeLineItemsFromCurrentCart` immediately. Never run a local `Record<string, number>` and call `addToCurrentCart` only at checkout — the dispatch race + empty-cart 404 + restaurants SPI validation all break that pattern.
 - [ ] **Catalog options shape**: `{ operationId, menuId, menuSectionId, priceVariant?, modifierGroups? }`. Camelcase `menuSectionId`, never `sectionId`. Never invent fields like `fulfillmentType`/`mode` here — they are silently dropped.
@@ -163,9 +166,9 @@ See [DONATIONS.md](references/DONATIONS.md) for the full flow — the Donations 
 - [ ] Install Wix Donations app (one-time) and `npm install @wix/donations`
 - [ ] Seed campaigns with name, `donationFrequencies`, `campaignGoal.targetAmount`, at least one of `customAmountEnabled` / `predefinedDonationAmounts`, plus `commentsEnabled`, `askDonorCoverFee` as appropriate
 - [ ] Generate AI cover images, import via `/site-media/v1/files/import`, attach via REST PATCH with `fieldMask.paths: ["coverImage"]` (SDK `coverImage: string` disagrees with runtime object shape)
-- [ ] Listing page (e.g. `/research`) — card per campaign with progress bar (via `getDonationCampaignMetrics`), donor count, and inline donate UI
+- [ ] Listing page (e.g. `/donate`) — card per campaign with progress bar (via `getDonationCampaignMetrics`), donor count, and inline donate UI
 - [ ] Donate component — preset/custom amount, frequency (if >1), donor-fee opt-in (if `askDonorCoverFee`), note textarea (if `commentsEnabled`); submit adds to cart with donation `catalogReference` → creates checkout → attaches note via `checkout.updateCheckout(id, { buyerNote })` if present → `createRedirectSession` with `preferences: { checkIfPublish: true }`
-- [ ] Thank-you page (e.g. `/research/thank-you`)
+- [ ] Thank-you page (e.g. `/donate/thank-you`)
 - [ ] Graceful "no goal" UI: hide progress bar when `campaignGoal.targetAmount` is missing/0
 - [ ] Render-time compatibility: treat `coverImage` as `string | { id, url, ... } | undefined`
 

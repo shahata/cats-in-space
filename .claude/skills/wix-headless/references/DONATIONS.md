@@ -129,6 +129,20 @@ const donorCount = first?.donationCount ?? 0;
 
 `campaignGoal` must be set for metrics to work; otherwise returns `CAMPAIGN_GOAL_NOT_SET`.
 
+## Campaign Listing UX Parity
+
+A donation page should feel like a fundraising product, not a static "support us" form. For each campaign card, render:
+
+- Cover image with fallback, campaign name, and description.
+- Raised amount, target amount, progress percent, and donor count from `getDonationCampaignMetrics`.
+- A progress bar only when `campaignGoal.targetAmount` exists and is greater than zero.
+- Preset amount buttons when `predefinedDonationAmounts` exists.
+- Custom amount input when `customAmountEnabled` is true, with min/max validation.
+- Frequency selector only when the campaign supports more than one frequency.
+- Donor-fee checkbox only when `askDonorCoverFee` is true.
+- Donor note textarea only when `commentsEnabled` is true.
+- Clear disabled/closed/archived state when the campaign cannot accept donations.
+
 ---
 
 ## Donation Checkout Flow
@@ -163,8 +177,8 @@ if (note && checkoutId) {
 const { redirectSession } = await redirects.createRedirectSession({
   ecomCheckout: { checkoutId: checkoutId! },
   callbacks: checkoutCallbacks({
-    thankYouPagePath: "/research/thank-you",
-    postFlowPath: "/research",
+    thankYouPagePath: "/donate/thank-you",
+    postFlowPath: "/donate",
   }),
   preferences: { checkIfPublish: true },
 });
@@ -207,10 +221,10 @@ When listing eCom orders (e.g. in the member Orders tab), donation line items ar
 - [ ] `@wix/donations` installed
 - [ ] Campaigns seeded with: name, `donationFrequencies`, `campaignGoal.targetAmount`, one of `customAmountEnabled` / `predefinedDonationAmounts`, optional `commentsEnabled`, `askDonorCoverFee`
 - [ ] Cover image generated + imported via `site-media/v1/files/import` + attached via PATCH with `fieldMask.paths: ["coverImage"]`
-- [ ] `/research` listing page renders cards: name, cover, progress bar (from `getDonationCampaignMetrics`), donor count, donate UI
+- [ ] `/donate` listing page renders cards: name, cover, progress bar (from `getDonationCampaignMetrics`), donor count, donate UI
 - [ ] Donate UI: pick amount (predefined or custom), pick frequency (if >1), donor-fee opt-in (if `askDonorCoverFee`), note textarea (if `commentsEnabled`)
 - [ ] Donate submit adds to cart with donation `catalogReference` → creates checkout → updates `buyerNote` if note present → redirects
-- [ ] Thank-you page at `/research/thank-you`
+- [ ] Thank-you page at `/donate/thank-you`
 - [ ] No-goal UI: hide progress bar when `campaignGoal.targetAmount` is missing/0
 - [ ] Render: handle `coverImage` as both string and object shape
 - [ ] Member Orders tab: donation line items get a distinct badge via `catalogReference.appId`

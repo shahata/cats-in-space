@@ -8,6 +8,16 @@ The CMS / Wix Data app must be installed before any `/wix-data/v2/*` call works 
 
 ## Listing Page
 
+### Feature-Rich CMS Modeling Pattern
+
+CMS pages should model the requested domain with enough structure to feel like an application, not a flat gallery. A good implementation usually has:
+
+- **Primary entities** — the main things visitors browse, with images, summaries, status, ranking/priority, numeric metrics, and detail pages.
+- **Supporting entities** — people, places, teams, departments, categories, resources, or organizations connected by references.
+- **Activity or relationship entities** — projects, appointments, case studies, assignments, locations, schedules, portfolio items, inventory records, or other records that connect the primary and supporting entities.
+
+For example, a real estate site might use Properties, Agents, and Neighborhoods; a school might use Courses, Teachers, and Programs; a studio might use Classes, Instructors, and Locations. The exact collections should come from the user's requested site, but the UX target is the same: listings show useful metadata, details explain the full record, and references become visible navigation between entities.
+
 ### Data Fetching
 
 Fetch all items server-side in Astro frontmatter:
@@ -38,6 +48,8 @@ const allItems = result.items;
 4. **Key metadata** — 2-3 important fields (dates, numbers, categories)
 5. **Brief description** — truncated to ~120 characters
 6. **Distinguishing detail** — tag, role label, rank number — something that differentiates each card
+
+When the API provides numeric or stateful fields, render them. Do not hide fields like `status`, `rank`, `progress`, `score`, `capacity`, `difficulty`, or `startDate` just because the card already has a title and image. These fields are what make generated sites feel like applications rather than static galleries.
 
 ### Image Fallbacks
 
@@ -117,6 +129,12 @@ Display referenced entities with small image previews and names. For multiple pe
 ### Conditional Sections
 
 Only render related-items sections when there are items to show. Don't show empty headers or containers.
+
+### Optional CMS Management Dashboard
+
+If the site includes a custom dashboard page for CMS management, it should manage the same collections that power the public pages. The admin UI should support add, edit, delete, image picking, single references, multi-references, status badges, and refresh.
+
+Dashboard extensions are general backoffice surfaces, not only CMS editors. Use [EXTENSIONS.md](EXTENSIONS.md) for the `@wix/dashboard`, WDS, media picker, side panel, and admin-auth patterns; use `items.replaceReferences()` when that dashboard edits CMS multi-reference fields.
 
 ## Translations
 

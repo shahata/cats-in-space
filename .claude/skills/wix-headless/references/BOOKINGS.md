@@ -62,7 +62,7 @@ Body: {
 
 ```
 POST https://www.wixapis.com/bookings/v2/categories
-Body: { "category": { "name": "Medical Bay" } }
+Body: { "category": { "name": "Consultations" } }
 ```
 
 Query existing: `POST https://www.wixapis.com/bookings/v2/categories/query` with `{ "query": {} }`
@@ -151,6 +151,16 @@ Notable shape: `service.staffMemberIds` holds resource IDs (not staff IDs); `ser
 The TS6387 `@deprecated` hints at V1 call sites are expected. Astro check categorises them as hints (not errors or warnings), so the deploy gate still passes. When Wix ships a V2-aware `bookingsCheckout`, migrate the whole flow at once.
 
 **V1's "any staff" duplication trap:** `availabilityCalendar.queryAvailability` returns one entry per `(time, resource)` pair, not per time. With 8 staff who can each do 11:00 AM, you get 8 entries at "11:00 AM". This only matters when "Any staff" is allowed — pass `resourceId: [selectedStaff]` and you get one entry per time. For a true "Any staff" UX, either dedupe client-side by `slot.startDate` or list with V2 for that screen and re-query V1 at checkout.
+
+### Booking UX Parity
+
+A complete bookings page should render the same information users expect from Wix Bookings:
+
+- Service listing cards with image, category, duration, price/payment mode, staff/provider names, and short description.
+- Detail page with service description, selected staff/provider, date picker, available time slots, and checkout button.
+- Availability queries use the site's time zone and display slot labels with `i18n.getLocale()`.
+- Logged-in member data can prefill buyer/contact fields when the flow collects them locally.
+- After booking, the member dashboard Bookings tab lists upcoming and past bookings with locale-formatted date/time, status badge, cancel action, and reschedule link.
 
 ### Step 1: List slots (V1 — canonical for staff-pre-selected flows)
 
@@ -273,7 +283,7 @@ await bookings.cancelBooking(bookingId, {
 
 A good bookings listing page has three sections:
 
-1. **Staff section** — grid of medical/service staff with photos, names, roles, descriptions
+1. **Staff section** — grid of providers or service staff with photos, names, roles, descriptions
 2. **Services section** — grid of service cards with images, pricing, duration, assigned staff
 3. **Policy note** — informational box about booking/cancellation policy
 

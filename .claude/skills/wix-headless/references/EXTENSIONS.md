@@ -149,7 +149,9 @@ Headless Astro deploys to Cloudflare Workers — no persistent filesystem. `cons
 
 ## Dashboard Page Extensions
 
-Custom admin pages rendered inside `manage.wix.com`. Use for: viewing/managing data the standard CMS can't model nicely, app-specific reports, multi-step admin workflows.
+Custom admin pages rendered inside `manage.wix.com`. Use them for any site-owner or backoffice capability that should be available to admins: operational dashboards, custom reports, approval queues, fulfillment tools, moderation tools, workflow automation controls, integration settings, customer-service screens, content management, and multi-step admin workflows.
+
+Dashboard extensions are not limited to CMS item management. A CMS-style editor is only one common pattern; the same dashboard surface can orchestrate almost any admin-only task that is useful for the site's business logic.
 
 ### File pattern
 
@@ -218,9 +220,11 @@ dashboard.showToast({ message: "Failed", type: "error" });
 
 ---
 
-## Building CMS-Style Admin UIs in Dashboard Pages
+## Common Admin UI Patterns
 
-A common pattern: tabs of collections, table per tab, inline add/edit/delete. The pieces:
+Dashboard pages usually combine WDS building blocks into backoffice tools. For CMS-style management, a common pattern is tabs of collections, table per tab, inline add/edit/delete. The same components also work for reports, approval queues, settings screens, order operations, and support workflows.
+
+For CMS-style CRUD, the pieces are:
 
 | Need | WDS component | Notes |
 |---|---|---|
@@ -288,10 +292,10 @@ Use `media.getScaledToFillImageUrl(uri, 80, 80, {})` for `wix:image://` URIs, th
 Stored as the referenced item's `_id`. Set inline via `items.insert` / `items.update`:
 
 ```typescript
-await items.insert("Missions", {
-  title: "Andromeda Run",
-  slug: "andromeda-run",
-  planetRef: planet._id,  // single REFERENCE — inline is fine
+await items.insert("Projects", {
+  title: "Launch Redesign",
+  slug: "launch-redesign",
+  clientRef: client._id,  // single REFERENCE — inline is fine
 });
 ```
 
@@ -304,10 +308,10 @@ import { items } from "@wix/data";
 
 // After a successful insert/update, sync the multi-ref list:
 await items.replaceReferences(
-  "CatExplorers",     // collection
-  "crew",             // multi-ref field key
-  explorerId,         // referring item _id
-  [missionA, missionB] // referenced _id[] (empty array clears all)
+  "Projects",              // collection
+  "contributors",          // multi-ref field key
+  projectId,               // referring item _id
+  [personA, personB],      // referenced _id[] (empty array clears all)
 );
 ```
 

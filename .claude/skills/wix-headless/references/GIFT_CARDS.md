@@ -190,7 +190,7 @@ options.giftingInfo = {
 };
 // Sender is derived server-side from the checkout identity — not configurable here.
 
-// Add to cart
+// Shared add helper. Use this for both "Add to Cart" and "Buy Now".
 await currentCart.addToCurrentCart({
   lineItems: [{
     quantity: 1,
@@ -202,7 +202,9 @@ await currentCart.addToCurrentCart({
   }],
 });
 
-// Checkout (same pattern as regular products)
+window.dispatchEvent(new CustomEvent("cart-updated"));
+
+// Buy Now only: checkout after adding (same pattern as regular products)
 const { checkoutId } = await currentCart.createCheckoutFromCurrentCart({
   channelType: "WEB",
 });
@@ -285,7 +287,10 @@ const products = (result.giftCardProducts ?? []).map(p => ({
 3. **Price display** — always show the cost; when discounted, show strikethrough value + actual price
 4. **Variant image** — update image when user selects a variant; fall back to product image
 5. **Recipient form** — email, name, optional message for gifting
-6. **Buy Now button** — triggers `addToCurrentCart` → `createCheckoutFromCurrentCart` → redirect
+6. **Add to Cart button** — validates amount + recipient fields, calls `addToCurrentCart`, dispatches `cart-updated`, shows success/error feedback, and does not redirect
+7. **Buy Now button** — reuses the same cart line builder, then calls `createCheckoutFromCurrentCart` and redirects
+
+Gift cards should match regular product ergonomics. If the store product card/detail page offers both Add to Cart and Buy Now, gift cards must offer both too. The customer may want to add a gift card alongside physical products, restaurant items, or donations before checking out.
 
 ## Gift Card Instance APIs (Management)
 
@@ -355,3 +360,4 @@ For headless, locale JSON files in `.wix/multilingual/translations/` are the sou
 7. **Gift card products may not exist** — wrap the query in try/catch; only show the gift cards tab when products are available
 8. **No translation schema for gift card products** — the Gift Cards app doesn't register schemas in the Translation Content API; product names/descriptions can't be translated via API
 9. **Do NOT use `checkout.createCheckout` with `customLineItems`** — gift cards are catalog items; use `currentCart.addToCurrentCart` with the proper `catalogReference` and `GIFT_CARDS_APP_ID`
+10. **Add to Cart is not Buy Now** — Add to Cart stops after `addToCurrentCart` and dispatches `cart-updated`; Buy Now adds the same line item and then creates checkout

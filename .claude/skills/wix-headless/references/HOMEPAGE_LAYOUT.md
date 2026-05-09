@@ -157,6 +157,19 @@ Optional: **Scrolling ticker/banner** for announcements.
 
 Each section should link to its full listing page ("View all products", "See all team members", etc.).
 
+### Multi-Vertical Feature Directory
+
+For a site with several Wix business features, the homepage should make those features discoverable in the first visit. Combine brand storytelling with real cards and metrics from the requested integrations, such as CMS, store, blog, events, bookings, donations, restaurant, and plans as applicable.
+
+Avoid a homepage that only has a hero and generic marketing copy while the real functionality is hidden in navigation. The homepage should answer "what can I do here?" with direct, data-backed entry points:
+
+- Featured CMS entities and stats.
+- Featured products or categories.
+- Upcoming events or bookable services.
+- Recent blog posts with tags/metrics.
+- Donation or membership CTA with real campaign/plan data.
+- Restaurant ordering/reservation CTAs if those flows exist.
+
 ## Cart Sidebar
 
 Only needed when the site has a store. Renders globally in the layout.

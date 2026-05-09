@@ -228,6 +228,20 @@ Fieldsets for `queryAvailableTicketDefinitions`:
 - `POLICY` → refund/transfer policy
 - `EVENT_DETAILS` → denormalized event info
 
+## Event Listing and Detail UX Parity
+
+Recurring, ticketed event pages should include:
+
+- Listing pages group sibling occurrences by `dateAndTimeSettings.recurringEvents.categoryId` so visitors see one card per series, not dozens of duplicate cards.
+- Cards show the representative image, title, short description, next upcoming date/time, location, manual category badges, and a CTA to the stable series detail route.
+- Detail pages resolve the stable series slug to the earliest upcoming sibling, then load all siblings so the visitor can pick another date/showtime without navigating away.
+- Ticket quantity state is keyed by ticket-definition name, not `_id`, so quantities survive switching between sibling occurrences whose ticket definition IDs differ.
+- When the selected occurrence changes, re-query `ticketDefinitionsV2.queryAvailableTicketDefinitions` for that event before reserving tickets.
+- The thank-you page fetches the order and event, then shows ticket PDF and calendar actions when available.
+- The member area renders event purchases in a dedicated Tickets tab, not the generic eCom Orders tab.
+
+This pattern applies to classes, screenings, concerts, workshops, and conferences. Rename the labels for the domain, but keep the series grouping, occurrence selector, ticket refresh, hosted redirect, thank-you actions, and member-ticket follow-up.
+
 ## Categories
 
 `categoriesApi` has MANUAL (user-created tracks/genres/themes) and RECURRING_EVENT (auto-generated series key) states.

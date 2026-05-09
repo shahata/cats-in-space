@@ -50,7 +50,7 @@ Example `src/translations.json`:
 {
   "nav.home": "Home",
   "nav.shop": "Shop",
-  "nav.missions": "Missions",
+  "nav.services": "Services",
   "common.addToCart": "Add to Cart",
   "common.bookNow": "Book Now"
 }
@@ -61,7 +61,7 @@ Example `.wix/multilingual/translations/ja.json`:
 {
   "nav.home": "ホーム",
   "nav.shop": "ショップ",
-  "nav.missions": "ミッション",
+  "nav.services": "サービス",
   "common.addToCart": "カートに追加",
   "common.bookNow": "今すぐ予約"
 }
@@ -104,7 +104,7 @@ For headless, the locale JSON files in `.wix/multilingual/translations/` are the
 When you add any new `t('foo.bar')` call, two things must happen or the site will render raw key paths to real visitors:
 
 1. **Add the key to `src/translations.json`** (English / primary language source).
-2. **Add the key to EVERY locale file** under `.wix/multilingual/translations/*.json`. Missing keys in a locale file render as the raw key path (e.g. `"research.pageTitle"`) to visitors browsing in that language — they do NOT fall back to the primary language.
+2. **Add the key to EVERY locale file** under `.wix/multilingual/translations/*.json`. Missing keys in a locale file render as the raw key path (e.g. `"feature.pageTitle"`) to visitors browsing in that language — they do NOT fall back to the primary language.
 3. **Restart the dev server.** Translations are loaded once during `astro:config:setup` and baked into a Vite `define` constant (`__WIX_ASTRO_I18N__`). The dev server does NOT hot-reload translation files. If a new key still renders as a raw key path after adding it, you forgot to restart.
 
 After multi-file edits, validate JSON syntax with `node -e "JSON.parse(require('fs').readFileSync('<file>','utf8'))"` to catch mismatched braces before build.

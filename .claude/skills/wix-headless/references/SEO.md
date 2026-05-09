@@ -122,9 +122,7 @@ const hasSeoDescription = activeSeoTags.some(
 | `/blog/[slug]` | Blog post | `post.seoData.tags` (with `'SEO'` fieldset) |
 | `/tickets/[slug]` | Event | No SDK SEO — use `title` prop only |
 | `/restaurant/[slug]` | Menu item | No SDK SEO — use `title` prop only |
-| `/crew/[slug]` | CMS item | No SDK SEO — use `title` prop only |
-| `/missions/[slug]` | CMS item | No SDK SEO — use `title` prop only |
-| `/planets/[slug]` | CMS item | No SDK SEO — use `title` prop only |
+| `/cms-item/[slug]` | CMS item | No SDK SEO — use `title` prop only |
 | `/member/[slug]` | Member | No SDK SEO — use `title` prop only |
 
 ## Quick reference
