@@ -11,15 +11,19 @@ Gift card products are eCommerce catalog items with their own appId (`d80111c5-a
 
 ## Setup
 
-Install the Wix Gift Cards app via the Apps Installer API (appDefId `d80111c5-a0f4-47a8-b63a-65b54d774a27`):
+Gift cards are **opt-in** for an online store. Build the UI surface (page/component, cart integration, member-orders badging) so the site is gift-card-ready, but do **not** install the Wix Gift Cards app during initial site generation. The entry point auto-hides while the app isn't installed (see "Conditional Gift Cards Nav Link" below) — visitors see no gift-card surface until the site owner is ready to sell them.
+
+`npm install @wix/gift-vouchers` is part of the build (the SDK has no runtime side effects until queried) so the UI compiles cleanly:
+
+```bash
+npm install @wix/gift-vouchers
+```
+
+Install the app only when the user explicitly asks for gift cards to go live (appDefId `d80111c5-a0f4-47a8-b63a-65b54d774a27`):
 
 ```http
 POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
 Body: { "tenant": { "tenantType": "SITE", "id": "<siteId>" }, "appInstance": { "appDefId": "d80111c5-a0f4-47a8-b63a-65b54d774a27", "enabled": true } }
-```
-
-```bash
-npm install @wix/gift-vouchers
 ```
 
 Imports:
@@ -110,7 +114,13 @@ const products = result.items; // GiftCardProduct[]
 
 ## Conditional Gift Cards Nav Link
 
-Build the Gift Cards page so it's available once products are added, but gate its nav link on a live `queryGiftCardProducts` check in `Layout.astro`. The link then auto-hides when no products exist and auto-shows when any are defined — no code change when the site owner adds or removes gift card products.
+Build the Gift Cards page so it's available once the app is installed and products are added, but gate its nav link on a live `queryGiftCardProducts` check in `Layout.astro`. The check has to handle three states without a code change:
+
+1. **App not installed** — `queryGiftCardProducts` throws (`APP_NOT_INSTALLED`); the try/catch swallows it.
+2. **App installed, no products yet** — query succeeds with `items.length === 0`.
+3. **App installed with products** — link renders.
+
+The same `hasGiftCards` boolean drives both outcomes, so installing the app and adding the first product is the only thing that flips the entry point on. Removing all products (or uninstalling the app) hides it again.
 
 ```astro
 ---
