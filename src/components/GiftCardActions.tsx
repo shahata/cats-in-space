@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { currentCart } from "@wix/ecom";
+import type { cart as cartTypes } from "@wix/ecom";
 import { redirects } from "@wix/redirects";
 import { i18n } from "@wix/essentials";
 import { GIFT_CARDS_APP_ID } from "../utils/appIds";
@@ -43,16 +44,20 @@ export default function GiftCardActions({
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<"cart" | "buy" | null>(null);
+  const [status, setStatus] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const isCustom = selectedVariantId === CUSTOM_VARIANT_ID;
   const selectedPreset = presetVariants.find(
     (v) => v._id === selectedVariantId,
   );
   const parsedCustom = parseFloat(customAmount);
-  const canBuy =
-    selectedVariantId && (!isCustom || parsedCustom > 0) && !loading;
+  const canSubmit = Boolean(
+    selectedVariantId && (!isCustom || parsedCustom > 0),
+  );
 
   // Current image: variant image > product image
   const currentImage = selectedPreset?.image || productImage || null;
@@ -66,48 +71,78 @@ export default function GiftCardActions({
     : 0;
   const hasDiscount = selectedPreset && priceAmount < valueAmount;
 
-  const handleBuyNow = async () => {
-    if (!canBuy) return;
-    setLoading(true);
-    setError(null);
+  const buildCatalogReference = (): cartTypes.CatalogReference => {
+    const options: Record<string, unknown> = {
+      quantity: 1,
+      currency: "USD",
+      wixGiftCardsAppNewCatalog: true,
+    };
+
+    if (isCustom) {
+      options.customAmount = parsedCustom;
+    } else {
+      options.variantId = selectedVariantId;
+    }
+
+    if (recipientEmail) {
+      const nameParts = recipientName.split(" ").filter(Boolean);
+      const giftingInfo: Record<string, unknown> = {
+        recipientInfo: {
+          firstName: nameParts[0] || "",
+          lastName: nameParts.slice(1).join(" "),
+          email: recipientEmail,
+        },
+      };
+      if (message) {
+        giftingInfo.greetingMessage = message;
+      }
+      options.giftingInfo = giftingInfo;
+    }
+
+    return {
+      appId: GIFT_CARDS_APP_ID,
+      catalogItemId: productId,
+      options,
+    };
+  };
+
+  const addToCart = async () => {
+    if (!canSubmit || loading) return;
+    setLoading("cart");
+    setStatus(null);
 
     try {
-      const options: Record<string, unknown> = {
-        quantity: 1,
-        currency: "USD",
-        wixGiftCardsAppNewCatalog: true,
-      };
-
-      if (isCustom) {
-        options.customAmount = parsedCustom;
-      } else {
-        options.variantId = selectedVariantId;
-      }
-
-      if (recipientEmail) {
-        const nameParts = recipientName.split(" ").filter(Boolean);
-        const giftingInfo: Record<string, unknown> = {
-          recipientInfo: {
-            firstName: nameParts[0] || "",
-            lastName: nameParts.slice(1).join(" "),
-            email: recipientEmail,
-          },
-        };
-        if (message) {
-          giftingInfo.greetingMessage = message;
-        }
-        options.giftingInfo = giftingInfo;
-      }
-
       await currentCart.addToCurrentCart({
         lineItems: [
           {
             quantity: 1,
-            catalogReference: {
-              appId: GIFT_CARDS_APP_ID,
-              catalogItemId: productId,
-              options,
-            },
+            catalogReference: buildCatalogReference(),
+          },
+        ],
+      });
+      setStatus({ type: "success", text: t("product.addedToCart") });
+      window.dispatchEvent(new CustomEvent("cart-updated"));
+    } catch (e) {
+      setStatus({
+        type: "error",
+        text: e instanceof Error ? e.message : t("product.failedAddToCart"),
+      });
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!canSubmit || loading) return;
+    setLoading("buy");
+    setStatus(null);
+
+    try {
+      await currentCart.addToCurrentCart({
+        lineItems: [
+          {
+            quantity: 1,
+            catalogReference: buildCatalogReference(),
           },
         ],
       });
@@ -129,8 +164,11 @@ export default function GiftCardActions({
         window.location.href = redirectSession.fullUrl;
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-      setLoading(false);
+      setStatus({
+        type: "error",
+        text: e instanceof Error ? e.message : t("product.failedCheckout"),
+      });
+      setLoading(null);
     }
   };
 
@@ -164,7 +202,7 @@ export default function GiftCardActions({
               className={`gc-amount-btn ${selectedVariantId === v._id ? "active" : ""}`}
               onClick={() => {
                 setSelectedVariantId(v._id);
-                setError(null);
+                setStatus(null);
               }}
             >
               {v.value.formattedAmount}
@@ -175,7 +213,7 @@ export default function GiftCardActions({
               className={`gc-amount-btn gc-custom-btn ${isCustom ? "active" : ""}`}
               onClick={() => {
                 setSelectedVariantId(CUSTOM_VARIANT_ID);
-                setError(null);
+                setStatus(null);
               }}
             >
               {t("store.gcCustomAmount")}
@@ -237,15 +275,28 @@ export default function GiftCardActions({
         </div>
       </div>
 
-      <button
-        className="gc-purchase-btn"
-        disabled={!canBuy}
-        onClick={handleBuyNow}
-      >
-        {loading ? t("store.gcProcessing") : t("store.gcBuyNow")}
-      </button>
+      <div className="gc-action-buttons">
+        <button
+          className="gc-purchase-btn gc-cart-btn"
+          disabled={!canSubmit || loading !== null}
+          onClick={addToCart}
+        >
+          {loading === "cart" ? t("product.adding") : t("product.addToCart")}
+        </button>
+        <button
+          className="gc-purchase-btn gc-buy-btn"
+          disabled={!canSubmit || loading !== null}
+          onClick={handleBuyNow}
+        >
+          {loading === "buy" ? t("store.gcProcessing") : t("store.gcBuyNow")}
+        </button>
+      </div>
 
-      {error && <div className="gc-status gc-status-error">{error}</div>}
+      {status && (
+        <div className={`gc-status gc-status-${status.type}`}>
+          {status.text}
+        </div>
+      )}
     </div>
   );
 }

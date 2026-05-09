@@ -260,9 +260,7 @@ function getCollections(
                     productsV3.InventoryAvailabilityStatus.OUT_OF_STOCK &&
                     (product.inventory?.preorderStatus ===
                     productsV3.PreorderStatus.ENABLED ? (
-                      <span class="preorder-badge">
-                        {t("store.preOrder")}
-                      </span>
+                      <span class="preorder-badge">{t("store.preOrder")}</span>
                     ) : (
                       <span class="oos-badge">{t("store.outOfStock")}</span>
                     ))}
@@ -690,14 +688,17 @@ function getCollections(
     border-color: var(--accent);
   }
 
+  .gc-action-buttons {
+    display: flex;
+    gap: 10px;
+  }
+
   .gc-purchase-btn {
-    width: 100%;
+    flex: 1;
     padding: 14px;
     font-family: var(--font-heading);
     font-size: 1rem;
     letter-spacing: 1px;
-    background: var(--accent);
-    color: #000;
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -705,8 +706,23 @@ function getCollections(
     font-weight: 700;
   }
 
-  .gc-purchase-btn:hover:not(:disabled) {
+  .gc-cart-btn {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .gc-cart-btn:hover:not(:disabled) {
+    background: #ff8533;
+    transform: translateY(-1px);
+  }
+
+  .gc-buy-btn {
     background: var(--accent-yellow);
+    color: #000;
+  }
+
+  .gc-buy-btn:hover:not(:disabled) {
+    background: #ffd633;
     transform: translateY(-1px);
   }
 
@@ -727,6 +743,12 @@ function getCollections(
     background: rgba(244, 67, 54, 0.15);
     color: #f44336;
     border: 1px solid rgba(244, 67, 54, 0.3);
+  }
+
+  .gc-status-success {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
   }
 
   .gc-image {
@@ -761,5 +783,11 @@ function getCollections(
     font-size: 1.4rem;
     font-weight: 700;
     color: var(--accent-yellow);
+  }
+
+  @media (max-width: 480px) {
+    .gc-action-buttons {
+      flex-direction: column;
+    }
   }
 </style>

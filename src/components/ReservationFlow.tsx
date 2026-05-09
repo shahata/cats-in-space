@@ -30,6 +30,9 @@ const DAY_BY_INDEX = [
   "SATURDAY",
 ] as const;
 
+const MINUTES_IN_DAY = 24 * 60;
+const PREFERRED_DINNER_TIME = "19:00";
+
 interface Props {
   reservationLocationId: string;
   businessSchedule: TimePeriod[];
@@ -41,6 +44,25 @@ interface Props {
 
 type Step = "search" | "details" | "confirm";
 
+function timeToMinutes(time = "00:00") {
+  const [hours = 0, minutes = 0] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToTime(totalMinutes: number) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function minuteOptions(start: number, end: number, step: number) {
+  if (end < start) return [];
+  return Array.from(
+    { length: Math.floor((end - start) / step) + 1 },
+    (_, i) => start + i * step,
+  );
+}
+
 export default function ReservationFlow({
   reservationLocationId,
   businessSchedule,
@@ -51,6 +73,14 @@ export default function ReservationFlow({
 }: Props) {
   const t = i18n.getTranslationFunction();
   const locale = i18n.getLocale();
+  const timeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    [locale],
+  );
 
   const [step, setStep] = useState<Step>("search");
   const [partySize, setPartySize] = useState(2);
@@ -83,40 +113,29 @@ export default function ReservationFlow({
   const hours = useMemo(() => {
     if (!selectedDate || businessSchedule.length === 0) return [];
     const day = DAY_BY_INDEX[new Date(`${selectedDate}T12:00:00`).getDay()];
-    const minutes = new Set<number>();
     // The picker is a rough starting point; the API returns fine-grained slots around it.
     // Step at 60 min (or the location's interval if coarser) to keep the dropdown short.
     const step = Math.max(60, timeSlotInterval);
-    for (const period of businessSchedule) {
-      if (period.openDay !== day) continue;
-      const [openH, openM] = (period.openTime || "00:00")
-        .split(":")
-        .map(Number);
-      const [closeH, closeM] = (period.closeTime || "24:00")
-        .split(":")
-        .map(Number);
-      const start = (openH ?? 0) * 60 + (openM ?? 0);
+    const minutes = businessSchedule.flatMap((period) => {
+      if (period.openDay !== day) return [];
+
+      const start = timeToMinutes(period.openTime || "00:00");
       const endsNextDay = period.closeDay && period.closeDay !== day;
-      // Same-day periods: `closeTime` is the last allowed reservation start — include it.
-      // Cross-day periods: stop before midnight of the start day.
       const end = endsNextDay
-        ? 24 * 60 - 1
-        : (closeH ?? 0) * 60 + (closeM ?? 0);
-      for (let m = start; m <= end; m += step) minutes.add(m);
-    }
-    return [...minutes]
-      .sort((a, b) => a - b)
-      .map(
-        (m) =>
-          `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`,
-      );
+        ? MINUTES_IN_DAY - 1
+        : timeToMinutes(period.closeTime || "24:00");
+
+      return minuteOptions(start, end, step);
+    });
+
+    return [...new Set(minutes)].sort((a, b) => a - b).map(minutesToTime);
   }, [selectedDate, businessSchedule, timeSlotInterval]);
 
   useEffect(() => {
     if (hours.length === 0) return;
     if (!hours.includes(selectedHour)) {
       const evening =
-        hours.find((h) => h >= "19:00") ??
+        hours.find((h) => h >= PREFERRED_DINNER_TIME) ??
         hours[Math.floor(hours.length / 2)] ??
         hours[0];
       if (evening) setSelectedHour(evening);
@@ -133,10 +152,13 @@ export default function ReservationFlow({
 
   function formatSlotTime(startDate: Date | null | undefined) {
     if (!startDate) return "";
-    return new Date(startDate).toLocaleTimeString(locale, {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return timeFormatter.format(new Date(startDate));
+  }
+
+  function formatTimeValue(timeValue: string) {
+    const date = selectedDate || minDate || "2000-01-01";
+    const parsed = new Date(`${date}T${timeValue}:00`);
+    return isNaN(parsed.getTime()) ? timeValue : timeFormatter.format(parsed);
   }
 
   function slotKey(slot: TimeSlot): string {
@@ -343,7 +365,7 @@ export default function ReservationFlow({
               >
                 {hours.map((h) => (
                   <option key={h} value={h}>
-                    {h}
+                    {formatTimeValue(h)}
                   </option>
                 ))}
               </select>
