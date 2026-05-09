@@ -147,7 +147,7 @@ Headless Astro deploys to Cloudflare Workers — no persistent filesystem. `cons
 
 ### Required permissions
 
-Each event has a permission scope (e.g., "Read Orders" → `SCOPE.STORES.READ-ORDERS` for `orders.onOrderCreated`). Without it, the webhook never fires. Manual step: grant the scope in the Wix Dev Center Permissions page for this project.
+Each event has a permission scope (e.g. `SCOPE.STORES.READ-ORDERS` for `orders.onOrderCreated`). Without the matching scope granted, the webhook never fires. Scope grants for managed-headless apps are configured in the Dev Center Permissions page — there's no public API for this; track upstream if it becomes available.
 
 ---
 

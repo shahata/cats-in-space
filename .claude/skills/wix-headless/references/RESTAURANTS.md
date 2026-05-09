@@ -20,9 +20,9 @@ Install via: `POST https://www.wixapis.com/apps-installer-service/v1/app-instanc
 
 Skipping any step here leaves the site broken in ways that show up deep in the checkout flow (missing address, "item no longer available", empty Day dropdown). Do these in order; each one is cheap if you have the previous ones.
 
-**1. Install the three apps** and confirm from the dashboard that Menus, Reservations, and Orders panels exist. `APP_NOT_INSTALLED` is the error surface if one is missing.
+**1. Install the three apps** via the Apps Installer API (see "Required Wix Apps" above). `APP_NOT_INSTALLED` is the error surface if one is missing.
 
-**2. Configure the restaurant in the Wix dashboard.** The headless frontend only reads what's configured here — it can't make up missing data:
+**2. Configure the restaurant.** The headless frontend reads what's configured on the platform — it can't make up missing data. Most of the items below have REST/SDK equivalents (Locations API, Menus, Operations, Fulfillment Methods); the dashboard is the fallback for anything not yet covered programmatically. For Reservations, see "Reservations setup" below for the full API path.
    - **Business Info → Business Location**: full street address. Pickup orders send this as the cart's `contactInfo.address`; skip it and cart-v2 rejects every pickup with `DELIVERY_METHOD_MISSING_ADDRESS`.
    - **Menus**: at least one menu, with sections and items. Label Library populated (prefer the built-in icon-bearing labels — Vegan, Gluten-free, Pork, Hot, etc.).
    - **Online Ordering → Operations**: at least one Operation. This one record drives the entire ordering UX — see "Operation fields the frontend reads" below.

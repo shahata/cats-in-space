@@ -10,7 +10,7 @@ For translating dynamic business content (products, services, blog posts), see [
 
 ### 1. Install the Wix Multilingual App
 
-Install from the Wix dashboard manually. There is no known `appDefId` for API-based installation.
+Wix Multilingual doesn't expose a public `appDefId` for the Apps Installer API — install via the dashboard. (Track upstream — if Wix surfaces an appDefId, switch this to the same install pattern as Stores / Bookings / Events.)
 
 ### 2. Enable Multilingual Mode
 
@@ -38,7 +38,7 @@ SUBDIRECTORY by default: `/ja/...`, `/fr/...`. Primary language has no prefix.
 - **Secondary translations**: `.wix/multilingual/translations/ja.json` (same structure)
 - **Metadata**: `.wix/multilingual/metadata.json` — `{"primaryLanguageCode": "en"}`
 
-⛔ **Breaks at runtime** — Translations MUST use flat dot-notation keys. Nested objects like `{ "nav": { "home": "Home" } }` silently fail — i18next treats top-level keys as namespaces instead of key groups, so `t('nav.home')` returns the raw key string with no error.
+Translations use flat dot-notation keys. i18next reads top-level keys as namespaces, so a nested object (`{ "nav": { "home": "Home" } }`) makes `t('nav.home')` return the raw key string.
 
 Example `src/translations.json`:
 ```json
@@ -68,7 +68,7 @@ Example `.wix/multilingual/translations/ja.json`:
 wix({ essentials: true, translations: true })
 ```
 
-⛔ **Breaks at runtime** — Without these flags, `i18n.getTranslationFunction()` throws `"Host translation resources are not available"`. → Add both `essentials: true` and `translations: true`.
+Both `essentials: true` and `translations: true` are required — without them, `i18n.getTranslationFunction()` throws `"Host translation resources are not available"`.
 
 **Required files for build** (missing any = misleading build errors):
 1. `src/translations.json`
@@ -87,8 +87,10 @@ Without this, collaborators and CI get build failures after a fresh clone.
 
 ## Push & Pull
 
-- **Push keys to dashboard**: `npm run wix translation push` (requires interactive TTY)
-- **Pull translations from dashboard**: `npm run wix translation pull`
+For headless, the locale JSON files in `.wix/multilingual/translations/` are the source of truth — pushing keys to the dashboard's Translation Manager is optional and only needed if a human translator works there:
+
+- `npm run wix translation push` — sends keys to the dashboard (needs an interactive TTY).
+- `npm run wix translation pull` — pulls translations the dashboard owns back into the locale files.
 
 ---
 

@@ -323,7 +323,7 @@ This means gift card product names and descriptions **cannot be translated via t
 
 ### `wix translation push`
 
-The `wix translation push` CLI command requires an interactive TTY terminal. It cannot be run programmatically. If it fails with "Invalid input", the user must run it manually via `! wix translation push` in their terminal.
+For headless, locale JSON files in `.wix/multilingual/translations/` are the source of truth — pushing keys to the dashboard's Translation Manager is optional. `wix translation push` needs an interactive TTY, so if a build pipeline needs to invoke it, run it from a terminal session, not from a script.
 
 ## Gotchas
 

@@ -15,7 +15,12 @@ Wix Events in headless uses several modules from `@wix/events`:
 
 ## Required Wix App
 
-- **Wix Events** — install from the dashboard. Without it `auth.elevate(wixEventsV2.queryEvents)` throws `APP_NOT_INSTALLED`. AppDefId: `140603ad-af8d-84a5-2c80-a0f60cb47351`.
+Install Wix Events via the Apps Installer API (appDefId `140603ad-af8d-84a5-2c80-a0f60cb47351`). Without it, `auth.elevate(wixEventsV2.queryEvents)` throws `APP_NOT_INSTALLED`:
+
+```http
+POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+Body: { "tenant": { "tenantType": "SITE", "id": "<siteId>" }, "appInstance": { "appDefId": "140603ad-af8d-84a5-2c80-a0f60cb47351", "enabled": true } }
+```
 
 ## Querying events
 
@@ -223,7 +228,7 @@ There are two valid patterns depending on whether you use the Wix dashboard's se
 
 ### Pattern A — Wix-native seating plan
 
-Wix SDK reads seat data but cannot **create** a seating plan — that is dashboard-only. When a site owner attaches a plan to an event:
+Wix Events seating plans are dashboard-only — there's no public REST/SDK to create or attach them. The SDK reads seat data once a plan is in place. When a plan is attached to an event:
 - `td.seatingDetails.places[]: AvailablePlace` lists `{ placeId, label, sectionLabel, elementLabel ("Row" | "Table" | "General Admission"), availableCapacity }`. `placeId` has the format `{sectionId}-{elementId}-{label}` (e.g. `0-1-A5`).
 - `td.actualLimit` replaces `initialLimit` once a plan is attached.
 - When reserving, pass `ticketInfo.seatId = place.placeId` on the `TicketLineItem`. `seatInfo` (readonly) is populated in the response with section/row/seat labels.

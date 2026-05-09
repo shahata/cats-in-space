@@ -157,18 +157,15 @@ The update requires the target entry's `id` (content GUID), not just `entityId`.
 
 ## CMS Collections
 
-CMS collections need extra setup — they're not translatable by default:
+CMS collections aren't translatable by default. Create the translation schema for each via the Translation Schema API (`POST /translation-schema/v1/schemas`) — once a schema exists, English content auto-populates and the same `/translation-content/v1/bulk/contents/create` API handles translations. Find existing CMS schemas with `GET /translation-schema/v1/schemas/site?scope=SITE`.
 
-1. **Enable from dashboard**: Multilingual > Translation Manager > enable each collection
-2. **Schemas appear under a different appId** — query with `?scope=SITE` to find them
-3. **English content auto-populated** once schemas are created
-4. **Translate via the same API** using the CMS schema IDs
+(The Translation Manager UI's "Enable for translation" toggle does the same thing programmatically — there's no need to use the dashboard for headless setups.)
 
 ---
 
 ## Tips & Gotchas
 
-- **Dashboard install only**: Wix Multilingual app requires dashboard installation — no known `appDefId`
+- **Wix Multilingual app install**: no public `appDefId` for the Apps Installer API — install via the dashboard. (Track upstream.)
 - **`wix translation push` needs TTY**: Won't work in non-interactive scripts or CI
 - **Use cursor pagination, not `paging.offset`**: `POST /translation-content/v1/contents/query` ignores the `offset` field — it always returns the first `limit` items. Use `cursorPaging` and feed back `pagingMetadata.cursors.next` until `hasNext` is false:
   ```js
@@ -194,7 +191,7 @@ CMS collections need extra setup — they're not translatable by default:
   await fetch(url, { headers: { Authorization: token, 'wix-site-id': siteId, 'wix-account-id': accountId } });
   ```
   Without the `wix-account-id` header the API returns `{ "message": "", "details": {} }` with status 403.
-- **Auto-created schemas**: for Wix apps (Events, Stores, Blog, etc.), schemas appear automatically once the Multilingual app detects content — don't try to create them manually. For CMS collections, enable from dashboard.
+- **Auto-created schemas**: for Wix apps (Events, Stores, Blog, etc.), schemas appear automatically once the Multilingual app detects content. For CMS collections, create the schema via the Translation Schema API (see "CMS Collections" above).
 - **Content entry counts are per-entity, not per-field**: one translation-content row covers ALL translatable fields for a single entity (a single event, product, campaign, etc.). If your count looks inflated by Nx, the offset-paging bug above is the cause — not a field-explosion.
 - **`parentEntityId`**: Schemas with `requireParentEntity: true` need `parentEntityId` copied from EN entry
 - **Per-schema queries via MCP**: Each response is small and won't hit MCP's ~54KB truncation limit
