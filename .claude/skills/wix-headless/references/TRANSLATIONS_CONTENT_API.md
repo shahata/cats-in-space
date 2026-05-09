@@ -165,7 +165,7 @@ CMS collections aren't translatable by default. Create the translation schema fo
 
 ## Tips & Gotchas
 
-- **Wix Multilingual app install**: no public `appDefId` for the Apps Installer API — install via the dashboard. (Track upstream.)
+- **Wix Multilingual app install**: appDefId `14d84998-ae09-1abf-c6fc-3f3cace5bf19` — install via the Apps Installer API like any other Wix app (see [TRANSLATIONS_STATIC.md](TRANSLATIONS_STATIC.md#setup)).
 - **`wix translation push` needs TTY**: Won't work in non-interactive scripts or CI
 - **Use cursor pagination, not `paging.offset`**: `POST /translation-content/v1/contents/query` ignores the `offset` field — it always returns the first `limit` items. Use `cursorPaging` and feed back `pagingMetadata.cursors.next` until `hasNext` is false:
   ```js

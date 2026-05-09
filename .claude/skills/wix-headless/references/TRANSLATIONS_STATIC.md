@@ -10,7 +10,12 @@ For translating dynamic business content (products, services, blog posts), see [
 
 ### 1. Install the Wix Multilingual App
 
-Wix Multilingual doesn't expose a public `appDefId` for the Apps Installer API — install via the dashboard. (Track upstream — if Wix surfaces an appDefId, switch this to the same install pattern as Stores / Bookings / Events.)
+Install via the Apps Installer API (appDefId `14d84998-ae09-1abf-c6fc-3f3cace5bf19`):
+
+```http
+POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+Body: { "tenant": { "tenantType": "SITE", "id": "<siteId>" }, "appInstance": { "appDefId": "14d84998-ae09-1abf-c6fc-3f3cace5bf19", "enabled": true } }
+```
 
 ### 2. Enable Multilingual Mode
 
