@@ -4,6 +4,8 @@
 
 CMS data pages display content from Wix CMS collections. A good implementation follows a consistent pattern: listing page with cards + detail page with full content. This applies to any custom collection (team members, locations, events, projects, etc.).
 
+The CMS / Wix Data app must be installed before any `/wix-data/v2/*` call works — see [SDK_CORE.md → CMS Collections](SDK_CORE.md#install-the-cms-app) for the install instructions and collection-creation REST API.
+
 ## Listing Page
 
 ### Data Fetching

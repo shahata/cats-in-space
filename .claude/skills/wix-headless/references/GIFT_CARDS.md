@@ -9,9 +9,16 @@ Gift cards in Wix are managed through the `@wix/gift-vouchers` package. There ar
 
 Gift card products are eCommerce catalog items under the **Rise app** (`d80111c5-a0f4-47a8-b63a-65b54d774a27`). They go through standard Wix eCommerce checkout — not a custom creation flow.
 
-## Package
+## Setup
 
+Install the Rise app via the Apps Installer API (appDefId `d80111c5-a0f4-47a8-b63a-65b54d774a27`):
+
+```http
+POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+Body: { "tenant": { "tenantType": "SITE", "id": "<siteId>" }, "appInstance": { "appDefId": "d80111c5-a0f4-47a8-b63a-65b54d774a27", "enabled": true } }
 ```
+
+```bash
 npm install @wix/gift-vouchers
 ```
 

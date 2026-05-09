@@ -1,6 +1,13 @@
 # Wix Pricing Plans
 
-## SDK Packages
+## Setup
+
+Install the Pricing Plans app via the Apps Installer API (appDefId `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3`):
+
+```http
+POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+Body: { "tenant": { "tenantType": "SITE", "id": "<siteId>" }, "appInstance": { "appDefId": "1522827f-c56c-a5c9-2ac9-00f9e6ae12d3", "enabled": true } }
+```
 
 ```bash
 npm install @wix/pricing-plans  # plans, orders
