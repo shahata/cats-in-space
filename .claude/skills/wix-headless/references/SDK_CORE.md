@@ -58,6 +58,15 @@ const item = result.items[0];
 
 ## CMS Collections
 
+### Install the CMS app
+
+The CMS / Wix Data app needs to be installed on the site before any `/wix-data/v2/*` call works. Install via the Apps Installer API (appDefId `675bbcef-18d8-41f5-800e-131ec9e08762`):
+
+```http
+POST https://www.wixapis.com/apps-installer-service/v1/app-instance/install
+Body: { "tenant": { "tenantType": "SITE", "id": "<siteId>" }, "appInstance": { "appDefId": "675bbcef-18d8-41f5-800e-131ec9e08762", "enabled": true } }
+```
+
 ### Creating via REST API / MCP
 
 **Endpoint:** `POST https://www.wixapis.com/wix-data/v2/collections`
