@@ -10,8 +10,8 @@ export default app()
   .use(
     extensions.dashboardPage({
       id: "a5500d09-8d37-4dc7-91c9-f40d2ec1c221",
-      title: "My Page",
+      title: "Cats Content",
       routePath: "",
-      component: "./dashboard/pages/my-page/my-page.tsx",
+      component: "./dashboard/pages/content-page/content-page.tsx",
     }),
   );

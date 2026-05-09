@@ -1033,7 +1033,7 @@ const DashboardPage: FC = () => {
     <WixDesignSystemProvider>
       <Page>
         <Page.Header
-          title="Cats in Space — Content"
+          title="Cats Content"
           subtitle="View and manage your CMS collections."
           actionsBar={
             <Box gap="SP2">
