@@ -44,63 +44,25 @@ const post = res.post;
 ---
 ```
 
-⛔ **Breaks at runtime** — `getPostBySlug` throws `POST_NOT_FOUND` for invalid slugs (e.g. `.js.map` files hitting `[slug].astro`). Always wrap in try/catch and redirect.
+Wrap `getPostBySlug` in try/catch and redirect on the catch — it throws `POST_NOT_FOUND` for invalid slugs (e.g. `.js.map` files hitting `[slug].astro`).
 
-⛔ **Breaks at runtime** — The SDK `Post` type does NOT include `metrics`, so accessing `post.metrics` without extending the type causes TypeErrors. Extend it:
+When requesting the `METRICS` fieldset, extend the `Post` type — the base SDK type doesn't include `metrics`:
 ```typescript
 type Post = posts.Post & { metrics?: posts.Metrics };
 ```
 
 ## Tags
 
-⛔ **Breaks at runtime** — `queryTags` is a direct async function, NOT a query builder. Chaining `.find()` throws a TypeError. → Call `await tagsApi.queryTags({})` directly without `.find()`.
+`queryTags` is a direct async — `await` it without `.find()`, and read `.tags` (not `.items`):
 
 ```typescript
 import { tags as tagsApi } from '@wix/blog';
 
-// CORRECT
 const tagsResult = await tagsApi.queryTags({});
-const allTags = tagsResult.tags || [];  // Note: .tags, not .items
-
-// WRONG — throws "queryTags(...).find is not a function"
-await tagsApi.queryTags({}).find(); // ❌
+const allTags = tagsResult.tags || [];
 ```
 
-**Create tags via REST:**
-```
-POST https://www.wixapis.com/blog/v3/tags
-Body: { "label": "My Tag", "language": "en" }
-```
-
-## Creating/Updating Blog Posts (REST API)
-
-**Create (bulk):** `POST https://www.wixapis.com/blog/v3/bulk/draft-posts/create`
-```json
-{
-  "draftPosts": [{
-    "title": "My Post",
-    "memberId": "<member-guid>",
-    "tagIds": ["<tag-guid>"],
-    "richContent": { "nodes": [...] },
-    "media": {
-      "wixMedia": { "image": { "id": "<media-id>", "width": 1792, "height": 1024 } },
-      "displayed": true, "custom": true
-    }
-  }],
-  "publish": true,
-  "fieldsets": ["URL"]
-}
-```
-
-**Update (bulk):** `PATCH https://www.wixapis.com/blog/v3/draft-posts/update`
-```json
-{
-  "draftPosts": [{ "draftPost": { "id": "<post-id>", "memberId": "<id>", "tagIds": [...], "richContent": {...} } }],
-  "action": "UPDATE_PUBLISH"
-}
-```
-
-⚠️ **Common mistake** — The action enum is `UPDATE_PUBLISH` (not `UPDATE_AND_PUBLISH`). Using the wrong value silently fails to publish. → Use `"action": "UPDATE_PUBLISH"` exactly.
+For seeding, use the bulk REST endpoints (`POST /blog/v3/tags` for tags; `POST /blog/v3/bulk/draft-posts/create` and `PATCH /blog/v3/draft-posts/update` for posts). The action value on bulk update is `UPDATE_PUBLISH` — anything else is silently treated as a draft-only update.
 
 ## Premium/Paid Content (Preview Posts)
 
@@ -156,7 +118,7 @@ In the Astro page:
 )}
 ```
 
-⚠️ **Common mistake** — The server-side `getPostBySlug` returns cached preview for everyone. Only the client-side re-fetch with the member's browser session can return the full content if they have a valid subscription. → Re-fetch client-side with `PremiumContentResolver` for logged-in members.
+The server-side `getPostBySlug` response is cached and returns the preview for everyone. Re-fetch client-side via `PremiumContentResolver` for logged-in members — that's the only call that has the member session and can return the full content if they have a valid subscription.
 
 💡 **Best practice** — `post.preview` is a boolean. `post.pricingPlanIds` contains the plan IDs the post is gated behind.
 
@@ -178,7 +140,7 @@ export default RichContentViewer;
 
 In Astro: `<RichContentViewer content={post.richContent} client:load />`
 
-⚠️ **Common mistake** — Ricos renders with light-theme (black text), so text is invisible on dark backgrounds. → Override text colors on the Ricos container using `:global()` CSS selectors:
+Ricos renders text with the light-theme black palette. On dark backgrounds, override text colors on the Ricos container with `:global()`:
 ```css
 .post-content :global(span), .post-content :global(div), .post-content :global(p) {
   color: var(--text-secondary) !important;
@@ -250,12 +212,6 @@ A good blog detail page includes:
 7. **Stats** — views/likes/comments displayed prominently
 8. **Report view event** — when the page loads, fire a view event so the post's view count increments. See `references/BLOG_ENGAGEMENT.md` → "Reporting Post Views" for the `httpClient.fetchWithAuth` call to `/blog/v3/posts/{postId}/view`. Do this client-side (e.g., in the engagement component's `useEffect`) so each visitor counts
 
-⛔ **Breaks at runtime** — Wrap `getPostBySlug` in try/catch because it throws `POST_NOT_FOUND` for invalid slugs (e.g., `.js.map` files hitting `[slug].astro`).
-
-### Rich Content Color Override
-
-Ricos renders with light-theme (black text) by default. If your site uses a dark background, override text colors on the Ricos container using `:global()` selectors targeting `span`, `div`, `p`, `h2`, and `blockquote` elements.
-
 ## Members / Writers
 
 Resolve blog post writers by fetching member profiles with `members.getMember(memberId, { fieldsets: ['FULL'] })` — see [AUTHENTICATION.md](AUTHENTICATION.md) for full member API details (profile fields, update patterns, `getCurrentMember` vs `getMember` wrapping differences).
@@ -266,24 +222,11 @@ POST https://www.wixapis.com/members/v1/members
 Body: { "member": { "loginEmail": "writer@example.com", "contact": { "firstName": "Captain", "lastName": "Whiskers" }, "profile": { "nickname": "Captain Whiskers", "title": "Ship Captain" } } }
 ```
 
-## Ricos Rich Content JSON Structure
+## Ricos Rich Content
 
-```json
-{
-  "nodes": [
-    { "type": "PARAGRAPH", "nodes": [{ "type": "TEXT", "textData": { "text": "...", "decorations": [] } }], "paragraphData": {} },
-    { "type": "HEADING", "nodes": [{ "type": "TEXT", "textData": { "text": "...", "decorations": [] } }], "headingData": { "level": 2 } },
-    { "type": "BULLETED_LIST", "nodes": [{ "type": "LIST_ITEM", "nodes": [{ "type": "PARAGRAPH", "nodes": [{ "type": "TEXT", "textData": { "text": "...", "decorations": [] } }], "paragraphData": {} }] }], "bulletedListData": {} },
-    { "type": "ORDERED_LIST", "nodes": [...same as bulleted...], "orderedListData": {} },
-    { "type": "BLOCKQUOTE", "nodes": [{ "type": "PARAGRAPH", "nodes": [...], "paragraphData": {} }], "blockquoteData": { "indentation": 1 } },
-    { "type": "IMAGE", "nodes": [], "imageData": { "containerData": { "width": { "size": "CONTENT" }, "alignment": "CENTER" }, "image": { "src": { "id": "<media-id>" }, "width": 1792, "height": 1024 }, "altText": "..." } }
-  ]
-}
-```
+Construct content with `posts.RichContent` and the `posts.NodeType` enum from `@wix/blog`. Nesting rules Ricos enforces (it silently drops nodes that violate them):
 
-⛔ **Breaks at runtime** — Ricos silently drops nodes with invalid nesting. → Always wrap `TEXT` nodes in `PARAGRAPH` nodes; follow the nesting rules below:
-- ALL `TEXT` nodes MUST be wrapped in `PARAGRAPH` nodes
-- `BLOCKQUOTE` → `PARAGRAPH` → `TEXT` (never `BLOCKQUOTE` → `TEXT`)
-- `LIST_ITEM` → `PARAGRAPH` → `TEXT` (never `LIST_ITEM` → `TEXT`)
-- Text decorations: `[{ "type": "BOLD" }]`, `[{ "type": "ITALIC" }]`
-- IMAGE nodes use media ID only (no `wix:image://` prefix) in `image.src.id`
+- `TEXT` always wraps in `PARAGRAPH` (never `BLOCKQUOTE` → `TEXT` or `LIST_ITEM` → `TEXT`)
+- `BLOCKQUOTE` → `PARAGRAPH` → `TEXT`
+- `LIST_ITEM` → `PARAGRAPH` → `TEXT`
+- `IMAGE` nodes take a bare media id in `image.src.id` (no `wix:image://` prefix)

@@ -82,13 +82,11 @@ Body: {
 }
 ```
 
-⛔ **Breaks at runtime:** Save `resourceId` from the response — this is used as the staff member's identifier in services and time slots. Using `staffMember.id` instead silently fails. → Always use `staffMember.resourceId` when referencing staff in services and slots.
+Reference staff by `staffMember.resourceId` — that's the id services and time slots key off. `staffMember.id` exists but isn't the right handle here.
 
-⛔ **Silently dropped:** the portrait field is `staffMember.mainMedia.image`, NOT `staffMember.image`. Setting `staffMember.image` (or any top-level image field) on create or update is silently dropped — the response shows no error and `name`/`description` save fine, but the portrait is missing. → Always nest under `mainMedia.image`.
+Portraits live at `staffMember.mainMedia.image`. Top-level `staffMember.image` is silently dropped on create/update.
 
-⛔ **REST wire shape ≠ SDK type:** the SDK type says `mainMedia.image?: string` (a `wix:image://` URI), but at the REST wire level it must be an OBJECT `{ url: 'https://static.wixstatic.com/media/<file-id>' }`. Passing a string returns `400 Expected an object`; passing a `wix:image://...` URL returns `400 'url' must be a valid URL`. The endpoint re-imports the URL into Wix media on save (the file gets duplicated under a new id) — this is wasteful but currently the only working path. → For seed scripts that already imported a file via `/site-media/v1/files/import`, build the staff portrait URL as `https://static.wixstatic.com/media/${file.id}` and let the bookings API re-import it.
-
-⛔ **Skip-on-exists makes images impossible to backfill:** the typical seed pattern (`if (staffByName.has(s.name)) continue;`) means re-running the script after generating images won't attach them. → If your seed is idempotent on staff name, write a separate `fix-staff-images.mjs` that PATCHes `mainMedia.image` on every existing staff record (requires the current `revision`).
+The REST wire shape for `mainMedia.image` is an object `{ url: 'https://static.wixstatic.com/media/<file-id>' }`, even though the SDK types it as a `wix:image://` string. The endpoint re-imports the URL into Wix media on save (so the file is duplicated under a new id) — for seed scripts that already imported a file via `/site-media/v1/files/import`, build the URL as `https://static.wixstatic.com/media/${file.id}`.
 
 The response includes:
 - `staffMember.id` — staff member GUID
@@ -116,11 +114,11 @@ Body: {
 }
 ```
 
-⛔ **Breaks at runtime:** `staffMemberIds` takes **resource IDs** (from `staffMember.resourceId`), NOT staff member IDs.
+`staffMemberIds` takes resource IDs (`staffMember.resourceId`), not staff member IDs.
 
-⛔ **Breaks at runtime:** `payment.options` must specify either `online: true` or `inPerson: true`. Omitting both causes a validation error even for NO_FEE services. → Always include `payment: { options: { online: true } }` (or `inPerson: true`) on every service.
+`payment.options` must specify `online: true` or `inPerson: true` (or both) — omitting both fails validation even for NO_FEE services.
 
-⛔ **`payment.options.inPerson: true` skips the online checkout entirely.** The booking redirect (`bookingsCheckout`) lands the user on the **thank-you page** with no payment captured — the assumption is the studio collects cash/card on arrival. For a headless site that wants payment online, set `online: true` and `inPerson: false`. If you want both options, set both `true` and the checkout page exposes the choice. Symptom of getting this wrong: "the booking goes straight to thank-you, never through checkout." → For paid services on a headless site, default to `{ online: true, inPerson: false }`.
+`payment.options.inPerson: true` skips the online checkout — the booking redirect lands on the thank-you page with no payment captured (the model is "studio collects on arrival"). For a headless site that wants payment online, default to `{ online: true, inPerson: false }`; setting both to `true` lets the checkout page expose the choice.
 
 ## Querying Services & Staff (Server-Side)
 
@@ -144,27 +142,17 @@ const staffMap = new Map<string, StaffMember>(
 );
 ```
 
-⛔ **Breaks silently:** `await services.queryServices({})` (without `.find()`) resolves to the query **builder**, not the result. `result.services` and `result.items` are both `undefined`, so `allServices` ends up as `[]` with no error — every booking page renders empty. Casting the builder to `any` hides this. Always call `.find()` and use `result.items`.
+`queryServices()` returns a builder — call `.find()` to execute it, then read `result.items`. Awaiting the builder directly resolves to the builder (via its Promise interface) so `result.items` is `undefined` and the page renders empty with no error.
 
-Service object key fields:
-- `service._id` — service GUID
-- `service.mainSlug?.name` — URL-friendly slug
-- `service.staffMemberIds` — array of resource IDs
-- `service.schedule?.availabilityConstraints?.sessionDurations` — durations in minutes
-- `service.payment?.rateType === services.RateType.FIXED` — use the enum, not `"FIXED"`
-- `service.media?.mainMedia?.image` — `wix:image://` string (see `references/MEDIA.md`)
+Notable shape: `service.staffMemberIds` holds resource IDs (not staff IDs); `service.payment?.rateType` is an enum (`services.RateType.FIXED`); `service.media?.mainMedia?.image` is a `wix:image://` string. Use the exported `services.Service` type for everything else.
 
 ## Booking Flow (Client-Side)
 
-**Canonical pattern: stay on V1 throughout until Wix ships V2 redirects.** Wix marked `availabilityCalendar.queryAvailability` (V1) as `@deprecated` in favor of `availabilityTimeSlots.listAvailabilityTimeSlots` (V2), BUT `redirects.createRedirectSession({ bookingsCheckout })` still requires V1's `SlotAvailability` shape and there is no V2-aware checkout yet.
+**Canonical pattern: stay on V1 throughout.** `availabilityCalendar.queryAvailability` (V1) is marked `@deprecated` in favor of `availabilityTimeSlots.listAvailabilityTimeSlots` (V2), but `redirects.createRedirectSession({ bookingsCheckout })` still requires V1's `SlotAvailability` shape — there's no V2-aware checkout yet. A clean V1 flow is simpler than a V2-listing + V1-checkout hybrid (same V1 footprint, plus date-format conversion and an extra round-trip).
 
-That makes a "V2 listing + V1 re-query at checkout" hybrid strictly worse than V1 throughout: same number of `@deprecated` hits at runtime (you can't escape V1 for the redirect), more code (date-format conversion between V2's local-time strings and V1's RFC 3339), and an extra round-trip per booking. The TS6387 hints from V1 calls are honest signal that V1 is going away — they're not failures, and Astro check categorises them as `hints` (not warnings), so a clean `0 errors, 0 warnings, N hints` deploy gate still passes.
+The TS6387 `@deprecated` hints at V1 call sites are expected. Astro check categorises them as hints (not errors or warnings), so the deploy gate still passes. When Wix ships a V2-aware `bookingsCheckout`, migrate the whole flow at once.
 
-Stay on V1. When Wix ships V2 `bookingsCheckout` (or an equivalent that takes a `TimeSlot` directly), migrate the whole flow at once.
-
-⚠️ **The deprecation hint can't be cleanly suppressed.** `// @ts-ignore` doesn't silence TS hints (only errors). Re-export aliases (`const q = availabilityCalendar.queryAvailability`) propagate the `@deprecated` tag through the const declaration. Function wrappers using `Parameters<typeof ...>` resolve to the SDK's overload signature object and break call-site types. Don't try — let the hints be visible signal that this code is on the V1 → V2 migration list.
-
-⚠️ **V1's "any staff" duplication trap.** `availabilityCalendar.queryAvailability` returns one entry per `(time, resource)` pair, NOT per time. With 8 staff who can each do 11:00 AM, you get 8 entries all at "11:00 AM". This only matters when "Any staff" is allowed — if the UX always pre-selects a staff member (one-staff-per-service or staff-picker-first), pass `resourceId: [selectedStaff]` and you get one entry per time. If you genuinely need "Any staff", you have two options: (a) dedupe client-side by `slot.startDate`, or (b) for that one screen only, list with V2 (`availabilityTimeSlots`) which aggregates resources under a single `TimeSlot` per time — and still re-query V1 for the picked slot at checkout.
+**V1's "any staff" duplication trap:** `availabilityCalendar.queryAvailability` returns one entry per `(time, resource)` pair, not per time. With 8 staff who can each do 11:00 AM, you get 8 entries at "11:00 AM". This only matters when "Any staff" is allowed — pass `resourceId: [selectedStaff]` and you get one entry per time. For a true "Any staff" UX, either dedupe client-side by `slot.startDate` or list with V2 for that screen and re-query V1 at checkout.
 
 ### Step 1: List slots (V1 — canonical for staff-pre-selected flows)
 
@@ -267,15 +255,7 @@ const result = await extendedBookings.queryExtendedBookings({
 const items: extendedBookingsTypes.ExtendedBooking[] = result.items;
 ```
 
-**ExtendedBooking structure** — the actual booking data is nested under `.booking`:
-- `eb.booking?._id` — booking GUID
-- `eb.booking?.status` — "CONFIRMED", "PENDING", "CANCELED", "DECLINED"
-- `eb.booking?.revision` — required for cancel/reschedule
-- `eb.booking?.bookedEntity?.title` — service name
-- `eb.booking?.bookedEntity?.slot?.startDate` / `endDate` — ISO dates
-- `eb.booking?.bookedEntity?.slot?.resource?.name` — staff member name
-- `eb.allowedActions?.cancel` — boolean (NOT a string array)
-- `eb.allowedActions?.reschedule` — boolean
+The booking data is nested under `eb.booking` (not on `eb` directly), and `allowedActions.cancel` / `allowedActions.reschedule` are booleans. Use the exported `extendedBookings.ExtendedBooking` type for the rest.
 
 ### Cancel a Booking
 
@@ -412,5 +392,5 @@ const redirect = await redirects.createRedirectSession({
 6. **cancelBooking requires revision** — Pass `booking.revision` in the options
 7. **Staff default to business hours** — By default, staff work during business opening hours. Use Assign Working Hours Schedule for custom hours
 8. **Category required for visibility** — Services without a `category.id` won't appear on the live site
-9. **`queryServices().find()` returns the standard QueryResult shape** — read `result.items`, just like every other Wix SDK query. Same for `queryStaffMembers().find()`. (Earlier guidance about a `services`/`staffMembers` field was a misread — the example at "Step 1: Query services" is canonical.)
+9. **`queryServices().find()` returns the standard QueryResult shape** — read `result.items`, like every other Wix SDK query. Same for `queryStaffMembers().find()`.
 10. **Media fields are `wix:image://` strings in SDK** — See `references/MEDIA.md`

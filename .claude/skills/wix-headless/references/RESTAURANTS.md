@@ -186,18 +186,9 @@ function getItemImage(item: any): string | null {
 
 Two pricing modes:
 1. **Simple price:** `item.priceInfo.price` — decimal string (e.g., `"14.99"`)
-2. **Variants:** `item.priceVariants.variants` — array of `{ priceInfo?: { price: string } }` (e.g., Small $5, Medium $7, Large $9). The variant has a top-level `price` field too, but it's `@deprecated` — read `v.priceInfo?.price` only.
+2. **Variants:** `item.priceVariants.variants` — array of `{ priceInfo?: { price: string } }`. The variant's top-level `price` is `@deprecated`; read `v.priceInfo?.price`.
 
-```typescript
-function getItemPrice(item: any, locale: string): string {
-  const fmt = (n: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(n);
-  if (item.priceVariants?.variants?.length) {
-    const prices = item.priceVariants.variants.map((v: any) => parseFloat(v.priceInfo?.price || '0'));
-    return fmt(Math.min(...prices)) + (Math.min(...prices) !== Math.max(...prices) ? ` - ${fmt(Math.max(...prices))}` : '');
-  }
-  return item.priceInfo?.price ? fmt(parseFloat(item.priceInfo.price)) : '';
-}
-```
+`PriceInfo` has no currency field — fall back to `getSiteCurrency()` (see [SDK_CORE.md → Price Formatting](SDK_CORE.md#price-formatting)). For ranged variant prices, format min and max separately and join with `–`.
 
 ## Seeding Menu Data (bottom-up order)
 
@@ -220,7 +211,7 @@ All create methods require `auth.elevate()`.
 import { reservations, reservationLocations, timeSlots } from '@wix/table-reservations';
 ```
 
-⛔ **Having `@wix/table-reservations` in `node_modules` is NOT enough.** The Wix Table Reservations app must be installed on the site (via the dashboard or the Apps Installer API — see "Required Wix Apps" at the top of this file). Without the app installed, every REST call returns 404 (a generic Wix error HTML page) and SDK calls in scripts/CLI contexts silently return `undefined`. The site CLI starter does NOT install Table Reservations by default — adding it to your headless app is a manual step. Add a `scripts/install-apps.mjs` that calls `POST /apps-installer-service/v1/app-instance/install` for `appDefId f9c07de2-5341-40c6-b096-8eb39de391fb` so a fresh clone can reproduce the setup.
+`@wix/table-reservations` needs the Wix Table Reservations app installed on the site as well as the npm package. Without the app, REST calls return a generic Wix 404 HTML page and SDK calls silently return `undefined`. The CLI starter doesn't install it — add a `scripts/install-apps.mjs` that calls `POST /apps-installer-service/v1/app-instance/install` for `appDefId f9c07de2-5341-40c6-b096-8eb39de391fb` so a fresh clone can reproduce the setup.
 
 ⛔ **The reservation-locations REST path is double-segmented:** `/table-reservations/reservation-locations/v1/reservation-locations` (NOT `/table-reservations/v1/reservation-locations` — that path 404s). Same pattern applies to other resources under this app. Use the SDK from Astro pages where possible; in scripts, use the right REST path.
 
@@ -409,11 +400,11 @@ await currentCart.addToCurrentCart({
 
 ⛔ **Don't** pass flat keys like `{ variantId: "...", [groupId]: [...] }` — the cart accepts them but the catalog can't resolve the item on refresh, producing "is no longer available" errors.
 
-⛔ **Don't invent option fields like `fulfillmentType`, `pickupOrDelivery`, `mode`, etc.** Fulfillment is NOT a catalog-reference option — it lives on the **Cart itself** as `selectedShippingOption.code` (see "Dispatch / fulfillment info must be on the cart" below). `ProtoStructMapper` silently drops the invented key and the order ships as a generic catalog item with no fulfillment metadata, leaving the restaurant SPI no way to validate at checkout. The only legal options for restaurant line items are `operationId`, `menuId`, `menuSectionId`, optional `priceVariant`, and optional `modifierGroups`.
+Fulfillment lives on the **Cart**, not on the line-item catalog reference — set `selectedShippingOption.code` on the cart (see "Dispatch / fulfillment info must be on the cart" below). `ProtoStructMapper` silently drops unknown keys, so the only fields the catalog reference accepts are `operationId`, `menuId`, `menuSectionId`, optional `priceVariant`, and optional `modifierGroups`.
 
-⛔ **Don't run a local React `Record<string, number>` as the cart and call `addToCurrentCart` only at checkout.** The Wix cart-v2 / restaurants SPI flow requires the cart to be populated incrementally via `addToCurrentCart` so `updateCurrentCart` can attach `selectedShippingOption.code` to it. Treating the Wix cart as a "submit" target at the end means: (a) the global cart sidebar stays empty while the user is browsing the menu, (b) `updateCurrentCart` calls before the first add 404 silently, (c) the dispatch race in "Timing gotcha 1" below bites every time. Mirror cart-v2 from the start: every "+" / "−" / modal confirm calls `addToCurrentCart` / `updateCurrentCartLineItemQuantity` / `removeLineItemsFromCurrentCart` immediately, and the page reads its own line summaries by re-fetching the cart on `cart-updated`.
+Wire every "+" / "−" / modal confirm directly to `addToCurrentCart` / `updateCurrentCartLineItemQuantity` / `removeLineItemsFromCurrentCart`, and read line summaries by re-fetching on `cart-updated`. The cart-v2 / restaurants SPI flow needs `selectedShippingOption.code` attached to a populated cart — `updateCurrentCart` calls before the first add silently 404, and the global cart sidebar should reflect what the menu page is doing in real time.
 
-⚠️ **`menuSectionId`, not `sectionId`.** The server-side proto (`wix.restaurants.catalog.spi.v1.CatalogReferenceOptions`) declares the field as `menu_section_id` → camelCase `menuSectionId`. `ProtoStructMapper` silently drops unknown keys, so sending `sectionId` leaves `menuSectionId` empty and `ItemInSectionValidator` reports "`<item>` is no longer available. To complete your order, remove this item from the cart." (violation key `restaurants-validations.item-not-in-section-violation`). The public `@wix/headless-restaurants-olo` sample code writes `sectionId` — it has the same bug; don't copy it.
+The section field is `menuSectionId` (camelCase of the proto's `menu_section_id`). `ProtoStructMapper` silently drops unknown keys, so a misnamed `sectionId` leaves `menuSectionId` empty and `ItemInSectionValidator` reports "`<item>` is no longer available" at checkout (violation key `restaurants-validations.item-not-in-section-violation`).
 
 ### Dispatch / fulfillment info must be on the cart before checkout
 
@@ -697,7 +688,7 @@ When seeding menu data, the sample catalog must hit every UI branch so the order
 - **Paid modifier** — any non-zero `additionalChargeInfo.additionalCharge` so the `+₪X` price-uplift branch is exercised
 - **Free modifier** — at least one zero-price modifier so the no-uplift branch is exercised
 
-⛔ **Wix Restaurants modifier groups do NOT support free-text inputs.** The SDK has no `freeText` / `FREE_TEXT` / `modifierRenderType` field anywhere on `Modifier` or `ModifierGroup` — modifiers are always selectable (radio or checkbox). This is a Wix Restaurants vs Wix Stores difference: stores customizations support `customizationRenderType: FREE_TEXT`, restaurants don't. Do NOT model "Allergies / special requests" or "Cooking instructions" as a modifier group with `modifiers: []` and a `freeText` config — the SDK silently ignores `freeText` and the group becomes an empty (often implicitly-required if `maxSelections === 1`) blocker that the user can never satisfy. If the site needs per-item special instructions, attach them as line-item metadata or a checkout-level `buyerNote`, not as a modifier group.
+For per-item special instructions ("Allergies", "Cooking instructions"), use line-item metadata or a checkout-level `buyerNote`. Wix Restaurants modifier groups are always selectable (radio / checkbox) — there's no free-text option, unlike Wix Stores customizations.
 - **Variant-priced items** — at least one item with 2+ price variants
 - **Plain item** — at least one item with no variants and no modifiers (to prove the modal works without them too)
 

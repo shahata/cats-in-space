@@ -147,20 +147,13 @@ t('trialDays', { days: '7' })         // → "7-day free trial"
 
 ⛔ **Breaks at runtime** — Do NOT use `.replace('{var}', value)`. → Use `t('key', { var: value })` instead. `.replace()` breaks when translation word order changes across languages.
 
-⚠️ **Common mistake** — Single `{braces}` are NOT interpolated and render literally. → Always use `{{double braces}}` in translation strings.
+Use `{{double braces}}` for interpolation — single `{braces}` render literally.
 
 ---
 
 ## Currency and Number Formatting
 
-⛔ **Breaks at runtime** — Never construct currency strings manually (`'$' + price`). Breaks for non-USD, locale-specific placement (Hebrew: `9.99 ₪`), and decimal separators. → Use `Intl.NumberFormat`:
-
-```ts
-const locale = i18n.getLocale();
-new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(amount);
-```
-
-For billing period enums (DAY, WEEK, MONTH, YEAR) — map to translation keys (`plans.perMonth`), don't display raw.
+See [SDK_CORE.md → Price Formatting](SDK_CORE.md#price-formatting) for the canonical pattern (`Intl.NumberFormat(locale, { style: 'currency', currency })` with `locale = i18n.getLocale()`). Map billing-period enums (DAY, WEEK, MONTH, YEAR) to translation keys (`plans.perMonth`) instead of rendering them raw.
 
 ---
 

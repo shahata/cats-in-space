@@ -42,120 +42,25 @@ The scaffold creates an **Astro** project with Wix integrations pre-configured.
 
 ## Post-Scaffold: Upgrade @wix/essentials
 
-⛔ **Breaks at runtime** — The scaffold ships `@wix/essentials` ~0.1.x which does NOT have `i18n.getTranslationFunction()`. This causes a runtime `TypeError` that build does NOT catch.
+Translations need `@wix/essentials >= 1.0.6` for `i18n.getTranslationFunction()`. Run after scaffolding:
 
 ```bash
 npm install @wix/essentials@latest
 npm install --save-dev @types/node
 ```
 
-You must upgrade to >= 1.0.6 before using translations. Install `@types/node` because the scaffold's `astro.config.mjs` uses `process.env.NODE_ENV` — without it, `npx astro check` reports a type error.
+`@types/node` is needed because the scaffold's `astro.config.mjs` reads `process.env.NODE_ENV`.
 
 ## Optional: ESLint for `any` enforcement
 
-The default scaffold already extends `astro/tsconfigs/strictest`, which is strict enough to catch most SDK type-laundering. Type errors surface via `npx astro check` in the deploy pipeline (see [DEPLOYMENT.md](DEPLOYMENT.md)). ESLint is **not part of the default scaffold** — projects can ship without it.
+The default scaffold's `astro/tsconfigs/strictest` already catches most SDK type-laundering, and `npx astro check` is the deploy-pipeline gate. ESLint is opt-in.
 
-Add ESLint when you want a hard CI gate against `any` and `as unknown as T` laundering across team contributions. Two rules together cover both leaks: `@typescript-eslint/no-explicit-any` catches the literal `any` keyword; a `no-restricted-syntax` rule catches the more common double-cast escape hatch. The setup below is the recommended config if you choose to add it.
+Add it when you want a hard CI gate against `any` and `as unknown as T` across team contributions. Two rules cover both leaks:
 
-**Install:**
-```bash
-npm install --save-dev eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-plugin-astro
-```
+- `@typescript-eslint/no-explicit-any` for the literal `any` keyword
+- `no-restricted-syntax` matching `TSAsExpression[expression.type="TSAsExpression"][expression.typeAnnotation.type="TSUnknownKeyword"]` for the double-cast (which `no-explicit-any` doesn't catch)
 
-**Create `eslint.config.mjs`:**
-```js
-import eslintPluginAstro from 'eslint-plugin-astro';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsparser from '@typescript-eslint/parser';
-
-// Shared rules — applied to both .ts/.tsx and Astro frontmatter.
-const sharedRules = {
-  '@typescript-eslint/no-explicit-any': 'error',
-  'no-restricted-syntax': [
-    'error',
-    {
-      // Bans `x as unknown as T` (the standard double-cast laundering)
-      selector:
-        'TSAsExpression[expression.type="TSAsExpression"][expression.typeAnnotation.type="TSUnknownKeyword"]',
-      message:
-        'Do not launder SDK types with `as unknown as T`. Use the real SDK type, intersect (`X & { extraField?: Y }`) for runtime drift, or fix the underlying type mismatch.',
-    },
-    {
-      // Bans `<unknown>x as T` (the angle-bracket form of the same thing)
-      selector:
-        'TSAsExpression[expression.type="TSTypeAssertion"][expression.typeAnnotation.type="TSUnknownKeyword"]',
-      message:
-        'Do not launder SDK types with `<unknown>x as T`. Use the real SDK type or intersect for runtime drift.',
-    },
-  ],
-};
-
-export default [
-  {
-    files: ['src/**/*.ts', 'src/**/*.tsx'],
-    languageOptions: {
-      parser: tsparser,
-      parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module',
-      },
-    },
-    plugins: {
-      '@typescript-eslint': tseslint,
-    },
-    rules: sharedRules,
-  },
-  ...eslintPluginAstro.configs.recommended.map(config => ({
-    ...config,
-    ...(config.files?.[0]?.includes('astro') ? {
-      plugins: {
-        ...config.plugins,
-        '@typescript-eslint': tseslint,
-      },
-      rules: {
-        ...config.rules,
-        ...sharedRules,
-      },
-    } : {}),
-  })),
-];
-```
-
-**Add scripts to `package.json` (only if you opted into ESLint):**
-```json
-{
-  "scripts": {
-    "lint": "eslint src/",
-    "check": "npx astro check && eslint src/"
-  }
-}
-```
-
-If you don't add ESLint, just use `npx astro check` directly in the deploy pipeline — there is no required `npm run check` script.
-
-### Why `as unknown as T` needs its own rule
-
-`@typescript-eslint/no-explicit-any` only catches the literal `any` keyword. The much more common escape hatch is the double cast:
-
-```typescript
-// Both lanes are the SAME violation in spirit — but only the first is caught
-// by no-explicit-any. The second sails through every default ESLint rule.
-const items: MyShape[] = sdkResult.items as any;          // ❌ caught
-const items: MyShape[] = sdkResult.items as unknown as MyShape[];  // ❌ NOT caught by default
-```
-
-In practice the double-cast pattern is what shows up in agent-generated code — it silences the type checker cleanly enough to feel safe, while completely erasing the SDK type and any future type-drift signals. The `no-restricted-syntax` rule above closes that loophole at lint time.
-
-### Right replacements for `as unknown as T`
-
-When the rule fires, the fix is almost always one of:
-
-1. **Use the real SDK type.** `result.items as Department[]` (single cast, allowed) when `Department extends WixDataItem`.
-2. **Intersect for runtime drift.** When the SDK type genuinely lacks a field that runtime returns: `type Widened = SdkType & { extraField?: T }`. Use this for things like `DonationCampaign.coverImage` (typed `string`, returned as object) or `Event.mainImage` (same pattern).
-3. **Use the existing boundary helper.** `getCmsImageUrl(input: unknown)` already accepts the messy SDK→REST shape variation for image fields — pass the field through it instead of widening at the call site.
-4. **Fix the underlying type contract.** If the SDK type is just wrong and you control the file, file an upstream issue and add the intersection in the meantime.
-
-Never reach for `as unknown as` to "make TypeScript happy" — every instance buries a real shape mismatch that will surface as a runtime crash or silent feature gap when locale switches, when a field is renamed, or when a sibling SDK call returns an unexpected variant.
+When the double-cast rule fires, the fix is one of: use the SDK's real type, intersect for genuine runtime drift (`X & { extraField?: T }` — e.g. `DonationCampaign.coverImage`, `Event.mainImage`, `Post.metrics` under specific fieldsets), or use a boundary helper like `getCmsImageUrl()`. `as unknown as` should never be the answer — every instance buries a real shape mismatch.
 
 ## Key Files
 
@@ -168,34 +73,13 @@ Never reach for `as unknown as` to "make TypeScript happy" — every instance bu
 
 ## CLI Commands
 
-```bash
-npm run dev        # wix dev — local dev server with hot reload
-npm run build      # wix build — production build
-npm run preview    # wix preview — deploy a preview (unique URL each time)
-npm run release    # wix release — deploy to production
-npm run generate   # wix generate — code generation
-```
+The scaffold's `package.json` already wires up `dev`, `build`, `preview`, `release`, and `generate` — see scripts there. `wix dev` (npm run dev) is the local hot-reload server; `wix preview` deploys a unique-URL preview; `wix release` publishes live.
 
 ## SDK Packages
 
-Install only what you need:
+Install per-feature (`@wix/data`, `@wix/members`, `@wix/stores`, `@wix/categories`, `@wix/blog`, `@wix/comments`, `@wix/ecom`, `@wix/redirects`, `@wix/donations`, `@wix/restaurants`, `@wix/table-reservations`, `@wix/bookings`, `@wix/events`, `@wix/pricing-plans`, `@wix/identity`, `@wix/seo`, `@wix/business-tools`).
 
-```bash
-npm install @wix/data        # CMS data operations
-npm install @wix/members     # Members API
-npm install @wix/stores      # Stores API (products, NOT categories)
-npm install @wix/categories  # Categories API (for store categories)
-npm install @wix/blog        # Blog API
-npm install @wix/comments    # Comments API
-npm install @wix/ecom        # Cart, checkout, orders
-npm install @wix/redirects   # Redirect sessions (checkout, plans)
-npm install @wix/donations   # Donation campaigns
-npm install @wix/restaurants            # Menus, Online Ordering (requires app install)
-npm install @wix/table-reservations     # Reservations (requires app install)
-npm install @wix/bookings               # Services, staff, slots
-```
-
-⛔ **Some SDK packages require a corresponding Wix app install on the site.** The CLI starter only installs a minimal set; adding the npm package isn't enough. If REST calls return `404` (Wix error HTML page) and SDK calls silently return `undefined`, the app probably isn't installed. Affected packages include `@wix/table-reservations`, `@wix/restaurants`, parts of `@wix/bookings`, plus most newer features. Use the **Apps Installer API**:
+Several apps (`@wix/table-reservations`, `@wix/restaurants`, parts of `@wix/bookings`, most newer features) need the corresponding Wix app installed on the site too — npm install alone leaves SDK calls returning `undefined` and REST calls returning a generic 404 HTML page. Use the Apps Installer API:
 
 ```javascript
 // scripts/install-apps.mjs — idempotent (returns existing instance on re-run)
@@ -247,9 +131,9 @@ To resolve an unknown app's `appDefId`: `POST /devcenter/app-market-listing/v1/m
    ```
    A leading dot matches any subdomain, so the config survives new tunnel URLs. Restart the dev server after editing `astro.config.mjs` for the change to take effect.
 
-### Silencing `data-island_submit_button_registered` hydration warnings
+### `data-island_submit_button_registered` hydration warning
 
-⛔ **React 19 logs `Warning: Extra attributes from the server: data-island_submit_button_registered` on every `<button>` inside a `client:load` island.** Wix's headless framework injects this attribute server-side to register form/CTA buttons for analytics, but the client React render doesn't reproduce it — every mount of a hydrated component with `<button>` triggers a noisy warning in dev. The button still works; the attribute is harmless. Suppress it on the offending buttons:
+If React 19 logs `Warning: Extra attributes from the server: data-island_submit_button_registered` on `<button>` inside a `client:load` island, add `suppressHydrationWarning` on that button. Wix's framework injects the attribute server-side for analytics; the client render doesn't, so React flags the mismatch. The attribute is harmless and the button still works.
 
 ```tsx
 <button onClick={...} suppressHydrationWarning>
@@ -257,7 +141,7 @@ To resolve an unknown app's `appDefId`: `POST /devcenter/app-market-listing/v1/m
 </button>
 ```
 
-`suppressHydrationWarning` only silences attribute mismatches on that one element — it does NOT mask actual children/text mismatches. Apply it to every button in interactive islands (tab bars, submit buttons, qty steppers) — never globally. The warning is purely cosmetic, but a console full of them hides real warnings; clean it up at component-creation time, not as a debugging step later.
+Apply per-button (tab bars, submit buttons, qty steppers) — never globally. `suppressHydrationWarning` silences only attribute mismatches on that one element, not children/text mismatches.
 
 ### Excluding a file from Astro routing
 

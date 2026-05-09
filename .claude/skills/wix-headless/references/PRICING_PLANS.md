@@ -291,24 +291,7 @@ Visually highlight the primary/recommended plan (the one with `plan.primary === 
 
 ### Price Display
 
-```typescript
-const priceValue = plan.pricing?.price?.value || '0';
-const currency = plan.pricing?.price?.currency || 'USD';
-const isFree = parseFloat(priceValue) === 0;
-
-// Format with locale-aware currency
-const formattedPrice = isFree ? t('plans.free') : new Intl.NumberFormat(locale, {
-  style: 'currency', currency
-}).format(parseFloat(priceValue));
-
-// Period label
-const cycleDuration = plan.pricing?.subscription?.cycleDuration;
-function getPeriodKey(unit?: string): string {
-  switch (unit) { case 'MONTH': return 'plans.perMonth'; case 'YEAR': return 'plans.perYear'; case 'WEEK': return 'plans.perWeek'; default: return ''; }
-}
-```
-
-💡 **Best practice:** Never manually construct currency strings like `'$' + price`. Use `Intl.NumberFormat` — it handles symbol placement, decimal separators, and locale differences.
+Read price/currency from `plan.pricing?.price?.{value, currency}` and format via the canonical pattern in [SDK_CORE.md → Price Formatting](SDK_CORE.md#price-formatting). Map `plan.pricing?.subscription?.cycleDuration.unit` (MONTH / YEAR / WEEK / DAY) to translation keys (`plans.perMonth`, …) for the period label.
 
 ### Perks List
 

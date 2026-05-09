@@ -15,7 +15,7 @@ const myItems = result.items;
 
 ## Data Item Shape
 
-⛔ **Breaks at runtime** — Items from `items.query().find()` have fields **directly on the object**, not nested under `.data`. The REST API uses `.data`, but the SDK does not.
+Items from `items.query().find()` have fields directly on the object. The REST API nests them under `.data`, but the SDK unwraps that envelope:
 
 ```typescript
 result.items[0].title      // ✅ correct
@@ -107,13 +107,13 @@ const item = result.items[0];
 { "dataCollectionId": "MyCollection", "dataItems": [{ "data": { "title": "Item A" } }], "returnEntity": true }
 ```
 
-⚠️ **Common mistake** — Bulk patch uses `patches` array with `fieldModifications`, not `dataItems`. Wrong shape produces `WDE0080` error.
+Bulk patch uses a `patches` array with `fieldModifications` — not `dataItems`.
 
-⚠️ **Common mistake** — `MULTI_REFERENCE` cannot be set via insert/update/patch — values are silently dropped. After the main write, call `items.replaceReferences(collectionId, fieldKey, referringItemId, ids[])` (empty array clears all). To load existing values when editing, use `items.queryReferenced(collectionId, rowId, fieldKey)`. See [EXTENSIONS.md](EXTENSIONS.md) for the full add/edit pattern.
+`MULTI_REFERENCE` values are not written by insert/update/patch — they're silently dropped from the body. After the main write, call `items.replaceReferences(collectionId, fieldKey, referringItemId, ids[])` (empty array clears all). To load existing values when editing, use `items.queryReferenced(collectionId, rowId, fieldKey)`. See [EXTENSIONS.md](EXTENSIONS.md) for the full add/edit pattern.
 
 ## Price Formatting
 
-Always format prices ourselves with `Intl.NumberFormat`, using the visitor's current locale and the currency that's already on the SDK price object. **Never render the SDK's pre-formatted string** (`formattedAmount`, `formattedValue`, `formattedConvertedAmount`, etc.):
+Format prices with `Intl.NumberFormat`, using the visitor's current locale (from `i18n.getLocale()`) and the currency that's on the SDK price object:
 
 ```typescript
 import { i18n } from '@wix/essentials';
@@ -122,9 +122,7 @@ const fmt = (n: number, currency: string) =>
   new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
 ```
 
-⛔ **Never read `price.formattedAmount` / `price.formattedValue` / `price.formattedConvertedAmount`.** Those strings are produced server-side at write/cache time with whatever locale was active then, not the current visitor's. Different SDKs also format inconsistently (decimal separators, currency-symbol position, fraction digits) — rendering them mixed in one page produces visibly different price styles. The only way to get consistent, locale-correct output is to always go through one `Intl.NumberFormat` call.
-
-⛔ **Never manually construct currency strings** like `` `$${price}` ``. The hardcoded symbol is wrong on every non-USD site.
+The SDK's pre-formatted strings (`formattedAmount`, `formattedValue`, `formattedConvertedAmount`) are produced server-side at write/cache time with whatever locale was active then — not the current visitor's. Different SDKs also format inconsistently (decimal separators, symbol position, fraction digits), so mixed pages get visibly different styles. Always go through one `Intl.NumberFormat` call.
 
 ### Where to get the currency
 
@@ -151,9 +149,7 @@ const currency = await getSiteCurrency();
 
 ### Getting the site's payment currency
 
-⛔ **Do NOT hardcode `'USD'`** as the currency. Every Wix site has a configured `paymentCurrency` (e.g., `"ILS"`, `"EUR"`) and prices are priced in it. If you use USD-hardcoded formatting, an IL-based restaurant's menu renders as `$14.99` instead of `₪14.99` — same digits, wrong currency.
-
-⛔ **Don't go looking for the currency in the feature-specific API.** Intuition says "the restaurant has a `paymentCurrency` on its Operation" — and SDK types confirm it — but at runtime that field is empty. Same for `currentCart.currency` when the cart is empty. The only reliable source is **Site Properties**:
+The site's currency lives on Site Properties (`paymentCurrency`) — not on feature-specific entities. The SDK types suggest a restaurant's `Operation.paymentCurrency` exists, but at runtime that field is empty (same for `currentCart.currency` on an empty cart). Read it from Site Properties:
 
 ```bash
 npm install @wix/business-tools
@@ -175,27 +171,15 @@ export async function getSiteCurrency(): Promise<string> {
 }
 ```
 
-⛔ **Never fall back to a hardcoded currency string.** The try/catch-returns-`'USD'` pattern silently ships the wrong symbol for every site that isn't USD. Let the call throw — configuration gaps should surface as errors, not as incorrect prices.
+If `getSiteCurrency()` can't find a configured `paymentCurrency`, let the call throw — a missing site currency is a configuration gap that should surface as an error, not as a hardcoded `'USD'` fallback that silently ships the wrong symbol on every non-USD site.
 
-⛔ **The `priceFormatted || \`$${price}\`` pattern is the exact same violation.** It looks like graceful degradation, but on any non-USD site it silently renders the wrong currency symbol any time the SDK's `formattedAmount`/`formattedValue` is missing. Same for `priceFormatted || \`${price}\`` (bare number — no currency at all). And the `priceFormatted` source itself is wrong (see "Never read `price.formattedAmount`" above) — both halves of the expression need replacing:
+Format from `amount + currency` at the page boundary:
 
 ```typescript
-// ❌ wrong — hardcoded $ on a non-USD site
-{priceFormatted || `$${price}`}
-
-// ❌ wrong — no currency on the fallback
-{priceFormatted || `${price}`}
-
-// ❌ still wrong — sdkFormatted uses server-side locale, not visitor's
-const priceFormatted = sdkFormatted || (rawValue ? fmt(parseFloat(rawValue)) : '');
-
-// ✅ right — always format from amount+currency at the page boundary
 const priceFormatted = price.amount
   ? new Intl.NumberFormat(locale, { style: 'currency', currency: price.currency }).format(parseFloat(price.amount))
   : '';
 ```
-
-Centralise the format call at the page boundary; never let a bare number slip through to JSX, and never let an SDK pre-formatted string be the "good" branch of an `||` either.
 
 `siteProperties.getSiteProperties()` returns `{ properties: { paymentCurrency, language, timeZone, ... } }`. Use this from any Astro page (server-side) to get an ISO-4217 currency code, then pass it to `Intl.NumberFormat` — or through a prop to React components that format computed totals.
 
@@ -232,32 +216,27 @@ These are the most common runtime failures. Each is explained because understand
 
 | Gotcha | Why it breaks |
 |--------|---------------|
-| `categories.queryCategories(options).find()` → `INVALID_FILTER` | The builder form sends an empty condition the API rejects. Use the two-argument form instead: `queryCategories({}, options)` which returns a Promise directly (no builder) |
-| `getCurrentCart()` returns `Cart` directly, not `{ cart }` | SDK unwraps the response envelope |
-| `searchOrders` takes `OrderSearch` directly, not `{ search: OrderSearch }` | Wrapping adds an extra nesting level the SDK doesn't expect |
-| `createCheckoutFromCurrentCart` returns `{ checkoutId }`, not a checkout object with `_id` | It's a creation shortcut, not a full GET |
-| `createCheckoutFromCurrentCart` is on `currentCart`, not `checkout` | Different module entirely — importing from `checkout` fails at build |
-| Buy Now / Donate using `addToCurrentCart` + `createCheckoutFromCurrentCart` drags the user's existing cart items into the "single item" checkout and leaves the new item sitting in their cart | Those flows are one-off purchases, not cart purchases. Use `checkout.createCheckout({ lineItems, channelType })` instead — it creates a standalone checkout from explicit line items and never touches `currentCart`. Destructure `_id` (not `checkoutId`) from the returned `Checkout` |
-| `estimateCurrentCartTotals` → `priceSummary` is at top level | Not nested under `estimatedTotals` like the REST docs suggest |
-| `getCurrentMember()` returns `{ member?: Member }` (wrapped) | This one IS wrapped, unlike most SDK responses |
-| `getMember(id)` returns `Member` directly | Inconsistent with `getCurrentMember` — no wrapping |
-| `getMyMemberAbout()` returns `{ memberAbout }` (wrapped) | Wrapped |
-| `getMemberAbout(id)` returns `MemberAbout` directly | Not wrapped |
-| `getDonationCampaign` / `updateDonationCampaign` / `queryDonationCampaigns().find()` return the entity (or `items`) directly, not `{ donationCampaign }` | SDK unwraps even though REST wraps |
-| `updateDonationCampaign(id, partial)` — two positional args | Not a single `{ id, ... }` object like many other SDK updates |
-| `coverImage` on a `DonationCampaign` is typed as `string` but returns as `Image` object `{ id, url, width, height, altText }` at runtime | SDK types and runtime disagree. Handle both shapes when rendering; write via REST with object form |
-| REST PATCH fails with `INVALID_PATCH: missing hierarchies` when updating a nested field (e.g., `coverImage`) | The body MUST include `fieldMask: { paths: ["coverImage"] }` even though docs say "partial updates supported". The SDK sets this automatically; manual REST calls must include it |
+| `categories.queryCategories(options).find()` → `INVALID_FILTER` | The builder form sends an empty condition the API rejects. Use the two-argument form: `queryCategories({}, options)` returns a Promise directly |
+| `getCurrentCart()` returns `Cart` directly | SDK unwraps the response envelope |
+| `searchOrders(searchObj)` — pass `OrderSearch` directly, not `{ search: OrderSearch }` | The SDK doesn't take an extra `search` wrapper |
+| `createCheckoutFromCurrentCart` returns `{ checkoutId }`; lives on `currentCart`, not `checkout` | Creation shortcut, not a full GET. Different module entirely from `checkout.createCheckout` — both exported from `@wix/ecom` |
+| Buy Now / Donate flows: use `checkout.createCheckout({ lineItems, channelType })` directly, destructure `_id` | `createCheckoutFromCurrentCart` reads the user's cart, so it pulls in unrelated items and leaves the new item in the cart afterwards |
+| `estimateCurrentCartTotals` → `priceSummary` is at the top level, not under `estimatedTotals` | The REST docs nest it; the SDK hoists it |
+| `getCurrentMember()` returns `{ member?: Member }`; `getMember(id)` returns `Member` directly | Inconsistent wrapping between the two |
+| `getMyMemberAbout()` returns `{ memberAbout }`; `getMemberAbout(id)` returns `MemberAbout` directly | Inconsistent wrapping between the two |
+| `getDonationCampaign` / `updateDonationCampaign` / `queryDonationCampaigns().find()` return the entity (or `items`) directly | SDK unwraps even though REST wraps |
+| `updateDonationCampaign(id, partial)` — two positional args | Not a single `{ id, ... }` object |
+| `DonationCampaign.coverImage` is typed as `string` but returns as `Image` object at runtime | SDK types and runtime disagree. Render with `string | { id, url, ... }`; write via REST with object form |
+| REST PATCH on nested fields (e.g. `coverImage`) needs `fieldMask: { paths: ["coverImage"] }` in the body | Without it, the server returns `INVALID_PATCH: missing hierarchies`. The SDK sets this automatically — only matters for manual REST calls |
 | `DONATIONS_APP_ID` not exported from `@wix/donations` | No SDK const — hardcode `"333b456e-dd48-4d6b-b32b-9fd48d74e163"` in `src/utils/appIds.ts` |
-| `query*().limit(200)` silently caps return set at 200 | `.limit()` is capped server-side regardless of the value you pass. Paginate via `.next()` until `page.items.length < 200` — otherwise the tail of long series/collections is missing |
-| `.eq('nested.path.field', value)` on a query builder fails typecheck | The generated builder's filter methods are typed to a shortlist of scalar top-level fields. For nested/deep filters, fetch without that clause and filter client-side |
-| `updateX({ entity: {...original, foo: 'bar'} })` → `INVALID_FIELD_MASK: … UNKNOWN` with many read-only paths listed | Spreading a full response object into an update call tells the server to write every field — including read-only/computed ones. Pass ONLY the delta sub-tree (`{ entity: { subtree: { foo: 'bar' } } }`) |
-| `auth.elevate(sdkFn)` looks like it loses SDK type overloads | In practice it preserves the real signature for normal SDK functions (`auth.elevate(wixEventsV2.getEvent)`, `auth.elevate(items.insert)`, `auth.elevate(siteProperties.getSiteProperties)` all keep their typed signatures). If you see a `(httpClient: HttpClient)` signature on the elevated function, double-check the import — you may be importing the REST-registration form rather than the SDK function. Don't preemptively cast `as (input: X, ...) => Promise<X>` — the cast loses the response NonNullablePaths the SDK declares, and you'll re-introduce the type drift you thought you were fixing. |
-| Client-hydrated component (`client:load`) silently fails to hydrate after SDK edits — buttons dead, no visible error | Stale Vite optimize-dep cache (`504 Outdated Optimize Dep` in console). Fix: `rm -rf node_modules/.vite && restart dev`. Only bites dev — prod builds are fine |
-| `await services.queryServices({})` (or any `queryX()`) without `.find()` resolves to the **query builder**, not the result. `result.items` / `result.services` / `result.orders` are all `undefined`, downstream list is empty | Query methods return a builder. `.find()` (or the two-argument form `queryX(query, options)`) is what actually executes. Missing it is a silent empty-render bug — no TypeScript error because builders accept `.then()` via the Promise interface |
-| `orders.memberGetOrder(id)` returns the `Order` directly, not `{ order }` | `result?.order` is always `undefined`. Destructure: `const order = await orders.memberGetOrder(id);` |
-| `orders.Order` (pricing-plans) has no `priceDetails` in the types | The field was deliberately removed from the base `Order` type when Wix introduced `pricing` as the structured replacement. Don't widen the type to read the legacy field — use `order.pricing.prices[0].price.{subtotal,total,discount,currency,coupon}` and `order.pricing.subscription.cycleDuration` instead. See [PRICING_PLANS.md](PRICING_PLANS.md) → "Order Shape" |
-| Comparing status/enum fields against string literals (`o.status !== 'DRAFT'`, `channelType: 'WEB'`) | Literal strings compile but silently break the day Wix renames an enum value. Use SDK enums: `orders.OrderStatus.DRAFT`, `currentCart.ChannelType.WEB`, `bookings.BookingStatus.CONFIRMED`, `posts.NodeType.PARAGRAPH`, `wixEventsV2.RequestedFields.DETAILS`, `seoTagsApi.ItemType.STORES_PRODUCT`, etc. If your IDE can't autocomplete the value, the namespace probably lives one level deeper — check the SDK source |
-| `auth.elevate(fn)` strips the caller's locale | It does **not**. Both the elevated and non-elevated clients share the same `hostProxy` from `authAsyncLocalStorage`, which carries the request-level locale/language. `auth.elevate` only swaps the identity to app-level; `x-wix-linguist` stays intact. Don't re-attach the locale manually on elevated calls |
+| `query*().limit(200)` is capped server-side regardless of the value | Paginate via `.next()` until `page.items.length < 200`; otherwise the tail of long series/collections is missing |
+| `.eq('nested.path.field', value)` on a query builder fails typecheck | The builder's filter methods are typed to a shortlist of scalar top-level fields. For nested/deep filters, fetch without the clause and filter client-side |
+| `updateX({ entity: {...original, foo: 'bar'} })` → `INVALID_FIELD_MASK: … UNKNOWN` listing read-only paths | Spreading the full response into an update tells the server to write every field, including read-only ones. Pass only the delta sub-tree (`{ entity: { subtree: { foo: 'bar' } } }`) |
+| `client:load` component silently fails to hydrate after SDK edits in dev — `504 Outdated Optimize Dep` in console | Stale Vite optimize-dep cache. Fix: `rm -rf node_modules/.vite` and restart dev. Only affects dev; prod builds are fine |
+| `await queryX({})` (without `.find()`) resolves to the query **builder**, not the result | Query methods return a builder; `.find()` (or the two-argument `queryX(query, options)`) executes it. The builder satisfies `.then()` so there's no TypeScript error — `result.items` is just `undefined` and the page renders empty |
+| `orders.memberGetOrder(id)` returns the `Order` directly, not `{ order }` | Destructure: `const order = await orders.memberGetOrder(id);` |
+| `orders.Order` (pricing-plans) has no `priceDetails` in the types | `priceDetails` was removed when Wix introduced `pricing` as the structured replacement. Use `order.pricing.prices[0].price.{subtotal,total,discount,currency,coupon}` and `order.pricing.subscription.cycleDuration`. See [PRICING_PLANS.md](PRICING_PLANS.md) → "Order Shape" |
+| Comparing status/enum fields against string literals (`o.status !== 'DRAFT'`, `channelType: 'WEB'`) | Literal strings compile but break the day Wix renames an enum value. Use SDK enums: `orders.OrderStatus.DRAFT`, `currentCart.ChannelType.WEB`, `bookings.BookingStatus.CONFIRMED`, `posts.NodeType.PARAGRAPH`, `wixEventsV2.RequestedFields.DETAILS`, `seoTagsApi.ItemType.STORES_PRODUCT`, etc. If your IDE can't autocomplete the value, the namespace probably lives one level deeper |
 
 💡 **Best practice — probe shapes, don't guess.** SDK types, documented REST schemas, and what the server actually accepts for write calls can all drift. When a mutation fails with `INVALID_FIELD_MASK` / `UNKNOWN path` / "validation error for field I swear I didn't send", stop and drop a disposable read-only endpoint that dumps the raw entity with every relevant fieldset:
 
@@ -299,34 +278,14 @@ This is also how the member Orders tab can badge each line item by type — clas
 
 ## TypeScript Conventions
 
-- Use `astro/tsconfigs/strictest` — use `?? null` (not `|| undefined`) for optional properties typed as `string | null`
-- Always prefer SDK types (`cart.LineItem`, `productsV3.ProductMedia`, etc.) over `Record<string, unknown>`
-- Import types: `import type { cart as cartTypes } from '@wix/ecom'` or via namespace: `type TimeSlot = timeSlots.TimeSlot`
-- ⛔ **Never use `any`, `any[]`, `as any`, `as unknown as`, or `Record<string, any>`** — the ESLint `no-explicit-any` rule enforces this at build time. If a type error appears, fix the field access to match the SDK type — don't suppress the error. A type error usually means the code will crash at runtime.
-- ⛔ **`as unknown as X` is `as any` with a fig leaf — equally banned.** ESLint's `no-explicit-any` doesn't catch the double-cast, but the project also has a `no-restricted-syntax` rule that does. The same applies to laundering through ad-hoc shapes: `(sdk as unknown as { reservations?: { createReservation: (r: unknown) => Promise<unknown> } }).reservations` is the worst form of this — it (a) erases the real signature, (b) invents a "maybe" property that may not exist at runtime, and (c) makes every parameter and return `unknown`. Three lies in one expression. If `sdk.reservations` exists, the SDK exports its type; import it. If it doesn't exist, your code is broken — don't paper over with a fictional shape.
-- ⛔ **`: unknown` parameters for SDK inputs are the same trick.** A function that calls `sdk.createX(opts: unknown)` has erased the input contract. Use `Parameters<typeof sdk.createX>[0]` if you must, or import the input type the SDK exports (`reservations.CreateReservationOptions`). `unknown` is appropriate for catch-block errors and for true external inputs (URL params, JSON.parse output) — never for SDK call inputs or outputs.
-- ⛔ **Never write custom interfaces that mirror SDK types** (e.g., a local `interface TimeSlotInfo { startDate: string; status: string }` when `timeSlots.TimeSlot` exists). Using SDK types directly keeps your code in sync with API changes and surfaces real bugs — a custom mirror hides the fact that, e.g., `startDate` is `Date | null` not `string`, and that misalignment eventually crashes.
-- ✅ **When the SDK type seems wrong, probe before casting.** Drop a temporary endpoint (see "probe shapes" above) to confirm the actual runtime shape, then either (a) use the SDK type as-is if it's right, (b) intersect with the missing field if there's drift, or (c) file a fix upstream. Going straight to `as unknown as` skips the step where you find out *why* the type is wrong — and that "why" is usually a real bug.
-- **Prefer type inference over explicit annotation where possible.** `const map = new Map(entries)` with well-typed `entries` infers the full `Map<K, V>` — no need for a local `interface Entry` or explicit generic. Same for `.map()` / `.filter()` chains: let TS infer the item type from the SDK-typed array.
-- **SDK type drift is rare and specific — usually fieldset-conditional fields.** Most "drift" claims are actually misreads of the type signature. Verified real cases (each requires intersecting with a `?` field): `wixEventsV2.Event` lacks `categories?: EventCategories` even with the `CATEGORIES` fieldset requested; `posts.Post` lacks `metrics?: Metrics` even with the `METRICS` fieldset requested. These are populated at runtime when the relevant fieldset is requested but the base entity type doesn't reflect that. For these, intersect: `type Widened = X & { extraField?: X_ExtraType }`. Casts stay narrow and you keep type coverage on the rest of the object. **Before reaching for an intersection, prove the SDK type is wrong:** open `node_modules/@wix/<pkg>/build/cjs/index.typings.d.ts` and read the interface — many "type drift" cases turn out to be a missing field on the *call payload* (e.g. `memberId` on `MemberAbout`) where the type is correct and the runtime simply requires the field. Pass the field; the type accepts it.
-- **`unknown` in catch, not `any`.** `} catch (e) { ... e instanceof Error ? e.message : fallback }` covers the common case. Reserve a typed shape (e.g., `type WixSdkError = Error & { details?: { applicationError?: { code?: string } } }`) for deeper inspection.
-- **Custom DTOs are OK at the server/client boundary.** React islands that mount from Astro pages only see what you pass as props — the full SDK type carries methods and non-serializable `Date`s that don't survive the JSON hop. Define a narrow `ProductData` / `BookingData` interface *built from SDK sub-types* (`productsV3.PriceRange`, `productsV3.Variant`, …) rather than restating primitives. In pure server code, always reach for the SDK type directly.
+`astro/tsconfigs/strictest` is on, so `?? null` for optional `string | null` fields, conditional assignment instead of `= specialRequests || undefined` (under `exactOptionalPropertyTypes`), `unknown` in catch — these are tsconfig-enforced; let the compiler tell you when you've broken them.
 
-### `exactOptionalPropertyTypes` — don't pass explicit `undefined`
+The project-specific rules:
 
-The strictest tsconfig enables `exactOptionalPropertyTypes: true`. Under this rule, a field typed as `string | null` (optional but NOT `| undefined`) rejects an explicit `undefined`:
-
-```typescript
-reservation.teamMessage = specialRequests || undefined;  // ❌ type error
-```
-
-Instead, conditionally assign only when you have a value:
-
-```typescript
-if (specialRequests) reservation.teamMessage = specialRequests;  // ✅
-```
-
-This is more correct semantically — an omitted field means "don't send / don't update", not "send the literal value `undefined`".
+- **Always import SDK types** (`cart.LineItem`, `productsV3.ProductMedia`, …) instead of restating shapes as `Record<string, unknown>` or local mirror interfaces. A custom mirror hides real type-drift signals — e.g. `startDate: Date | null` quietly becoming `startDate: string` in your shape.
+- **`as any` and `as unknown as X` are both banned** (`no-explicit-any` + `no-restricted-syntax`). When the SDK type seems wrong, probe the actual runtime shape (see "Best practice — probe shapes" above) before reaching for a cast. Most "drift" turns out to be a payload field that the type already accepts (`memberId` on `MemberAbout` is the canonical example).
+- **Real, verified type drift** is fieldset-conditional fields: `wixEventsV2.Event.categories` (with `CATEGORIES` fieldset), `posts.Post.metrics` (with `METRICS` fieldset). For these, intersect: `type Widened = X & { extraField?: X_ExtraType }`.
+- **Custom DTOs are OK across the server/client boundary.** SDK types carry methods and `Date`s that don't survive the JSON hop into a React island; define narrow DTOs from SDK sub-types (`productsV3.PriceRange`, `productsV3.Variant`, …) for that hop, not restated primitives. Pure server code always uses the SDK type directly.
 
 ## SSR + React hydration (`client:load` vs `client:only`)
 
@@ -365,7 +324,7 @@ useEffect(() => {
 }, []);
 ```
 
-⛔ **Do NOT** default `useState(new Date()...)` — initializers run during both renders with different values, guaranteeing a mismatch.
+A `useState(new Date()...)` initializer runs during both renders and produces different values each time — initialise to a deterministic value (empty string, `null`) and populate in `useEffect`.
 
 ### Where mismatches usually crop up
 
@@ -376,7 +335,7 @@ useEffect(() => {
 
 ### Never render SDK objects directly in Astro templates
 
-⛔ **Breaks at runtime (silently)** — Astro templates accept any expression in `{expr}` and call `.toString()` at runtime. Rendering an SDK object (e.g., `{product.ribbon}`, `{variant.price}`) produces `[object Object]` instead of the expected text. **No compiler or linter catches this** — `astro check`, `tsc`, and ESLint all pass. React JSX rejects objects as children at the type level, but Astro templates do not.
+Astro templates accept any expression in `{expr}` and call `.toString()` on it. Rendering an SDK object (e.g., `{product.ribbon}`, `{variant.price}`) produces `[object Object]`. `astro check`, `tsc`, and ESLint all pass — React JSX rejects objects as children at the type level, but Astro templates don't.
 
 **Rule:** Never pass an SDK object into `{}` — always access the specific primitive field first:
 - `{product.ribbon.name}` not `{product.ribbon}`
@@ -391,11 +350,11 @@ Common V3 fields that are objects, not strings:
 
 ### React Islands in Astro
 
-⛔ **Breaks at runtime** — Don't use inline `<style>{...}` in React components — causes hydration mismatch due to HTML entity encoding. Put styles in Astro `<style>` with `:global()`.
+Put styles in Astro `<style>` with `:global()`, not inline `<style>{...}` inside React components — the React form HTML-entity-encodes the CSS and triggers a hydration mismatch.
 
-⛔ **`:global()` doesn't work in CSS injected from React.** It's a build-time syntax processed by CSS Modules / Astro's scoped-style pipeline — it only works inside Astro `<style>` blocks (and `<style is:global>`). Plain CSS in `<style>` tags rendered via React's `dangerouslySetInnerHTML` (or any other runtime-injected CSS) does NOT understand `:global()`. The browser sees an unknown pseudo-class and silently drops the entire rule. Symptom: tabs/panels that should be hidden are visible (or vice versa) and no error appears anywhere. **Rule:** if the CSS is reaching the browser via a React component, omit `:global()` and write plain selectors. If you need `:global()`, the styles belong in an Astro `<style>` block.
+`:global()` is build-time syntax processed by Astro's scoped-style pipeline. It works inside Astro `<style>` blocks (and `<style is:global>`); CSS injected via React (e.g., `dangerouslySetInnerHTML`) reaches the browser as plain CSS, where `:global()` is an unknown pseudo-class and the browser drops the rule. If the CSS comes from React, write plain selectors.
 
-⛔ **Astro named slots do NOT forward to React component children.** Writing `<MyReactComponent client:load><div slot="profile">…</div><div slot="orders">…</div></MyReactComponent>` does not give the React component access to named slots — Astro framework integrations only pass the default slot through as `children`, and named-slot content is concatenated into that single `children` list with the `slot=` attribute preserved as a DOM attribute. Combined with `:global(div[slot="profile"])` selectors that don't run, this is a common silent-failure pattern: tab buttons render, but every panel shows empty.
+Astro named slots don't forward to React component children — framework integrations pass only the default slot as `children`, and named-slot content is concatenated into that list with the `slot=` attribute preserved as a DOM attribute. The pattern below (sibling `data-tab-panel` divs in Astro, React component toggles `style.display`) is the canonical workaround.
 
 ✅ **Pattern for React-driven tabs over SSR'd content:** keep the React component lean — buttons + URL/hash sync only — and put the tab panels as **siblings** in the Astro page with `data-tab-panel` attributes. The React component toggles `style.display` on those siblings via `useEffect` when the active tab changes:
 

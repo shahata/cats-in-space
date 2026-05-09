@@ -24,9 +24,7 @@ if (!member) {
 ---
 ```
 
-⛔ **Breaks at runtime:** `getCurrentMember()` returns `{ member?: Member }` — unwrap before using, or you'll get TypeErrors accessing properties on `undefined`. → Destructure with `const res = await members.getCurrentMember(...); member = res.member;`.
-
-⚠️ **Common mistake:** Redirect to login with `returnToUrl` so the user returns to the member page after authenticating. Without it, the user lands on the homepage after login. → Use `Astro.redirect('/api/auth/login?returnToUrl=/member')`.
+Redirect to `'/api/auth/login?returnToUrl=/member'` so the visitor lands back on the member page after authenticating.
 
 ### Fetch All Member Data Server-Side
 
@@ -77,7 +75,7 @@ const activeOrders = planOrders.filter((o) =>
 );
 ```
 
-⚠️ **SDK enums, not string literals.** Compare `o.status` against `planOrdersApi.OrderStatus.DRAFT`, not `'DRAFT'`. Same rule for every status/channel/effective-at/cancellation-cause field — `orders.PaymentStatus.PAID`, `orders.CancellationCause.OWNER_ACTION`, `orders.CancellationEffectiveAt.NEXT_PAYMENT_DATE`, `currentCart.ChannelType.WEB`, `bookings.BookingStatus.CONFIRMED`, etc. Literal strings TypeScript-pass but break silently the day an enum renames a value.
+Compare status / channel / effective-at / cancellation-cause fields against the SDK enum (`planOrdersApi.OrderStatus.DRAFT`, `orders.PaymentStatus.PAID`, `currentCart.ChannelType.WEB`, `bookings.BookingStatus.CONFIRMED`, …). Literal strings type-check but break the day an enum value gets renamed upstream.
 
 ## Tab Navigation
 
@@ -115,9 +113,7 @@ Build as a React `client:load` component.
 - **Privacy** — toggle between PUBLIC and PRIVATE
 - **About/bio** — text area, saved as rich content
 
-⛔ **Breaks at runtime:** `updateMember` silently ignores `privacyStatus`. Use `members.joinCommunity()` for PUBLIC and `members.leaveCommunity()` for PRIVATE — the field is accepted without error but never persisted.
-
-⛔ **Breaks at runtime:** To remove a profile photo, send `{ url: "" }` — not `null`. Passing `null` silently leaves the old photo in place. → Use `profile: { photo: { url: "" } }` in the update call.
+For privacy toggling and the photo-removal field shape, see [AUTHENTICATION.md](AUTHENTICATION.md#member-profile-management).
 
 ### Photo Upload Pattern
 
@@ -153,11 +149,11 @@ if (aboutId) {
 }
 ```
 
-⚠️ **Both calls require `memberId` in the body, not just on update vs create.** The SDK types correctly declare `memberId?: string | null` on both `MemberAbout` (create) and `UpdateMemberAbout`, but it's optional in the type and *required at runtime* — omitting it returns `ABOUT_MISSING_MEMBER_ID` from the server. Always pass `member._id!`. No casts needed; the type accepts it directly.
+Pass `member._id!` as `memberId` on both `createMemberAbout` and `updateMemberAbout` — the SDK types it as optional, but the server returns `ABOUT_MISSING_MEMBER_ID` when it's missing.
 
-⚠️ **`updateMemberAbout` takes two args, not three** — `(aboutId, { memberId, content, revision })`. All three body fields live inside the second-arg object, not as positional args.
+`updateMemberAbout(aboutId, { memberId, content, revision })` — body fields live inside the second-arg object.
 
-⚠️ **Use SDK NodeType enum** (`membersAbout.NodeType.PARAGRAPH`, `posts.NodeType.TEXT`, etc.) — Ricos treats unknown node types as empty, so a typo in the string `'PARAGRPH'` silently loses content with no error.
+Use the SDK `NodeType` enum (`membersAbout.NodeType.PARAGRAPH`, `posts.NodeType.TEXT`, …). Ricos drops nodes with unrecognized types silently, so a string typo loses content with no error.
 
 ### Save Feedback
 
@@ -220,7 +216,7 @@ Translate status values — don't display raw English enum strings.
 
 Show a helpful message with CTA linking to the store page.
 
-### ⛔ Wix Events tickets are NOT in `ecomOrders.searchOrders` — render them in a dedicated Tickets tab
+### Wix Events tickets render in a dedicated Tickets tab
 
 The Orders tab `ecomOrders.searchOrders` returns store / donation / gift card / restaurant / pricing-plan / blog purchases — but NOT event tickets. `redirects.createRedirectSession({ eventsCheckout })` creates an order in the **separate Events orders system** (`@wix/events` → `orders.listOrders`). Render tickets in their own tab — not merged into Orders — because each ticket has unique actions (download PDF, add to calendar) that don't fit a generic order line.
 
@@ -276,15 +272,15 @@ try {
 } catch {}
 ```
 
-⛔ **`wixEventsV2.queryEvents` is not the right API for an `_id IN [...]` lookup.** Its filter syntax is `{ paging, sort, filter }` (not the standard `{ query: { filter: {...} } }`). Use parallel `getEvent(id)` calls instead.
+For an `_id IN [...]` lookup, use parallel `getEvent(id)` calls — `wixEventsV2.queryEvents` uses a non-standard `{ paging, sort, filter }` shape that doesn't fit this case.
 
-⛔ **Filter `eventsOrders.listOrders` by `memberId`, NOT `contactId`.** `memberId` matches the logged-in member; `contactId` is for guest orders.
+Filter `eventsOrders.listOrders` by `memberId` for logged-in members; `contactId` is the guest-order field.
 
-⛔ **Calendar URLs require the `RequestedFields.DETAILS` fieldset** — `getEvent` without it returns `calendarUrls: undefined`. The DETAILS fieldset also gives you `mainImage` and `shortDescription` which the card uses.
+Request `RequestedFields.DETAILS` from `getEvent` so `calendarUrls`, `mainImage`, and `shortDescription` come back populated.
 
 ## Subscriptions Tab
 
-⛔ **Don't ship a placeholder.** A common shortcut is to leave the Subscriptions panel as one paragraph saying "subscriptions also appear in your Orders tab" — that's a nav UX failure. Build the real tab on every site that has a `/plans` page; if there are no plans, omit the tab entirely instead.
+Build the real tab on every site that has a `/plans` page. If there are no plans, omit the tab entirely.
 
 ### Server-side fetch (in `member/index.astro`)
 
@@ -303,9 +299,9 @@ try {
 } catch {}
 ```
 
-⚠️ **`memberListOrders()` runs as the current member** — do NOT wrap in `auth.elevate()` (that switches to app identity and either 403s or returns the wrong member's orders).
+Call `memberListOrders()` as the current member — `auth.elevate()` switches to app identity and either 403s or returns the wrong member's orders.
 
-⚠️ **`o.endDate` is `Date | null`, not a string** — call `.toISOString()` directly. Old code that did `new Date(o.endDate as unknown as string)` was working around a misread of the type; `Date.toISOString()` works on the value as-is.
+`o.endDate` is `Date | null` — call `.toISOString()` on it directly.
 
 ### Reading prices: use `pricing`, not `priceDetails`
 
@@ -322,7 +318,7 @@ order.pricing?.prices?.[0]?.price?.coupon?.code  // applied coupon
 
 `pricing.prices` is `SpannedPrice[]` — keyed by `duration.cycleFrom` so multi-cycle plans ("intro $10, then $20") can carry both. For single-cycle plans (the common case) just read `prices[0].price.<field>`.
 
-⛔ **Don't read `priceDetails`.** It's a legacy flat-shape field — Wix kept it on the response wire-paths for backwards compat, but removed it from the base `Order` type (which is the SDK's signal it's being phased out). Reading it requires intersecting `Order & { priceDetails?: PriceDetails }`, and the migration to `pricing` is a one-line per-field change. The only field that doesn't have a clean equivalent is `priceDetails.planPrice` (price at order creation) — for "is free" checks and price display, `prices[0].price.subtotal` is the right substitute.
+Read prices from `pricing`, not `priceDetails` — `priceDetails` is a legacy flat shape that no longer appears on the typed `Order`. For "is free" checks and price display, `pricing.prices[0].price.subtotal` is the equivalent of the old `priceDetails.planPrice`.
 
 ### Per-card display
 
@@ -339,7 +335,7 @@ For each subscription show:
 - Try `CancellationEffectiveAt.NEXT_PAYMENT_DATE` first, fall back to `IMMEDIATELY` (single-payment plans)
 - Use the SDK enum (`orders.CancellationEffectiveAt.NEXT_PAYMENT_DATE`), not the string literal
 - After cancel, optimistically flip `autoRenewCanceled: true` in local state — the badge re-renders without a refetch
-- ⛔ **Breaks at runtime:** `requestCancellation` requires member authentication — call from client-side, or you'll get a 403 from the server context. → Use a React `client:load` component for cancellation.
+- Call `requestCancellation` from a `client:load` React component — it requires member identity, which the server context doesn't carry.
 
 ## Payment Tab (SavedPaymentMethods Component)
 
@@ -373,7 +369,7 @@ function getCardBrand(bin: string): string {
 3. **Change password inline** — verify current password, then change via SDK client (see pattern below)
 4. Display: member since date, last login
 
-⛔ **Breaks at runtime:** Both email change and password reset require member identity — call from client-side. `auth.elevate()` strips member identity, causing 403 errors. → Handle these operations in a React `client:load` component, never from server-side or elevated context.
+Run email change and password reset from a `client:load` component — both require member identity, which `auth.elevate()` swaps out for app identity (403).
 
 ### Change Password Pattern
 
@@ -412,11 +408,9 @@ wixClient.auth.setTokens(tokens);
 await wixClient.authentication.changePassword(newPassword);
 ```
 
-⛔ **Breaks at runtime:** `OAuthStrategy` and `getMemberTokensForDirectLogin` use browser APIs (`window`, iframes) — this MUST run client-side. Server-side calls crash with `window is not defined`. → Put all `OAuthStrategy`/`changePassword` logic in a React `client:load` component.
+All `OAuthStrategy` / `changePassword` logic runs in a `client:load` component — these use `window` / iframes and crash with `window is not defined` server-side. `auth.elevate()` doesn't help: it switches to app identity, which loses the member session that password operations require.
 
-⛔ **Breaks at runtime:** Do NOT use `auth.elevate()` for `loginV2` or `changePassword` from `@wix/identity`. Elevation switches to app identity which either gets 403 or loses the member session context needed for password operations. → Create a standalone `WixClient` with `OAuthStrategy` client-side instead.
-
-⚠️ **`loginV2` error messages are deliberately generic to prevent email enumeration.** On wrong password, the SDK throws with error code `UNKNOWN` (not `WRONG_LOGIN_ID_OR_PASSWORD`) — do NOT map on the code. Instead:
+`loginV2`'s error messages are deliberately generic to prevent email enumeration. On wrong password, the SDK throws with error code `UNKNOWN` (not `WRONG_LOGIN_ID_OR_PASSWORD`) — match on message instead:
 1. Check `!loginResponse.sessionToken` first — if missing, show a "wrong password" message.
 2. In the catch block, string-match on `err.message` for `"password"`, `"invalid"`, or `"credentials"` and map any match to the same user-friendly message.
 3. Fall back to `err.message` for other failures, not to the code.
@@ -433,8 +427,6 @@ catch (e) {
   }
 }
 ```
-
-⚠️ **Do NOT add a timeout race / fallback "success" around `changePassword`.** Faking success on a hang shows "password updated" to the user while the password never actually changes — always surface the real error instead.
 
 ## General Patterns
 

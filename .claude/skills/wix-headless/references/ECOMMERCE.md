@@ -75,13 +75,13 @@ The product detail component should render ALL of:
 
 ### Categories need images too
 
-When creating categories, import a representative image and set it on the category. Categories without images look broken in grid layouts. Use the media import API first, then create the category with the media reference. ⛔ **Breaks at runtime** — The category `image` field requires `{ "url": "https://..." }`, not `{ "id": "..." }`. Using the wrong shape silently drops the image. → Always use `{ "url": "https://..." }` format for category images.
+When creating categories, import a representative image and set it on the category. Categories without images look broken in grid layouts. Use the media import API first, then create the category with the media reference. The category `image` field is `{ "url": "https://..." }` — unlike most Wix entities, it does not accept `{ "id": "..." }`.
 
 ### Store listing page must support filtering and rich product cards
 
 The store listing page should include:
 
-1. **Category filter tabs** — show only real categories from the store (do NOT add a hardcoded "All" tab). All products are visible by default with no tab active. Clicking an active tab deselects it to show all products again. ⛔ **Breaks at runtime** — The categories REST API returns `cat.id` (not `cat._id`). Using `cat._id` yields `undefined`, breaking filtering. Always use `cat.id || cat._id`.
+1. **Category filter tabs** — show only real categories from the store (do NOT add a hardcoded "All" tab). All products are visible by default with no tab active. Clicking an active tab deselects it to show all products again. Read the category identifier as `cat.id || cat._id` — the categories REST response uses `id`, while the rest of the SDK uses `_id`.
 2. **Product grid** — responsive grid of product cards
 3. **Each product card must show:**
    - Product image (or video poster), with fallback if no media
@@ -95,39 +95,25 @@ The store listing page should include:
 
 ### Store listing data fetching
 
-⛔ **Breaks at runtime** — `@wix/stores` does NOT export `categories`. Install `@wix/categories` for the categories SDK. Do NOT use `httpClient.fetchWithAuth` — always prefer the SDK for proper types.
+Categories live in their own package — `@wix/categories`, not `@wix/stores`. Prefer the SDK over `httpClient.fetchWithAuth` so auth, types, and response shapes are handled.
 
 ```typescript
 import { productsV3 } from '@wix/stores';
 import { categories } from '@wix/categories';
-import type { categories as categoriesTypes } from '@wix/categories';
 
-// Fetch all products with category info for client-side filtering
 const productResult = await productsV3.queryProducts({
-  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO']
+  fields: ['MEDIA_ITEMS_INFO', 'CURRENCY', 'DIRECT_CATEGORIES_INFO'],
 }).limit(100).find();
 const allProducts = productResult.items || [];
 
-// Fetch categories via SDK — use the two-argument form (query, options) which returns a Promise directly
-// The builder form (single arg + .find()) sends an empty filter condition that the API rejects with INVALID_FILTER
-let allCategories: categoriesTypes.Category[] = [];
-try {
-  const catResult = await categories.queryCategories(
-    {},
-    { treeReference: { appNamespace: '@wix/stores' } }
-  );
-  allCategories = catResult.categories || [];
-} catch {}
-
-// Build category lookup for mapping product → collection names
-const categoryMap = new Map<string, string>();
-for (const c of allCategories) if (c._id && c.name) categoryMap.set(c._id, c.name);
-
-// Client-side filtering: use data-collections attribute on product cards
-// and filter via JS (see ECOMMERCE_V3.md for full example with filter tabs)
+const catResult = await categories.queryCategories(
+  {},
+  { treeReference: { appNamespace: '@wix/stores' } },
+);
+const allCategories = catResult.categories || [];
 ```
 
-**Category filtering approach:** Fetch all products with `DIRECT_CATEGORIES_INFO`, then filter client-side using `data-collections` attributes on product cards and JavaScript. This avoids the complexity of server-side `searchProducts` calls and works well for stores with up to ~100 products.
+`queryCategories` uses the two-argument form (the builder form 400s on empty filter) — see [SDK_CORE.md gotchas](SDK_CORE.md#sdk-gotchas--quick-reference). For category filtering, fetch all products with `DIRECT_CATEGORIES_INFO` and filter client-side via `data-collections` attributes on the cards — works well up to ~100 products without server-side `searchProducts`.
 
 ### Price range display
 
@@ -186,7 +172,7 @@ npm install @wix/redirects  # createRedirectSession for checkout
 
 ### Cart
 
-⛔ **Breaks at runtime** — Cart line item `image` fields are `wix:image://` strings — they will NOT render in `<img>` tags directly. Always use `getImageUrl(item.image)` to convert to a displayable URL. This applies to ALL Wix SDK media fields (see `references/MEDIA.md`).
+Cart line item `image` fields are `wix:image://` strings — pass them through `getImageUrl(item.image)` before rendering, like every other Wix SDK media field (see `references/MEDIA.md`).
 
 ```typescript
 import { currentCart } from '@wix/ecom';
@@ -228,15 +214,13 @@ Two different APIs depending on whether the user is checking out *the cart* or *
 | Cart sidebar → "Checkout" button | `currentCart.createCheckoutFromCurrentCart({ channelType })` | Reads everything in the current cart | `{ checkoutId }` |
 | "Buy Now" / "Donate" / ticket / anything that bypasses the cart | `checkout.createCheckout({ lineItems, channelType })` | Does **not** touch the cart | `Checkout` object — use `_id` |
 
-⛔ **Breaks the user's cart** — Buy Now and Donate must NOT use `createCheckoutFromCurrentCart`. The natural-looking "add to cart, then create checkout from cart" flow drags every item the user already had in their cart into the single-item checkout, and their cart also gets the new item appended. Users expect "Buy Now" to buy only *that* item and leave their accumulated cart alone. → Use `checkout.createCheckout({ lineItems: [...], channelType })` directly — no `addToCurrentCart` call at all.
+For Buy Now / Donate, call `checkout.createCheckout` directly with the line items — don't add to the cart first. `createCheckoutFromCurrentCart` reads everything currently in the user's cart, so using it for a one-off purchase pulls their existing items into the checkout and leaves the new item in their cart afterwards.
 
-⛔ **Two different return shapes — don't cross them up.**
-- `currentCart.createCheckoutFromCurrentCart` returns `{ checkoutId }` — destructure `checkoutId`, not `_id`.
-- `checkout.createCheckout` returns a full `Checkout` object — destructure `_id`, not `checkoutId`.
+The two APIs return different shapes:
+- `currentCart.createCheckoutFromCurrentCart` → `{ checkoutId }`
+- `checkout.createCheckout` → full `Checkout` object — destructure `_id`
 
-Using the wrong field passes `undefined` to `createRedirectSession` and fails with `"is not a valid GUID"`.
-
-⛔ **Module placement** — `createCheckoutFromCurrentCart` is on the `currentCart` module. `createCheckout` is on the `checkout` module. Both are exported from `@wix/ecom` — mixing them up fails at build time.
+Both are exported from `@wix/ecom`, but on different modules (`currentCart` vs `checkout`).
 
 ```typescript
 // --- Cart checkout ---
@@ -277,32 +261,11 @@ if (redirectSession?.fullUrl) window.location.href = redirectSession.fullUrl;
 
 ### Redirect callbacks: always pass all of them
 
-⛔ **Passing a partial `callbacks` object breaks custom pages mid-flow.** Wix's hosted checkout may redirect back to *any* of the callback URLs depending on what the user does (e.g. clicking "Back to cart" jumps to `cartPageUrl`; an abandoned checkout falls back to `postFlowUrl`). If a callback you own isn't set, Wix silently substitutes its own hosted page and the user leaves your custom site. Don't try to guess which callbacks the current flow will hit.
+Wix's hosted checkout may redirect back to any of the callback URLs depending on what the user does (clicking "Back to cart" jumps to `cartPageUrl`; an abandoned checkout falls to `postFlowUrl`). Any callback you don't pass falls through to a Wix-hosted page, and the user drops off your custom site mid-flow.
 
 **Rule:** every `createRedirectSession` call — eCommerce, bookings, plans, donations, events, gift cards, restaurants — must pass every callback URL this site has a custom page for. Only `thankYouPageUrl` and `postFlowUrl` are context-aware; everything else is a site-wide constant.
 
-Centralise it in one helper so no caller has to think about it:
-
-```typescript
-// src/utils/redirects.ts
-export function checkoutCallbacks(opts: {
-  thankYouPagePath: string;
-  postFlowPath: string;
-}) {
-  const origin = window.location.origin;
-  return {
-    thankYouPageUrl: origin + opts.thankYouPagePath, // context-aware
-    postFlowUrl: origin + opts.postFlowPath,         // context-aware
-    cartPageUrl: origin + '/store/cart',             // site-wide constant
-    bookingsServiceListUrl: origin + '/bookings',    // site-wide constant
-    planListUrl: origin + '/plans',                  // site-wide constant
-  };
-}
-
-export type CheckoutCallbacks = ReturnType<typeof checkoutCallbacks>;
-```
-
-Then every caller:
+The centralised helper is `checkoutCallbacks()` in `src/utils/redirects.ts` — every caller passes its `thankYouPagePath` + `postFlowPath` and the helper fills in the site-wide constants (`cartPageUrl`, `bookingsServiceListUrl`, `planListUrl`, …). Usage:
 
 ```typescript
 callbacks: checkoutCallbacks({
@@ -311,11 +274,9 @@ callbacks: checkoutCallbacks({
 }),
 ```
 
-**What goes in, what doesn't:**
-- **Always pass** a callback URL for any custom page the site owns: `cartPageUrl`, `bookingsServiceListUrl`, `planListUrl` (add more as the site grows).
-- **Don't pass** `loginUrl` unless there's a genuine custom login *page*. `/api/auth/login` is a route handler, not a page — passing it creates a redirect loop. Let Wix use its default login.
-- **Context-aware:** `thankYouPageUrl` and `postFlowUrl` reflect the flow the user is returning *from*. For the shared cart sidebar (shown in both `/store/*` and `/restaurant/order`), switch on `window.location.pathname.includes('/restaurant/order')` and pass the restaurant thank-you/post-flow paths in that context.
-- When a new custom page is added that maps to a callback, update the helper — don't patch individual callers.
+Two things to know when extending it:
+- Don't pass `loginUrl` unless there's a genuine custom login *page*. `/api/auth/login` is a route handler, not a page — passing it creates a redirect loop.
+- The shared cart sidebar lives in both `/store/*` and `/restaurant/order`; switch on `window.location.pathname` to pick the right `thankYouPagePath` / `postFlowPath` in each context. Add new site-wide callbacks to the helper, not to individual callers.
 
 ### Custom cart page at /store/cart
 
@@ -347,7 +308,7 @@ Build a `/member` page with authentication gating and an orders tab. See `refere
 
 ### Back-in-Stock Notifications
 
-⛔ **Breaks at runtime** — Back-in-stock requires two setup steps before the API works. Without both, `createBackInStockNotificationRequest` throws `TPA not installed` or `REQUEST_COLLECTION_DISABLED` errors:
+Back-in-stock requires two one-time setup steps before the API works:
 
 1. **Install the back-in-stock app** via REST:
    ```
@@ -381,9 +342,9 @@ await backInStockNotifications.createBackInStockNotificationRequest(
 );
 ```
 
-⚠️ **Common mistake** — Back-in-stock uses the V1 ECOM_PLATFORM appId (`1380b703-ce81-ff05-f115-39571d94dfcd`) even on V3 sites. The SDK's own JSDoc says to use `STORES_APP_ID` (`215238eb-22a5-4c36-9e7b-e7c08025e04e`), but **the SDK doc is wrong** — `STORES_APP_ID` silently fails to register the notification request. Always use `ECOM_PLATFORM_APP_ID` (`1380b703-...`) for back-in-stock. This is one of the few cases where the SDK type/doc disagrees with what the runtime actually accepts; trust the empirically-verified appId, not the SDK comment.
+Back-in-stock uses `ECOM_PLATFORM_APP_ID` (`1380b703-ce81-ff05-f115-39571d94dfcd`) even on V3 sites — the SDK's JSDoc points at `STORES_APP_ID`, but the runtime only registers the notification under the V1 platform id.
 
-⚠️ **`createBackInStockNotificationRequest` takes two positional arguments**, `(request, itemDetails)` — not a single options object. The TypeScript signature uses `NonNullablePaths` generics, which look intimidating but are satisfied by typing `catalogReference` as `backInStockNotifications.CatalogReference`:
+`createBackInStockNotificationRequest` takes two positional arguments — `(request, itemDetails)` — not a single options object. Type `catalogReference` as `backInStockNotifications.CatalogReference` and the SDK's `NonNullablePaths` generics resolve cleanly with no casts:
 
 ```ts
 const catalogReference: backInStockNotifications.CatalogReference = {
@@ -396,8 +357,6 @@ await backInStockNotifications.createBackInStockNotificationRequest(
   { name: productName, price: String(priceAmount) },
 );
 ```
-
-No casts needed. Earlier guidance suggested `(... as Function)` was tolerated here — it isn't, and was masking a `Record<string, unknown>` for the catalog reference that should just use the SDK's `CatalogReference` type directly.
 
 ### Media Generation
 
