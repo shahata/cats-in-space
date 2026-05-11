@@ -1,0 +1,429 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import TicketPicker from "../../components/TicketPicker";
+import { wixEventsV2, ticketDefinitionsV2 } from "@wix/events";
+import { auth, i18n } from "@wix/essentials";
+import { getImageUrl } from "../../utils/image";
+import { getRelativeLocaleUrl } from "wix:astro:i18n";
+
+// SDK type drift: Event.categories is populated by the CATEGORIES fieldset
+// at runtime but isn't on the typed Event — extend locally.
+type Event = wixEventsV2.Event & { categories?: wixEventsV2.EventCategories };
+type TicketDefinition = ticketDefinitionsV2.TicketDefinition;
+type EventCategory = wixEventsV2.EventCategory;
+
+const locale = i18n.getLocale();
+const t = i18n.getTranslationFunction();
+const { slug } = Astro.params;
+
+// 1. Resolve the event from the slug. Also pull every other event in the same
+// recurring series so we can render showtime chips. DETAILS + CATEGORIES +
+// FORM fieldsets populate mainImage, categories, and the checkout form.
+// Paginate through every page so a 52-week series doesn't get its late
+// siblings hidden.
+const queryEvents = auth.elevate(wixEventsV2.queryEvents);
+const events: Event[] = [];
+const eventFields = [
+  wixEventsV2.RequestedFields.DETAILS,
+  wixEventsV2.RequestedFields.CATEGORIES,
+  wixEventsV2.RequestedFields.FORM,
+];
+const eventPageSize = 200;
+for (let offset = 0; ; offset += eventPageSize) {
+  const page = await queryEvents(
+    {
+      filter: { status: { $ne: wixEventsV2.Status.CANCELED } },
+      paging: { limit: eventPageSize, offset },
+    },
+    { fields: eventFields },
+  );
+  const pageEvents = (page.events ?? []) as Event[];
+  events.push(...pageEvents);
+  if (pageEvents.length < eventPageSize) break;
+}
+
+// Resolve the URL slug. Preferred form is a series slug ("purr-assic-park")
+// derived from the Wix event slug minus the date-time suffix — stable across
+// siblings and across locales (Wix slugs are locale-invariant). We pick the
+// soonest upcoming sibling as `current`. Direct per-occurrence slugs still
+// work for backward-compat (anyone who bookmarked the old full-date URL).
+function seriesSlug(ev: Event): string {
+  const s = ev.slug ?? "";
+  return s.replace(/-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}(-\d+)?$/, "");
+}
+const titleMatches = events.filter((e) => seriesSlug(e) === slug);
+let current: Event | undefined;
+if (titleMatches.length > 0) {
+  const nowMs = Date.now();
+  const upcoming = titleMatches
+    .filter(
+      (e) => new Date(e.dateAndTimeSettings?.startDate ?? 0).getTime() >= nowMs,
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.dateAndTimeSettings?.startDate ?? 0).getTime() -
+        new Date(b.dateAndTimeSettings?.startDate ?? 0).getTime(),
+    );
+  current = upcoming[0] ?? titleMatches[0];
+} else {
+  current = events.find((e) => e.slug === slug);
+}
+if (!current) return Astro.redirect("/cinema");
+
+const seriesCategoryId =
+  current.dateAndTimeSettings?.recurringEvents?.categoryId;
+const siblings: Event[] = seriesCategoryId
+  ? events.filter(
+      (e) =>
+        e.dateAndTimeSettings?.recurringEvents?.categoryId === seriesCategoryId,
+    )
+  : [current];
+
+// 2. Ticket definitions for the URL's event — they're identical in name/price
+// across siblings, so we use them to SSR the tier list. When the user picks a
+// different date in the client, TicketPicker refetches by the selected eventId.
+const queryTickets = auth.elevate(
+  ticketDefinitionsV2.queryAvailableTicketDefinitions,
+);
+let ticketDefs: TicketDefinition[] = [];
+try {
+  const tdResult = await queryTickets({ filter: { eventId: current._id } });
+  ticketDefs = tdResult.ticketDefinitions ?? [];
+} catch {}
+
+const poster =
+  typeof current.mainImage === "string"
+    ? getImageUrl(current.mainImage, 600, 900)
+    : null;
+
+const genres: string[] = (current.categories?.categories ?? [])
+  .filter((c: EventCategory) => c._id !== seriesCategoryId)
+  .map((c: EventCategory) => c.name)
+  .filter((n): n is string => Boolean(n));
+
+const description = current.shortDescription ?? "";
+const eventLocation =
+  current.location?.name ??
+  (current.location?.type === wixEventsV2.LocationType.ONLINE
+    ? t("cinema.online")
+    : "");
+
+const onlineLink = current.onlineConferencing?.enabled
+  ? current.onlineConferencing?.session?.guestLink
+  : null;
+const calGoogle = current.calendarUrls?.google;
+const calIcs = current.calendarUrls?.ics;
+
+// Showtimes passed to the client picker. Drop past dates — the dropdown shows
+// only what the user could still book. The earliest future showtime is the
+// default selection unless the URL points to a specific future showtime.
+const nowMs = Date.now();
+const upcomingShowtimes = siblings
+  .map((e) => ({
+    eventId: e._id ?? "",
+    eventSlug: e.slug ?? "",
+    startMs: new Date(e.dateAndTimeSettings?.startDate ?? 0).getTime(),
+  }))
+  .filter((s) => s.eventId && s.startMs >= nowMs)
+  .sort((a, b) => a.startMs - b.startMs);
+
+const currentEventIsUpcoming = upcomingShowtimes.some(
+  (s) => s.eventId === current._id,
+);
+const initialEventId = currentEventIsUpcoming
+  ? current._id!
+  : (upcomingShowtimes[0]?.eventId ?? current._id!);
+
+function genreBadgeClass(genre: string): string {
+  const map: Record<string, string> = {
+    action: "genre-action",
+    comedy: "genre-comedy",
+    drama: "genre-drama",
+    horror: "genre-horror",
+    "sci-fi": "genre-scifi",
+    fantasy: "genre-fantasy",
+    adventure: "genre-adventure",
+    family: "genre-family",
+  };
+  return map[genre.toLowerCase()] || "genre-default";
+}
+---
+
+<Layout title={`${current.title} - ${t("cinema.pageTitle")}`}>
+  <Nav />
+
+  <section class="movie-detail">
+    <div class="container">
+      <a href={getRelativeLocaleUrl("/cinema")} class="back-link"
+        ><span class="rtl-flip">←</span> {t("cinema.backToMovies")}</a
+      >
+
+      <div class="movie-hero">
+        <div class="movie-poster-wrap">
+          {
+            poster ? (
+              <img src={poster} alt={current.title} class="movie-poster-img" />
+            ) : (
+              <div class="poster-empty">
+                <span>&#9733;</span>
+              </div>
+            )
+          }
+        </div>
+        <div class="movie-meta">
+          <h1 class="movie-title">{current.title}</h1>
+          {
+            genres.length > 0 && (
+              <div class="movie-genres">
+                {genres.map((g) => (
+                  <span class={`genre-badge ${genreBadgeClass(g)}`}>{g}</span>
+                ))}
+              </div>
+            )
+          }
+          {description && <p class="movie-desc">{description}</p>}
+          {
+            eventLocation && (
+              <div class="movie-row">
+                <span class="movie-row-icon">📍</span>
+                <span>{eventLocation}</span>
+              </div>
+            )
+          }
+          {
+            onlineLink && (
+              <div class="movie-row">
+                <span class="movie-row-icon">🎥</span>
+                <a href={onlineLink} target="_blank" rel="noopener">
+                  {t("cinema.joinOnline")}
+                </a>
+              </div>
+            )
+          }
+          {
+            (calGoogle || calIcs) && (
+              <div class="movie-cal-links">
+                {calGoogle && (
+                  <a
+                    href={calGoogle}
+                    target="_blank"
+                    rel="noopener"
+                    class="cal-link"
+                  >
+                    📅 {t("cinema.addToGoogle")}
+                  </a>
+                )}
+                {calIcs && (
+                  <a href={calIcs} class="cal-link">
+                    📆 {t("cinema.downloadIcs")}
+                  </a>
+                )}
+              </div>
+            )
+          }
+        </div>
+      </div>
+
+      <div class="booking-section">
+        <h2 class="booking-section-title">{t("cinema.buyTickets")}</h2>
+        <TicketPicker
+          eventTitle={current.title ?? ""}
+          showtimes={upcomingShowtimes}
+          initialEventId={initialEventId}
+          initialTickets={ticketDefs}
+          locale={locale}
+          client:load
+        />
+      </div>
+    </div>
+  </section>
+
+  <Footer />
+</Layout>
+
+<style>
+  .movie-detail {
+    padding: 40px 20px 80px;
+  }
+  .back-link {
+    display: inline-block;
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 32px;
+    transition: color 0.2s;
+  }
+  .back-link:hover {
+    color: var(--accent);
+  }
+
+  .movie-hero {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 48px;
+  }
+  .movie-poster-wrap {
+    flex-shrink: 0;
+    width: 300px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow:
+      0 8px 40px rgba(0, 0, 0, 0.5),
+      0 0 60px rgba(255, 102, 0, 0.1);
+  }
+  .movie-poster-img {
+    width: 100%;
+    display: block;
+  }
+  .poster-empty {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    background: linear-gradient(135deg, #1a1a2e, #0a0a0a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    color: var(--accent);
+    opacity: 0.3;
+  }
+
+  .movie-meta {
+    flex: 1;
+    padding-top: 8px;
+  }
+  .movie-title {
+    font-family: var(--font-title);
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    color: var(--accent);
+    text-shadow:
+      2px 2px 0 #000,
+      0 0 30px var(--accent-glow);
+    margin-bottom: 16px;
+    letter-spacing: 2px;
+  }
+  .movie-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .genre-badge {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .genre-action {
+    background: #cc0000;
+    color: #fff;
+  }
+  .genre-comedy {
+    background: #2e7d32;
+    color: #fff;
+  }
+  .genre-drama {
+    background: #1565c0;
+    color: #fff;
+  }
+  .genre-horror {
+    background: #6a1b9a;
+    color: #fff;
+  }
+  .genre-scifi {
+    background: #00838f;
+    color: #fff;
+  }
+  .genre-fantasy {
+    background: #c6a700;
+    color: #000;
+  }
+  .genre-adventure {
+    background: #ef6c00;
+    color: #000;
+  }
+  .genre-family {
+    background: #7cb342;
+    color: #000;
+  }
+  .genre-default {
+    background: #444;
+    color: #e0e0e0;
+  }
+
+  .movie-desc {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.7;
+    margin-bottom: 20px;
+    max-width: 640px;
+  }
+
+  .movie-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .movie-row-icon {
+    font-size: 1rem;
+  }
+  .movie-row a {
+    color: var(--accent);
+  }
+
+  .movie-cal-links {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .cal-link {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-card);
+    transition: all 0.15s;
+  }
+  .cal-link:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .booking-section {
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border-card);
+  }
+  .booking-section-title {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 780px) {
+    .movie-hero {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .movie-poster-wrap {
+      width: 220px;
+    }
+    .movie-genres {
+      justify-content: center;
+    }
+    .movie-desc {
+      margin-left: auto;
+      margin-right: auto;
+    }
+  }
+</style>

@@ -1,5 +1,24 @@
 # Donations
 
+## Quickstart — copy the snippets
+
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+cp -R "$SKILL/donations/." src/
+```
+
+That drops `src/components/DonateCard.tsx` and `src/pages/donate/{index,thank-you}.astro`. The donate page wires up campaign metrics (`getDonationCampaignMetrics`), preset + custom amount, frequency, donor fee opt-in, donor note via `buyerNote`, and the `ecomCheckout` redirect with `preferences: { checkIfPublish: true }`.
+
+⚠️ **Install the Wix Donations app first** — it's NOT installed by default. Call `apps-installer-service` with `appDefId: "333b456e-dd48-4d6b-b32b-9fd48d74e163"` before any campaign API call.
+
+⚠️ **`DonationCampaign.coverImage` type drift** — SDK types `coverImage: string` but at runtime it's an `Image` object. Render with `string | { id, url, ... } | undefined`; write via REST PATCH with `fieldMask: { paths: ["coverImage"] }`.
+
+Customize per site: the campaign-card decorative emojis (`🛰️ 🌱 🧑‍🚀 🪐 🔭 🧪 🚀 👩‍🔬`) in `pages/donate/index.astro`.
+
+This reference is the *why* — campaign goal/progress rendering, frequency vs single-payment, cover-image import workflow.
+
+---
+
 Fundraising campaigns powered by the Wix Donations app. Campaigns are entities; payments go through the standard eCom cart/checkout flow.
 
 ---

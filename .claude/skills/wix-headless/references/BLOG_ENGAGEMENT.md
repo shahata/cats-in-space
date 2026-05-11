@@ -1,5 +1,13 @@
 # Wix Blog - Likes, Comments, Views & Metrics
 
+## Quickstart
+
+The engagement UI is in `snippets/blog/components/BlogEngagement.tsx` (copied via the [BLOG_POSTS.md Quickstart](BLOG_POSTS.md#quickstart--copy-the-snippets)). It already wires up like/unlike on posts AND comments, pre-populates likes via `queryLikes()` on mount, handles visitor-name fallback for non-members, nested replies, edit/delete own, and like-per-comment.
+
+⚠️ **One-time setup before comments work** — disable Wix's default `SMART/NEEDS_MANUAL_APPROVAL` moderation rule. See "One-time setup: disable the default AI spam moderation rule" below.
+
+This reference is the *why* — the moderation gotcha, view-tracking via `httpClient.fetchWithAuth` to `/blog/v3/posts/{postId}/view`, metrics shape, and the like-toggle SDK.
+
 ## Likes (Client-Side React)
 
 The same FQDN (`wix.blog.v3.post`) and Likes API works for both **posts** and **comments/replies**.

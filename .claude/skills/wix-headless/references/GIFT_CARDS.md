@@ -1,5 +1,20 @@
 # Wix Gift Cards (Headless)
 
+## Quickstart — copy the snippet
+
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+cp -R "$SKILL/gift-cards/." src/
+```
+
+That drops `src/components/GiftCardActions.tsx` — preset amount buttons, custom amount input, variant images, recipient form, Add to Cart + Buy Now.
+
+⚠️ **Build the UI but do NOT install the Gift Cards app by default.** The component must self-hide via a live `giftVoucherProducts.queryGiftCardProducts` check wrapped in try/catch — until the site owner installs the app and adds products, visitors see no gift-card surface at all. See [ECOMMERCE.md → Store checklist](ECOMMERCE.md) for the two valid placements (dedicated `/store/gift-cards` page vs filter tab in `/store/index.astro`).
+
+⚠️ Gift cards always use the **site default currency**, not the cart's display currency. `MultiCurrencyPrice` on gift-card variants has no currency field — read from `getSiteCurrency()`.
+
+This reference is the *why* — the catalogReference shape for gift-card line items, why the entry point self-hides, recipient-info attachment to the cart.
+
 ## Overview
 
 Gift cards in Wix are managed through the `@wix/gift-vouchers` package. There are two main namespaces:

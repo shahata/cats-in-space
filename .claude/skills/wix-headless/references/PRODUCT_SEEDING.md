@@ -1,5 +1,17 @@
 # Product Seeding Workflow (V3 Catalog)
 
+## Parallelize where it's safe
+
+The 9-step workflow looks sequential but most of the early steps fan out cleanly. **Don't run `createX` for 12 products serially** — that's 60+ seconds of round-trip latency for nothing.
+
+- **Categories, customizations, and info sections are mutually independent** — create them in `Promise.all` arrays
+- **Products** can be created in parallel, but throttle to ~3–4 concurrent if you see 429s (Wix rate-limits aggregate writes per app)
+- **Image generation is the slow part** — run as a separate later pass after every data record exists, so a Runware/OpenAI hiccup doesn't strand half-created products
+- **Find-or-create lookups before each create** — run those queries in parallel too
+
+Seed scripts are also where you should reach for `wixFetch` parallelism most aggressively, since each create is a single HTTP round-trip with no cross-dependency on its siblings.
+
+
 A complete product catalog requires multiple sequential API calls. Do NOT try to do everything in one call — `create-product-with-inventory` handles basic product + inventory, but options, info sections, images, and categories must be added separately.
 
 ---
@@ -24,6 +36,15 @@ The Wix Stores app id is `215238eb-22a5-4c36-9e7b-e7c08025e04e`. The app ids for
 
 Catalog seed scripts almost always fail the first run on some shape mismatch. Create **one** product end-to-end (images → category → product → options → variants → inventory → info section → category assignment), verify it on the store, then extend to the full list. This turns "8 partial entities per failed run" into a single iteration target.
 
+### Top first-run failure modes (check these before launching a 16-product loop)
+
+1. **REST returns `id`, not `_id`.** Every V3 REST response — products, customizations, info sections, categories, services, plans, posts, campaigns — returns the entity id as `id` (no underscore). Reading `res.product._id` returns `undefined`, gets persisted to `state.json`, and then the next step fails with `404 Entity not found` on `undefined`. This is the **#1 first-run failure**. Use `idOf(entity)` from `seed/lib/wix.mjs` (exported by the snippet) which does `entity?.id ?? entity?._id` — it handles both REST and SDK shapes.
+2. **Default Wix sample data collides with your customization names.** The Wix Stores app provisions a sample catalog with its own "Size" customization (choices `100ml/150ml/250ml/500ml/Small/Medium/Large/X-Large`). A find-or-create that matches by name alone returns the wrong entity. Two fixes:
+   - **Recommended** — namespace your customization names (e.g. `"Apparel Size"`, not `"Size"`). The Wix sample never collides.
+   - Or — validate that the found customization's choices match your spec, and if not throw with a clear message telling the operator to either delete the existing one in the dashboard or rename the seed customization. The seed snippet does this for you.
+3. **No retry on 429.** Wix rate-limits aggregate writes per app. A dense seed (16 products × 7 steps each) reliably trips 429 once or twice. The `wixFetch` in the seed snippet has exponential backoff baked in — if you wrote your own client, add it (retry on 429 + 5xx, exponential backoff, 5 attempts).
+4. **`PRODUCT_OPTION` "Size" vs `MODIFIER` "Size".** The customizations endpoint allows multiple entities with the same name as long as `customizationType` or `customizationRenderType` differ. Key your find-or-create lookup map by `name + customizationType + customizationRenderType`, not by `name` alone.
+
 ---
 
 ## Idempotency: find-or-create, persist state
@@ -31,23 +52,25 @@ Catalog seed scripts almost always fail the first run on some shape mismatch. Cr
 Catalog APIs are pure POSTs with no built-in dedupe. Every seed script must (a) query before creating, and (b) persist a `seed/out/state.json` of local-key → Wix id so re-runs reuse existing entities. Without this, each retry produces a fresh orphan set in the dashboard.
 
 ```js
-// ✅ find-or-create pattern
+// ✅ find-or-create pattern — note idOf() handles REST `id` vs SDK `_id`
+import { idOf } from './lib/wix.mjs';
+
 async function findOrCreateCategory(name, desc, imageUrl) {
   const existing = await api('POST', '/categories/v1/categories/query', {
     query: { filter: { name } },
     treeReference: { appNamespace: '@wix/stores' },
   });
   const found = (existing.categories || []).find(c => c.name === name);
-  if (found) return found;
+  if (found) return { id: idOf(found), name: found.name };
   const r = await api('POST', '/categories/v1/categories', {
     category: { name, description: desc, image: { url: imageUrl } },
     treeReference: { appNamespace: '@wix/stores' },
   });
-  return r.category;
+  return { id: idOf(r.category), name: r.category.name };
 }
 ```
 
-Same pattern applies to **customizations** (query by `name + customizationType + customizationRenderType`), **products** (query by `slug`), **info sections** (query by `uniqueName`), and **media imports** (re-use the wixstatic URL).
+Same pattern applies to **customizations** (query by `name + customizationType + customizationRenderType` — see "Top first-run failure modes" above), **products** (query by `slug`), **info sections** (query by `uniqueName`), and **media imports** (re-use the wixstatic URL).
 
 ### Persist state across runs
 
@@ -55,11 +78,14 @@ Write `seed/out/state.json` after every successful step so re-runs can short-cir
 
 ```js
 import fs from 'node:fs';
+import { idOf } from './lib/wix.mjs';
 const statePath = 'seed/out/state.json';
 const state = fs.existsSync(statePath) ? JSON.parse(fs.readFileSync(statePath, 'utf8')) : { categories: {}, products: {}, customizations: {}, infoSections: {} };
 
 if (!state.categories.apparel) {
-  state.categories.apparel = (await findOrCreateCategory(...))._id;
+  // Use idOf() — REST returns `id`, not `_id`. Persisting `._id` here saves
+  // `undefined` and breaks the next step with "404 Entity not found".
+  state.categories.apparel = { id: idOf((await findOrCreateCategory(...))) };
   fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
 }
 ```
@@ -72,18 +98,44 @@ For seeds that take 15+ minutes, hit the endpoint with `curl --max-time 1800` an
 
 ---
 
-## Two-pass seeding: data first, images last
+## Image strategy: placeholders during seed → bespoke after release
 
-Run the catalog in two passes:
+Don't generate bespoke AI images during the first seed. The seed should ship the site fully visual using the built-in placeholders from the skill, and bespoke AI generation runs as a separate post-release pass *only if the user opts in*. The two-pass split:
 
-1. Create every category, product, customization, variant, and info section with no images.
-2. In a second pass, generate and attach images via PATCH.
+**Pass 1 — during seed (built-in placeholders, no AI calls):**
+Use `uploadPlaceholder(state, kind)` from `seed/lib/images.mjs` to attach an editorial placeholder to every entity that has an image field. The 10 placeholder kinds — `product-apparel`, `product-object`, `service-appointment`, `event-gathering`, `plan-membership`, `donation-cause`, `blog-article`, `restaurant-dish`, `category-generic`, `member-avatar` — cover every entity type the skill seeds. The PNGs ship with the skill at `~/.claude/skills/wix-headless/snippets/placeholder-images/`. Uploads are cached per-kind in `state.images[__placeholder:<kind>]` so one upload covers every entity of that kind.
 
-Image generation is the slow step (Runware: seconds × dozens of products = minutes), and retries on the data pass shouldn't re-do that work. The two-pass split also keeps create failures and image failures independent.
+```js
+import { uploadPlaceholder, galleryFrom } from './lib/images.mjs';
 
-Take the exception (inline image at create) only when the API genuinely requires it — note in the script why.
+// During product create, attach a 3-image gallery built from the placeholder.
+// Stores guidelines require 3+ images per product so the gallery + thumbnail
+// strip render — a single image leaves the strip empty.
+const placeholder = await uploadPlaceholder(state, 'product-apparel');
+const productBody = {
+  product: {
+    name: 'Home Jersey',
+    /* ... */
+    // galleryFrom repeats the same upload N times (default 3). Bespoke pass
+    // replaces each slot with a distinct shot later.
+    media: { itemsInfo: { items: galleryFrom(placeholder) } },
+  },
+};
+```
 
-The step-by-step below lists image generation first because that's the order most records expect image URLs at creation. In practice, run steps 3-9 with `image: undefined` and then a final step 10 that loops through each entity type and PATCHes in the generated image.
+For non-product entities (donation campaigns, plans, events, services), one image is enough — they don't have a gallery UI. Pass `placeholder.url` directly into the entity's `coverImage` / `mainImage` / equivalent field.
+
+**Pass 2 — after release, on user opt-in (bespoke AI):**
+`generateAndImport(state, slug, prompt, displayName)` generates a bespoke image via Runware (with DALL-E 3 fallback) and uploads to Wix Media. Then PATCH the result onto the entity's image field. This pass is gated on user confirmation after they've clicked through the live site.
+
+Why the split:
+
+- **Image generation is the slow part.** A single Runware call is seconds; dozens serially is minutes. Placeholders are local file reads + one upload-per-kind — orders of magnitude cheaper.
+- **Bespoke images are often rejected on first sight.** A product might get renamed, a brand might want a different aesthetic — regenerating images is a contained second pass if it's a separate step.
+- **The first release should be complete.** Wix's per-app sample images are noise. Empty placeholders look broken. Built-in placeholders look like a finished site.
+- **The data and the bespoke-image pass fail differently.** A Runware hiccup mid-seed can leave half-created entities. Decoupling keeps create failures and image failures independent.
+
+**Exception — inline placeholder at create when the API requires it.** Most entity types accept `media` inline during create, so attach the placeholder there. A few (info sections, some PATCH-only image fields) require a separate call. Use the API shape that exists.
 
 ## Seeding: exercise every catalog feature
 

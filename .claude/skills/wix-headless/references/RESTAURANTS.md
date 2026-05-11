@@ -1,5 +1,23 @@
 # Wix Restaurants (Headless)
 
+## Quickstart — copy the snippets
+
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+cp -R "$SKILL/restaurants/." src/
+```
+
+That drops `src/components/{MenuOrderView, ReservationFlow}.tsx`, `src/pages/restaurant/{index,order,reserve,thank-you}.astro`, and `src/pages/api/restaurant-slots.ts`. `MenuOrderView` is the full ordering UI — section nav, modifier modal with variant + group validation, dispatch toggle (pickup/delivery), scheduling popover with multi-day time-slot probing.
+
+⚠️ **Three Wix apps must be installed before any restaurant call works:**
+- Wix Restaurants Menus (New) — `b278a256-2757-4f19-9313-c05c783bec92`
+- Wix Restaurants Orders (New) — `9a5d83fd-8570-482e-81ab-cfa88942ee60`
+- Wix Table Reservations (if `pages/restaurant/reserve.astro` is in use) — `f9c07de2-5341-40c6-b096-8eb39de391fb`
+
+⚠️ **The Wix cart is the source of truth from the first click** — every `+`/`−`/modal confirm calls `currentCart.addToCurrentCart` / `updateCurrentCartLineItemQuantity` / `removeLineItemsFromCurrentCart` immediately. Never run a local `Record<string, number>` and call `addToCurrentCart` only at checkout — the restaurants SPI validation breaks that pattern.
+
+This reference is the *why* — the menu/section/item/modifier-group/price-variant data model, the modal UX (required-group blocking, edit-line mode, multiple lines per item), dispatch + scheduling, the modifier additional-charge display, item labels via `getShapeUrl()`.
+
 ## Overview
 
 Wix Restaurants in headless uses three separate systems:

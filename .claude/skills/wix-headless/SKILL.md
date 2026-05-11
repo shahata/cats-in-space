@@ -16,7 +16,35 @@ This is a routing document. Read the relevant reference guides for implementatio
 3. **Read the relevant reference guides** (linked below) for each feature area
 4. **After building, re-read the checklist** line by line and verify every item is implemented
 
+### Work in parallel — don't write the site one file at a time
+
+A Wix headless site is dozens of mostly-independent files: util modules, the Layout, the Nav, multiple page templates, multiple React islands for cart / member tabs / product actions, an API route or two, `translations.json`. Writing them serially with one `Write` tool call per turn turns a 5-minute generation into a 25-minute one.
+
+**Reading phase — load references in parallel.** Before writing code, identify which reference files are actually load-bearing (typically: SETUP, the feature areas the user asked for, SDK_CORE for type conventions, DEPLOYMENT) and `Read` them in a single message with multiple parallel tool calls. Don't read "just in case" — that's how 12 reference reads sneak in.
+
+**Writing phase — batch independent files per turn.** Once you know the file plan, write 3–6 files per message using parallel `Write` tool calls whenever the files don't depend on each other's contents. Examples of safe parallel batches:
+- All `src/utils/*.ts` helpers (image, format, appIds, redirects, site, useCart, …) — pure modules, no inter-file references beyond imports
+- Multiple sibling page templates (`/store/index.astro`, `/store/[slug].astro`, `/store/cart.astro`, `/store/thank-you.astro`) once the shared Layout + utils exist
+- A page template plus the React island it embeds (e.g. `/member/index.astro` plus `MemberTabs.tsx`, `ProfileEditor.tsx`, `PersonalInfoEditor.tsx`, `AccountEditor.tsx`) — the page imports the islands but the islands don't depend on each other
+
+Sequential writes are only justified when a later file needs to see the *exact* contents of an earlier one (rare — usually the prop shape is settled by the page that consumes the island, and you can write both in the same turn with that shape pre-decided). When in doubt, decide on the prop shape up-front and write the page + the island together.
+
+**Probing phase — grep/probe in parallel too.** When investigating an SDK type drift (the gotchas in [SDK_CORE.md](references/SDK_CORE.md#sdk-gotchas--quick-reference) are not exhaustive), run multiple `grep`/`Read` calls against the typings in a single message rather than one at a time.
+
 ---
+
+## Snippets — copy first, ask questions later
+
+`snippets/` contains verified, type-checked files for the patterns that repeat across every Wix headless site. **Copy from there in parallel via Bash `cp` instead of re-writing the file with the `Write` tool** — a dozen identical files is a dozen tool calls saved, and the snippets have already passed `astro check`.
+
+| Bucket | Use when |
+|---|---|
+| [`snippets/universal/`](snippets/universal/) | Every Wix headless site — utils, Layout, Nav, CartSidebar, CartPage, member-area components, profile-photo endpoint |
+| [`snippets/store/`](snippets/store/) | Sites with Wix Stores — ProductActions, store listing, [slug] detail, cart route, thank-you page |
+
+See [`snippets/README.md`](snippets/README.md) for the full file index, copy commands, and per-file customization points (brand strings, route paths, copy to swap per site).
+
+The references below explain *why* — read once, then copy the snippet and stop re-deriving.
 
 ## Reference Guide Index
 
@@ -67,30 +95,62 @@ Before applying the rules below, cross-check [FEATURE_PARITY_CHECKLIST.md](refer
 
 2. **Type check before deploying** — Run `npx astro check` (not `tsc`) before every build. See [DEPLOYMENT.md](references/DEPLOYMENT.md).
 
-3. **Translate all visible text** — `t('key')` from `i18n.getTranslationFunction()` for every user-visible string. See [TRANSLATIONS_STATIC.md](references/TRANSLATIONS_STATIC.md).
+3. **Translations enter only when a second language is added — not at initial generation.** Single-language sites use plain inline strings in templates (`<a href="/">Home</a>`), not `t('nav.home')` calls. Do not enable `translations: true` in `astro.config.mjs`, do not create `src/translations.json`, do not create `.wix/multilingual/`. The snippets in this skill use `t('group.key')` calls as templates — when copying them, substitute each call with its literal English value from `snippets/translations.starter.json` and remove the now-unused `import { i18n }` lines. When the user later asks to add a second language, run the migration recipe in [TRANSLATIONS_STATIC.md → Going Multilingual](references/TRANSLATIONS_STATIC.md#going-multilingual-extracting-strings-to-t-calls). Adding the i18n apparatus speculatively is the #1 source of silent missing-key regressions; the migration is mechanical when it's actually needed.
 
 4. **Use SDK types** — Import from SDK packages (`cart.LineItem`, `productsV3.ProductMedia`). `any` and `as unknown as T` are both banned; for genuine type drift, intersect with `X & { extraField?: T }`. See [SDK_CORE.md → TypeScript Conventions](references/SDK_CORE.md#typescript-conventions).
 
 5. **Use the `frontend-design` skill for styling** — Invoke `frontend-design` for all page layouts. Avoid generic system fonts and default colors.
 
-6. **Generate images with AI** — Every entity that supports an image should have one. Use Wix Runware API. See [MEDIA.md](references/MEDIA.md).
+6. **Use built-in placeholders during seeding; bespoke AI images come last (and only on opt-in).** Every Wix headless site needs visuals from the first release. Bespoke AI image generation stretches initial-build wall time by minutes and produces images the user often wants to redo anyway. The skill ships 10 neutral, editorial-quality placeholder PNGs at `~/.claude/skills/wix-headless/snippets/placeholder-images/` covering every entity type with an image field (apparel, object, dish, event, plan, donation, service, blog, category, avatar). Use `uploadPlaceholder(state, kind)` from `seed/lib/images.mjs` during the seed — it picks the right placeholder per entity, uploads once via the Wix Media `generate-upload-url` flow, and caches the result in `state.images[__placeholder:<kind>]` so the same upload is reused across every entity of that kind. After the initial release lands, **ask the user** whether to swap placeholders for bespoke AI images via Runware/DALL-E (which then becomes a separate `generateAndImport` pass). See [MEDIA.md](references/MEDIA.md) and [PRODUCT_SEEDING.md](references/PRODUCT_SEEDING.md).
 
 7. **Add SEO tags to every dynamic page** — Use `resolveItemSeoTags()` from `@wix/seo` for supported item types (`STORES_PRODUCT`, `BOOKINGS_SERVICE`, `STORES_CATEGORY`). For blog posts, request the `'SEO'` fieldset and pass `post.seoData.tags`. Pass the `seoTags` array to the Layout component. Import the `Tag` type from `@wix/seo` — never define custom SEO tag interfaces. See [SEO.md](references/SEO.md).
 
-8. **Release on initial generation, preview on iterations** — The deploy strategy depends on where you are in the project lifecycle:
-    - **Initial generation (first-time build of a site):** run `npm run release` to publish the site live. Do NOT stop at preview — the user expects a working live URL at the end of the first build.
-    - **Subsequent iterations (edits, fixes, additions after the initial build):** run `npm run preview` by default. Only run `npm run release` when the user explicitly asks to "release", "publish", or "deploy live". You may proactively *suggest* releasing, but wait for confirmation.
-    See [DEPLOYMENT.md](references/DEPLOYMENT.md).
+8. **Release on initial generation, preview on iterations — and ALWAYS `npm run build` first.** Two parts:
+    - **Always rebuild before deploying.** `wix release` / `wix preview` do not run the build — they upload whatever is currently in `dist/`. After ANY `src/` edit (page, component, translation, anything), run `npm run build` before `npm run release` / `npm run preview`. The deploy output looks identical whether the bundle is fresh or stale; only `dist/` mtime tells you. Symptom of skipping: live site continues showing the previous build (missing translation keys, missing styles, etc.) even though the deploy "succeeded." See [DEPLOYMENT.md](references/DEPLOYMENT.md) → "The 4-Step Deploy Sequence".
+    - **Initial generation (first-time build of a site):** run `npm run build && npm run release` to publish the site live. Do NOT stop at preview — the user expects a working live URL at the end of the first build.
+    - **Subsequent iterations (edits, fixes, additions after the initial build):** run `npm run build && npm run preview` by default. Only run `npm run release` when the user explicitly asks to "release", "publish", or "deploy live". You may proactively *suggest* releasing, but wait for confirmation.
 
-9. **Report view URL + dashboard URL on first-time generation** — When finishing the initial build of a site, surface exactly two URLs: (a) the **live site URL** from `npm run release` (not a preview URL — initial generation always releases per rule 8); and (b) the dashboard URL (`https://manage.wix.com/dashboard/<siteId>`). On subsequent iterations, report the new **preview URL** only (and the dashboard URL only if it's useful for the current change). See [DEPLOYMENT.md](references/DEPLOYMENT.md).
+9. **Report URLs after the parallel code+seed build, then ask about bespoke images.** When the parallel code-gen + seeding both finish and `npm run release` succeeds, surface exactly two URLs: (a) the **live site URL** showing the seeded catalog with placeholder visuals; (b) the dashboard URL (`https://manage.wix.com/dashboard/<siteId>`). The site is fully functional at this point — every page, every flow, real custom data, generic-but-aesthetic placeholder images. Immediately after reporting, **ask the user whether to swap placeholders for bespoke AI images** per rule 6 — do not auto-generate. On subsequent iterations, report the new preview URL only. See [DEPLOYMENT.md](references/DEPLOYMENT.md).
 
-10. **Build order: all code first, then seed data, then images** — For a new site, finish every page/component/route and get a clean `npx astro check` BEFORE seeding any business data, then seed all records with no images, then do a second pass attaching generated images. Seeding against half-written code wastes time because the data contract keeps changing under you; attaching images inside `createX` calls serialises the slowest step and makes retries painful. See [SETUP.md](references/SETUP.md) → "Build order".
+10. **Build order: scaffold → install apps → parallelize (code + seed) → release → ask about bespoke images.** For a new site:
+    1. **Scaffold and install Wix apps.** Run `npm create @wix/new@latest headless` and `node scripts/install-apps.mjs <features>` — these are prerequisites for both branches below. Read `wix.config.json` for the `siteId`.
+    2. **Decide the seed spec.** Either work it out with the user upfront, or pick a reasonable default based on the requested feature set. Write `seed/catalog.mjs` against the data shape your seed orchestrator expects.
+    3. **Run code generation and seeding in parallel.** They share zero state — seeding hits Wix REST APIs over the network; code generation is local file writes + `astro check`. Use the `Agent` tool with `run_in_background: true` to dispatch the seed work, then continue with code in the foreground:
+       - **Background subagent (seed)** — runs `node seed/seed.mjs` which calls `uploadPlaceholder(state, kind)` for every entity image. No AI calls. Idempotent + state-cached so it can re-run safely.
+       - **Main agent (code)** — install npm packages (one batch per the snippets README), copy snippets, customize brand (translations, Layout, Nav, Footer, homepage), pass `npx astro check`.
+    4. Wait for both. Verify the seed completed (the agent reports counts) and the code is clean.
+    5. Run `npm run release` once — the live site comes up with the storefront + seeded catalog + placeholders already in place.
+    6. Report URLs (rule 9). Ask about bespoke images (rule 6). If the user opts in, run a second pass that generates bespoke images via `generateAndImport(state, slug, prompt, displayName)` and PATCHes the result onto each entity (`media.itemsInfo.items` for products, `coverImage` for campaigns, etc.).
+
+    Why this beats the old sequential flow: it saves a full release cycle and a user-confirmation round-trip. The old "release with samples → ask → seed → re-release" path paid that round-trip just to verify the storefront — but the storefront is verifiable against seeded data + placeholders just as well. See [SETUP.md](references/SETUP.md) → "Build order".
 
 11. **Every `redirects.createRedirectSession` flow needs a dedicated thank-you page**, not a member-tab anchor (`/member#orders` and similar). Use the `checkoutCallbacks()` helper in `src/utils/redirects.ts` to centralise paths. The single exception is `/member#bookings` for Wix Bookings. See [ECOMMERCE.md → Redirect callbacks](references/ECOMMERCE.md#redirect-callbacks-always-pass-all-of-them).
 
 12. **Translatable SDK fields (`name`, `title`, `displayName`, `description`, `tagLine`, `optionChoiceNames`, …) are display-only** — never key state, lookup maps, React `key={}`, or `find()` predicates by them. Use the entity's `key` (or `_id` where the API forces UUIDs, like V3 variant matching). See [ECOMMERCE_V3.md → Translatable fields are display-only](references/ECOMMERCE_V3.md#translatable-fields-are-display-only--never-use-them-as-identifiers).
 
     **One exception:** Wix Events has no per-series ticket entity — picker state across recurring siblings has to key by `td.name` since `_id`s change per occurrence. See [EVENTS.md](references/EVENTS.md).
+
+13. **Snippets have a clear seam: load-bearing code is immutable, `<style>` blocks are the brand surface.** A snippet is two things layered: (a) load-bearing infrastructure — markup, JS, SDK calls, SEO setup, cart dispatch, hash-tab routing, mobile-toggle script, RTL caret swap; (b) presentation — `<style>` blocks at the bottom of each page, the `.cs-*` block in `Layout.astro`, and the design tokens in `:root`. The rules differ:
+
+    - **Load-bearing code: do NOT rewrite.** Markup, JS, server-side data fetches, SDK call shapes are the same across sites. A `Write` replacement re-derives them at minutes-of-wall-time cost with no net change. Use targeted `Edit` calls only — for swapping link arrays, brand strings, hero copy, route lists, and similar.
+    - **Design tokens (`:root` in `Layout.astro`): edit freely.** This is the fastest brand surface. Layout.astro exposes COLOR tokens (`--accent`, `--bg-*`, `--text-*`, `--border-*`, `--accent-glow`, `--danger`, `--success`) and SHAPE tokens (`--radius-card`, `--radius-control`, `--radius-chip`, `--radius-pill`, `--shadow-floating`). The cart sidebar's `.cs-*` styles and the global `.badge` read from these — set the tokens, the components re-theme automatically (color AND shape).
+    - **`<style>` blocks at the end of page templates: replaceable wholesale via `frontend-design`.** When the snippet's shape language genuinely doesn't fit (e.g. site wants sharp/industrial vs the snippet's rounded/glowy, glassy/blurred panels, denser layout), invoke the `frontend-design` skill (rule 5) on the `<style>` block — pass the markup and target aesthetic, get a redesigned style block back. Apply it to that one page. The markup, JS, and SDK calls stay untouched. The same applies to the `.cs-*` block in `Layout.astro` if the cart sidebar genuinely needs a different visual language site-wide — replace the block, leave `CartSidebar.tsx` alone.
+
+    Same principle for `src/translations.json` when a multilingual build does need it (per rule 3): start from `snippets/translations.starter.json`, edit only the brand-voice keys (`home.*`, `nav.*`, `footer.*`, a handful of `member.*`/`store.*`) — every other group is infrastructure copy the snippets reference verbatim. A full rewrite re-derives 200+ keys; the brand subset is ~20.
+
+    The per-file customization-point manifest in [`snippets/README.md`](snippets/README.md) lists which lines are Edit-targets vs Don't-touch zones per snippet.
+
+14. **Pre-prune snippet imports BEFORE running `astro check`, not after.** Each snippet bucket ships imports for the full feature set of its bucket; cross-bucket imports and FEATURE-gated blocks in `member/index.astro` need decisions at copy time. When `astro check` reports a missing module, **first** check whether the missing file is a cross-bucket dependency that just needs to be copied — only delete the import as a last resort, and trace what the import was rendering before falling back to a different field.
+
+    **Most common failure mode:** `store/[slug].astro` imports `RichContentViewer` (lives in `snippets/blog/components/`) to render `product.description` and `infoSection.description` — both Ricos rich content. Deleting the import and switching to `plainDescription` *passes `astro check`* but renders empty in production because the seed only populates the rich `description` field. The right fix is to copy `snippets/blog/components/RichContentViewer.tsx` to `src/components/` even on store-only sites — it's a standalone Ricos renderer with no `@wix/blog` runtime dependency.
+
+    **Pre-prune checklist for a store-only site (do this immediately after `cp -R`, before the first `astro check`):**
+    - `cp snippets/blog/components/RichContentViewer.tsx src/components/` — stores info sections and product descriptions need it.
+    - Remove the `GiftCardActions` import + mount in `store/index.astro` unless installing Wix Gift Vouchers in this build.
+    - Remove the `{FEATURE:bookings}` / `{FEATURE:plans}` / `{FEATURE:donations}` / `{FEATURE:restaurant}` / `{FEATURE:events}` blocks from `member/index.astro` and the matching component imports (`CancelSubscription.tsx`, `MyBookings.tsx`). The blocks are grep-able by their `{FEATURE:<name> BEGIN/END}` markers.
+    - Delete `src/pages/member/[slug].astro` if not building a public member directory.
+
+    Doing the pre-prune at copy time avoids the two-round check cycle (~1–2 min per round) and prevents the wrong-fix pattern above. See `snippets/README.md` → "Cross-bucket dependencies".
 
 ---
 
@@ -114,7 +174,7 @@ Before building any feature area, verify you will implement ALL items from the r
 - [ ] Gift cards integration — build the UI but do NOT install the Gift Cards app by default. The page/component should be in the codebase ready to go (preset amount buttons, custom amount input, variant images, recipient form, buy-now via the Gift Cards catalog reference), and the entry point must self-hide via a live `giftVoucherProducts.queryGiftCardProducts` check (wrap in try/catch — the query fails when the app isn't installed). The site owner installs the app and adds products only when they want to start selling gift cards; until then, visitors see no gift-card surface at all. **Two valid placements**, pick one and stick to it: (a) a dedicated `/store/gift-cards` page with a conditionally-rendered nav link in `Layout.astro`; or (b) integrated into `/store/index.astro` as an extra filter tab alongside category tabs (render the tab only when `giftCardProducts.length > 0`). Pattern (b) is simpler and avoids a dead-end nav link. See [GIFT_CARDS.md](references/GIFT_CARDS.md)
 - [ ] Navigation with login/logout state detection
 - [ ] Member area Orders tab populated — order history with line item images is a required sub-item of the Member Area checklist for any site that has a store
-- [ ] **Data seeding — every UI branch on `/store/[slug]` and `/store` must be exercised by the seed.** A "demo" catalog with 8 plain products + one price each silently ships a broken storefront — option pickers, swatch chips, modifier inputs, info-section accordion, ribbon badge, sale-price strikethrough, preorder messaging, back-in-stock form, multi-image gallery all stay invisible. Every store seed MUST cover the full matrix in [PRODUCT_SEEDING.md](references/PRODUCT_SEEDING.md) → "Seeding: exercise every catalog feature": text option, swatch option, multi-option product (Size + Color → many variants), free-text modifier, text-choices modifier, swatch-choices modifier, info sections, ribbon, sale price (compareAt), preorder, fully out-of-stock product, multi-image gallery, plain product, categorized listing. The seed script and the data file BOTH need to express these — a script that consumes only `name + price + image` and ignores `options` / `modifiers` / `infoSections` / `ribbon` / `compareAt` is the single most common cause of a "looks half-finished" launch.
+- [ ] **Data seeding — POST-DEPLOY, gated on user confirmation (rule 10).** Do NOT seed during the initial build — release the site live with Wix's default sample products from the Stores app first, then explicitly ask the user whether to proceed with custom seed. If the user confirms, every UI branch on `/store/[slug]` and `/store` must be exercised by the seed. A "demo" catalog with 8 plain products + one price each silently ships a broken storefront — option pickers, swatch chips, modifier inputs, info-section accordion, ribbon badge, sale-price strikethrough, preorder messaging, back-in-stock form, multi-image gallery all stay invisible. Every store seed MUST cover the full matrix in [PRODUCT_SEEDING.md](references/PRODUCT_SEEDING.md) → "Seeding: exercise every catalog feature": text option, swatch option, multi-option product (Size + Color → many variants), free-text modifier, text-choices modifier, swatch-choices modifier, info sections, ribbon, sale price (compareAt), preorder, fully out-of-stock product, multi-image gallery, plain product, categorized listing. The seed script and the data file BOTH need to express these — a script that consumes only `name + price + image` and ignores `options` / `modifiers` / `infoSections` / `ribbon` / `compareAt` is the single most common cause of a "looks half-finished" launch.
   - [ ] Back-in-stock app installed + collection enabled (see [ECOMMERCE.md](references/ECOMMERCE.md) → Back-in-Stock Notifications)
   - [ ] Inventory created for all new variants after attaching options
 

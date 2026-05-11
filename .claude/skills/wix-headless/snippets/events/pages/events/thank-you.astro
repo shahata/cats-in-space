@@ -1,0 +1,258 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { wixEventsV2, orders } from "@wix/events";
+import { auth, i18n } from "@wix/essentials";
+
+type Event = wixEventsV2.Event;
+type Order = orders.Order;
+
+const t = i18n.getTranslationFunction();
+const locale = i18n.getLocale();
+
+// Wix's hosted events checkout redirects with `?orderNumber=…&eventId=…`
+// on success. Use those to fetch the event (for calendar URLs) and the
+// order (for the downloadable tickets PDF). When the page is hit directly
+// (no params), we fall back to the generic thank-you layout.
+const orderNumber = Astro.url.searchParams.get("orderNumber");
+const eventId = Astro.url.searchParams.get("eventId");
+
+let event: Event | null = null;
+let order: Order | null = null;
+if (eventId) {
+  try {
+    const getEvent = auth.elevate(wixEventsV2.getEvent);
+    event = await getEvent(eventId, {
+      fields: [wixEventsV2.RequestedFields.DETAILS],
+    });
+  } catch {}
+}
+if (eventId && orderNumber) {
+  try {
+    // `ticketsPdf` + `tickets[]` are in the DETAILS/TICKETS fieldsets —
+    // the default response leaves them out, which is why "Download
+    // Tickets" used to silently vanish even on successful orders.
+    const getOrder = auth.elevate(orders.getOrder);
+    order = await getOrder(
+      { eventId, orderNumber },
+      {
+        fieldset: [orders.OrderFieldset.DETAILS, orders.OrderFieldset.TICKETS],
+      },
+    );
+  } catch {}
+}
+
+const calGoogle = event?.calendarUrls?.google ?? null;
+const calIcs = event?.calendarUrls?.ics ?? null;
+const ticketsPdf = order?.ticketsPdf ?? null;
+const ticketCount = order?.tickets?.length ?? order?.ticketsQuantity ?? 0;
+
+const showtime = event?.dateAndTimeSettings?.startDate
+  ? new Intl.DateTimeFormat(locale, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(event.dateAndTimeSettings.startDate))
+  : null;
+---
+
+<Layout title={`${t("cinema.thankYouTitle")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="thank-you">
+    <div class="container">
+      <div class="ty-hero">
+        <div class="ty-projector">
+          <div class="ty-beam"></div>
+          <div class="ty-screen-icon">&#9733;</div>
+        </div>
+        <h1 class="section-title">{t("cinema.thankYouTitle")}</h1>
+        {event?.title && <p class="ty-movie-title">{event.title}</p>}
+        {showtime && <p class="ty-showtime">{showtime}</p>}
+        <p class="ty-subtitle">{t("cinema.thankYouSubtitle")}</p>
+        {
+          ticketCount > 0 && (
+            <p class="ty-ticket-count">
+              {ticketCount}{" "}
+              {ticketCount === 1 ? t("cinema.ticket") : t("cinema.tickets")}
+            </p>
+          )
+        }
+      </div>
+
+      <div class="ty-actions">
+        {
+          ticketsPdf && (
+            <a
+              href={ticketsPdf}
+              target="_blank"
+              rel="noopener"
+              class="ty-btn ty-btn-primary"
+            >
+              🎟 {t("cinema.downloadTickets")}
+            </a>
+          )
+        }
+        {
+          calGoogle && (
+            <a
+              href={calGoogle}
+              target="_blank"
+              rel="noopener"
+              class="ty-btn ty-btn-secondary"
+            >
+              📅 {t("cinema.addToGoogle")}
+            </a>
+          )
+        }
+        {
+          calIcs && (
+            <a href={calIcs} class="ty-btn ty-btn-secondary">
+              📆 {t("cinema.downloadIcs")}
+            </a>
+          )
+        }
+        <a href="/cinema" class="ty-btn ty-btn-ghost"
+          >{t("cinema.backToMovies")}</a
+        >
+      </div>
+    </div>
+  </section>
+  <Footer />
+</Layout>
+
+<style>
+  .thank-you {
+    padding: 80px 0;
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+  }
+
+  .ty-hero {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .ty-projector {
+    position: relative;
+    margin: 0 auto 32px;
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ty-beam {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgba(255, 102, 0, 0.2) 0%,
+      transparent 70%
+    );
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .ty-screen-icon {
+    position: relative;
+    z-index: 1;
+    font-size: 3.5rem;
+    color: var(--accent-yellow);
+    filter: drop-shadow(0 0 20px rgba(255, 204, 0, 0.5));
+  }
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.3);
+      opacity: 0.6;
+    }
+  }
+
+  .ty-movie-title {
+    font-family: var(--font-heading);
+    color: var(--accent);
+    font-size: 1.3rem;
+    letter-spacing: 1.5px;
+    margin-top: 16px;
+  }
+  .ty-showtime {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    margin-top: 6px;
+  }
+  .ty-ticket-count {
+    color: var(--accent-yellow);
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    margin-top: 14px;
+  }
+
+  .ty-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    margin-top: 12px;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .ty-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .ty-btn {
+    padding: 12px 32px;
+    border-radius: 8px;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    letter-spacing: 1.5px;
+    text-decoration: none;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ty-btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .ty-btn-primary:hover {
+    background: #ff8533;
+    color: #000;
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
+
+  .ty-btn-secondary {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-card);
+  }
+  .ty-btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .ty-btn-ghost {
+    color: var(--text-muted);
+    border: 1px solid transparent;
+  }
+  .ty-btn-ghost:hover {
+    color: var(--accent);
+  }
+</style>

@@ -1,5 +1,18 @@
 # Wix eCommerce Store
 
+## Quickstart — copy the snippets
+
+Don't hand-write the store UI. After the universal-snippets copy in [SETUP.md](SETUP.md), add the store-specific files:
+
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+cp "$SKILL/store/components/ProductActions.tsx" src/components/
+mkdir -p src/pages/store
+cp -R "$SKILL/store/pages/store/." src/pages/store/
+```
+
+That gives you `/store`, `/store/[slug]`, `/store/cart`, `/store/thank-you`, the `ProductActions` React island, plus the cart sidebar + page from the universal bundle. Then read the **Store Building Guidelines** below to understand the patterns the snippets encode — and the **Seeding** section to drive the catalog. Snippets compile clean; the docs explain the *why*.
+
 ## Store Building Guidelines
 
 When building a headless store, follow these guidelines to create a complete, production-quality experience:

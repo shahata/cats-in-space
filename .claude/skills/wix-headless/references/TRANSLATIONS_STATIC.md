@@ -6,6 +6,61 @@ For translating dynamic business content (products, services, blog posts), see [
 
 ---
 
+## When to introduce translations at all
+
+⛔ **Do NOT add the i18n apparatus to a single-language site.** No `t()` calls, no `translations.json`, no `essentials: true, translations: true`, no `.wix/multilingual/` directory. Single-language sites use plain inline English strings in templates: `<a href="/">Home</a>`, not `<a href="/">{t('nav.home')}</a>`.
+
+The translations infrastructure has real costs that don't earn back for a single-language site:
+
+- **Every `t('foo.bar')` call requires a matching key in `translations.json`**, or it renders as the raw key path (`foo.bar`) to visitors. Drift between callsites and the JSON file is the #1 silent regression on Wix headless sites — see the "comm -23" verification one-liner in [snippets/README.md](../snippets/README.md), which catches this only if you remember to run it.
+- **Pruning the starter file** to remove "unused" feature groups breaks subtly because universal snippets reference keys across feature groups (`cart.estimatedTotal` exists for stores, `bookings.cancel` exists for the booking-tab markers, etc.). The earlier "delete unused groups" guidance in this skill was the root cause of multiple missing-key bugs.
+- **Build setup overhead.** The `translations: true` flag requires three files to exist (`src/translations.json`, `.wix/multilingual/metadata.json`, `.wix/multilingual/translations/` directory) or builds fail with cryptic errors.
+- **Code readability.** `t('home.featuredTitle')` tells you nothing about what renders; `Fan Favorites` does.
+
+The translations apparatus should arrive **at the moment a second language is added** — see "Going Multilingual: extracting strings to t() calls" below. The migration is mechanical and well-bounded; adding it speculatively up-front is not.
+
+### What this means for snippets
+
+The universal snippets in this skill use `t('group.key')` calls throughout. **When copying a snippet to a single-language site, substitute each `t('key')` call with the literal English value from `translations.starter.json` before saving.** Also remove the now-unused `import { i18n } from "@wix/essentials"` lines and the `const t = i18n.getTranslationFunction()` declarations.
+
+Concrete transform, applied during snippet copy:
+
+```astro
+<!-- before -->
+---
+import { i18n } from "@wix/essentials";
+const t = i18n.getTranslationFunction();
+---
+<a href="/" class="nav-logo">{t("home.title")}</a>
+<a href="/store" class="nav-link">{t("nav.store")}</a>
+
+<!-- after — for a Maccabi merch single-language site -->
+---
+---
+<a href="/" class="nav-logo">MACCABI TEL AVIV</a>
+<a href="/store" class="nav-link">Shop</a>
+```
+
+For React components inside `.tsx` snippets, do the same: drop the `i18n` import and the `t = getTranslationFunction()` call inside the component, and replace `{t('foo')}` with `"foo's English value"`.
+
+The Astro config stays at `wix()` (NOT `wix({ essentials: true, translations: true })`) and `src/translations.json` does not exist.
+
+### Going Multilingual: extracting strings to t() calls
+
+When the user asks to add a second language, do this migration:
+
+1. Enable translations in `astro.config.mjs`: `wix({ essentials: true, translations: true })`.
+2. Create `.wix/multilingual/metadata.json` with `{"primaryLanguageCode": "en"}` and the `.wix/multilingual/translations/` directory.
+3. Walk every `.astro` / `.tsx` file in `src/` and extract every user-visible string into a key in `src/translations.json`. Use semantic dot-notation paths (`home.featuredTitle`, `cart.estimatedTotal`). Replace the inline string with `{t('group.key')}`.
+4. Add the `import { i18n } from "@wix/essentials"` + `const t = i18n.getTranslationFunction()` back to each file that now uses `t()`.
+5. Copy `src/translations.json` to `.wix/multilingual/translations/<lang>.json` and translate the values.
+6. Run the `comm -23` verification one-liner from [snippets/README.md](../snippets/README.md) to confirm every `t('...')` callsite has a defined key.
+7. Install the Multilingual app + create the secondary locale (see "Setup" below).
+
+After this migration, the rest of this document applies normally — keys live in `translations.json`, every new `t()` call also gets added to every locale file, etc.
+
+---
+
 ## Setup
 
 ### 1. Install the Wix Multilingual App

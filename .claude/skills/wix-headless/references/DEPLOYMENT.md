@@ -49,7 +49,7 @@ All four steps are mandatory, in this order. Do not skip any.
 # Step 1: Type check (catches type errors that Vite ignores)
 npx astro check
 
-# Step 2: Build
+# Step 2: Build — MANDATORY. `wix release` does NOT rebuild.
 npm run build
 
 # Step 3: Commit
@@ -60,6 +60,10 @@ git add <files> && git commit -m "description of changes"
 # - Iterations after initial generation: npm run preview  (unless user explicitly asks to release)
 npm run release   # OR: npm run preview — see "Preview vs Release" above for which one
 ```
+
+⛔ **`wix release` / `wix preview` do NOT build.** They upload whatever is currently in `dist/`. If you've edited any file in `src/` (a page, a component, a translation, anything) and skipped `npm run build`, the deploy ships the previous build and your changes are invisible on the live site — silently. The output of `wix release` looks identical whether the build is fresh or stale; only `dist/` mtime tells you.
+
+Always run `npm run build` between any `src/` edit and any `wix release` / `wix preview` / `npx wix release`. If you've changed nothing in `src/` and you're re-shipping the existing build (e.g. publishing a preview as live), you can skip the rebuild — but when in doubt, rebuild.
 
 ### Why all steps matter
 

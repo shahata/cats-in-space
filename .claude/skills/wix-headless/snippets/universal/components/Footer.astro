@@ -1,0 +1,39 @@
+---
+import { i18n } from "@wix/essentials";
+const t = i18n.getTranslationFunction();
+---
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <p class="footer-text">
+      {t("footer.copyright", { year: new Date().getFullYear().toString() })}
+    </p>
+    <p class="footer-sub">{t("footer.tagline")}</p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid #1a1a1a;
+    padding: 40px 20px;
+    margin-top: 80px;
+  }
+
+  .footer-inner {
+    text-align: center;
+  }
+
+  .footer-text {
+    color: var(--text-dark);
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    letter-spacing: 2px;
+  }
+
+  .footer-sub {
+    color: var(--text-dark);
+    font-size: 0.8rem;
+    margin-top: 8px;
+    opacity: 0.6;
+  }
+</style>

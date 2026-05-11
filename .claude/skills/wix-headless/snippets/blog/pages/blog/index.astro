@@ -1,0 +1,573 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { posts, tags as tagsApi } from "@wix/blog";
+import { members } from "@wix/members";
+import { getImageUrl } from "../../utils/image";
+import { i18n } from "@wix/essentials";
+const t = i18n.getTranslationFunction();
+
+type Metrics = posts.Metrics;
+type BlogTag = tagsApi.BlogTag;
+type Member = members.Member;
+// SDK type drift: Post.metrics is populated by the METRICS fieldset at runtime
+// but isn't on the typed Post — extend locally so the deep field reads typecheck.
+type Post = posts.Post & { metrics?: Metrics };
+
+// Use queryPosts — returns real metrics (views, likes, comments). listPosts returns zeros.
+const currentLanguage = i18n.getLanguage();
+const queryResult = await posts.queryPosts(
+  {
+    filter: { language: currentLanguage },
+  },
+  {
+    fieldsets: [
+      posts.PostFieldField.URL,
+      posts.PostFieldField.RICH_CONTENT,
+      posts.PostFieldField.METRICS,
+      posts.PostFieldField.CONTACT_ID,
+      posts.PostFieldField.REFERENCE_ID,
+    ],
+  },
+);
+const blogPosts = queryResult.posts || [];
+// Fetch all tags
+const tagsResult = await tagsApi.queryTags({});
+const allTags = tagsResult.tags || [];
+const tagsMap = new Map<string, BlogTag>(allTags.map((t) => [t._id!, t]));
+
+// Build list of tags that are actually used by posts
+const usedTagIds = new Set(blogPosts.flatMap((p) => p.tagIds || []));
+const usedTags = allTags.filter((t) => t._id && usedTagIds.has(t._id));
+
+// Fetch all members for writer info
+const memberIds = [
+  ...new Set(
+    blogPosts.map((p) => p.memberId).filter((id): id is string => !!id),
+  ),
+];
+const membersMap = new Map<string, Member>();
+for (const id of memberIds) {
+  try {
+    const m = await members.getMember(id, { fieldsets: [members.Set.FULL] });
+    if (m._id) membersMap.set(id, m);
+  } catch {}
+}
+
+function formatDate(dateStr: string | Date | null | undefined) {
+  if (!dateStr) return "";
+  return new Date(dateStr).toLocaleDateString(i18n.getLocale(), {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function getCoverImage(post: Post): string | null {
+  const wixImage = post.media?.wixMedia?.image;
+  if (wixImage) return getImageUrl(wixImage, 800, 500);
+  return null;
+}
+
+function getExcerpt(post: Post): string {
+  if (post.excerpt) return post.excerpt.slice(0, 200);
+  const nodes = post.richContent?.nodes || [];
+  for (const node of nodes) {
+    if (
+      node.type === posts.NodeType.PARAGRAPH &&
+      node.nodes?.[0]?.textData?.text
+    ) {
+      return node.nodes[0].textData.text.slice(0, 200);
+    }
+  }
+  return "";
+}
+
+function getMetric(post: Post, field: keyof Metrics): number {
+  return post.metrics?.[field] ?? 0;
+}
+
+function getWriter(post: Post): string {
+  const m = post.memberId ? membersMap.get(post.memberId) : undefined;
+  return m?.profile?.nickname || m?.contact?.firstName || "Anonymous Cat";
+}
+
+const tagOrder = new Map(usedTags.map((t, i) => [t._id!, i]));
+
+function getPostTags(post: Post): BlogTag[] {
+  return (post.tagIds || [])
+    .map((id) => tagsMap.get(id))
+    .filter((t): t is BlogTag => !!t)
+    .sort(
+      (a, b) => (tagOrder.get(a._id!) ?? 999) - (tagOrder.get(b._id!) ?? 999),
+    );
+}
+---
+
+<Layout title={`${t("blog.pageTitle")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="page-header">
+    <div class="container">
+      <h1 class="section-title">{t("blog.pageTitle")}</h1>
+      <p class="section-subtitle">{t("blog.pageSubtitle")}</p>
+    </div>
+  </section>
+
+  <section class="content">
+    <div class="container">
+      {
+        blogPosts.length === 0 ? (
+          <p class="empty-state">{t("blog.noTransmissions")}</p>
+        ) : (
+          <>
+            {usedTags.length > 0 && (
+              <div class="filter-tabs" id="tag-tabs">
+                <button class="filter-tab active" data-tag="all">
+                  {t("blog.all")}
+                </button>
+                {usedTags.map((tag) => (
+                  <button class="filter-tab" data-tag={tag._id}>
+                    {tag.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div class="blog-grid" id="blog-grid">
+              {blogPosts.map((post, i) => {
+                const tagIds = (post.tagIds || []).join(",");
+                return (
+                  <a
+                    href={`/blog/${post.slug}`}
+                    class:list={["blog-card", { featured: i === 0 }]}
+                    data-tags={tagIds}
+                  >
+                    {getCoverImage(post) && (
+                      <img
+                        src={getCoverImage(post)!}
+                        alt={post.title}
+                        class="blog-cover"
+                      />
+                    )}
+                    <div class="blog-card-body">
+                      <div class="blog-meta">
+                        <span class="blog-writer">{getWriter(post)}</span>
+                        <span class="meta-sep">&middot;</span>
+                        <span class="blog-date">
+                          {formatDate(post.firstPublishedDate)}
+                        </span>
+                        {post.minutesToRead && (
+                          <>
+                            <span class="meta-sep">&middot;</span>
+                            <span class="blog-read-time">
+                              {post.minutesToRead} {t("blog.minRead")}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div class="blog-title-row">
+                        {post.pinned && (
+                          <span
+                            class="pinned-badge"
+                            title={t("blog.pinnedLabel")}
+                          >
+                            &#128204;
+                          </span>
+                        )}
+                        <h2>{post.title}</h2>
+                      </div>
+                      {getPostTags(post).length > 0 && (
+                        <div class="blog-tags">
+                          {getPostTags(post).map((tag) => (
+                            <span class="tag tag-link" data-tag-id={tag._id}>
+                              {tag.label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <p class="blog-excerpt">{getExcerpt(post)}...</p>
+                      <div class="blog-footer">
+                        <div class="blog-stats">
+                          <span class="stat" title="Views">
+                            {getMetric(post, "views")} {t("blog.views")}
+                          </span>
+                          <span class="stat" title="Likes">
+                            {getMetric(post, "likes")} {t("blog.likes")}
+                          </span>
+                          <span class="stat" title="Comments">
+                            {getMetric(post, "comments")} {t("blog.comments")}
+                          </span>
+                        </div>
+                        <span class="read-more">
+                          {t("blog.readTransmission")}{" "}
+                          <span class="rtl-flip">→</span>
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </>
+        )
+      }
+    </div>
+  </section>
+  <Footer />
+</Layout>
+
+<script is:inline>
+  function filterByTag(tagId) {
+    // Update tabs
+    document.querySelectorAll(".filter-tab").forEach(function (t) {
+      t.classList.remove("active");
+    });
+    var activeTab =
+      document.querySelector('.filter-tab[data-tag="' + tagId + '"]') ||
+      document.querySelector('.filter-tab[data-tag="all"]');
+    if (activeTab) activeTab.classList.add("active");
+
+    // Filter cards
+    var grid = document.getElementById("blog-grid");
+    if (!grid) return;
+    grid.querySelectorAll(".blog-card").forEach(function (card) {
+      if (tagId === "all") {
+        card.style.display = "";
+      } else {
+        var tags = card.dataset.tags || "";
+        card.style.display =
+          tags.split(",").indexOf(tagId) !== -1 ? "" : "none";
+      }
+    });
+
+    // First visible card gets featured
+    var cards = grid.querySelectorAll(".blog-card");
+    var first = true;
+    cards.forEach(function (card) {
+      card.classList.remove("featured");
+      if (card.style.display !== "none" && first) {
+        card.classList.add("featured");
+        first = false;
+      }
+    });
+
+    // Update URL without reload
+    var url = new URL(window.location);
+    if (tagId === "all") {
+      url.searchParams.delete("tag");
+    } else {
+      url.searchParams.set("tag", tagId);
+    }
+    history.replaceState(null, "", url);
+  }
+
+  // Handle tab clicks
+  document.addEventListener("click", function (e) {
+    var tab = e.target.closest(".filter-tab");
+    if (tab) {
+      filterByTag(tab.dataset.tag);
+      return;
+    }
+
+    // Handle tag clicks inside cards
+    var tagEl = e.target.closest(".tag-link[data-tag-id]");
+    if (tagEl) {
+      e.preventDefault();
+      e.stopPropagation();
+      filterByTag(tagEl.dataset.tagId);
+      document
+        .getElementById("tag-tabs")
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
+  });
+
+  // On page load, apply ?tag= filter if present
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var tag = params.get("tag");
+    if (tag) filterByTag(tag);
+  })();
+</script>
+
+<style>
+  .page-header {
+    padding: 60px 0 40px;
+  }
+
+  .content {
+    padding-bottom: 60px;
+  }
+
+  .filter-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 6px;
+    width: fit-content;
+    overflow-x: auto;
+    flex-wrap: wrap;
+  }
+
+  .filter-tab {
+    padding: 10px 20px;
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .filter-tab:hover {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .filter-tab.active {
+    color: #000;
+    background: var(--accent);
+  }
+
+  :global(#tag-tabs) {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 6px;
+    width: fit-content;
+    overflow-x: auto;
+    flex-wrap: wrap;
+  }
+
+  :global(#tag-tabs .filter-tab) {
+    padding: 10px 20px;
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  :global(#tag-tabs .filter-tab:hover) {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  :global(#tag-tabs .filter-tab.active) {
+    color: #000;
+    background: var(--accent);
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    padding: 80px 0;
+  }
+
+  .blog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 24px;
+  }
+
+  .blog-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .blog-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: 0 0 40px var(--accent-glow);
+    color: var(--text-primary);
+  }
+
+  .blog-card.featured {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .blog-cover {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+  }
+
+  .blog-card.featured .blog-cover {
+    height: 100%;
+    min-height: 300px;
+  }
+
+  .blog-card-body {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+  }
+
+  .blog-meta {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .blog-writer {
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+  }
+
+  .meta-sep {
+    color: var(--text-dark);
+  }
+
+  .blog-date {
+    font-family: var(--font-title);
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  .blog-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    background: rgba(255, 102, 0, 0.1);
+    border: 1px solid rgba(255, 102, 0, 0.2);
+    border-radius: 12px;
+    font-size: 0.7rem;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .tag-link {
+    cursor: pointer;
+    transition:
+      background 0.2s,
+      border-color 0.2s;
+  }
+
+  .tag-link:hover {
+    background: rgba(255, 102, 0, 0.2);
+    border-color: var(--accent);
+  }
+
+  .blog-read-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .blog-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .pinned-badge {
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  h2 {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+    margin-bottom: 0;
+    line-height: 1.3;
+  }
+
+  .blog-card.featured h2 {
+    font-size: 1.8rem;
+  }
+
+  .blog-excerpt {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.7;
+    margin-bottom: 16px;
+    flex: 1;
+  }
+
+  .blog-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .blog-stats {
+    display: flex;
+    gap: 12px;
+  }
+
+  .stat {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+  }
+
+  .read-more {
+    font-family: var(--font-heading);
+    color: var(--accent);
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    transition: color 0.2s;
+  }
+
+  .blog-card:hover .read-more {
+    color: var(--accent-yellow);
+  }
+
+  @media (max-width: 768px) {
+    .blog-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .blog-card.featured {
+      grid-template-columns: 1fr;
+    }
+
+    .blog-card.featured .blog-cover {
+      height: 220px;
+      min-height: auto;
+    }
+  }
+</style>

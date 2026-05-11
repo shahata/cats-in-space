@@ -1,5 +1,20 @@
 # Wix Events (Headless)
 
+## Quickstart — copy the snippets
+
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+cp -R "$SKILL/events/." src/
+```
+
+That drops `src/components/TicketPicker.tsx` and `src/pages/events/{index,[slug],thank-you}.astro`. Rename the `events/` directory if your site's concept is more specific (festival, conference, classes, workshops, screenings — the snippets are generic enough).
+
+⚠️ **Events orders live in `@wix/events` → `orders.listOrders`, NOT `ecomOrders.searchOrders`.** Render member tickets in a dedicated "Tickets" tab in the member dashboard. See [MEMBER_AREA.md → Tickets Tab](MEMBER_AREA.md).
+
+⚠️ **Per-series picker state keys on `td.name`, not `_id`** — Wix Events has no per-series ticket entity, so `_id` changes per occurrence. This is the one documented exception to "never key React state by translatable display fields." See "Translatable fields" rule in [SDK_CORE.md](SDK_CORE.md).
+
+This reference is the *why* — recurring-series grouping, stable detail routes, occurrence selector, ticket definitions, `eventsCheckout` redirect.
+
 ## Overview
 
 Wix Events powers ticketed and RSVP-based gatherings of any kind — conferences, workshops, classes, festivals, performances, screenings, lectures, meetups, multi-session courses, retreats. Anywhere people register or buy tickets to attend something at a time and place, this is the right tool. The same APIs back a single-day conference, a 12-week course, a film festival, a concert series, or a one-off charity gala.

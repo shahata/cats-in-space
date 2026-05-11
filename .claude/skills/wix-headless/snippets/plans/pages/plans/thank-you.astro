@@ -1,0 +1,240 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { orders } from "@wix/pricing-plans";
+import { i18n } from "@wix/essentials";
+import { cyclePeriodKey } from "../../utils/format";
+
+const orderId = Astro.url.searchParams.get("orderId");
+const locale = i18n.getLocale();
+const t = i18n.getTranslationFunction();
+
+let order: orders.Order | null = null;
+if (orderId) {
+  try {
+    const res = await orders.memberGetOrder(orderId);
+    order = res.order ?? null;
+  } catch {}
+}
+const price = order?.pricing?.prices?.[0]?.price;
+const subscription = order?.pricing?.subscription;
+
+const fmt = (amount: number, currency: string) =>
+  new Intl.NumberFormat(locale, { style: "currency", currency }).format(amount);
+---
+
+<Layout title={`${t("plans.thankYouTitle")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="thank-you">
+    <div class="container">
+      <div class="ty-hero">
+        <div class="ty-icon">&#11088;</div>
+        <h1 class="section-title">{t("plans.thankYouTitle")}</h1>
+        <p class="ty-subtitle">{t("plans.thankYouSubtitle")}</p>
+      </div>
+
+      {
+        order ? (
+          <div class="ty-order">
+            <div class="ty-order-header">
+              <div>
+                <span class="ty-label">{t("plans.plan")}</span>
+                <span class="ty-value">{order.planName}</span>
+              </div>
+              {price && (
+                <div>
+                  <span class="ty-label">{t("plans.price")}</span>
+                  <span class="ty-value ty-total">
+                    {parseFloat(price.subtotal || "0") === 0
+                      ? t("plans.free")
+                      : price.currency
+                        ? fmt(
+                            parseFloat(price.total || price.subtotal || "0"),
+                            price.currency,
+                          )
+                        : ""}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {order.planDescription && (
+              <p class="ty-plan-desc">{order.planDescription}</p>
+            )}
+
+            {subscription?.cycleDuration && (
+              <div class="ty-detail">
+                <span class="ty-label">{t("plans.billing")}</span>
+                <span class="ty-detail-value">
+                  {t("plans.every")}{" "}
+                  {(subscription.cycleDuration.count ?? 1) > 1
+                    ? subscription.cycleDuration.count + " "
+                    : ""}
+                  {t(
+                    cyclePeriodKey(subscription.cycleDuration.unit || ""),
+                  )}
+                </span>
+              </div>
+            )}
+
+            {(order.freeTrialDays ?? 0) > 0 && (
+              <div class="ty-detail">
+                <span class="ty-label">{t("plans.freeTrial")}</span>
+                <span class="ty-detail-value">
+                  {order.freeTrialDays} {t("plans.days")}
+                </span>
+              </div>
+            )}
+
+            <div class="ty-actions">
+              <a href="/member#subscriptions" class="ty-btn ty-btn-primary">
+                {t("plans.viewSubscription")}
+              </a>
+              <a href="/" class="ty-btn ty-btn-secondary">
+                {t("plans.backToHome")}
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div class="ty-actions">
+            <p class="ty-no-order">{t("plans.subscriptionProcessing")}</p>
+            <a href="/member#subscriptions" class="ty-btn ty-btn-primary">
+              {t("plans.viewSubscriptions")}
+            </a>
+            <a href="/" class="ty-btn ty-btn-secondary">
+              {t("plans.backToHome")}
+            </a>
+          </div>
+        )
+      }
+    </div>
+  </section>
+  <Footer />
+</Layout>
+
+<style>
+  .thank-you {
+    padding: 60px 0;
+    min-height: 60vh;
+  }
+
+  .ty-hero {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .ty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+  }
+
+  .ty-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    margin-top: 8px;
+  }
+
+  .ty-order {
+    max-width: 500px;
+    margin: 0 auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .ty-order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-card);
+    margin-bottom: 16px;
+  }
+
+  .ty-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .ty-value {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+  }
+
+  .ty-total {
+    color: var(--accent-yellow);
+  }
+
+  .ty-plan-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  .ty-detail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .ty-detail-value {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+  }
+
+  .ty-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 24px;
+  }
+
+  .ty-no-order {
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 16px;
+    width: 100%;
+  }
+
+  .ty-btn {
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    letter-spacing: 1.5px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .ty-btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .ty-btn-primary:hover {
+    background: #ff8533;
+    color: #000;
+  }
+
+  .ty-btn-secondary {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    color: var(--text-secondary);
+  }
+
+  .ty-btn-secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>

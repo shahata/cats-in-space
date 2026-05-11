@@ -1,5 +1,18 @@
 # Wix Bookings - Managed Headless Guide
 
+## Quickstart — copy the snippets
+
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+cp -R "$SKILL/bookings/." src/
+```
+
+That drops `src/components/{BookingFlow, MyBookings}.tsx` and `src/pages/bookings/{index,[slug]}.astro`. Pair with the universal member-area snippets — `MyBookings.tsx` mounts inside the member dashboard as a `data-tab-panel="bookings"` panel.
+
+Customize per site: the staff fallback emoji (`🐱`) in `pages/bookings/*.astro` if your roles map doesn't cover everyone.
+
+This reference is the *why* — `extendedBookings.queryExtendedBookings({ withBookingAllowedActions: true })`, availability fanout, slot timezone handling, the cancel/reschedule allowed-actions pattern, and the `bookings` checkout via `redirects.createRedirectSession({ bookingsCheckout })`.
+
 ## Overview
 
 Wix Bookings enables appointment-based services with staff management, availability scheduling, and booking flows. In managed headless (Astro + Wix SDK), authentication is automatic.

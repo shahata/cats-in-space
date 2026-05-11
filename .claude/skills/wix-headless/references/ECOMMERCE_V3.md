@@ -1,5 +1,10 @@
 # Wix Stores Catalog V3
 
+## Quickstart
+
+For a complete store implementation, copy the snippets in [ECOMMERCE.md → Quickstart](ECOMMERCE.md#quickstart--copy-the-snippets). This reference is the *why* behind those snippets — V3 field paths, the variant-matching trap, customization shapes, and the REST seeding workflow.
+
+
 appId: `215238eb-22a5-4c36-9e7b-e7c08025e04e`
 
 ## SDK Packages

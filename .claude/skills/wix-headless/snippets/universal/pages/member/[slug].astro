@@ -1,0 +1,250 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import RichContentViewer from "../../components/RichContentViewer";
+import { members, membersAbout } from "@wix/members";
+import { i18n } from "@wix/essentials";
+const t = i18n.getTranslationFunction();
+import type { members as membersTypes } from "@wix/members";
+import type { membersAbout as membersAboutTypes } from "@wix/members";
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect("/");
+
+let member: membersTypes.Member | null = null;
+try {
+  const result = await members.queryMembers(
+    {
+      filter: { "profile.slug": slug },
+      paging: { limit: 1 },
+    },
+    { fieldsets: [members.Set.FULL] },
+  );
+  member = result.members?.[0] ?? null;
+} catch {}
+
+if (!member) return Astro.redirect("/");
+
+// Don't show private profiles
+if (member.privacyStatus === members.PrivacyStatusStatus.PRIVATE)
+  return Astro.redirect("/");
+
+// Fetch member about
+let aboutContent: membersAboutTypes.RichContent | null = null;
+try {
+  if (member._id) {
+    const result = await membersAbout.queryMemberAbouts({
+      filter: { memberId: member._id },
+      cursorPaging: { limit: 1 },
+    });
+    const memberAbout = result.memberAbouts?.[0];
+    if (memberAbout) {
+      aboutContent = memberAbout.content ?? null;
+    }
+  }
+} catch {}
+
+const nickname =
+  member.profile?.nickname || member.contact?.firstName || "Unknown Cat";
+const title = member.profile?.title || "";
+const photo = member.profile?.photo?.url;
+const cover = member.profile?.cover?.url;
+const joinDate = member._createdDate
+  ? new Date(member._createdDate).toLocaleDateString(i18n.getLocale(), {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+  : "";
+const slug_ = member.profile?.slug || "";
+---
+
+<Layout title={`${nickname} - ${t("home.title")}`}>
+  <Nav />
+  <section class="profile-page">
+    <div class="container">
+      <a href="/blog" class="back-link"
+        ><span class="rtl-flip">←</span> {t("blog.backToLog")}</a
+      >
+
+      {
+        cover && (
+          <div class="cover-wrapper">
+            <img src={cover} alt="" class="cover-photo" />
+          </div>
+        )
+      }
+
+      <div class:list={["profile-card", { "has-cover": !!cover }]}>
+        {
+          photo ? (
+            <img
+              src={photo}
+              alt={nickname}
+              class="profile-photo"
+              referrerpolicy="no-referrer"
+            />
+          ) : (
+            <div class="profile-photo-placeholder">?</div>
+          )
+        }
+        <div class="profile-info">
+          <h1>{nickname}</h1>
+          {title && <p class="profile-title">{title}</p>}
+          {
+            joinDate && (
+              <p class="profile-meta">
+                {t("member.crewMemberSince", { date: joinDate })}
+              </p>
+            )
+          }
+          {slug_ && <p class="profile-meta">@{slug_}</p>}
+        </div>
+      </div>
+
+      {
+        aboutContent && (
+          <div class="about-section">
+            <h2>{t("profile.about")}</h2>
+            <div class="about-content">
+              <RichContentViewer content={aboutContent} client:load />
+            </div>
+          </div>
+        )
+      }
+    </div>
+  </section>
+  <Footer />
+</Layout>
+
+<style>
+  .profile-page {
+    padding: 40px 0 80px;
+  }
+
+  .back-link {
+    display: inline-block;
+    font-family: var(--font-heading);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    margin-bottom: 30px;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover {
+    color: var(--accent);
+  }
+
+  .cover-wrapper {
+    border-radius: 16px 16px 0 0;
+    overflow: hidden;
+    height: 200px;
+  }
+
+  .cover-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .profile-card {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    padding: 40px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+  }
+
+  .profile-card.has-cover {
+    border-radius: 0 0 16px 16px;
+    margin-top: -1px;
+  }
+
+  .profile-photo {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid var(--accent);
+    flex-shrink: 0;
+  }
+
+  .has-cover .profile-photo {
+    margin-top: -80px;
+  }
+
+  .profile-photo-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-title);
+    font-size: 3rem;
+    color: var(--text-dark);
+    border: 4px solid #333;
+    flex-shrink: 0;
+  }
+
+  h1 {
+    font-family: var(--font-heading);
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    color: var(--accent-yellow);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .profile-title {
+    font-size: 1rem;
+    color: var(--accent);
+    font-style: italic;
+    margin-bottom: 8px;
+  }
+
+  .profile-meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+
+  .about-section {
+    margin-top: 24px;
+    padding: 30px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+  }
+
+  .about-section h2 {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--accent);
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  .about-content :global(span),
+  .about-content :global(div),
+  .about-content :global(p) {
+    color: var(--text-secondary) !important;
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 640px) {
+    .profile-card {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .has-cover .profile-photo {
+      margin-top: -60px;
+    }
+  }
+</style>

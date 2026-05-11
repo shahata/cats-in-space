@@ -1,5 +1,20 @@
 # Wix Pricing Plans
 
+## Quickstart — copy the snippets
+
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+cp -R "$SKILL/plans/." src/
+```
+
+That drops `src/components/PlanCheckout.tsx` and `src/pages/plans/{index,thank-you}.astro`. Pair with `snippets/universal/components/CancelSubscription.tsx` for the member-area Subscriptions tab (`data-tab-panel="subscriptions"` in the member dashboard).
+
+⚠️ **Do NOT pass `preferences: { checkIfPublish: true }` for plans** — that flag is `ecomCheckout`-only.
+
+⚠️ **Thank-you is a real `/plans/thank-you` page**, not `/member#subscriptions`. The redirect flow needs a dedicated landing page; bouncing back to a member-tab anchor is confusing UX.
+
+This reference is the *why* — plan card rendering, free/recurring/single-payment unification, `orders.memberListOrders()` filtering (draft + expired), the `pricing.prices[0].price.*` structured price reads (NOT the legacy `priceDetails`).
+
 ## Setup
 
 Install the Pricing Plans app via the Apps Installer API (appDefId `1522827f-c56c-a5c9-2ac9-00f9e6ae12d3`):

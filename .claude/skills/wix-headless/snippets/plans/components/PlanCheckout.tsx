@@ -1,0 +1,43 @@
+import { useState } from "react";
+import { redirects } from "@wix/redirects";
+import { i18n } from "@wix/essentials";
+import { checkoutCallbacks } from "../utils/redirects";
+
+interface Props {
+  planId: string;
+}
+
+export default function PlanCheckout({ planId }: Props) {
+  const t = i18n.getTranslationFunction();
+  const [loading, setLoading] = useState(false);
+
+  const handleClick = async () => {
+    setLoading(true);
+    try {
+      const { redirectSession } = await redirects.createRedirectSession({
+        paidPlansCheckout: { planId },
+        callbacks: checkoutCallbacks({
+          thankYouPagePath: "/plans/thank-you",
+          postFlowPath: "/plans",
+        }),
+      });
+      if (redirectSession?.fullUrl) {
+        window.location.href = redirectSession.fullUrl;
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : t("common.errorGeneric"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      className="plan-checkout-btn"
+    >
+      {loading ? t("plans.processing") : t("plans.subscribe")}
+    </button>
+  );
+}

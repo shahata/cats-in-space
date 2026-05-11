@@ -1,0 +1,1288 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import MenuOrderView from "../../components/MenuOrderView";
+import {
+  sections as sectionsApi,
+  items as itemsApi,
+  itemLabels,
+  itemVariants,
+  itemModifiers,
+  itemModifierGroups,
+  menus as menusApi,
+  menuOrderingSettings as menuOrderingSettingsApi,
+  fulfillmentMethods as fulfillmentMethodsApi,
+  operations as operationsApi,
+} from "@wix/restaurants";
+import { locations as locationsApi } from "@wix/business-tools";
+import { getSiteCurrency } from "../../utils/site";
+import { i18n, auth } from "@wix/essentials";
+import { getImageUrl, getShapeUrl } from "../../utils/image";
+
+const t = i18n.getTranslationFunction();
+
+const currency = await getSiteCurrency();
+
+// Fetch all menus
+const elevatedQueryMenus = auth.elevate(menusApi.queryMenus);
+const menusResult = await elevatedQueryMenus({});
+const allMenus = (menusResult.menus || []).filter((m) => m.visible !== false);
+
+// Fetch menu ordering settings — decides which menus are online-orderable
+const elevatedQueryMos = auth.elevate(
+  menuOrderingSettingsApi.queryMenuOrderingSettings,
+);
+const mosResult = await elevatedQueryMos({});
+const mosList = mosResult.menuOrderingSettings || [];
+const operationByMenuId = new Map<string, string>();
+let businessLocationId = "";
+for (const s of mosList) {
+  if (s.onlineOrderingEnabled && s.menuId && s.operationId) {
+    operationByMenuId.set(s.menuId, s.operationId);
+    if (s.businessLocationId && !businessLocationId)
+      businessLocationId = s.businessLocationId;
+  }
+}
+const orderableMenus = allMenus.filter(
+  (m) => m._id && operationByMenuId.has(m._id),
+);
+
+// Fetch the restaurant's business location address — pickup-orders need an address
+// on the cart (Wix cart-v2 fails with DELIVERY_METHOD_MISSING_ADDRESS if no address is set
+// when selectedShippingOption is applied, regardless of pickup vs delivery).
+let pickupAddress: {
+  addressLine1: string;
+  city?: string;
+  country?: string;
+  postalCode?: string;
+  subdivision?: string;
+} | null = null;
+if (businessLocationId) {
+  try {
+    const elevatedGetLocation = auth.elevate(locationsApi.getLocation);
+    const loc = await elevatedGetLocation(businessLocationId);
+    const addr = loc.address;
+    if (addr) {
+      const streetLine = [addr.streetAddress?.number, addr.streetAddress?.name]
+        .filter(Boolean)
+        .join(" ");
+      const line = streetLine || addr.formatted || "";
+      pickupAddress = {
+        addressLine1: line,
+        ...(addr.city ? { city: addr.city } : {}),
+        ...(addr.country ? { country: addr.country } : {}),
+        ...(addr.postalCode ? { postalCode: addr.postalCode } : {}),
+        ...(addr.subdivision ? { subdivision: addr.subdivision } : {}),
+      };
+    }
+  } catch {}
+}
+
+type FulfillmentMethod = fulfillmentMethodsApi.FulfillmentMethod;
+let fulfillmentMethods: FulfillmentMethod[] = [];
+try {
+  const elevatedList = auth.elevate(
+    fulfillmentMethodsApi.listFulfillmentMethods,
+  );
+  const fmResult = await elevatedList();
+  // DINE_IN is a restaurant service type but ordering through our flow is pickup/delivery only.
+  fulfillmentMethods = (fmResult.fulfillmentMethods || [])
+    // The runtime API returns DINE_IN but @wix/restaurants' fulfillment-methods
+    // type enum only declares PICKUP/DELIVERY, so compare via string.
+    .filter((fm) => fm.enabled !== false && String(fm.type) !== "DINE_IN");
+} catch {}
+
+// Read the restaurant's configured default dispatch (PICKUP vs DELIVERY) from the
+// operation — hard-coding pickup-first ignores restaurants that default to delivery.
+// Also derive whether scheduled (preorder) is enabled so we can hide the Schedule
+// button entirely for ASAP-only restaurants.
+let defaultDispatchType = "";
+let schedulingEnabled = false;
+const firstOperationId = [...operationByMenuId.values()][0];
+if (firstOperationId) {
+  try {
+    const elevatedGetOp = auth.elevate(operationsApi.getOperation);
+    const op = await elevatedGetOp(firstOperationId);
+    defaultDispatchType = String(op.defaultFulfillmentType || "");
+    const sched = op.orderScheduling;
+    // PREORDER-only → always schedule. ASAP with asapFutureHandlingType ===
+    // BUSINESS_DAYS_AHEAD_HANDLING means the restaurant allows scheduling
+    // future orders alongside immediate ones.
+    schedulingEnabled =
+      sched?.type === operationsApi.SchedulingType.PREORDER ||
+      sched?.asapOptions?.asapFutureHandlingType ===
+        operationsApi.AsapFutureHandlingType.BUSINESS_DAYS_AHEAD_HANDLING;
+  } catch {}
+}
+
+const elevatedQuerySections = auth.elevate(sectionsApi.querySections);
+const sectionsResult = await elevatedQuerySections({});
+const allSections = sectionsResult.sections || [];
+const sectionById = new Map(allSections.map((s) => [s._id!, s]));
+
+const elevatedQueryItems = auth.elevate(itemsApi.queryItems);
+const itemsResult = await elevatedQueryItems({ cursorPaging: { limit: 200 } });
+const allItems = itemsResult.items || [];
+const itemById = new Map(allItems.map((i) => [i._id!, i]));
+
+interface LabelInfo {
+  name: string;
+  icon: string | null;
+}
+const elevatedListLabels = auth.elevate(itemLabels.listLabels);
+const labelMap = new Map<string, LabelInfo>();
+try {
+  const labelsResult = await elevatedListLabels();
+  for (const label of labelsResult.labels ?? []) {
+    if (label._id && label.name) {
+      labelMap.set(label._id, {
+        name: label.name,
+        icon: getShapeUrl(label.icon),
+      });
+    }
+  }
+} catch {}
+
+// Load modifier groups + modifiers to enrich items (items only have ID references)
+
+const modifierMap = new Map<string, string>();
+try {
+  const elevatedQueryModifiers = auth.elevate(itemModifiers.queryModifiers);
+  const modsResult = await elevatedQueryModifiers({
+    cursorPaging: { limit: 200 },
+  });
+  for (const m of modsResult.modifiers ?? []) {
+    if (m._id && m.name) modifierMap.set(m._id, m.name);
+  }
+} catch {}
+
+type ModifierGroup = itemModifierGroups.ModifierGroup;
+const modifierGroupById = new Map<string, ModifierGroup>();
+try {
+  const elevatedQueryMG = auth.elevate(itemModifierGroups.queryModifierGroups);
+  const mgResult = await elevatedQueryMG({ cursorPaging: { limit: 100 } });
+  for (const g of mgResult.modifierGroups ?? []) {
+    if (g._id) modifierGroupById.set(g._id, g);
+  }
+} catch {}
+
+const variantMap = new Map<string, string>();
+try {
+  const elevatedListVariants = auth.elevate(itemVariants.listVariants);
+  const variantsResult = await elevatedListVariants();
+  for (const v of variantsResult.variants ?? []) {
+    if (v._id && v.name) variantMap.set(v._id, v.name);
+  }
+} catch {}
+
+type RestaurantItem = itemsApi.Item;
+
+function buildItemDto(
+  item: RestaurantItem,
+  ctx: { menuId: string; sectionId: string; operationId: string },
+) {
+  const modifierGroups = (item.modifierGroups || [])
+    .map((ref) => {
+      const groupId = ref._id;
+      if (!groupId) return null;
+      const g = modifierGroupById.get(groupId);
+      if (!g) return null;
+      const minSel = g.rule?.minSelections ?? 0;
+      const maxSel = g.rule?.maxSelections ?? 0;
+      const rawRequired = !!g.rule?.required;
+      // Wix Restaurants' catalog SPI rejects line items ("no longer available") when a
+      // single-select group has no choice, even if rule.required is false — so treat
+      // maxSelections === 1 as implicitly required.
+      const required = rawRequired || maxSel === 1;
+      return {
+        _id: g._id || "",
+        name: g.name || "",
+        required,
+        minChoices: required ? Math.max(1, minSel) : minSel,
+        maxChoices: maxSel,
+        modifiers: (g.modifiers || []).map((m) => {
+          const modId = m._id || "";
+          const price = m.additionalChargeInfo?.additionalCharge ?? "0";
+          return {
+            _id: modId,
+            name: modifierMap.get(modId) || "",
+            additionalPrice:
+              price && parseFloat(price) > 0 ? { amount: price } : null,
+            preSelected: !!m.preSelected,
+          };
+        }),
+      };
+    })
+    .filter((g): g is NonNullable<typeof g> => g !== null);
+
+  return {
+    _id: item._id || "",
+    name: item.name || "",
+    description: item.description || "",
+    image: getImageUrl(item.image, 400, 400),
+    price: item.priceInfo?.price
+      ? { amount: item.priceInfo.price, currency }
+      : null,
+    priceVariants: (item.priceVariants?.variants || []).map((v) => ({
+      _id: v.variantId ?? "",
+      name: variantMap.get(v.variantId ?? "") ?? "",
+      price: { amount: v.priceInfo?.price || "0", currency },
+    })),
+    labels: (item.labels || [])
+      .map((l) => (l._id && labelMap.get(l._id)) || null)
+      .filter((l): l is LabelInfo => !!l),
+    modifierGroups,
+    menuId: ctx.menuId,
+    sectionId: ctx.sectionId,
+    operationId: ctx.operationId,
+  };
+}
+
+// Build menu → sections → items structure, flatten across menus
+// but preserve section order per menu; dedupe sections that appear in multiple menus.
+const seenSections = new Set<string>();
+const menuData = orderableMenus.flatMap((menu) => {
+  const operationId = operationByMenuId.get(menu._id!)!;
+  return (menu.sectionIds || [])
+    .map((id) => sectionById.get(id))
+    .filter((s): s is NonNullable<typeof s> => !!s && s.visible !== false)
+    .filter((s) => {
+      if (!s._id || seenSections.has(s._id)) return false;
+      seenSections.add(s._id);
+      return true;
+    })
+    .map((section) => {
+      const sectionItems = (section.itemIds || [])
+        .map((id) => itemById.get(id))
+        .filter((i): i is NonNullable<typeof i> => !!i && i.visible !== false)
+        .map((i) =>
+          buildItemDto(i, {
+            menuId: menu._id!,
+            sectionId: section._id!,
+            operationId,
+          }),
+        );
+      return {
+        _id: section._id!,
+        name: section.name || "",
+        items: sectionItems,
+      };
+    })
+    .filter((s) => s.items.length > 0);
+});
+---
+
+<Layout title={`${t("restaurant.order")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="page-header">
+    <div class="container">
+      <h1 class="section-title">{t("restaurant.order")}</h1>
+      <p class="section-subtitle">{t("restaurant.orderSubtitle")}</p>
+    </div>
+  </section>
+
+  <section class="order-content">
+    <div class="container">
+      {
+        menuData.length === 0 ? (
+          <div class="empty-order">
+            <p>{t("restaurant.noOrderableItems")}</p>
+          </div>
+        ) : (
+          <MenuOrderView
+            sections={menuData}
+            currency={currency}
+            operationId={[...operationByMenuId.values()][0] || ""}
+            businessLocationId={businessLocationId}
+            pickupAddress={pickupAddress}
+            defaultDispatchType={defaultDispatchType}
+            schedulingEnabled={schedulingEnabled}
+            fulfillmentMethods={fulfillmentMethods.map((fm) => ({
+              _id: fm._id || "",
+              type:
+                fm.type || fulfillmentMethodsApi.FulfillmentMethodType.PICKUP,
+              name: fm.name || "",
+              fee: fm.fee || null,
+              minOrderPrice: fm.minOrderPrice || null,
+            }))}
+            client:load
+          />
+        )
+      }
+    </div>
+  </section>
+  <Footer />
+</Layout>
+
+<style>
+  .page-header {
+    padding: 60px 0 30px;
+    text-align: center;
+  }
+
+  .order-content {
+    padding-bottom: 120px;
+  }
+
+  .empty-order {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+</style>
+
+<style is:global>
+  .mov-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 40px;
+    align-items: start;
+  }
+
+  .mov-dispatch {
+    grid-column: 1 / -1;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .mov-dispatch-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .mov-dispatch-tabs {
+    display: inline-flex;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .mov-dispatch-tab {
+    padding: 8px 16px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+
+  .mov-dispatch-tab:hover {
+    color: var(--text-primary);
+  }
+
+  .mov-dispatch-tab.active {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .mov-dispatch-note {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  /* Schedule-order button + popover */
+  .mov-schedule-wrap {
+    position: relative;
+    margin-inline-start: auto;
+  }
+
+  .mov-schedule-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #1a1a1a;
+    color: var(--text-primary);
+    border: 1px solid #333;
+    border-radius: 8px;
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .mov-schedule-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .mov-schedule-icon {
+    font-size: 0.95rem;
+  }
+
+  .mov-schedule-caret {
+    font-size: 0.75rem;
+    opacity: 0.8;
+  }
+
+  .mov-schedule-pop {
+    position: absolute;
+    top: calc(100% + 8px);
+    inset-inline-end: 0;
+    z-index: 50;
+    min-width: 320px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  }
+
+  .mov-schedule-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .mov-schedule-title {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+  }
+
+  .mov-schedule-icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mov-schedule-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+  }
+
+  /* Flip the back-arrow glyph in RTL so it points "back" in the reading direction. */
+  [dir="rtl"] .mov-schedule-back {
+    transform: scaleX(-1);
+  }
+
+  .mov-schedule-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid #333;
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: start;
+    transition: all 0.15s;
+  }
+
+  .mov-schedule-option:hover:not(:disabled) {
+    border-color: rgba(255, 102, 0, 0.4);
+  }
+
+  .mov-schedule-option.active {
+    border-color: var(--accent);
+    background: rgba(255, 102, 0, 0.08);
+  }
+
+  .mov-schedule-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .mov-schedule-radio {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #666;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .mov-schedule-radio.active {
+    border-color: var(--accent);
+  }
+
+  .mov-schedule-radio.active::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .mov-schedule-option-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mov-schedule-option-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .mov-schedule-option-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .mov-schedule-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .mov-schedule-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mov-schedule-field-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .mov-schedule-select {
+    padding: 10px 12px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    color-scheme: dark;
+  }
+
+  .mov-schedule-primary {
+    margin-top: 6px;
+    padding: 14px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .mov-schedule-primary:hover:not(:disabled) {
+    background: var(--accent-yellow);
+  }
+
+  .mov-schedule-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .mov-side {
+    position: sticky;
+    top: 80px;
+  }
+
+  .mov-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 8px;
+  }
+
+  .mov-nav-item {
+    padding: 10px 14px;
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: start;
+    transition: all 0.15s;
+  }
+
+  .mov-nav-item:hover {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .mov-nav-item.active {
+    color: #000;
+    background: var(--accent);
+  }
+
+  .mov-main {
+    min-width: 0;
+  }
+
+  .mov-section {
+    margin-bottom: 48px;
+    scroll-margin-top: 80px;
+  }
+
+  .mov-section-title {
+    font-family: var(--font-heading);
+    font-size: 1.4rem;
+    color: var(--accent-yellow);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #222;
+  }
+
+  .mov-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 16px;
+  }
+
+  .mov-card {
+    display: flex;
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: start;
+    font-family: inherit;
+    color: inherit;
+    transition: all 0.15s;
+  }
+
+  .mov-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+
+  .mov-card-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mov-card-name {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+  }
+
+  .mov-card-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .mov-card-labels {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .mov-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-heading);
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    background: rgba(255, 102, 0, 0.15);
+    color: var(--accent);
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .mov-label-icon {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    background-color: var(--accent);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+
+  .mov-card-price {
+    margin-top: auto;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    color: var(--accent-yellow);
+  }
+
+  .mov-card-image {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #111;
+  }
+
+  .mov-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mov-card-ph {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    opacity: 0.7;
+  }
+
+  .mov-card-badge {
+    position: absolute;
+    top: 6px;
+    inset-inline-end: 6px;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 14px;
+    background: var(--accent);
+    color: #000;
+    font-size: 0.9rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .mov-card-badge.has-qty {
+    background: #2196f3;
+    color: #fff;
+  }
+
+  .mov-card:hover .mov-card-badge {
+    transform: scale(1.08);
+  }
+
+  .mov-card-summary {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mov-card-summary-line {
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: rgba(33, 150, 243, 0.1);
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(33, 150, 243, 0.2);
+  }
+
+  .mov-cart-bar {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+  }
+
+  .mov-cart-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 999px;
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    font-weight: 700;
+    box-shadow: 0 8px 24px rgba(255, 102, 0, 0.3);
+    transition: all 0.2s;
+  }
+
+  .mov-cart-btn:hover {
+    background: var(--accent-yellow);
+    transform: translateY(-1px);
+  }
+
+  .mov-cart-count {
+    background: #000;
+    color: var(--accent);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+  }
+
+  .mov-cart-total {
+    padding-inline-start: 10px;
+    border-inline-start: 1px solid rgba(0, 0, 0, 0.3);
+  }
+
+  /* Modal */
+  .mov-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: movFade 0.2s;
+  }
+
+  @keyframes movFade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .mov-modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: movScale 0.2s ease-out;
+  }
+
+  @keyframes movScale {
+    from {
+      transform: scale(0.96);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .mov-modal-hero {
+    height: 200px;
+    background: #111;
+    overflow: hidden;
+  }
+
+  .mov-modal-hero img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mov-modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  .mov-modal-body {
+    padding: 24px;
+  }
+
+  .mov-modal-title {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .mov-modal-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  .mov-group {
+    margin-bottom: 20px;
+  }
+
+  .mov-group-label {
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .mov-req {
+    color: #f44336;
+  }
+
+  .mov-group-hint {
+    color: var(--text-muted);
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: inherit;
+  }
+
+  .mov-group-invalid {
+    color: #f44336;
+  }
+
+  .mov-variant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mov-variant-btn,
+  .mov-mod-btn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: start;
+    font-family: inherit;
+    margin-bottom: 4px;
+    transition: all 0.15s;
+  }
+
+  .mov-variant-btn:hover,
+  .mov-mod-btn:hover {
+    border-color: var(--accent);
+  }
+
+  .mov-variant-btn.active,
+  .mov-mod-btn.active {
+    border-color: var(--accent);
+    background: rgba(255, 102, 0, 0.08);
+    color: var(--text-primary);
+  }
+
+  .mov-mod-price {
+    color: var(--accent);
+  }
+
+  .mov-qty-row {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .mov-qty-btn {
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.03);
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .mov-qty-btn:hover {
+    color: var(--accent);
+  }
+
+  .mov-qty-val {
+    width: 44px;
+    text-align: center;
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+
+  .mov-confirm {
+    flex: 1;
+    padding: 14px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .mov-confirm:hover:not(:disabled) {
+    background: var(--accent-yellow);
+  }
+
+  .mov-confirm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .mov-actions-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .mov-secondary-btn {
+    padding: 14px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-card);
+    border-radius: 10px;
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+  }
+
+  .mov-secondary-btn:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--accent);
+  }
+
+  .mov-edit-banner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 14px 16px;
+    background: rgba(33, 150, 243, 0.08);
+    border: 1px solid rgba(33, 150, 243, 0.2);
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+
+  .mov-edit-banner-text {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+  }
+
+  .mov-edit-banner-link {
+    background: none;
+    border: none;
+    color: #2196f3;
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .mov-edit-banner-link:hover {
+    text-decoration: underline;
+  }
+
+  .mov-remove-btn {
+    padding: 14px 18px;
+    font-size: 1.1rem;
+    flex: 0 0 auto;
+  }
+
+  .mov-remove-btn:hover:not(:disabled) {
+    color: #f44336;
+    border-color: #f44336;
+  }
+
+  .mov-line-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mov-line {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-card);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mov-line-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .mov-line-summary {
+    flex: 1;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+
+  .mov-line-edit {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+
+  .mov-line-edit:hover:not(:disabled) {
+    color: var(--accent-yellow);
+  }
+
+  .mov-line-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: space-between;
+  }
+
+  .mov-line-remove {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 4px 8px;
+  }
+
+  .mov-line-remove:hover:not(:disabled) {
+    color: #f44336;
+  }
+
+  .mov-add-another {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px dashed var(--accent);
+    border-radius: 10px;
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .mov-add-another:hover:not(:disabled) {
+    background: rgba(255, 102, 0, 0.08);
+  }
+
+  @media (max-width: 860px) {
+    .mov-layout {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .mov-side {
+      position: sticky;
+      top: 60px;
+      z-index: 10;
+      background: rgba(10, 10, 10, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 8px 0;
+    }
+
+    .mov-nav {
+      flex-direction: row;
+      overflow-x: auto;
+      padding: 6px;
+      gap: 4px;
+      border-radius: 10px;
+    }
+
+    .mov-nav-item {
+      white-space: nowrap;
+      padding: 8px 14px;
+      font-size: 0.75rem;
+    }
+
+    .mov-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .mov-card-image {
+      width: 90px;
+      height: 90px;
+    }
+
+    .mov-modal {
+      max-width: 100%;
+    }
+
+    .mov-modal-hero {
+      height: 180px;
+    }
+  }
+</style>

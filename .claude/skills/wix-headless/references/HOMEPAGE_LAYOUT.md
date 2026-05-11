@@ -58,6 +58,36 @@ Same pattern applies to back/forward arrows, breadcrumb separators, nav carets �
 
 Define colors, fonts, and spacing as CSS variables so the theme is easy to change site-wide. Use semantic names (`--bg-primary`, `--accent`, `--text-muted`) rather than literal values.
 
+⛔ **Every component — including React islands — must reference the design tokens.** Hardcoded `#hex` values inside `style={{ ... }}` in `.tsx` files don't respond to brand-palette changes, and the snippets ship with the "cats-in-space" dark theme baked in. Replace them with CSS variable references:
+
+```tsx
+// ⛔ wrong — hardcoded to the original dark-theme palette
+const cardStyle: React.CSSProperties = {
+  background: "#141414",
+  border: "1px solid #222",
+  color: "#e0e0e0",
+  fontFamily: "'Bangers', cursive",
+};
+
+// ✅ right — sources from Layout.astro :root tokens
+const cardStyle: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-card)",
+  color: "var(--text-primary)",
+  fontFamily: "var(--font-heading)",
+};
+```
+
+The universal `MemberProfile.tsx`, `SavedPaymentMethods.tsx`, `CartSidebar.tsx`, `CartPage.tsx`, and `CancelSubscription.tsx` snippets already use CSS vars throughout. Audit after copying with:
+
+```bash
+grep -nE '"#[0-9a-fA-F]{3,8}"' src/components/*.tsx
+```
+
+The only acceptable hardcoded hex values in those files are **semantic colors** that don't change per brand: `#4caf50` (success green), `#cc0000` / `#f44336` (error red), `#ff9800` (warning orange), `#2196f3` (info blue), `#000` (pure black on yellow CTA buttons). Anything else should be a CSS variable reference.
+
+Same rule for fonts: `fontFamily: "var(--font-heading)"`, not `fontFamily: "'Bangers', cursive"`.
+
 ## Navigation
 
 ### Required Functionality

@@ -1,19 +1,46 @@
 # Project Setup & Scaffolding
 
-## Build order — code first, seeding last, images last within seeding
+## Quickstart
 
-When generating a new site, the order you do things in directly affects how long the build takes and how often you have to redo work. Two rules, in priority order:
+After scaffolding (below), copy the universal snippets in one Bash batch and you have a working Layout + Nav + cart sidebar + member area + utils without writing a line:
 
-1. **Build all the code before seeding any data.** Write every page, component, route, layout, and translation first. Run `npx astro check` and get to a clean build with empty (or near-empty) data. Only then seed the business data. The code tells you exactly what the data needs to look like — its shape, its fields, what images it references. If you seed first, every iteration on the code risks invalidating the data (renamed fields, changed collections, different media keys) and you re-seed from scratch. The worst version of this is "write half the code, seed, write the other half" — the second half almost always changes the data contract.
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+mkdir -p src/utils src/components src/layouts src/pages/api src/pages/member
+cp -R "$SKILL/universal/utils/." src/utils/
+cp -R "$SKILL/universal/components/." src/components/
+cp -R "$SKILL/universal/layouts/." src/layouts/
+cp -R "$SKILL/universal/pages/." src/pages/
+```
 
-2. **Within seeding: create all the data first, then add images at the very end.** Run through every `createX` call (products, services, plans, campaigns, posts, collection items) with a placeholder image or no image at all. Only after every record exists, loop back and generate/attach images in a second pass. The reasons:
-   - **Image generation is the slow part.** A single Runware call is seconds; dozens of them serially is minutes. Decoupling lets you parallelise the image pass without it blocking data creation.
-   - **You'll want to iterate on images.** A product might get renamed, a campaign's tone might change — regenerating images is cheap if images are a separate pass; expensive if they're baked into each create call that also does 10 other things.
-   - **Image uploads fail differently than data writes.** If a record already exists, an image retry is a clean PATCH; if it's part of the create call, a Runware hiccup leaves you with a half-created record you have to clean up.
+Then customize the brand strings flagged in each snippet's header comment. See [`snippets/README.md`](../snippets/README.md) for the full list.
 
-   **Exception — add images inline when there's a real benefit.** If attaching the image later costs significantly more than attaching it during create (e.g. the SDK requires the image to be set before another field will accept its value, or the "add image" path goes through a slower/weirder API than the "create with image" path), do it inline for that entity. The rule is "images last by default," not "images last absolutely." If you're making the exception, note why in the seeding script so the next reader doesn't revert it.
 
-Both rules apply even when the user asks for "a quick site" — they're not process overhead, they're what makes generation fast.
+## Build order — scaffold → install apps → parallelize (code + seed) → release → ask about bespoke images
+
+The order you sequence the work in directly affects how long the build takes. The right pipeline runs code generation and seeding in parallel, uses built-in placeholders so the first release is already complete, and only invests in bespoke AI images after the user has clicked through the live site.
+
+1. **Scaffold and install Wix apps first** — both prerequisites for everything after. `npm create @wix/new@latest headless` to scaffold; `node scripts/install-apps.mjs <features>` to install the Wix apps your feature set needs (`stores`, `bookings`, `blog`, …). Read `wix.config.json` for the `siteId` once the scaffold completes.
+
+2. **Decide the seed spec now, not after release.** Either work the catalog out with the user upfront, or pick a reasonable default for the requested feature set. Write `seed/catalog.mjs` against the snippet seed-lib's expected data shape. Doing this *before* spawning parallel work means both branches have a stable contract.
+
+3. **Run code generation and seeding in parallel.** They share zero state — seeding hits Wix REST APIs over the network; code generation is local file writes + `astro check`. Dispatch the seed in a background `Agent` (subagent_type: general-purpose, `run_in_background: true`) and continue with code generation in the foreground:
+
+   - **Background (seed)** — `node seed/seed.mjs` calls `uploadPlaceholder(state, kind)` from `seed/lib/images.mjs` for every entity image field. No AI calls during this pass. The seed-lib is idempotent + state-cached, so it can re-run safely if anything fails mid-way.
+   - **Foreground (code)** — install npm packages in one batch (see [snippets/README.md](../snippets/README.md) for the per-feature lists), copy snippets, customize brand strings (translations, Layout, Nav, Footer, homepage), pass `npx astro check`.
+
+   Why parallel: seeding takes 30–90 seconds for a typical 10–20 entity catalog (network-bound). Code generation takes 60–120 seconds (CPU + filesystem). Sequential adds these up; parallel hides the smaller behind the larger.
+
+4. **Release once, after both branches complete.** `npm run release` ships the storefront *and* the seeded catalog *and* the placeholder visuals in a single live build. No "release with samples → ask → seed → re-release" loop. Report URLs (the live site URL + dashboard URL).
+
+5. **Ask about bespoke AI images after release.** Now that the user has a working URL to click through, ask whether to swap placeholders for bespoke AI-generated images. If the user agrees, run a second pass:
+   - For each entity, call `generateAndImport(state, slug, prompt, displayName)` from `seed/lib/images.mjs` (Runware → DALL-E fallback)
+   - PATCH the result onto the entity (`media.itemsInfo.items` for products, `coverImage` for donation campaigns, etc.)
+   - Re-release when done. Report the new live URL.
+
+   Most users either accept the placeholders (they're aesthetic enough to ship) or ask for changes that would have made the first-pass bespoke generation a waste. The ask-after-release gating is what makes the bespoke pass cheap.
+
+**The defaults to avoid.** Don't release with Wix sample data as a checkpoint (it's noise the user has to mentally filter past). Don't generate bespoke images during the first seed (the pre-release wall time it adds rarely earns back its cost). Don't seed serially after the code is done (the seed has no dependencies on the code).
 
 ## Scaffolding a New Project
 
@@ -24,14 +51,14 @@ Before scaffolding, list the working directory to check for existing folders and
 npm create @wix/new@latest headless -- \
   --business-name "My Business" \
   --project-name myfolder \
-  --site-template-id 212b41cb-0da6-4401-9c72-7c579e6477a2
+  --site-template blank
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--business-name` | Name shown in your Wix sites list |
 | `--project-name` | Local directory name (3-20 chars, lowercase letters and numbers only — rename after creation if needed) |
-| `--site-template-id` | Template UUID |
+| `--site-template` | Template name (e.g. `blank`) |
 
 **Interactive:**
 ```bash
@@ -143,18 +170,22 @@ If React 19 logs `Warning: Extra attributes from the server: data-island_submit_
 
 Apply per-button (tab bars, submit buttons, qty steppers) — never globally. `suppressHydrationWarning` silences only attribute mismatches on that one element, not children/text mismatches.
 
+⛔ **Only on React JSX inside `.tsx` files.** `suppressHydrationWarning` is a React-specific prop, not an HTML attribute. Putting it on an Astro `<button>` inside an Astro template fails `astro check` with `Property 'suppressHydrationWarning' does not exist on type 'ButtonHTMLAttributes'`. Astro template elements never hydrate (they're SSR-only HTML), so they have nothing to suppress. If you want a button-handled-by-inline-`<script>` on an Astro page, the inline script just runs against the SSR'd DOM — no warning to suppress in the first place.
+
 ### Excluding a file from Astro routing
 
 Files whose name starts with `_` under `src/pages/` are **not** routed — useful for shared components or ad-hoc helpers. If a temporary seeding/admin endpoint needs to be reachable, don't prefix it with `_`. Conversely, prefix one-off dev endpoints with `_` to keep them out of the route table without deleting the file.
 
 ## Translations Setup
 
-Enable in `astro.config.mjs`:
+⛔ **Skip this section for single-language sites.** See [TRANSLATIONS_STATIC.md → When to introduce translations at all](TRANSLATIONS_STATIC.md#when-to-introduce-translations-at-all). The default `astro.config.mjs` uses `wix()` (no translation flags), no `src/translations.json` exists, and snippets get their `t('key')` calls substituted with literal English values during copy.
+
+When the site needs a second language, enable in `astro.config.mjs`:
 ```js
 wix({ essentials: true, translations: true })
 ```
 
-Without these flags, `i18n.getTranslationFunction()` throws `"Host translation resources are not available"` at runtime.
+Without these flags, `i18n.getTranslationFunction()` throws `"Host translation resources are not available"` at runtime — which is why single-language sites don't enable them at all.
 
 **Required files** (build fails without all three when `translations: true`):
 1. `src/translations.json` — flat key-value pairs

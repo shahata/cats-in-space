@@ -1,0 +1,416 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import BookingFlow from "../../components/BookingFlow";
+import { services, staffMembers } from "@wix/bookings";
+import { members } from "@wix/members";
+import { seoTags as seoTagsApi } from "@wix/seo";
+import { getImageUrl } from "../../utils/image";
+import { formatCurrency } from "../../utils/format";
+import { i18n } from "@wix/essentials";
+const t = i18n.getTranslationFunction();
+const locale = i18n.getLocale();
+
+type Service = services.Service;
+type StaffMember = staffMembers.StaffMember;
+
+const { slug } = Astro.params;
+
+const servicesResult = await services.queryServices({});
+const allServices: Service[] = servicesResult.services ?? [];
+const service = allServices.find((s) => s.mainSlug?.name === slug);
+
+if (!service) return Astro.redirect("/bookings");
+
+const staffResult = await staffMembers.queryStaffMembers({});
+const allStaff: StaffMember[] = staffResult.staffMembers ?? [];
+const staffMap = new Map<string, StaffMember>(
+  allStaff.flatMap((s) => (s.resourceId ? [[s.resourceId, s] as const] : [])),
+);
+const serviceStaff: StaffMember[] = (service.staffMemberIds || [])
+  .map((id) => staffMap.get(id))
+  .filter((s): s is StaffMember => !!s);
+
+let loggedIn = false;
+try {
+  const res = await members.getCurrentMember({ fieldsets: [members.Set.FULL] });
+  loggedIn = !!res.member;
+} catch {}
+
+const duration =
+  service.schedule?.availabilityConstraints?.sessionDurations?.[0] || 30;
+
+const serviceIcons: Record<string, string> = {
+  "General Wellness Check": "🩺",
+  "Space Sickness Consultation": "🤢",
+  "Vaccination & Immunization": "💉",
+  "Emergency & Trauma Care": "🚑",
+  "Sleep & Anxiety Therapy": "😴",
+  "Premium Full-Body Diagnostic": "🔬",
+  "Holistic Wellness Program": "🧘",
+};
+const icon = serviceIcons[service.name || ""] || "🏥";
+const serviceImg = getImageUrl(service.media?.mainMedia?.image, 900, 400);
+
+const roleEmojis: Record<string, string> = {
+  "Dr. Whiskerstein": "👨‍⚕️",
+  "Nurse Mittens": "👩‍⚕️",
+  "Nurse Pawsworth": "👩‍⚕️",
+  "Dr. Luna Clawdia": "👩‍⚕️",
+};
+
+const staffForClient = serviceStaff.map((s) => {
+  return {
+    id: s.resourceId || "",
+    name: s.name || "",
+    description: s.description || "",
+    emoji: roleEmojis[s.name || ""] || "🐱",
+    imageUrl: getImageUrl(s.mainMedia?.image, 100, 100) || "",
+  };
+});
+
+const pageUrl = new URL(`/bookings/${slug}`, Astro.url).href;
+const seoResult = await seoTagsApi.resolveItemSeoTags({
+  pageUrl,
+  itemType: seoTagsApi.ItemType.BOOKINGS_SERVICE,
+  slug: slug!,
+});
+const seoTags = seoResult.seoTags?.tags || [];
+---
+
+<Layout
+  title={`${service.name} - ${t("bookings.pageTitle")} - ${t("home.title")}`}
+  seoTags={seoTags}
+>
+  <Nav />
+  <section class="page-header">
+    <div class="container">
+      <a href="/bookings" class="back-link"
+        ><span class="rtl-flip">←</span> {t("bookings.backToBookings")}</a
+      >
+      <div class="service-header">
+        <span class="service-icon">{icon}</span>
+        <div>
+          <h1 class="section-title">{service.name}</h1>
+          {service.tagLine && <p class="section-subtitle">{service.tagLine}</p>}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="content">
+    <div class="container">
+      {
+        serviceImg && (
+          <div class="service-hero-image">
+            <img src={serviceImg} alt={service.name} />
+          </div>
+        )
+      }
+      <div class="booking-layout">
+        <div class="service-details">
+          <div class="detail-card">
+            <h3>{t("bookings.aboutService")}</h3>
+            <p>{service.description}</p>
+          </div>
+
+          <div class="detail-card">
+            <h3>{t("bookings.details")}</h3>
+            <div class="detail-row">
+              <span class="detail-label">{t("bookings.duration")}</span>
+              <span class="detail-value"
+                >{duration} {t("bookings.minutes")}</span
+              >
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">{t("bookings.cost")}</span>
+              <span class="detail-value">
+                {
+                  service.payment?.rateType === services.RateType.FIXED &&
+                  service.payment.fixed?.price?.currency
+                    ? formatCurrency(
+                        service.payment.fixed?.price?.value || 0,
+                        service.payment.fixed.price.currency,
+                        locale,
+                      )
+                    : service.payment?.options?.pricingPlan
+                      ? t("bookings.membersOnly")
+                      : t("bookings.free")
+                }
+              </span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">{t("bookings.location")}</span>
+              <span class="detail-value">{t("bookings.locationValue")}</span>
+            </div>
+          </div>
+
+          <div class="detail-card">
+            <h3>{t("bookings.staff")}</h3>
+            <div class="staff-list">
+              {
+                serviceStaff.map((s) => {
+                  const sImg = getImageUrl(s.mainMedia?.image, 100, 100);
+                  return (
+                    <div class="staff-item">
+                      {sImg ? (
+                        <img src={sImg} alt={s.name} class="staff-photo" />
+                      ) : (
+                        <span class="staff-emoji">
+                          {roleEmojis[s.name || ""] || "🐱"}
+                        </span>
+                      )}
+                      <div>
+                        <div class="staff-name">{s.name}</div>
+                        <div class="staff-desc">{s.description}</div>
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          </div>
+
+          <div class="detail-card policy-card">
+            <h3>{t("bookings.bookingPolicy")}</h3>
+            <ul>
+              <li>{t("bookings.policyAdvance")}</li>
+              <li>{t("bookings.policyCancelReschedule")}</li>
+              <li>{t("bookings.policyParticipants")}</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="booking-panel">
+          {
+            loggedIn ? (
+              <BookingFlow
+                serviceId={service._id!}
+                serviceName={service.name!}
+                duration={duration}
+                staff={staffForClient}
+                client:load
+              />
+            ) : (
+              <div class="login-prompt">
+                <h3>{t("bookings.loginRequired")}</h3>
+                <p>{t("bookings.loginRequiredMessage")}</p>
+                <a
+                  href={`/api/auth/login?returnToUrl=${encodeURIComponent(`/bookings/${slug}`)}`}
+                  class="login-btn"
+                >
+                  {t("bookings.loginToBook")}
+                </a>
+              </div>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+  <Footer />
+</Layout>
+
+<style>
+  .page-header {
+    padding: 40px 0 30px;
+  }
+
+  .back-link {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    display: inline-block;
+    transition: color 0.2s;
+  }
+
+  .back-link:hover {
+    color: var(--accent);
+  }
+
+  .service-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .service-icon {
+    font-size: 3rem;
+  }
+
+  .content {
+    padding-bottom: 80px;
+  }
+
+  .service-hero-image {
+    width: 100%;
+    height: 280px;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .service-hero-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .booking-layout {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 32px;
+    align-items: start;
+  }
+
+  .detail-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+
+  .detail-card h3 {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    color: var(--accent);
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+
+  .detail-card p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #1a1a1a;
+  }
+
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+
+  .detail-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .detail-value {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  .staff-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .staff-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .staff-photo {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 2px solid var(--accent);
+  }
+
+  .staff-emoji {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .staff-name {
+    font-family: var(--font-heading);
+    font-size: 0.85rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+
+  .staff-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .policy-card ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .policy-card li {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    padding: 4px 0;
+  }
+
+  .policy-card li::before {
+    content: "• ";
+    color: var(--accent);
+  }
+
+  /* Login prompt */
+  .login-prompt {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+  }
+
+  .login-prompt h3 {
+    font-family: var(--font-heading);
+    font-size: 1.2rem;
+    color: var(--accent-yellow);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .login-prompt p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  .login-btn {
+    display: inline-block;
+    padding: 12px 32px;
+    background: var(--accent);
+    color: #000;
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+
+  .login-btn:hover {
+    background: var(--accent-yellow);
+  }
+
+  @media (max-width: 768px) {
+    .booking-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .booking-panel {
+      order: -1;
+    }
+  }
+</style>

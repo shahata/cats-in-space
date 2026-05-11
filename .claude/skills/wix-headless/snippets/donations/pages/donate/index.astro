@@ -1,0 +1,570 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import { donationCampaigns } from "@wix/donations";
+import { auth, i18n } from "@wix/essentials";
+import DonateCard from "../../components/DonateCard";
+import { getImageUrl } from "../../utils/image";
+
+const t = i18n.getTranslationFunction();
+
+function isKnownFrequency(
+  f: string,
+): f is donationCampaigns.Frequency {
+  return (
+    f === donationCampaigns.Frequency.ONE_TIME ||
+    f === donationCampaigns.Frequency.WEEK ||
+    f === donationCampaigns.Frequency.MONTH ||
+    f === donationCampaigns.Frequency.YEAR
+  );
+}
+
+const elevatedQuery = auth.elevate(donationCampaigns.queryDonationCampaigns);
+const queryRes = await elevatedQuery({
+  filter: { archived: { $ne: true } },
+});
+const campaigns = queryRes.donationCampaigns || [];
+
+const elevatedMetrics = auth.elevate(
+  donationCampaigns.getDonationCampaignMetrics,
+);
+const metricsEntries = await Promise.all(
+  campaigns.map(async (c) => {
+    if (!c._id) return null;
+    try {
+      const m = await elevatedMetrics(c._id);
+      const first = m.currencyMetricsList?.[0];
+      if (!first?.totalAmount) return null;
+      return [
+        c._id,
+        {
+          raised: parseFloat(first.totalAmount.amount || "0"),
+          formattedRaised: first.totalAmount.formattedAmount || "",
+          count: first.donationCount || 0,
+        },
+      ] as const;
+    } catch {
+      return null;
+    }
+  }),
+);
+const metricsById = new Map(
+  metricsEntries.filter((e): e is NonNullable<typeof e> => e !== null),
+);
+
+const emojis = ["🛰️", "🌱", "🧑‍🚀", "🪐", "🔭", "🧪", "🚀", "👩‍🔬"];
+---
+
+<Layout title={`${t("research.pageTitle")} - ${t("home.title")}`}>
+  <Nav />
+  <section class="page-header">
+    <div class="container">
+      <h1 class="section-title">{t("research.pageTitle")}</h1>
+      <p class="section-subtitle">{t("research.pageSubtitle")}</p>
+    </div>
+  </section>
+
+  <section class="research-content">
+    <div class="container">
+      {
+        campaigns.length === 0 && (
+          <div class="empty-state">
+            <p>{t("research.noCampaigns")}</p>
+          </div>
+        )
+      }
+
+      <div class="campaign-grid">
+        {
+          campaigns.map((c, idx) => {
+            const coverImage = c.coverImage as
+              | { id?: string; url?: string }
+              | string
+              | undefined;
+            const coverSrc =
+              typeof coverImage === "string"
+                ? coverImage
+                : coverImage?.id || coverImage?.url;
+            const cover = getImageUrl(coverSrc, 800, 440);
+            const metrics = c._id ? metricsById.get(c._id) : undefined;
+            const target = parseFloat(
+              c.campaignGoal?.targetAmount?.amount || "0",
+            );
+            const formattedTarget =
+              c.campaignGoal?.targetAmount?.formattedAmount || "";
+            const raised = metrics?.raised ?? 0;
+            const formattedRaised =
+              metrics?.formattedRaised ||
+              c.campaignGoal?.targetAmount?.formattedAmount?.replace(
+                /[0-9.,]+/,
+                "0",
+              ) ||
+              "0";
+            const pct =
+              target > 0
+                ? Math.min(100, Math.round((raised / target) * 100))
+                : 0;
+            const donorCount = metrics?.count ?? 0;
+            const emoji = emojis[idx % emojis.length];
+            const statusLabel =
+              c.status === donationCampaigns.Status.GOAL_REACHED
+                ? t("research.goalReached")
+                : c.status === donationCampaigns.Status.EXPIRED
+                  ? t("research.expired")
+                  : null;
+            const canDonate =
+              c.status === donationCampaigns.Status.COLLECTING ||
+              (c.status === donationCampaigns.Status.GOAL_REACHED &&
+                c.campaignGoal?.acceptDonationsAfterGoal !== false);
+
+            const presets = (c.predefinedDonationAmounts || [])
+              .filter((p) => p._id && p.price?.amount)
+              .map((p) => ({
+                _id: p._id!,
+                amount: parseFloat(p.price!.amount!),
+                formatted: p.price!.formattedAmount || p.price!.amount!,
+                description: p.description ?? null,
+              }));
+
+            const frequencies = (c.donationFrequencies || []).filter(
+              isKnownFrequency,
+            );
+
+            return (
+              <article class="campaign-card">
+                <div class="campaign-cover">
+                  {cover ? (
+                    <img src={cover} alt={c.name} loading="lazy" />
+                  ) : (
+                    <div class="campaign-cover-placeholder" data-idx={idx % 4}>
+                      <span>{emoji}</span>
+                    </div>
+                  )}
+                  {statusLabel && (
+                    <span class="campaign-status-badge">{statusLabel}</span>
+                  )}
+                </div>
+                <div class="campaign-body">
+                  <h2 class="campaign-name">{c.name}</h2>
+
+                  {(target > 0 || raised > 0 || donorCount > 0) && (
+                    <div class="campaign-progress">
+                      {target > 0 && (
+                        <div class="campaign-progress-bar">
+                          <div
+                            class="campaign-progress-fill"
+                            style={`width: ${pct}%`}
+                          />
+                        </div>
+                      )}
+                      <div class="campaign-progress-meta">
+                        <span>
+                          <strong>{formattedRaised}</strong>{" "}
+                          {t("research.raised")}
+                          {target > 0 && (
+                            <>
+                              {" "}
+                              {t("research.of")} {formattedTarget}
+                            </>
+                          )}
+                        </span>
+                        {donorCount > 0 && (
+                          <span class="campaign-donors">
+                            {donorCount} {t("research.donors")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {canDonate ? (
+                    <DonateCard
+                      client:load
+                      campaignId={c._id!}
+                      presets={presets}
+                      customEnabled={!!c.customAmountEnabled}
+                      customMin={
+                        c.customAmountOptions?.minimum?.amount
+                          ? parseFloat(c.customAmountOptions.minimum.amount)
+                          : null
+                      }
+                      customMax={
+                        c.customAmountOptions?.maximum?.amount
+                          ? parseFloat(c.customAmountOptions.maximum.amount)
+                          : null
+                      }
+                      customMinFormatted={
+                        c.customAmountOptions?.minimum?.formattedAmount ?? null
+                      }
+                      customMaxFormatted={
+                        c.customAmountOptions?.maximum?.formattedAmount ?? null
+                      }
+                      frequencies={frequencies}
+                      askDonorCoverFee={!!c.askDonorCoverFee}
+                      commentsEnabled={!!c.commentsEnabled}
+                    />
+                  ) : (
+                    <p class="campaign-closed">{statusLabel}</p>
+                  )}
+                </div>
+              </article>
+            );
+          })
+        }
+      </div>
+    </div>
+  </section>
+  <Footer />
+</Layout>
+
+<style>
+  .page-header {
+    padding: 60px 0 30px;
+  }
+
+  .research-content {
+    padding-bottom: 80px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  .campaign-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 24px;
+  }
+
+  .campaign-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 14px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .campaign-cover {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: #111;
+    overflow: hidden;
+  }
+
+  .campaign-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .campaign-cover-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 5rem;
+  }
+
+  .campaign-cover-placeholder[data-idx="0"] {
+    background: linear-gradient(135deg, #1a1a2e, #3b0764);
+  }
+  .campaign-cover-placeholder[data-idx="1"] {
+    background: linear-gradient(135deg, #052e16, #0c4a6e);
+  }
+  .campaign-cover-placeholder[data-idx="2"] {
+    background: linear-gradient(135deg, #451a03, #7c2d12);
+  }
+  .campaign-cover-placeholder[data-idx="3"] {
+    background: linear-gradient(135deg, #1e1b4b, #831843);
+  }
+
+  .campaign-status-badge {
+    position: absolute;
+    top: 12px;
+    inset-inline-start: 12px;
+    background: rgba(0, 0, 0, 0.7);
+    color: var(--accent-yellow);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+  }
+
+  .campaign-body {
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .campaign-name {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    letter-spacing: 1px;
+  }
+
+  .campaign-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .campaign-progress-bar {
+    position: relative;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .campaign-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-yellow));
+    border-radius: 999px;
+    transition: width 0.3s ease;
+  }
+
+  .campaign-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .campaign-progress-meta strong {
+    color: var(--accent-yellow);
+    font-weight: 700;
+  }
+
+  .campaign-donors {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  .campaign-closed {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 12px;
+  }
+
+  @media (max-width: 640px) {
+    .campaign-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<style is:global>
+  .donate-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .donate-label {
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .donate-amount-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .donate-amount-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-card);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: start;
+    transition: all 0.2s;
+  }
+
+  .donate-amount-btn:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+  }
+
+  .donate-amount-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+  }
+
+  .donate-amount-btn.active .donate-amount-desc {
+    color: rgba(0, 0, 0, 0.75);
+  }
+
+  .donate-amount-price {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+  }
+
+  .donate-amount-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+  }
+
+  .donate-amount-custom {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .donate-custom-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .donate-custom-input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-card);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: inherit;
+  }
+
+  .donate-custom-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .donate-custom-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .donate-freq {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .donate-freq-options {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .donate-freq-btn {
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-card);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-family: var(--font-heading);
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .donate-freq-btn:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+  }
+
+  .donate-freq-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+  }
+
+  .donate-fees {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .donate-fees input {
+    accent-color: var(--accent);
+  }
+
+  .donate-submit {
+    padding: 14px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .donate-submit:hover:not(:disabled) {
+    background: var(--accent-yellow);
+    transform: translateY(-1px);
+  }
+
+  .donate-submit:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .donate-error {
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+    border: 1px solid rgba(244, 67, 54, 0.3);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  .donate-note {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .donate-note-input {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-card);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: inherit;
+    resize: vertical;
+    min-height: 64px;
+  }
+
+  .donate-note-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+</style>

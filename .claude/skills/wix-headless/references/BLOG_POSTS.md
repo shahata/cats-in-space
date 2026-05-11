@@ -1,5 +1,18 @@
 # Wix Blog - Posts, Tags, Writers & Rich Content
 
+## Quickstart — copy the snippets
+
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+cp -R "$SKILL/blog/." src/
+```
+
+That drops `src/components/{BlogEngagement, PremiumContentResolver, RichContentViewer}.tsx` and `src/pages/blog/{index,[slug]}.astro`. Pair with the universal snippets (per [SETUP.md](SETUP.md)) and you have a working blog listing + post detail with comments, likes, view tracking, paywall preview, and rich content rendering.
+
+⚠️ **Disable the default "AI spam moderation" rule** before testing comments — see [BLOG_ENGAGEMENT.md](BLOG_ENGAGEMENT.md) → "One-time setup".
+
+This reference is the *why* — post fieldsets (`SEO`, `METRICS`, `RICH_CONTENT`, `URL`, `CONTACT_ID`, `REFERENCE_ID`), writer/tag joins, premium content gating with `pricingPlanIds`.
+
 ## Setup
 
 1. Install the Blog app on the site:

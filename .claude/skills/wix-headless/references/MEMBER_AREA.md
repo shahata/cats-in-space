@@ -1,5 +1,51 @@
 # Member Area — Dashboard Implementation Guidelines
 
+## Quickstart — copy the snippets
+
+The member area is the same shape on every Wix headless site. Don't hand-write it — the full universal bundle (see [SETUP.md](SETUP.md)) drops everything in place:
+
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+mkdir -p src/components src/pages/member src/pages/api
+cp "$SKILL/universal/components/MemberProfile.tsx" src/components/
+cp "$SKILL/universal/components/CancelSubscription.tsx" src/components/
+cp "$SKILL/universal/components/SavedPaymentMethods.tsx" src/components/
+cp "$SKILL/universal/pages/member/index.astro" src/pages/member/
+cp "$SKILL/universal/pages/member/[slug].astro" src/pages/member/
+cp "$SKILL/universal/pages/api/profile-photo.ts" src/pages/api/
+```
+
+That gives you a fully-wired member dashboard: hash-anchor tabs for Profile / Personal Info / Bookings / Orders / Subscriptions / Payment / Account, auth gate, inline password change via `OAuthStrategy + loginV2`, photo upload endpoint, payment-methods management, plan-subscription cancellation, and a public profile route at `/member/[slug]`.
+
+### Prune feature-gated tabs after copying — MANDATORY
+
+⛔ **The snippet ships with tabs for EVERY feature. A stores-only site with the unmodified snippet shows empty Bookings + Subscriptions tabs — that's broken UX.**
+
+Open `src/pages/member/index.astro` and search for `{FEATURE:` markers. Each `{FEATURE:<name> BEGIN}` / `{FEATURE:<name> END}` pair brackets a block (import, data fetch, tab entry, panel, item-type map entry) that belongs to one feature. **Delete every block whose feature is not on this site, and delete the matching component file.**
+
+The grep + decision table:
+
+```bash
+grep -n "{FEATURE:" src/pages/member/index.astro
+```
+
+| Marker | Delete the block + … | If your site does NOT have |
+|---|---|---|
+| `{FEATURE:plans}` | `rm src/components/CancelSubscription.tsx` + `npm uninstall @wix/pricing-plans` | a `/plans` page (pricing plans / memberships) |
+| `{FEATURE:bookings}` | `rm src/components/MyBookings.tsx` + `npm uninstall @wix/bookings` | a `/bookings` page (services / appointments) |
+| `{FEATURE:donations}` | `npm uninstall @wix/donations` | a `/donate` page (donation campaigns) |
+| `{FEATURE:restaurant}` | (no extra package — restaurants SDK is shared with cart logic) | a `/restaurant` page (menu / ordering) |
+| `{FEATURE:events}` | (no extra cleanup yet — Tickets tab not implemented in this snippet) | an `/events` (or `/tickets`) page |
+| `{FEATURE:giftCards}` | leave `@wix/gift-vouchers` if `/store` exists (gift cards integrate into the store) | a store AND no gift cards |
+
+**Universal tabs that stay on every site:** Profile, Personal Info, Orders (yes, even for non-store sites with donations or pricing plans — `ecomOrders.searchOrders` is multi-app), Payment, Account.
+
+After pruning, re-run `npx astro check` to confirm no dangling imports or unused symbols.
+
+`MemberProfile.tsx` is a **single component** that switches view via a `tab` prop (`"profile"` / `"personal"` / `"account"`). The page mounts three instances inside three `<div class="tab-panel">` slots — see the snippet for the wiring.
+
+The tab navigation is plain `<a href="#tabid">` anchors plus a small inline `<script>` that toggles `style.display` on the panels — no React MemberTabs component needed. Add or remove tabs by editing the `tabs` array in the Astro frontmatter and adding a matching `<div class="tab-panel" id="panel-X">`.
+
 ## Overview
 
 The member area is a protected section where logged-in users manage their profile, view orders, subscriptions, bookings, payment methods, and account settings. It uses a tabbed interface with React components for interactive features.
@@ -149,11 +195,16 @@ const nodes: membersAbout.Node[] = text.split('\n').filter(Boolean).map((line) =
 }));
 
 if (aboutId) {
-  await membersAbout.updateMemberAbout(aboutId, { memberId, content: { nodes }, revision: aboutRevision });
+  const updated = await membersAbout.updateMemberAbout(aboutId, { memberId, content: { nodes }, revision: aboutRevision });
+  setAboutRevision(updated.revision); // returned entity is unwrapped
 } else {
-  await membersAbout.createMemberAbout({ memberId, content: { nodes } });
+  const created = await membersAbout.createMemberAbout({ memberId, content: { nodes } });
+  setAboutId(created._id);
+  setAboutRevision(created.revision);
 }
 ```
+
+⚠️ **Asymmetric return shapes — the read is wrapped, the writes are not.** `getMyMemberAbout()` returns `{ memberAbout }` (destructure via `res.memberAbout?._id`), but `createMemberAbout(...)` and `updateMemberAbout(id, ...)` return the `MemberAbout` entity **directly** (use `result._id`, `result.revision` — there is no `.memberAbout` wrapper on the write responses). Writing the create/update result with the same destructuring you used for the read causes astro check to fail with `Property 'memberAbout' does not exist on type 'MemberAbout'`.
 
 Pass `member._id!` as `memberId` on both `createMemberAbout` and `updateMemberAbout` — the SDK types it as optional, but the server returns `ABOUT_MISSING_MEMBER_ID` when it's missing.
 
@@ -172,6 +223,10 @@ Show success feedback that auto-dismisses after ~3 seconds. Disable the save but
 - First name, last name, company, job title, birthdate
 - Phone number (**must be E.164 format**: `+1XXXXXXXXXX`)
 - Full address: street, line 2, city, state/province, country (dropdown), postal code
+
+⚠️ **`members.Address` field names diverge from the US-postal pattern.** Line 1 is `addressLine` (no `1` suffix). Line 2 is `addressLine2`. Don't write `addressLine1` — astro check fails with `Property 'addressLine1' does not exist. Did you mean 'addressLine'?`. Other fields: `city`, `subdivision` (state/region), `country` (ISO 2-letter code), `postalCode`.
+
+⚠️ **Pass `null` for empty fields, not `undefined`.** `Address` and `Contact` field types are `string | null` (not `string | null | undefined`). Under `exactOptionalPropertyTypes: true` (which `astro/tsconfigs/strictest` enables), `{ addressLine: undefined }` is a type error. Use `value || null` when building update payloads, or omit the key entirely.
 
 ### Phone Number Normalization
 

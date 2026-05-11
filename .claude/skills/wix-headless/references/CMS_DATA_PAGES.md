@@ -1,5 +1,24 @@
 # CMS Data Pages — Listing & Detail Implementation Guidelines
 
+## Quickstart — copy the templates
+
+```bash
+SKILL=~/.claude/skills/wix-headless/snippets
+cp -R "$SKILL/cms/." src/
+```
+
+That drops `src/pages/items/{index,[slug]}.astro` as a starting template. **Rename `items` to your collection's domain** (e.g. `planets`, `recipes`, `team`) and swap the SDK collection ID accordingly. The templates already wire up:
+- `items.query(collectionId, ...)` with sort + paging
+- Image fields via the universal `getImageUrl` helper
+- REFERENCE / MULTI_REFERENCE expansion via `items.queryReferenced`
+- Locale-aware links via `getRelativeLocaleUrl`
+
+⚠️ **MULTI_REFERENCE values are silently dropped from insert/update/patch** — call `items.replaceReferences(collectionId, fieldKey, referringItemId, ids[])` separately after the main write.
+
+⚠️ **Install the CMS app first** — `apps-installer-service` with `appDefId: "675bbcef-18d8-41f5-800e-131ec9e08762"`.
+
+This reference is the *why* — field types, query/sort/paging, MULTI_REFERENCE write pattern, the difference between SDK and REST item shapes.
+
 ## Overview
 
 CMS data pages display content from Wix CMS collections. A good implementation follows a consistent pattern: listing page with cards + detail page with full content. This applies to any custom collection (team members, locations, events, projects, etc.).
