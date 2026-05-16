@@ -73,6 +73,21 @@ function getStatusBadge(status: string) {
         >
         <a href="/crew" class="btn btn-outline">{t("home.meetCrew")}</a>
       </div>
+      <form
+        class="hero-search"
+        method="GET"
+        action="/search"
+        role="search"
+      >
+        <input
+          type="search"
+          name="q"
+          placeholder={t("search.placeholder")}
+          aria-label={t("search.placeholder")}
+          class="hero-search-input"
+        />
+        <button type="submit" class="hero-search-btn">{t("search.go")}</button>
+      </form>
     </div>
   </section>
 
@@ -319,6 +334,51 @@ function getStatusBadge(status: string) {
     gap: 16px;
     justify-content: center;
     flex-wrap: wrap;
+  }
+
+  .hero-search {
+    display: flex;
+    gap: 8px;
+    max-width: 520px;
+    margin: 32px auto 0;
+    flex-wrap: wrap;
+  }
+
+  .hero-search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border-card);
+    background: rgba(0, 0, 0, 0.5);
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-family: var(--font-body);
+  }
+
+  .hero-search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+
+  .hero-search-btn {
+    padding: 12px 24px;
+    background: var(--accent);
+    color: #000;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .hero-search-btn:hover {
+    background: var(--accent-yellow);
+    border-color: var(--accent-yellow);
+    box-shadow: 0 0 16px var(--accent-glow);
   }
 
   .btn {

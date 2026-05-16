@@ -79,6 +79,7 @@ Read the guide that matches your current task. Each guide is self-contained with
 | [EVENTS.md](references/EVENTS.md) | Ticketed events of any kind (conferences, festivals, classes, screenings, performances) — recurring series, ticket definitions, hosted checkout |
 | [RESTAURANTS.md](references/RESTAURANTS.md) | Menus, items, modifiers, table reservations, online ordering |
 | [MEMBER_AREA.md](references/MEMBER_AREA.md) | Protected routes, tabbed dashboard, profile, orders, subscriptions, payment |
+| [SEARCH.md](references/SEARCH.md) | Site-wide search across all content types via `@wix/search` (federated search) — Wix Site Search app install, doc type strings, URL rewriting from Wix routes to Astro routes |
 | [EXTENSIONS.md](references/EXTENSIONS.md) | Backend event listeners (webhooks) and dashboard pages registered via `src/extensions.ts` — `export default` requirement, auth context, backoffice/admin UIs with WDS, `dashboard.openMediaManager`, multi-reference write patterns |
 | [TRANSLATIONS_STATIC.md](references/TRANSLATIONS_STATIC.md) | `t()` function, interpolation, RTL, language switcher, locale-aware links |
 | [TRANSLATIONS_CONTENT_API.md](references/TRANSLATIONS_CONTENT_API.md) | Translating dynamic business data (products, services, blog posts, CMS) via API |

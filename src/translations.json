@@ -654,5 +654,12 @@
   "cinema.bookFor": "Book for",
   "cinema.noTickets": "No tickets available for this showtime yet.",
   "cinema.bookingFailed": "Booking failed — please try again.",
-  "cinema.downloadTickets": "Download Tickets"
+  "cinema.downloadTickets": "Download Tickets",
+  "search.pageTitle": "Search the Ship",
+  "search.placeholder": "Search planets, crew, missions, products...",
+  "search.go": "Search",
+  "search.enterTerm": "Enter a search term to scan the ship's databases.",
+  "search.noResults": "No transmissions match \"{{query}}\". Try a different scan.",
+  "search.resultsFor": "Search: {{query}}",
+  "search.resultsCount": "{{count}} results for \"{{query}}\""
 }

@@ -654,5 +654,12 @@
   "cinema.bookFor": "Купить на",
   "cinema.noTickets": "Билеты на этот сеанс пока недоступны.",
   "cinema.bookingFailed": "Не удалось оформить бронь — попробуйте снова.",
-  "cinema.downloadTickets": "Скачать билеты"
+  "cinema.downloadTickets": "Скачать билеты",
+  "search.pageTitle": "Поиск по кораблю",
+  "search.placeholder": "Поиск планет, экипажа, миссий, товаров...",
+  "search.go": "Найти",
+  "search.enterTerm": "Введите запрос, чтобы просканировать базы данных корабля.",
+  "search.noResults": "По запросу «{{query}}» ничего не найдено. Попробуйте другой.",
+  "search.resultsFor": "Поиск: {{query}}",
+  "search.resultsCount": "{{count}} результатов по запросу «{{query}}»"
 }

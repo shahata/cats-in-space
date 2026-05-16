@@ -654,5 +654,12 @@
   "cinema.bookFor": "予約：",
   "cinema.noTickets": "この回のチケットはまだありません。",
   "cinema.bookingFailed": "予約に失敗しました。もう一度お試しください。",
-  "cinema.downloadTickets": "チケットをダウンロード"
+  "cinema.downloadTickets": "チケットをダウンロード",
+  "search.pageTitle": "船内を検索",
+  "search.placeholder": "惑星、クルー、ミッション、商品を検索...",
+  "search.go": "検索",
+  "search.enterTerm": "検索ワードを入力して船のデータベースをスキャン。",
+  "search.noResults": "「{{query}}」に該当する通信はありません。別のワードでお試しください。",
+  "search.resultsFor": "検索: {{query}}",
+  "search.resultsCount": "「{{query}}」の検索結果 {{count}} 件"
 }

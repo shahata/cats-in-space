@@ -654,5 +654,12 @@
   "cinema.bookFor": "הזמנה ל-",
   "cinema.noTickets": "אין כרטיסים זמינים להקרנה זו עדיין.",
   "cinema.bookingFailed": "ההזמנה נכשלה — נסו שוב.",
-  "cinema.downloadTickets": "הורדת כרטיסים"
+  "cinema.downloadTickets": "הורדת כרטיסים",
+  "search.pageTitle": "חיפוש בספינה",
+  "search.placeholder": "חיפוש כוכבים, צוות, משימות, מוצרים...",
+  "search.go": "חיפוש",
+  "search.enterTerm": "הקלידו ביטוי כדי לסרוק את מסדי הנתונים של הספינה.",
+  "search.noResults": "לא נמצאו תוצאות עבור \"{{query}}\". נסו חיפוש אחר.",
+  "search.resultsFor": "חיפוש: {{query}}",
+  "search.resultsCount": "{{count}} תוצאות עבור \"{{query}}\""
 }
