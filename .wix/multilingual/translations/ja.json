@@ -658,6 +658,8 @@
   "search.pageTitle": "船内を検索",
   "search.placeholder": "惑星、クルー、ミッション、商品を検索...",
   "search.go": "検索",
+  "realtime.memberArrived": "{{name}} さんが乗船しました！🚀",
+  "realtime.guestArrived": "新しい探検家が乗船しました！🚀",
   "search.enterTerm": "検索ワードを入力して船のデータベースをスキャン。",
   "search.noResults": "「{{query}}」に該当する通信はありません。別のワードでお試しください。",
   "search.resultsFor": "検索: {{query}}",

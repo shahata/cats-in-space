@@ -658,6 +658,8 @@
   "search.pageTitle": "Search the Ship",
   "search.placeholder": "Search planets, crew, missions, products...",
   "search.go": "Search",
+  "realtime.memberArrived": "{{name}} just came aboard! 🚀",
+  "realtime.guestArrived": "A new explorer just came aboard! 🚀",
   "search.enterTerm": "Enter a search term to scan the ship's databases.",
   "search.noResults": "No transmissions match \"{{query}}\". Try a different scan.",
   "search.resultsFor": "Search: {{query}}",

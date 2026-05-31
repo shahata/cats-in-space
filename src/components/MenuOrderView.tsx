@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { currentCart } from "@wix/ecom";
-import { i18n } from "@wix/essentials";
+import { httpClient, i18n } from "@wix/essentials";
 import { RESTAURANTS_APP_ID } from "../utils/appIds";
 
 interface Modifier {
@@ -248,7 +248,7 @@ export default function MenuOrderView({
     if (!operationId || !date) return;
     setSlotsLoading(true);
     try {
-      const res = await fetch("/api/restaurant-slots", {
+      const res = await httpClient.fetchWithAuth("/api/restaurant-slots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ operationId, date, address: "" }),
@@ -727,7 +727,7 @@ export default function MenuOrderView({
   const fetchPreorderSlots = async (day: string): Promise<TimeSlotOption[]> => {
     if (!operationId || !day) return [];
     try {
-      const res = await fetch("/api/restaurant-slots", {
+      const res = await httpClient.fetchWithAuth("/api/restaurant-slots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ operationId, date: day, address: "" }),

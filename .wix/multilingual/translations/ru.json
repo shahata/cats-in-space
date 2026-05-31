@@ -658,6 +658,8 @@
   "search.pageTitle": "Поиск по кораблю",
   "search.placeholder": "Поиск планет, экипажа, миссий, товаров...",
   "search.go": "Найти",
+  "realtime.memberArrived": "{{name}} поднялся на борт! 🚀",
+  "realtime.guestArrived": "Новый исследователь поднялся на борт! 🚀",
   "search.enterTerm": "Введите запрос, чтобы просканировать базы данных корабля.",
   "search.noResults": "По запросу «{{query}}» ничего не найдено. Попробуйте другой.",
   "search.resultsFor": "Поиск: {{query}}",

@@ -5,7 +5,7 @@ import type { members as membersTypes } from "@wix/members";
 import { getData as getCountries } from "country-list";
 import { createClient, OAuthStrategy } from "@wix/sdk";
 import { authentication as identityAuth } from "@wix/identity";
-import { i18n } from "@wix/essentials";
+import { httpClient, i18n } from "@wix/essentials";
 
 function toE164(phone: string): string {
   // Strip everything except digits and leading +
@@ -98,7 +98,7 @@ export default function MemberProfile({
       formData.append("file", file);
       formData.append("memberId", member._id!);
 
-      const res = await fetch("/api/profile-photo", {
+      const res = await httpClient.fetchWithAuth("/api/profile-photo", {
         method: "POST",
         body: formData,
       });
@@ -122,7 +122,7 @@ export default function MemberProfile({
     setPhotoId(undefined);
     setRemovePhoto(true);
     try {
-      const res = await fetch("/api/profile-photo", {
+      const res = await httpClient.fetchWithAuth("/api/profile-photo", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ memberId: member._id! }),
@@ -147,7 +147,7 @@ export default function MemberProfile({
       formData.append("file", file);
       formData.append("memberId", member._id!);
       formData.append("field", "cover");
-      const res = await fetch("/api/profile-photo", {
+      const res = await httpClient.fetchWithAuth("/api/profile-photo", {
         method: "POST",
         body: formData,
       });
@@ -168,7 +168,7 @@ export default function MemberProfile({
   async function handleRemoveCover() {
     setCover(undefined);
     try {
-      const res = await fetch("/api/profile-photo", {
+      const res = await httpClient.fetchWithAuth("/api/profile-photo", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ memberId: member._id!, field: "cover" }),

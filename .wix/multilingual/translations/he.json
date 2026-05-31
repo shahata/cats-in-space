@@ -658,6 +658,8 @@
   "search.pageTitle": "חיפוש בספינה",
   "search.placeholder": "חיפוש כוכבים, צוות, משימות, מוצרים...",
   "search.go": "חיפוש",
+  "realtime.memberArrived": "{{name}} עלה/תה לחללית! 🚀",
+  "realtime.guestArrived": "חוקר חלל חדש עלה לחללית! 🚀",
   "search.enterTerm": "הקלידו ביטוי כדי לסרוק את מסדי הנתונים של הספינה.",
   "search.noResults": "לא נמצאו תוצאות עבור \"{{query}}\". נסו חיפוש אחר.",
   "search.resultsFor": "חיפוש: {{query}}",

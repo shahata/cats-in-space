@@ -34,6 +34,7 @@
     "@wix/members": "^1.0.450",
     "@wix/payments": "^1.0.207",
     "@wix/pricing-plans": "^1.0.313",
+    "@wix/realtime": "^1.0.54",
     "@wix/redirects": "^1.0.113",
     "@wix/restaurants": "^1.0.492",
     "@wix/ricos": "^10.177.2",
