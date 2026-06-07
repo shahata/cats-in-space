@@ -5,8 +5,10 @@ import Footer from "../components/Footer.astro";
 import VisitorNotifications from "../components/VisitorNotifications";
 import { items } from "@wix/data";
 import { getImageUrl } from "../utils/image";
-import { i18n } from "@wix/essentials";
+import { i18n, monitoring } from "@wix/essentials";
 const t = i18n.getTranslationFunction();
+
+monitoring.getMonitoringClient().captureMessage("Rendering Home Page");
 
 const planetsResult = await items.query("Planets", {
   sort: [{ fieldName: "habitabilityScore", order: "DESC" }],
@@ -74,12 +76,7 @@ function getStatusBadge(status: string) {
         >
         <a href="/crew" class="btn btn-outline">{t("home.meetCrew")}</a>
       </div>
-      <form
-        class="hero-search"
-        method="GET"
-        action="/search"
-        role="search"
-      >
+      <form class="hero-search" method="GET" action="/search" role="search">
         <input
           type="search"
           name="q"
