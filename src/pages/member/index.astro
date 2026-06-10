@@ -7,6 +7,7 @@ import CancelSubscription from "../../components/CancelSubscription";
 import SavedPaymentMethods from "../../components/SavedPaymentMethods";
 import MyBookings from "../../components/MyBookings";
 import { members, membersAbout } from "@wix/members";
+import { authentication } from "@wix/site";
 import { savedPaymentMethods } from "@wix/payments";
 import { i18n } from "@wix/essentials";
 import { formatCurrency, cyclePeriodKey } from "../../utils/format";
@@ -33,10 +34,11 @@ try {
   member = res.member ?? null;
 } catch {}
 
-if (!member)
-  return Astro.redirect(
-    `/api/auth/login?returnToUrl=${encodeURIComponent("/member")}`,
-  );
+const memberRedirect = member
+  ? null
+  : Astro.redirect(authentication.getWixManagedLoginUrl("/member"));
+if (memberRedirect) return memberRedirect;
+member = member!; // narrow: guaranteed non-null past the redirect above
 
 let myOrders: orders.Order[] = [];
 try {
@@ -350,7 +352,8 @@ const tabs = [
                   const inTrial =
                     order.freeTrialDays && order.currentCycle?.index === 0;
                   const nextBilling = fmt(order.currentCycle?.endedDate);
-                  const cycleDuration = order.pricing?.subscription?.cycleDuration;
+                  const cycleDuration =
+                    order.pricing?.subscription?.cycleDuration;
                   const cycleLabel = cycleDuration
                     ? `${t("plans.every")} ${(cycleDuration.count ?? 1) > 1 ? cycleDuration.count + " " : ""}${t(cyclePeriodKey(cycleDuration.unit || ""))}`
                     : null;

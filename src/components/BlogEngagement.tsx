@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { likes, posts } from "@wix/blog";
 import { comments as commentsApi } from "@wix/comments";
 import { members } from "@wix/members";
+import { authentication } from "@wix/site";
 import { httpClient, i18n } from "@wix/essentials";
 import { BLOG_APP_ID } from "../utils/appIds";
 
@@ -948,7 +949,9 @@ export default function BlogEngagement({
               {t("blog.loginToComment")}
             </p>
             <a
-              href={`/api/auth/login?returnToUrl=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/")}`}
+              href={authentication.getWixManagedLoginUrl(
+                typeof window !== "undefined" ? window.location.pathname : "/",
+              )}
               style={loginLinkStyle}
             >
               {t("blog.loginSignUp")}

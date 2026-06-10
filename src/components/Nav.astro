@@ -1,5 +1,6 @@
 ---
 import { members } from "@wix/members";
+import { authentication } from "@wix/site";
 import { i18n } from "@wix/essentials";
 import { getRelativeLocaleUrl } from "wix:astro:i18n";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -265,7 +266,7 @@ const isFacilitiesActive = facilitiesItems.some((item) =>
                 </a>
                 <LanguageSwitcher variant="dropdown" client:only="react" />
                 <form
-                  action={`/api/auth/logout?returnToUrl=${encodeURIComponent(currentPath)}`}
+                  action={authentication.getWixManagedLogoutUrl(currentPath)}
                   method="POST"
                 >
                   <button type="submit" class="dropdown-item dropdown-logout">
@@ -278,7 +279,7 @@ const isFacilitiesActive = facilitiesItems.some((item) =>
             <>
               <LanguageSwitcher variant="standalone" client:only="react" />
               <a
-                href={`/api/auth/login?returnToUrl=${encodeURIComponent(currentPath)}`}
+                href={authentication.getWixManagedLoginUrl(currentPath)}
                 class="auth-link"
               >
                 {t("nav.login")}

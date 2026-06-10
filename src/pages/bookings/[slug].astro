@@ -5,6 +5,7 @@ import Footer from "../../components/Footer.astro";
 import BookingFlow from "../../components/BookingFlow";
 import { services, staffMembers } from "@wix/bookings";
 import { members } from "@wix/members";
+import { authentication } from "@wix/site";
 import { seoTags as seoTagsApi } from "@wix/seo";
 import { getImageUrl } from "../../utils/image";
 import { formatCurrency } from "../../utils/format";
@@ -197,7 +198,7 @@ const seoTags = seoResult.seoTags?.tags || [];
                 <h3>{t("bookings.loginRequired")}</h3>
                 <p>{t("bookings.loginRequiredMessage")}</p>
                 <a
-                  href={`/api/auth/login?returnToUrl=${encodeURIComponent(`/bookings/${slug}`)}`}
+                  href={authentication.getWixManagedLoginUrl(`/bookings/${slug}`)}
                   class="login-btn"
                 >
                   {t("bookings.loginToBook")}
