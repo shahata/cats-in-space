@@ -1,0 +1,16 @@
+services:
+  app:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - node_modules:/app/node_modules
+      - wix_auth:/root/.wix
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npx astro dev --port 3000 --host 0.0.0.0"
+    restart: unless-stopped
+
+volumes:
+  node_modules:
+  wix_auth:

@@ -1,0 +1,13 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "WIX_API_KEY",
+      "description": "Wix API key for CLI authentication. Obtain from https://manage.wix.com/account/api-keys. Used to run 'wix login --api-key' and 'wix env pull' to populate .env.local with WIX_CLIENT_ID, WIX_CLIENT_INSTANCE_ID, WIX_CLIENT_PUBLIC_KEY, WIX_CLIENT_SECRET. Required only once to set up auth; auth is persisted in the wix_auth Docker volume.",
+      "requiredAtBoot": false
+    }
+  ],
+  "verifiedAtCommit": "a9fb6c71270e3ef9a71e9c2a061eac45c743a44a"
+}
