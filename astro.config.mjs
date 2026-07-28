@@ -25,6 +25,14 @@ export default defineConfig({
       host: true,
       allowedHosts: true,
     },
+    plugins: [
+      {
+        name: "base44-allow-all-hosts",
+        configResolved(config) {
+          config.server.allowedHosts = true;
+        },
+      },
+    ],
   },
 
   security: {
