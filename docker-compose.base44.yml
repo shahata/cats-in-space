@@ -8,6 +8,8 @@ services:
       - wix_auth:/root/.wix
     ports:
       - "3000:3000"
+    env_file:
+      - /run/base44/app.env
     command: sh -c "npm install && npx astro dev --port 3000 --host 0.0.0.0"
     restart: unless-stopped
 
