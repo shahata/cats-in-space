@@ -20,9 +20,13 @@ export default defineConfig({
     domains: ["static.wixstatic.com", "lh3.googleusercontent.com"],
   },
 
+  server: {
+    allowedHosts: true,
+  },
+
   vite: {
     server: {
-      allowedHosts: [".trycloudflare.com"],
+      allowedHosts: true,
     },
   },
 
