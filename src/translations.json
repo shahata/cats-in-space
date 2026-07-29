@@ -661,7 +661,7 @@
   "realtime.memberArrived": "{{name}} just came aboard! 🚀",
   "realtime.guestArrived": "A new explorer just came aboard! 🚀",
   "search.enterTerm": "Enter a search term to scan the ship's databases.",
-  "search.noResults": "No transmissions match \"{{query}}\". Try a different scan.",
+  "search.noResults": "Our scanners picked up zero matches for \"{{query}}\" across the ship's archives. Try a broader search term or check for typos.",
   "search.resultsFor": "Search: {{query}}",
   "search.resultsCount": "{{count}} results for \"{{query}}\""
 }
